@@ -27,3 +27,13 @@ data class ImageMessageRequest(
     val content: String,
     val answerId: String?
 )
+
+data class AudioMessageRequest(
+    val messageId: String?, //Objectid
+
+    val receiverId: String,
+    val groupMessage: Boolean,
+    val msgType: MessageType,
+    //val content: String,
+    val answerId: String?
+)

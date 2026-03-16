@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.message
 
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.AudioMessageRequest
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.ImageMessageRequest
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageRequest
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageResponse
@@ -88,6 +89,28 @@ class MessageController(
     }
 
 
+    @PostMapping("/send/audio", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    fun sendAudioMessage(
+        @RequestPart("audio") audio: MultipartFile,
+        @RequestPart("request") messageRequest: AudioMessageRequest
+    ): MessageResponse {
+        val requestingUserId =
+            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
+                /* status = */ HttpStatus.FORBIDDEN,
+                /* reason = */ "Not logged in"
+            )
+
+        val message = messageService.sendMessage(
+            sender = ObjectId(requestingUserId),
+            receiver = ObjectId(messageRequest.receiverId),
+            groupMessage = messageRequest.groupMessage,
+            messageType = MessageType.AUDIO,
+            content = MessageService.MessageContent.Audio(audio),
+            answerId = if (messageRequest.answerId != null) ObjectId(messageRequest.answerId) else null
+        )
+
+        return message.toMessageResponse(ObjectId(requestingUserId))
+    }
 
 
     @PostMapping("/send/poll")
@@ -220,6 +243,24 @@ class MessageController(
 
         return ResponseEntity.ok()
             .contentType(MediaType.IMAGE_PNG)
+            .body(bytearray)
+    }
+
+    @GetMapping("/audios/{id}")
+    fun getAudio(@PathVariable("id") messageId: String): ResponseEntity<ByteArray> {
+        val requestingUserId =
+            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
+                /* status = */ HttpStatus.FORBIDDEN,
+                /* reason = */ "Not logged in"
+            )
+
+        val bytearray = messageService.getAudioMessage(
+            messageId = ObjectId(messageId),
+            requestingUserId = ObjectId(requestingUserId)
+        )
+
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType("audio/mp4"))
             .body(bytearray)
     }
 

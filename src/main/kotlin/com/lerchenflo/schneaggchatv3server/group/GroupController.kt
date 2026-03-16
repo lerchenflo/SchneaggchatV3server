@@ -120,6 +120,24 @@ class GroupController(
         )
     }
 
+    @PostMapping("/setGroupName")
+    fun setGroupName(
+        @RequestParam("groupid") groupid: String,
+        @RequestBody newName: String
+    ) {
+        val requestingUserId =
+            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
+                /* status = */ HttpStatus.FORBIDDEN,
+                /* reason = */ "Not logged in"
+            )
+
+        groupService.changeGroupName(
+            userId = ObjectId(requestingUserId),
+            groupId = ObjectId(groupid),
+            newName = newName
+        )
+    }
+
 
     @PostMapping("/changemembers")
     fun changeMembers(

@@ -12,6 +12,7 @@ import com.lerchenflo.schneaggchatv3server.repository.MessageRepository
 import com.lerchenflo.schneaggchatv3server.user.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.util.AudioManager
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
@@ -44,6 +45,7 @@ class MessageService(
     private val friendsService: FriendsService,
     private val groupLookupService: GroupLookupService,
     private val imageManager: ImageManager,
+    private val audioManager: AudioManager,
     private val notificationService: NotificationService,
     private val loggingService: LoggingService
 ) {
@@ -51,6 +53,7 @@ class MessageService(
     sealed class MessageContent {
         data class Text(val message: String) : MessageContent()
         data class Image(val image: MultipartFile, val text: String) : MessageContent()
+        data class Audio(val audio: MultipartFile) : MessageContent()
 
         data class Poll(val poll: PollMessage) : MessageContent()
     }
@@ -92,6 +95,19 @@ class MessageService(
                     require(ValidationUtils.validatePollVoteText(voteOption.text)) {"Pollvote option text in wrong format"}
                 }
             }
+            MessageType.AUDIO -> {
+
+                require(content is MessageContent.Audio) { "Audio message type must be Audio" }
+
+                /*
+                if (content.text.isNotEmpty()) {
+                    require(ValidationUtils.validateStringMessage(content.text)) { "Invalid text message" }
+                }
+
+                 */
+
+                //TODO Audio validation
+            }
         }
 
 
@@ -109,6 +125,17 @@ class MessageService(
 
                 //Save the text as content
                 content.text
+            }
+            is MessageContent.Audio -> {
+                //Save image to file
+                audioManager.saveAudioMessage(
+                    audio = content.audio,
+                    messageId = savedObjectId,
+                    group = groupMessage
+                )
+
+                //Save the text as content
+                //content.text
             }
             is Text -> {
                 content.message
@@ -339,6 +366,17 @@ class MessageService(
         require(message.msgType == MessageType.IMAGE) { "You can not access not image messages on this endpoint" }
 
         return imageManager.loadMessageImageFromFile(imageManager.getImageMessageFileName(
+            messageId = messageId,
+            group = message.groupMessage
+        ))
+    }
+
+    fun getAudioMessage(messageId: ObjectId, requestingUserId: ObjectId) : ByteArray {
+        val message = canUserAccessMessage(messageId, requestingUserId)
+
+        require(message.msgType == MessageType.AUDIO) { "You can not access not audio messages on this endpoint" }
+
+        return audioManager.loadMessageAudioFromFile(audioManager.getAudioMessageFileName(
             messageId = messageId,
             group = message.groupMessage
         ))
