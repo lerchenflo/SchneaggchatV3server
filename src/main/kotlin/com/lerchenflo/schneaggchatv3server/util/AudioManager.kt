@@ -14,7 +14,7 @@ class AudioManager {
     }
 
     fun loadMessageAudioFromFile(fileName: String): ByteArray {
-        val audiosDir = File("/app/audios_messages")
+        val audiosDir = File("/app/audio_messages")
         val targetFile = File(audiosDir, fileName)
 
         if (!targetFile.exists()) {
@@ -28,7 +28,7 @@ class AudioManager {
         val filename = getAudioMessageFileName(messageId, group)
         //val downscaledImage = downscaleIfNeeded(ImageIO.read(image.inputStream))
 
-        val audiosDir = File("/app/audios_messages")
+        val audiosDir = File("/app/audio_messages")
         if (!audiosDir.exists()) {
             audiosDir.mkdirs()
         }
