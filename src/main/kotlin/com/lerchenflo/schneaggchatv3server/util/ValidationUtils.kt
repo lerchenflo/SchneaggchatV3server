@@ -148,4 +148,84 @@ object ValidationUtils {
 
         return true
     }
+
+    /**
+     * Validates MongoDB ObjectId string format
+     * - Must be exactly 24 hexadecimal characters
+     */
+    private val OBJECT_ID_REGEX = "^[a-fA-F0-9]{24}$".toRegex()
+    fun validateObjectId(id: String): Boolean {
+        return OBJECT_ID_REGEX.matches(id)
+    }
+
+    /**
+     * Validates token strings (JWT, email verification, etc.)
+     * - Must not be blank
+     * - Maximum 2000 characters
+     */
+    fun validateToken(token: String): Boolean {
+        if (token.isBlank()) return false
+        if (token.length > 2000) return false
+        return true
+    }
+
+    /**
+     * Validates Firebase Cloud Messaging token
+     * - Must not be blank
+     * - Maximum 500 characters
+     */
+    fun validateFirebaseToken(token: String): Boolean {
+        if (token.isBlank()) return false
+        if (token.length > 500) return false
+        return true
+    }
+
+    /**
+     * Validates search term input
+     * - Maximum 50 characters
+     * - Can be empty (optional search)
+     */
+    fun validateSearchTerm(term: String): Boolean {
+        if (term.length > 50) return false
+        return true
+    }
+
+    /**
+     * Validates pagination page number
+     * - Must be non-negative
+     */
+    fun validatePaginationPage(page: Int): Boolean {
+        return page >= 0
+    }
+
+    /**
+     * Validates pagination page size
+     * - Must be between 1 and 1000
+     */
+    fun validatePaginationPageSize(pageSize: Int): Boolean {
+        return pageSize in 1..1000
+    }
+
+    /**
+     * Validates a timestamp (epoch millis)
+     * - Must be positive
+     * - Must not be more than 1 minute in the future
+     */
+    fun validateTimestamp(timestamp: Long): Boolean {
+        if (timestamp <= 0) return false
+        val now = System.currentTimeMillis()
+        if (timestamp > now + 60_000) return false // 1 minute tolerance
+        return true
+    }
+
+    /**
+     * Validates login input (username/password) - lightweight check
+     * - Must not be blank
+     * - Maximum 500 characters (prevent large payloads)
+     */
+    fun validateLoginInput(input: String): Boolean {
+        if (input.isBlank()) return false
+        if (input.length > 500) return false
+        return true
+    }
 }

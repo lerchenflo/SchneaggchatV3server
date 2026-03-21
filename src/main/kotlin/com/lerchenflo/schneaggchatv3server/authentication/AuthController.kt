@@ -79,6 +79,8 @@ class AuthController(
     fun login(
         @RequestBody loginRequest: LoginRequest
     ): AuthService.TokenPair {
+        require(ValidationUtils.validateLoginInput(loginRequest.username)) { "Invalid username" }
+        require(ValidationUtils.validateLoginInput(loginRequest.password)) { "Invalid password" }
 
         return authService.login(
             username = loginRequest.username.trim().lowercase(getDefault()),
@@ -91,6 +93,8 @@ class AuthController(
     fun refresh(
         @RequestBody refreshRequest: RefreshRequest
     ): AuthService.TokenPair {
+        require(ValidationUtils.validateToken(refreshRequest.refreshToken)) { "Invalid refresh token" }
+
         return authService.refresh(
             refreshRequest.refreshToken,
         )
@@ -101,7 +105,7 @@ class AuthController(
     fun verifyEmail(
         @RequestParam("token") token: String,
     ) : String {
-        //println("Verifying email for token $token")
+        require(ValidationUtils.validateToken(token)) { "Invalid token" }
 
         return if (emailService.verifyEmailRequest(token)){
             //Email verified
@@ -116,6 +120,8 @@ class AuthController(
     fun sendDeleteAccEmail(
         @RequestParam("email") email: String,
     ){
+        require(ValidationUtils.validateEmail(email)) { "Invalid email" }
+
         val user = userLookupService.findByEmail(email)
         if (user == null){
             println("No user to delete found with email $email")
@@ -131,6 +137,8 @@ class AuthController(
     fun deleteAccount(
         @RequestParam("token") token: String,
     ) : String {
+        require(ValidationUtils.validateToken(token)) { "Invalid token" }
+
         // Generate confirmation page
         val confirmToken = emailService.generateDelAccConfirmToken(token)
         
@@ -188,6 +196,8 @@ class AuthController(
     fun confirmDeleteAccount(
         @RequestParam("confirmToken") confirmToken: String,
     ) : String {
+        require(ValidationUtils.validateToken(confirmToken)) { "Invalid token" }
+
         return if (emailService.confirmDeleteAccount(confirmToken)){
             """
             <!DOCTYPE html>
@@ -237,6 +247,8 @@ class AuthController(
     fun sendResetEmail(
         @RequestParam("email") email: String,
     ){
+        require(ValidationUtils.validateEmail(email)) { "Invalid email" }
+
         val user = userLookupService.findByEmail(email)
         if (user == null){
             println("No user found with email $email for password reset")
@@ -251,6 +263,8 @@ class AuthController(
     fun resetPassword(
         @RequestParam("token") token: String,
     ) : ResponseEntity<Void> {
+        require(ValidationUtils.validateToken(token)) { "Invalid token" }
+
         // Redirect to the static HTML page, passing the token as a query parameter
         return ResponseEntity.status(HttpStatus.FOUND)
             .header("Location", "/reset_password_form.html?token=$token")
@@ -262,8 +276,8 @@ class AuthController(
         @RequestParam("token") token: String,
         @RequestParam("newPassword") newPassword: String,
     ) : String {
-        // Validate password format server-side
-        require(ValidationUtils.validatePassword(newPassword)) { "New password does not match requirements" }
+        require(ValidationUtils.validateToken(token)) { "Invalid token" }
+        require(ValidationUtils.validatePassword(newPassword)) { "Password does not meet requirements" }
         
         return if (emailService.resetPassword(token, newPassword)) {
             "true"
