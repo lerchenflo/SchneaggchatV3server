@@ -124,7 +124,7 @@ class FirebaseService(
         val tokens = getTokensForUser(receiverId)
 
         if (tokens.isEmpty()) {
-            AppLogger.debug("Firebase: no tokens for user $receiverId found")
+            AppLogger.debug("Firebase: no tokens for user ${userLookupService.getUsername(receiverId)} found")
             return
         }
 
@@ -168,7 +168,7 @@ class FirebaseService(
         val tokens = getTokensForUser(receivingUserId)
 
         if (tokens.isEmpty()) {
-            AppLogger.debug("Firebase: no tokens for user $receivingUserId found")
+            AppLogger.debug("Firebase: no tokens for user ${userLookupService.getUsername(receivingUserId)} found")
             return
         }
 
@@ -203,7 +203,7 @@ class FirebaseService(
     fun sendNotificationToUser(userId: ObjectId, notification: NotificationResponse) {
         val tokens = getTokensForUser(userId)
         if (tokens.isEmpty()) {
-            AppLogger.debug("Firebase: no tokens for user $userId found")
+            AppLogger.debug("Firebase: no tokens for user ${userLookupService.getUsername(userId)} found")
             return
         }
 
