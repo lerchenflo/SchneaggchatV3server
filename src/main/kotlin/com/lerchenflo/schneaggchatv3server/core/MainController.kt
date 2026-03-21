@@ -12,6 +12,7 @@ import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -84,31 +85,31 @@ class MainController(
     fun listMongoIndexes() {
         val collections = mongoTemplate.db.listCollectionNames().toList()
 
-        println("========= MongoDB Index Report =========")
+        AppLogger.info("========= MongoDB Index Report =========")
         for (collection in collections) {
-            println("Collection: $collection")
+            AppLogger.info("Collection: $collection")
 
             val indexOps = mongoTemplate.indexOps(collection)
             val indexInfos: List<IndexInfo> = indexOps.indexInfo
 
             if (indexInfos.isEmpty()) {
-                println("  -> No indexes found")
+                AppLogger.info("  -> No indexes found")
             } else {
                 indexInfos.forEach { index ->
-                    println("  -> Index: ${index.name}")
-                    println("     Keys: ${index.indexFields}")
-                    println("     Unique: ${index.isUnique}")
-                    println("     Sparse: ${index.isSparse}")
+                    AppLogger.debug("  -> Index: ${index.name}")
+                    AppLogger.debug("     Keys: ${index.indexFields}")
+                    AppLogger.debug("     Unique: ${index.isUnique}")
+                    AppLogger.debug("     Sparse: ${index.isSparse}")
                 }
             }
-            println("----------------------------------------")
+            AppLogger.info("----------------------------------------")
         }
-        println("========================================")
+        AppLogger.info("========================================")
     }
 
 
     fun migrateDBs() {
-        println("Running database migrations...")
+        AppLogger.info("Running database migrations...")
 
         val query = Query()
         query.addCriteria(Criteria.where("profilePicUpdatedAt").exists(false))
@@ -134,15 +135,15 @@ class MainController(
         )
 
         if (resultUsers.modifiedCount > 0) {
-            println("✅ Migration completed: Added profilePicUpdatedAt field to ${resultUsers.modifiedCount} users")
+            AppLogger.success("Migration completed: Added profilePicUpdatedAt field to ${resultUsers.modifiedCount} users")
         } else {
-            println("✅ Migration check: All users already have a profilePicUpdatedAt field")
+            AppLogger.success("Migration check: All users already have a profilePicUpdatedAt field")
         }
 
         if (resultGroups.modifiedCount > 0) {
-            println("✅ Migration completed: Added profilePicUpdatedAt field to ${resultGroups.modifiedCount} groups")
+            AppLogger.success("Migration completed: Added profilePicUpdatedAt field to ${resultGroups.modifiedCount} groups")
         } else {
-            println("✅ Migration check: All groups already have a profilePicUpdatedAt field")
+            AppLogger.success("Migration check: All groups already have a profilePicUpdatedAt field")
         }
 
 
@@ -158,7 +159,7 @@ class MainController(
         val groups = groupRepository.findAll()
 
         if (groups.isEmpty()) {
-            println("No groups found.")
+            AppLogger.info("No groups found.")
             return
         }
 
@@ -170,15 +171,15 @@ class MainController(
             val members = groupLookupService.getGroupMembers(group.id)
             val creatorId = group.creatorId
 
-            println("║                                                                                ║")
-            println("║  Group: ${group.name.padEnd(68)}║")
-            println("║  Description: ${group.description.take(60).padEnd(62)}║")
-            println("║  ID: ${group.id.toHexString().padEnd(71)}║")
-            println("╟────────────────────────────────────────────────────────────────────────────────╢")
-            println("║  Members:                                                                      ║")
-            println("║  ┌──────────────────────────────────┬──────────────┬──────────────────────────┐║")
-            println("║  │ Username                         │ Role         │ User ID                  │║")
-            println("║  ├──────────────────────────────────┼──────────────┼──────────────────────────┤║")
+            AppLogger.info("║                                                                                ║")
+            AppLogger.info("║  Group: ${group.name.padEnd(68)}║")
+            AppLogger.info("║  Description: ${group.description.take(60).padEnd(62)}║")
+            AppLogger.info("║  ID: ${group.id.toHexString().padEnd(71)}║")
+            AppLogger.info("╟────────────────────────────────────────────────────────────────────────────────╢")
+            AppLogger.info("║  Members:                                                                      ║")
+            AppLogger.info("║  ┌──────────────────────────────────┬──────────────┬──────────────────────────┐║")
+            AppLogger.info("║  │ Username                         │ Role         │ User ID                  │║")
+            AppLogger.info("║  ├──────────────────────────────────┼──────────────┼──────────────────────────┤║")
 
             members.forEach { member ->
                 val username = userLookupService.getUsername(member.userid)
@@ -195,16 +196,16 @@ class MainController(
                 val roleDisplay = roleMarker.padEnd(12)
                 val userIdShort = member.userid.toHexString().take(24).padEnd(24)
 
-                println("║  │ $displayName │ $roleDisplay │ $userIdShort │║")
+                AppLogger.info("║  │ $displayName │ $roleDisplay │ $userIdShort │║")
             }
 
-            println("║  └──────────────────────────────────┴──────────────┴──────────────────────────┘║")
-            println("║  Total members: ${members.size.toString().padEnd(60)}║")
-            println("╠════════════════════════════════════════════════════════════════════════════════╣")
+            AppLogger.info("║  └──────────────────────────────────┴──────────────┴──────────────────────────┘║")
+            AppLogger.info("║  Total members: ${members.size.toString().padEnd(60)}║")
+            AppLogger.info("╠════════════════════════════════════════════════════════════════════════════════╣")
         }
 
-        println("║  Total groups: ${groups.size.toString().padEnd(61)}║")
-        println("╚════════════════════════════════════════════════════════════════════════════════╝\n")
+        AppLogger.info("║  Total groups: ${groups.size.toString().padEnd(61)}║")
+        AppLogger.info("╚════════════════════════════════════════════════════════════════════════════════╝\n")
     }
 
 

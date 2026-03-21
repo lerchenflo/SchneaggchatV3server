@@ -4,7 +4,6 @@ package com.lerchenflo.schneaggchatv3server.group
 
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
-import com.lerchenflo.schneaggchatv3server.group.model.GroupMemberResponse
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.group.model.toGroupMemberResponse
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
@@ -13,13 +12,9 @@ import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.user.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
-import com.lerchenflo.schneaggchatv3server.util.ColorGenerator
-import com.lerchenflo.schneaggchatv3server.util.ImageManager
-import com.lerchenflo.schneaggchatv3server.util.LogType
-import com.lerchenflo.schneaggchatv3server.util.LoggingService
-import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
-import io.jsonwebtoken.security.Keys.password
-import org.bson.codecs.ObjectIdGenerator
+import com.lerchenflo.schneaggchatv3server.util.*
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.http.HttpStatus
@@ -239,7 +234,11 @@ class GroupService(
 
     data class GroupActionRequest(
         val action: GroupMemberAction,
+        @field:NotBlank(message = "Group member ID must not be blank")
+        @field:Size(max = 24, message = "Group member ID too long")
         val groupMemberId: String,
+        @field:NotBlank(message = "Group ID must not be blank")
+        @field:Size(max = 24, message = "Group ID too long")
         val groupId: String
     )
 

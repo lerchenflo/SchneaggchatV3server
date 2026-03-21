@@ -5,6 +5,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketC
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
@@ -38,14 +39,14 @@ class SocketConnectionHandler(
             userConnection.session.sendMessage(TextMessage(jsonMessage))
             return true
         } catch (e: Exception) {
-            println("Error sending socket message to user $receiverId: ${e.message}")
+            AppLogger.error("Error sending socket message to user $receiverId: ${e.message}")
             return false
         }
     }
 
     override fun handleMessage(session: WebSocketSession, message: WebSocketMessage<*>) {
         super.handleMessage(session, message)
-        println("Message received: $message")
+        AppLogger.debug("Message received: $message")
         //TODO: Handle messages
     }
 
@@ -66,7 +67,7 @@ class SocketConnectionHandler(
 
 
         requestingUserId ?: run {
-                println("socket connection not authenticated")
+                AppLogger.warn("Socket connection not authenticated")
                 throw ResponseStatusException(
                     /* status = */ HttpStatus.FORBIDDEN,
                     /* reason = */ "Not logged in"

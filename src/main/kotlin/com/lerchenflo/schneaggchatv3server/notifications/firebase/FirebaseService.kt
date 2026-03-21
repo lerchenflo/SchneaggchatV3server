@@ -19,6 +19,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.Firebase
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.repository.FirebaseTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
@@ -48,7 +49,7 @@ class FirebaseService(
                     // fallback to expected mounted path inside container
                     FileInputStream("/app/$resourceName")
                 } catch (e: Exception) {
-                    println("Firebase json not found in path /app/$resourceName")
+                    AppLogger.error("Firebase json not found in path /app/$resourceName")
 
                     return@run //Return to not crash the server docker
                 }
@@ -61,9 +62,9 @@ class FirebaseService(
 
             if (FirebaseApp.getApps().isEmpty()) {
                 FirebaseApp.initializeApp(options)
-                println("Firebase initialized successfully")
+                AppLogger.success("Firebase initialized successfully")
             } else {
-                println("Firebase already initialized")
+                AppLogger.info("Firebase already initialized")
             }
         }
 
@@ -96,7 +97,7 @@ class FirebaseService(
 
             //println("Firebasetoken saved successfully")
         } catch (e: DuplicateKeyException) {
-            println("Firebase Duplicate key already exists")
+            AppLogger.warn("Firebase Duplicate key already exists")
         }
     }
 
@@ -123,7 +124,7 @@ class FirebaseService(
         val tokens = getTokensForUser(receiverId)
 
         if (tokens.isEmpty()) {
-            println("Firebase: no tokens for user $receiverId found")
+            AppLogger.debug("Firebase: no tokens for user $receiverId found")
             return
         }
 
@@ -145,7 +146,7 @@ class FirebaseService(
                 sendNotificationToUser(receiverId, notification)
 
             } catch (e: Exception) {
-                println("Error in Firebase notification coroutine: ${e.message}")
+                AppLogger.error("Error in Firebase notification coroutine: ${e.message}")
                 e.printStackTrace()
                 loggingService.log(
                     userId = receiverId,
@@ -167,7 +168,7 @@ class FirebaseService(
         val tokens = getTokensForUser(receivingUserId)
 
         if (tokens.isEmpty()) {
-            println("Firebase: no tokens for user $receivingUserId found")
+            AppLogger.debug("Firebase: no tokens for user $receivingUserId found")
             return
         }
 
@@ -186,7 +187,7 @@ class FirebaseService(
                 sendNotificationToUser(receivingUserId, notification)
 
             } catch (e: Exception) {
-                println("Error in Firebase notification coroutine: ${e.message}")
+                AppLogger.error("Error in Firebase notification coroutine: ${e.message}")
                 e.printStackTrace()
                 loggingService.log(
                     userId = senderId,
@@ -202,7 +203,7 @@ class FirebaseService(
     fun sendNotificationToUser(userId: ObjectId, notification: NotificationResponse) {
         val tokens = getTokensForUser(userId)
         if (tokens.isEmpty()) {
-            println("Firebase: no tokens for user $userId found")
+            AppLogger.debug("Firebase: no tokens for user $userId found")
             return
         }
 
@@ -219,12 +220,12 @@ class FirebaseService(
                         )
                         safeSend(message = message, token = firebaseToken.token)
                     } catch (e: Exception) {
-                        println("Error sending to token ${firebaseToken.token}: ${e.message}")
+                        AppLogger.error("Error sending to token ${firebaseToken.token}: ${e.message}")
                         e.printStackTrace()
                     }
                 }
             } catch (e: Exception) {
-                println("Error in Firebase notification coroutine: ${e.message}")
+                AppLogger.error("Error in Firebase notification coroutine: ${e.message}")
                 e.printStackTrace()
                 loggingService.log(
                     userId = userId,
@@ -261,20 +262,20 @@ class FirebaseService(
                 MessagingErrorCode.UNAVAILABLE,
                 MessagingErrorCode.INTERNAL,
                 MessagingErrorCode.QUOTA_EXCEEDED -> {
-                    println("[Firebase] Transient error for token: $token (Code: $errorCode)")
+                    AppLogger.warn("[Firebase] Transient error for token: $token (Code: $errorCode)")
                     return false
                 }
 
                 // Other errors - log but don't remove token
                 else -> {
-                    println("[Firebase] Error sending to token: $token (Code: $errorCode)")
+                    AppLogger.warn("[Firebase] Error sending to token: $token (Code: $errorCode)")
                     return false
                 }
             }
 
         } catch (e: Exception) {
             // Catch-all for network, JSON, etc.
-            println(
+            AppLogger.error(
                 "[Firebase] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}"
             )
             e.printStackTrace()

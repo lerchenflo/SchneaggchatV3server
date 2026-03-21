@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseServic
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
+import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
@@ -48,6 +49,8 @@ class UserController(
     fun setFirebaseToken(
         @RequestParam token: String,
     ){
+        require(ValidationUtils.validateFirebaseToken(token)) { "Invalid Firebase token" }
+
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -114,6 +117,7 @@ class UserController(
     //TODO: Check user profilepic settings (implement first)
     @GetMapping("/profilepic/{id}")
     fun getProfilePic(@PathVariable("id") userId: String): ResponseEntity<ByteArray> {
+        require(ValidationUtils.validateObjectId(userId)) { "Invalid user ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -151,7 +155,7 @@ class UserController(
 
     @PostMapping("/changeprofile")
     fun changeProfile(
-        @RequestBody request: UserRequest
+        @Valid @RequestBody request: UserRequest
     ) {
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
@@ -170,6 +174,10 @@ class UserController(
     fun getAvailableUsers(
         @RequestParam("searchterm", required = false) searchTerm: String?,
     ) : List<NewFriendsUserResponse> {
+        if (searchTerm != null) {
+            require(ValidationUtils.validateSearchTerm(searchTerm)) { "Search term too long" }
+        }
+
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -189,6 +197,7 @@ class UserController(
     fun sendFriendRequest(
         @PathVariable("id") touserId: String
     ) {
+        require(ValidationUtils.validateObjectId(touserId)) { "Invalid user ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -207,6 +216,7 @@ class UserController(
     fun denyFriendRequest(
         @PathVariable("id") touserId: String
     ) {
+        require(ValidationUtils.validateObjectId(touserId)) { "Invalid user ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -223,6 +233,7 @@ class UserController(
     fun removeFriend(
         @PathVariable("id") removedfriend: String
     ) {
+        require(ValidationUtils.validateObjectId(removedfriend)) { "Invalid user ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,

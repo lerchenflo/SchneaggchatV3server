@@ -1,21 +1,15 @@
 package com.lerchenflo.schneaggchatv3server.group
 
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
-import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
+import jakarta.validation.Valid
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
-import org.springframework.stereotype.Component
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 
@@ -41,6 +35,7 @@ class GroupController(
 
         //Members as string that they do not steal all requestparams
         val memberIds = members.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        memberIds.forEach { require(ValidationUtils.validateObjectId(it)) { "Invalid member ID: $it" } }
 
         val group = groupService.createGroup(
             groupName = groupname,
@@ -72,6 +67,7 @@ class GroupController(
 
     @GetMapping("/profilepic/{id}")
     fun getProfilePic(@PathVariable("id") groupId: String): ResponseEntity<ByteArray> {
+        require(ValidationUtils.validateObjectId(groupId)) { "Invalid group ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -88,6 +84,7 @@ class GroupController(
         @RequestParam("groupid") groupid: String,
         @RequestParam("profilepic") multipartFile: MultipartFile
     ) {
+        require(ValidationUtils.validateObjectId(groupid)) { "Invalid group ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -107,6 +104,7 @@ class GroupController(
         @RequestParam("groupid") groupid: String,
         @RequestBody newDescription: String
     ) {
+        require(ValidationUtils.validateObjectId(groupid)) { "Invalid group ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -141,8 +139,10 @@ class GroupController(
 
     @PostMapping("/changemembers")
     fun changeMembers(
-        @RequestBody groupActionRequest: GroupService.GroupActionRequest
+        @Valid @RequestBody groupActionRequest: GroupService.GroupActionRequest
     ){
+        require(ValidationUtils.validateObjectId(groupActionRequest.groupMemberId)) { "Invalid group member ID" }
+        require(ValidationUtils.validateObjectId(groupActionRequest.groupId)) { "Invalid group ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,

@@ -175,7 +175,7 @@ class AuthService(
 
 
             // Deleted too long ago — likely a replay attack
-            println("401: No existing token found for user ${user.username}")
+            println("401: No existing token found for user ${user.username}, recently deleted: $recentlyDeleted")
             throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
         }
 
