@@ -213,6 +213,22 @@ class GroupService(
 
     }
 
+    fun changeGroupName(userId: ObjectId, groupId: ObjectId, newName: String) {
+
+        require(groupLookupService.isUserInGroup(userId, groupId))
+        require(ValidationUtils.validateUsername(newName)) { "Group name invalid" }
+
+        val group = groupLookupService.getGroupById(groupId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
+
+        groupRepository.save(group.copy(
+            updatedAt = Clock.System.now(),
+            name = newName
+        ))
+
+        notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+    }
+
 
     enum class GroupMemberAction {
         ADD_USER,
