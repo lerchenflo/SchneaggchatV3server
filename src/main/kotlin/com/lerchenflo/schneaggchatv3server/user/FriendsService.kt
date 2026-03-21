@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.repository.FriendshipRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import com.lerchenflo.schneaggchatv3server.user.friendshipmodel.Friendship
 import com.lerchenflo.schneaggchatv3server.user.friendshipmodel.FriendshipStatus
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import org.bson.types.ObjectId
@@ -102,7 +103,7 @@ class FriendsService(
         friendship.status = FriendshipStatus.ACCEPTED
         friendship.updatedAt = Clock.System.now()
 
-        println("New friendship saved")
+        AppLogger.info("New friendship saved")
 
         notificationService.notifyFriendRequest(
             requestingUser = acceptingUserId,

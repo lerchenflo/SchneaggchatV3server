@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.authentication
 
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Email
@@ -132,11 +133,11 @@ class AuthController(
 
         val user = userLookupService.findByEmail(email)
         if (user == null){
-            println("No user to delete found with email $email")
+            AppLogger.warn("No user to delete found with email $email")
             return
         }
 
-        println("Email delete request for $email")
+        AppLogger.info("Email delete request for $email")
         emailService.sendDelAccEmail(user.id, email)
     }
 
@@ -259,11 +260,11 @@ class AuthController(
 
         val user = userLookupService.findByEmail(email)
         if (user == null){
-            println("No user found with email $email for password reset")
+            AppLogger.warn("No user found with email $email for password reset")
             return
         }
 
-        println("Password reset request for $email")
+        AppLogger.info("Password reset request for $email")
         emailService.sendPasswordResetEmail(user.id, email)
     }
 
