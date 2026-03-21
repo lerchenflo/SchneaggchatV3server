@@ -1,16 +1,20 @@
 package com.lerchenflo.schneaggchatv3server.message.messagemodel
 
-import com.lerchenflo.schneaggchatv3server.message.MessageService
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
-import kotlin.time.Clock
 import kotlin.time.Instant
 
 
 /**
  * Request payload for creating a poll
+ * //TODO: Add full poll field validation (title, description, maxAnswers, maxAllowedCustomAnswers, voteOptions count)
  */
 data class PollCreateRequest(
+    @field:NotBlank(message = "Poll title must not be blank")
+    @field:Size(max = 200, message = "Poll title too long")
     val title: String,
+    @field:Size(max = 500, message = "Poll description too long")
     val description: String?,
 
     val maxAnswers: Int?, // null = unlimited
@@ -29,6 +33,8 @@ data class PollCreateRequest(
  */
 data class PollVoteOptionCreateRequest(
     //Ids get assigned by the server
+    @field:NotBlank(message = "Vote option text must not be blank")
+    @field:Size(max = 250, message = "Vote option text too long")
     val text: String,
 )
 
@@ -62,12 +68,12 @@ fun PollCreateRequest.toPoll(creatorId: ObjectId) : PollMessage {
  * Vote in a poll
  */
 data class PollVoteRequest(
+    @field:NotBlank(message = "Message ID must not be blank")
+    @field:Size(max = 24, message = "Message ID too long")
     val messageId: String,
+    @field:Size(max = 24, message = "Vote option ID too long")
     val id: String?, //Pass if available, else this is a new custom option
+    @field:Size(max = 250, message = "Vote text too long")
     val text: String?, //Pass if the id is null (New custom option with this text)
     val selected: Boolean, //Did the user select or unselect this item
 )
-
-
-
-

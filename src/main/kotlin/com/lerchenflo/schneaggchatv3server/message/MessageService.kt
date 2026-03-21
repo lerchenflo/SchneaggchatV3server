@@ -3,15 +3,14 @@
 package com.lerchenflo.schneaggchatv3server.message
 
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
-import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent.Image
 import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent.Text
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.MessageRepository
 import com.lerchenflo.schneaggchatv3server.user.FriendsService
-import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.util.*
 import com.lerchenflo.schneaggchatv3server.util.AudioManager
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.LogType
@@ -81,7 +80,7 @@ class MessageService(
                     require(ValidationUtils.validateStringMessage(content.text)) { "Invalid text message" }
                 }
 
-                //TODO Image validation
+                require(ValidationUtils.validatePicture(content.image)) { "Invalid image" }
             }
             MessageType.POLL -> {
                 require(content is MessageContent.Poll) { "Pollmessage with empty poll" }
@@ -421,7 +420,7 @@ class MessageService(
             // For group messages: find all messages sent to this group
             // that the user hasn't read yet
             if (!groupLookupService.isUserInGroup(readingUser, chat)) {
-                println("User $readingUser is not a member of group $chat")
+                AppLogger.warn("User $readingUser is not a member of group $chat")
                 return
             }
             
@@ -481,7 +480,7 @@ class MessageService(
                         changingUserId = readingUser,
                     )
                 } catch (e: Exception) {
-                    println("Failed to notify message update for ${message.id}: ${e.message}")
+                    AppLogger.error("Failed to notify message update for ${message.id}: ${e.message}")
                 }
             }
         }

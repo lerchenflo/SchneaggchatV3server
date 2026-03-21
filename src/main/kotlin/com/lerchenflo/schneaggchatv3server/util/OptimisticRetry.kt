@@ -21,7 +21,7 @@ inline fun <T> withOptimisticRetry(
             return operation(retryCount)
         } catch (e: OptimisticLockingFailureException) {
 
-            println("Optimistic Locking exception caught: ${e.message}")
+            AppLogger.warn("Optimistic Locking exception caught: ${e.message}")
 
             retryCount++
             if (retryCount > maxRetries) {

@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.message
 
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.AudioMessageRequest
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.ImageMessageRequest
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageRequest
@@ -11,20 +12,16 @@ import com.lerchenflo.schneaggchatv3server.message.messagemodel.toMessageRespons
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.toPoll
 import com.lerchenflo.schneaggchatv3server.user.UserController
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
+import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
-import org.springframework.web.bind.annotation.DeleteMapping
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.RequestPart
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 
@@ -37,8 +34,11 @@ class MessageController(
 
     @PostMapping("/send/text")
     fun sendTextMessage(
-        @RequestBody messageRequest: MessageRequest
+        @Valid @RequestBody messageRequest: MessageRequest
     ): MessageResponse {
+        require(ValidationUtils.validateObjectId(messageRequest.receiverId)) { "Invalid receiver ID" }
+        if (messageRequest.messageId != null) require(ValidationUtils.validateObjectId(messageRequest.messageId)) { "Invalid message ID" }
+        if (messageRequest.answerId != null) require(ValidationUtils.validateObjectId(messageRequest.answerId)) { "Invalid answer ID" }
 
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
@@ -68,8 +68,12 @@ class MessageController(
     @PostMapping("/send/image", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun sendImageMessage(
         @RequestPart("image") image: MultipartFile,
-        @RequestPart("request") messageRequest: ImageMessageRequest
+        @Valid @RequestPart("request") messageRequest: ImageMessageRequest
     ): MessageResponse {
+        require(ValidationUtils.validateObjectId(messageRequest.receiverId)) { "Invalid receiver ID" }
+        if (messageRequest.messageId != null) require(ValidationUtils.validateObjectId(messageRequest.messageId)) { "Invalid message ID" }
+        if (messageRequest.answerId != null) require(ValidationUtils.validateObjectId(messageRequest.answerId)) { "Invalid answer ID" }
+
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -115,8 +119,11 @@ class MessageController(
 
     @PostMapping("/send/poll")
     fun sendPollMessage(
-        @RequestBody pollMessageRequest: PollMessageRequest
+        @Valid @RequestBody pollMessageRequest: PollMessageRequest
     ): MessageResponse {
+        require(ValidationUtils.validateObjectId(pollMessageRequest.receiverId)) { "Invalid receiver ID" }
+        if (pollMessageRequest.answerId != null) require(ValidationUtils.validateObjectId(pollMessageRequest.answerId)) { "Invalid answer ID" }
+        //TODO: Add poll field validation (title, description, maxAnswers, maxAllowedCustomAnswers, voteOptions count)
 
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
@@ -141,8 +148,9 @@ class MessageController(
 
     @PostMapping("/pollvote")
     fun pollVote(
-        @RequestBody pollVoteRequest: PollVoteRequest
+        @Valid @RequestBody pollVoteRequest: PollVoteRequest
     ): MessageResponse {
+        require(ValidationUtils.validateObjectId(pollVoteRequest.messageId)) { "Invalid message ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -167,6 +175,8 @@ class MessageController(
        @RequestParam(value = "page_size", defaultValue = "400") pageSize: Int,
        @RequestBody messageRequestList: List<UserService.IdTimeStamp>
     ): MessageService.MessageSyncResponse {
+        require(ValidationUtils.validatePaginationPage(page)) { "Invalid page number" }
+        require(ValidationUtils.validatePaginationPageSize(pageSize)) { "Invalid page size" }
 
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
@@ -190,6 +200,8 @@ class MessageController(
         @RequestParam(value = "timestamp") timestamp: Long
 
     ){
+        require(ValidationUtils.validateObjectId(userId)) { "Invalid user ID" }
+        require(ValidationUtils.validateTimestamp(timestamp)) { "Invalid timestamp" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -205,14 +217,19 @@ class MessageController(
 
 
     data class EditMessageRequest(
+        @field:NotBlank(message = "Message ID must not be blank")
+        @field:Size(max = 24, message = "Message ID too long")
         val messageId: String,
+        @field:NotBlank(message = "Content must not be blank")
+        @field:Size(max = 3000, message = "Content too long")
         val newContent: String,
     )
 
     @PostMapping("/edit")
     fun editMessage(
-        @RequestBody() editMessageRequest: EditMessageRequest
+        @Valid @RequestBody() editMessageRequest: EditMessageRequest
     ) : MessageResponse {
+        require(ValidationUtils.validateObjectId(editMessageRequest.messageId)) { "Invalid message ID" }
 
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
@@ -230,6 +247,7 @@ class MessageController(
 
     @GetMapping("/images/{id}")
     fun getImage(@PathVariable("id") messageId: String): ResponseEntity<ByteArray> {
+        require(ValidationUtils.validateObjectId(messageId)) { "Invalid message ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
@@ -269,6 +287,7 @@ class MessageController(
     fun deleteMessage(
         @RequestParam(value = "messageid") messageId: String
     ) {
+        require(ValidationUtils.validateObjectId(messageId)) { "Invalid message ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
