@@ -1,23 +1,17 @@
 package com.lerchenflo.schneaggchatv3server.authentication
 
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
-import com.lerchenflo.schneaggchatv3server.user.UserService
-import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
+import jakarta.validation.Valid
 import jakarta.validation.constraints.Email
+import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
+import jakarta.validation.constraints.Size
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
-import org.springframework.web.server.ResponseStatusException
-import java.util.Locale
 import java.util.Locale.getDefault
 
 //https://schneaggchatv3.eu/auth
@@ -32,23 +26,37 @@ class AuthController(
 ) {
 
     data class LoginRequest(
+        @field:NotBlank(message = "Username must not be blank")
+        @field:Size(max = 500, message = "Username too long")
         val username: String,
+        @field:NotBlank(message = "Password must not be blank")
+        @field:Size(max = 500, message = "Password too long")
         val password: String
     )
 
     data class RegisterRequest(
+        @field:NotBlank(message = "Username must not be blank")
+        @field:Size(min = 3, max = 25, message = "Username must be between 3 and 25 characters")
         val username: String,
+        @field:NotBlank(message = "Password must not be blank")
+        @field:Size(min = 8, max = 128, message = "Password must be between 8 and 128 characters")
         @field:Pattern(
             regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}\$",
             message = "Password must be at least 8 characters long and contain at least one digit, uppercase and lowercase character."
         )
         val password: String,
+        @field:NotBlank(message = "Email must not be blank")
+        @field:Size(max = 254, message = "Email too long")
         @field:Email(message = "Invalid email format.")
         val email: String,
+        @field:NotBlank(message = "Birth date must not be blank")
+        @field:Size(max = 10, message = "Birth date too long")
         val birthDate: String,
     )
 
     data class RefreshRequest(
+        @field:NotBlank(message = "Refresh token must not be blank")
+        @field:Size(max = 2000, message = "Refresh token too long")
         val refreshToken: String
     )
 
@@ -77,7 +85,7 @@ class AuthController(
 
     @PostMapping("/login")
     fun login(
-        @RequestBody loginRequest: LoginRequest
+        @Valid @RequestBody loginRequest: LoginRequest
     ): AuthService.TokenPair {
         require(ValidationUtils.validateLoginInput(loginRequest.username)) { "Invalid username" }
         require(ValidationUtils.validateLoginInput(loginRequest.password)) { "Invalid password" }
@@ -91,7 +99,7 @@ class AuthController(
 
     @PostMapping("/refresh")
     fun refresh(
-        @RequestBody refreshRequest: RefreshRequest
+        @Valid @RequestBody refreshRequest: RefreshRequest
     ): AuthService.TokenPair {
         require(ValidationUtils.validateToken(refreshRequest.refreshToken)) { "Invalid refresh token" }
 

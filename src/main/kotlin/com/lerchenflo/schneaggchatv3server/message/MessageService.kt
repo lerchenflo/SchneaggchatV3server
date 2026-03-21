@@ -3,22 +3,14 @@
 package com.lerchenflo.schneaggchatv3server.message
 
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
-import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent.Image
 import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent.Text
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.MessageRepository
 import com.lerchenflo.schneaggchatv3server.user.FriendsService
-import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
-import com.lerchenflo.schneaggchatv3server.util.ImageManager
-import com.lerchenflo.schneaggchatv3server.util.LogType
-import com.lerchenflo.schneaggchatv3server.util.LoggingService
-import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
-import com.lerchenflo.schneaggchatv3server.util.withOptimisticRetry
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
+import com.lerchenflo.schneaggchatv3server.util.*
 import org.bson.types.ObjectId
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.data.domain.Sort
@@ -78,7 +70,7 @@ class MessageService(
                     require(ValidationUtils.validateStringMessage(content.text)) { "Invalid text message" }
                 }
 
-                //TODO Image validation
+                require(ValidationUtils.validatePicture(content.image)) { "Invalid image" }
             }
             MessageType.POLL -> {
                 require(content is MessageContent.Poll) { "Pollmessage with empty poll" }

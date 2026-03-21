@@ -155,7 +155,7 @@ class UserController(
 
     @PostMapping("/changeprofile")
     fun changeProfile(
-        @RequestBody request: UserRequest
+        @Valid @RequestBody request: UserRequest
     ) {
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(

@@ -11,7 +11,9 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
+import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
+import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -35,7 +37,14 @@ class UserService(
 ) {
 
 
-    data class IdTimeStamp(val id: String, val timeStamp: String)
+    data class IdTimeStamp(
+        @field:NotBlank(message = "ID must not be blank")
+        @field:Size(max = 100, message = "ID too long")
+        val id: String,
+        @field:NotBlank(message = "Timestamp must not be blank")
+        @field:Size(max = 30, message = "Timestamp too long")
+        val timeStamp: String
+    )
 
     data class UserSyncResponse(val updatedUsers: List<UserResponse>, val deletedUsers: List<String>)
     fun userIdSync(idTimeStamps: List<IdTimeStamp>, requesterId: ObjectId) : UserSyncResponse{
@@ -268,8 +277,11 @@ class UserService(
 
 
     data class PasswordChangeRequest(
-
+        @field:NotBlank(message = "Old password must not be blank")
+        @field:Size(max = 128, message = "Old password too long")
         val oldPassword: String,
+        @field:NotBlank(message = "New password must not be blank")
+        @field:Size(min = 8, max = 128, message = "New password must be between 8 and 128 characters")
         @field:Pattern(
             regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}\$",
             message = "Password must be at least 8 characters long and contain at least one digit, uppercase and lowercase character."
