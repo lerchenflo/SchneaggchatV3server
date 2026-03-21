@@ -44,3 +44,13 @@ data class ImageMessageRequest(
     @field:Size(max = 24, message = "Answer ID too long")
     val answerId: String?
 )
+
+data class AudioMessageRequest(
+    val messageId: String?, //Objectid
+
+    val receiverId: String,
+    val groupMessage: Boolean,
+    val msgType: MessageType,
+    //val content: String,
+    val answerId: String?
+)

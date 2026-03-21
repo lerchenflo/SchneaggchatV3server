@@ -36,6 +36,15 @@ RUN mkdir -p /app/images && \
     chown -R spring:spring /app/images && \
     chmod -R 755 /app/images
 
+RUN mkdir -p /app/images_messages && \
+    chown -R spring:spring /app/images_messages && \
+    chmod -R 755 /app/images_messages
+
+RUN mkdir -p /app/audio_messages && \
+    chown -R spring:spring /app/audio_messages && \
+    chmod -R 755 /app/audio_messages
+
+
 # Copy the built artifact
 COPY --from=build --chown=spring:spring /app/build/libs/*.jar app.jar
 

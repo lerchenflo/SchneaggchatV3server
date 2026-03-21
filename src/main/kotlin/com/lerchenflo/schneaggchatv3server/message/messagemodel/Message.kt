@@ -45,7 +45,8 @@ data class Reader(
 enum class MessageType {
     TEXT,
     IMAGE,
-    POLL
+    POLL,
+    AUDIO
 }
 
 fun Message.toMessageResponse(requestingUserId: ObjectId) : MessageResponse {
