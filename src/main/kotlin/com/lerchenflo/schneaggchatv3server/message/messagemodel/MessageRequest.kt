@@ -13,7 +13,7 @@ data class MessageRequest(
     val groupMessage: Boolean,
     val msgType: MessageType,
     @field:NotBlank(message = "Content must not be blank")
-    @field:Size(max = 3000, message = "Content too long")
+    @field:Size(max = 10000, message = "Content too long")
     val content: String,
     @field:Size(max = 24, message = "Answer ID too long")
     val answerId: String?
@@ -39,7 +39,7 @@ data class ImageMessageRequest(
     val receiverId: String,
     val groupMessage: Boolean,
     val msgType: MessageType,
-    @field:Size(max = 3000, message = "Content too long")
+    @field:Size(max = 10000, message = "Content too long")
     val content: String,
     @field:Size(max = 24, message = "Answer ID too long")
     val answerId: String?
