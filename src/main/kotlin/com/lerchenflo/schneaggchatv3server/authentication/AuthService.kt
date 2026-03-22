@@ -155,6 +155,8 @@ class AuthService(
         )
 
 
+        //TODO: Fixes user logout for now, use after token refresh fix update
+        /*
         if (claimedToken == null) {
             // Token was already consumed — check if it's within the 2-minute grace window
             // (handles the legitimate case of in-flight requests from the same client)
@@ -178,6 +180,8 @@ class AuthService(
             println("401: No existing token found for user ${user.username}, recently deleted: $recentlyDeleted")
             throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
         }
+
+         */
 
         val newAccessToken = jwtService.generateAccessToken(userId)
         val newRefreshToken = jwtService.generateRefreshToken(userId)
