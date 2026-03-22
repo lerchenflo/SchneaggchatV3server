@@ -221,7 +221,7 @@ class MessageController(
         @field:Size(max = 24, message = "Message ID too long")
         val messageId: String,
         @field:NotBlank(message = "Content must not be blank")
-        @field:Size(max = 10000, message = "Content too long")
+        @field:Size(max = 10000, message = "Content too long (max 10000)")
         val newContent: String,
     )
 
