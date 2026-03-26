@@ -29,7 +29,7 @@ class GlobalExceptionHandler(
         val errors = e.bindingResult.allErrors.map {
             it.defaultMessage ?: "Invalid value"
         }
-        logError(e)
+        //logError(e)
         return ResponseEntity
             .status(400)
             .body(mapOf("errors" to errors))
@@ -53,9 +53,9 @@ class GlobalExceptionHandler(
         // Log 500 errors with full stack trace
         if (e.statusCode.value() >= 500) {
             logger.error("Server error (${e.statusCode.value()}): ${e.message}", e)
+            logError(e)
         }
 
-        logError(e)
         return ResponseEntity
             .status(e.statusCode)
             .body(error)
@@ -66,7 +66,7 @@ class GlobalExceptionHandler(
         println("NoResourceFound Error happened: ${e.message}")
         val resourcePath = e.resourcePath
         
-        logError(e)
+        //logError(e)
         return ResponseEntity
             .status(404)
             .header("Location", "/error?path=" + resourcePath)
