@@ -21,7 +21,7 @@ class JwtService(
 
     private val secretKey = Keys.hmacShaKeyFor(jwtSecret.toByteArray())
     private val accessTokenValidityMs = 15L /*min*/ * 60L * 1000L    //How a user can use his access token
-    //private val accessTokenValidityMs = 10L * 1000L    //Debug 10 s lifetime
+    //private val accessTokenValidityMs = 10L * 1000L    //Debug 10 s
 
     val refreshTokenValidityMs = 30L /*days*/ * 24L * 60L * 60L * 1000L
     private val emailTokenValidityMs = 24L * 60L * 60L * 1000L
@@ -55,9 +55,6 @@ class JwtService(
     }
 
     fun generateRefreshToken(userId: String): String {
-
-        val expiryDate = Date(System.currentTimeMillis() + refreshTokenValidityMs)
-        //println("Refresh token created for user $userId - Expires at: $expiryDate")
 
         return generateToken(
             userId = userId,
