@@ -160,10 +160,14 @@ class AuthService(
         )
 
 
+        //TODO: Fixes user logout for now, use after token refresh fix update
+        /*
         if (claimedToken == null) {
             // Deleted too long ago — likely a replay attack
             throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
         }
+
+         */
 
         val newAccessToken = jwtService.generateAccessToken(userId)
         val newRefreshToken = jwtService.generateRefreshToken(userId)
