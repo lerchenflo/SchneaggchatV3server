@@ -135,9 +135,7 @@ class AuthService(
 
         //find the user to the userid (If no user is found exception is thrown)
         val user = userLookupService.findById(userId)
-            ?: run {
-                throw ResponseStatusException(HttpStatusCode.valueOf(401) ,"Invalid refresh token")
-            }
+            ?: throw ResponseStatusException(HttpStatusCode.valueOf(401) ,"Invalid refresh token")
 
 
         val hashed = hashToken(refreshToken)
@@ -159,15 +157,11 @@ class AuthService(
             RefreshToken::class.java
         )
 
-
-        //TODO: Fixes user logout for now, use after token refresh fix update
-        /*
         if (claimedToken == null) {
             // Deleted too long ago — likely a replay attack
             throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
         }
 
-         */
 
         val newAccessToken = jwtService.generateAccessToken(userId)
         val newRefreshToken = jwtService.generateRefreshToken(userId)
