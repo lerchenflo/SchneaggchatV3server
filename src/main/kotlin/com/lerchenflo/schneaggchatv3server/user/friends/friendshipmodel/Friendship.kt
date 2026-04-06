@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalTime::class)
 
-package com.lerchenflo.schneaggchatv3server.user.friendshipmodel
+package com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel
 
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
@@ -18,7 +18,7 @@ data class Friendship(
     @Id val id: ObjectId = ObjectId(),
 
     //For each friendship there are two users, indexed for faster search
-    @Indexed val userId1: ObjectId, //Min value (FIrst user)
+    @Indexed val userId1: ObjectId, //Min value (First user)
     @Indexed val userId2: ObjectId, //Max value (Bigger userid)
 
     // who initiated the latest action
