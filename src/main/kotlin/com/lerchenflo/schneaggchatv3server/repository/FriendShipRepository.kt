@@ -1,6 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.repository
 
-import com.lerchenflo.schneaggchatv3server.user.friendshipmodel.Friendship
+import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.Friendship
 import org.bson.types.ObjectId
 import org.springframework.data.mongodb.repository.MongoRepository
 

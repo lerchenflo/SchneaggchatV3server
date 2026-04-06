@@ -1,8 +1,8 @@
 package com.lerchenflo.schneaggchatv3server.repository
 
-import com.lerchenflo.schneaggchatv3server.user.friendshipmodel.FriendshipSettings
+import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipSetting
 import org.bson.types.ObjectId
 import org.springframework.data.mongodb.repository.MongoRepository
 
-interface FriendshipSettingsRepository : MongoRepository<FriendshipSettings, ObjectId> {
+interface FriendshipSettingsRepository : MongoRepository<FriendshipSetting, ObjectId> {
 }

@@ -4,7 +4,11 @@ import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
-import com.lerchenflo.schneaggchatv3server.user.friendshipmodel.FriendshipStatus
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsSettingsService
+import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipSetting
+import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
@@ -19,7 +23,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
-import java.util.Locale
 import java.util.Locale.getDefault
 import kotlin.time.Clock
 
@@ -29,6 +32,10 @@ class UserService(
     private val userLookupService: UserLookupService,
 
     private val friendshipsService: FriendsService,
+    private val friendsLookupService: FriendsLookupService,
+    private val friendsSettingsService: FriendsSettingsService,
+
+
     private val hashEncoder: HashEncoder,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val imageManager: ImageManager,
@@ -54,10 +61,10 @@ class UserService(
         }
 
         //All users this current client has interacted with (Friends, requested, blocked etc)
-        var allFriendInteractions = friendshipsService.getAllInteractions(requesterId)
+        var allFriendInteractions = friendsLookupService.getAllInteractions(requesterId)
 
         //Add own user (also needs to be synced)
-        allFriendInteractions = allFriendInteractions + FriendsService.UserInteraction(
+        allFriendInteractions = allFriendInteractions + FriendsLookupService.UserInteraction(
             userId = requesterId,
             status = FriendshipStatus.ACCEPTED,
             requesterId = requesterId,
@@ -120,10 +127,10 @@ class UserService(
             val allUserIds = userRepository.findAll().map { it.id }
 
             // Check if requesting user has any friendships
-            val hasFriendships = friendshipsService.getAllInteractions(requestingUserObjectId).isNotEmpty()
+            val hasFriendships = friendsLookupService.getAllInteractions(requestingUserObjectId).isNotEmpty()
 
             // Get users with no interaction
-            val usersWithNoInteraction = friendshipsService.getUsersWithNoInteraction(
+            val usersWithNoInteraction = friendsLookupService.getUsersWithNoInteraction(
                 userId = requestingUserObjectId,
                 allUserIds = allUserIds
             )
@@ -132,7 +139,7 @@ class UserService(
                 // Return only users with common friends (at least 1)
                 userRepository.findAllById(usersWithNoInteraction)
                     .filter { user ->
-                        friendshipsService.getCommonFriendCount(requestingUserObjectId, user.id) > 0
+                        friendsLookupService.getCommonFriendCount(requestingUserObjectId, user.id) > 0
                     }
             } else {
                 // Return all users with no interaction
@@ -143,7 +150,7 @@ class UserService(
                 NewFriendsUserResponse(
                     id = user.id.toHexString(),
                     username = user.username,
-                    commonFriendCount = friendshipsService.getCommonFriendCount(requestingUserObjectId, user.id),
+                    commonFriendCount = friendsLookupService.getCommonFriendCount(requestingUserObjectId, user.id),
                 )
             }
         } else {
@@ -152,7 +159,7 @@ class UserService(
                 searchTerm.trim().lowercase(getDefault())
             )
 
-            val interactedUserIds = friendshipsService.getAllInteractions(ObjectId(requestingUserId))
+            val interactedUserIds = friendsLookupService.getAllInteractions(ObjectId(requestingUserId))
                 .map { it.userId }
                 .toSet()
 
@@ -165,7 +172,7 @@ class UserService(
                     NewFriendsUserResponse(
                         id = user.id.toHexString(),
                         username = user.username,
-                        commonFriendCount = friendshipsService.getCommonFriendCount(
+                        commonFriendCount = friendsLookupService.getCommonFriendCount(
                             ObjectId(requestingUserId),
                             user.id
                         )
@@ -228,6 +235,9 @@ class UserService(
         val user = userLookupService.findById(userRequest.userId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
 
+        val timeStamp = Clock.System.now()
+
+
         //Change something about yourself (Status, email, birthdate)
         if (changingUserId == userRequest.userId) {
 
@@ -248,27 +258,55 @@ class UserService(
                 require(ValidationUtils.validateBirthdate(userRequest.newBirthDate)) { "New birthdate is invalid" }
             }
 
+            //TODO: Save email to lowercase and trimmed
             userLookupService.save(requestingUser.copy(
-                updatedAt = if (somethingChanged) Clock.System.now() else requestingUser.updatedAt,
+                updatedAt = if (somethingChanged) timeStamp else requestingUser.updatedAt,
                 userStatus = userRequest.newStatus ?: requestingUser.userStatus,
                 birthDate = userRequest.newBirthDate ?: requestingUser.birthDate,
             ))
 
         } else {
-            require(friendshipsService.areFriends(requestingUser.id, user.id))
+            require(friendsLookupService.areFriends(requestingUser.id, user.id))
+
+            val friendshipEntry = friendsLookupService.findFriendship(requestingUser.id, user.id)!!
 
 
-            //TODO: newNickname
-            val somethingChanged = userRequest.newDescription != null
+            val somethingChanged = userRequest.newDescription != null && userRequest.newNickName != null
 
             if (userRequest.newDescription != null) {
                 require(ValidationUtils.validateDescription(userRequest.newDescription)) { "New description is invalid" }
             }
 
+            if (userRequest.newNickName != null) {
+                require(ValidationUtils.validateNickname(userRequest.newNickName)) { "New nickname is invalid" }
+            }
+
+            //save the updated user
             userLookupService.save(user.copy(
-                updatedAt = if (somethingChanged) Clock.System.now() else user.updatedAt,
+                updatedAt = if (somethingChanged) timeStamp else user.updatedAt,
                 userDescription = userRequest.newDescription ?: user.userDescription
             ))
+
+            //update the nickname (Null or text)
+            val friendshipSetting = friendsSettingsService.getFriendshipSettingById(friendshipEntry.id)
+
+            if (friendshipSetting != null) {
+                friendsSettingsService.saveFriendshipSetting(
+                    friendshipSetting.copy(
+                        updatedAt = timeStamp,
+                        nickname = userRequest.newNickName
+                    )
+                )
+            } else {
+                friendsSettingsService.saveFriendshipSetting(
+                    FriendshipSetting(
+                        friendshipId = friendshipEntry.id,
+                        userId = requestingUser.id
+                    )
+                )
+            }
+
+
         }
 
         //TODO: Add user changing + user update notify (Which users??)

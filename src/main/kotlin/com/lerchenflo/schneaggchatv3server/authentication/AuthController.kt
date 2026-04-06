@@ -74,7 +74,7 @@ class AuthController(
         val user = authService.register(
             username = username.trim().lowercase(getDefault()),
             password = password,
-            email = email,
+            email = email.trim().lowercase(getDefault()),
             birthdate = birthDate,
             profilePic = profilePic
         )

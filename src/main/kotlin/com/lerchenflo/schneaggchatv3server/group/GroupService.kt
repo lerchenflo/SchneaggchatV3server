@@ -9,9 +9,10 @@ import com.lerchenflo.schneaggchatv3server.group.model.toGroupMemberResponse
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.GroupMemberRepository
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
-import com.lerchenflo.schneaggchatv3server.user.FriendsService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.util.*
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
@@ -37,6 +38,7 @@ class GroupService(
 
     private val imageManager: ImageManager,
     private val friendsService: FriendsService,
+    private val friendsLookupService: FriendsLookupService,
     private val loggingService: LoggingService,
 ) {
 
@@ -53,7 +55,7 @@ class GroupService(
         //Creator needs to be friends with everyone
         members.forEach { member ->
             if (member == creatorId) return@forEach //Exclude self
-            require(friendsService.areFriends(creatorId, member)){ "You need to be friends with everyone in the group"}
+            require(friendsLookupService.areFriends(creatorId, member)){ "You need to be friends with everyone in the group"}
         }
 
         val currentTime = Clock.System.now()

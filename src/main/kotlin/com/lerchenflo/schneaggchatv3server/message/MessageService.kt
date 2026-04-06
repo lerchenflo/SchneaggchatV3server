@@ -8,8 +8,9 @@ import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.MessageRepository
-import com.lerchenflo.schneaggchatv3server.user.FriendsService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.util.*
 import com.lerchenflo.schneaggchatv3server.util.AudioManager
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
@@ -41,7 +42,10 @@ import kotlin.time.Instant
 class MessageService(
     private val mongoTemplate: MongoTemplate,
     private val messageRepository: MessageRepository,
+
     private val friendsService: FriendsService,
+    private val friendsLookupService: FriendsLookupService,
+
     private val groupLookupService: GroupLookupService,
     private val imageManager: ImageManager,
     private val audioManager: AudioManager,
@@ -85,7 +89,7 @@ class MessageService(
             MessageType.POLL -> {
                 require(content is MessageContent.Poll) { "Pollmessage with empty poll" }
 
-                //TODO: Poll validation
+                //TODO: Add poll field validation (title, description, maxAnswers, maxAllowedCustomAnswers, voteOptions count)
                 if (content.poll.closeDate != null) {
                     require(content.poll.closeDate > Clock.System.now()) { "Poll closedate is in the past" }
                 }
@@ -599,7 +603,7 @@ class MessageService(
             require(sender != receiver) {
                 "You can not send messages to yourself"
             }
-            require(friendsService.areFriends(sender, receiver)) {
+            require(friendsLookupService.areFriends(sender, receiver)) {
                 "You can not send messages to users who are not your friends"
             }
         }

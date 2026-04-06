@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalTime::class)
 
-package com.lerchenflo.schneaggchatv3server.user.friendshipmodel
+package com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel
 
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
@@ -11,15 +11,14 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @Document("friendship_settings")
-data class FriendshipSettings(
+data class FriendshipSetting(
     @Id val id: ObjectId = ObjectId.get(),
 
-    @Indexed val friendshipId: String,
+    @Indexed val friendshipId: ObjectId, // Which friendship does this setting belong to
 
-    @Indexed val userId: String,
+    @Indexed val userId: ObjectId, // Which user of the friendship does this setting belong to
 
 
-    //TODO: Fix fields
     var shareLocation: Boolean = false,
     var shareLastSeen: Boolean = false,
     var nickname: String? = null,
