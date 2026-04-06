@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.user
 
+import com.google.cloud.Identity.user
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
@@ -410,6 +411,36 @@ class UserService(
                 profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
             )
         }
+    }
+
+
+    /**
+     * Function to delete a user account with all messages etc
+     */
+    fun deleteAccount(userId: ObjectId) {
+
+        //Delete all friendships
+        val frienduserids = friendsLookupService.getFriends(userId)
+        frienduserids.forEach { friendId ->
+            val friendship = friendsLookupService.findFriendship(userId, friendId)!!
+
+            friendsSettingsService.deleteFriendshipSettingById(friendship.id)
+            friendsLookupService.deleteFriendshipEntry(friendship)
+        }
+
+        //Leave all groups
+
+        //delete all user messages
+        
+
+
+        //delete user
+        userLookupService.deleteUser(userId)
+
+        //Remove all refreshtokens
+        refreshTokenRepository.deleteByUserId(userId)
+
+        //TODO: SYNC Users for all connected devices
     }
 
 

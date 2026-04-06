@@ -132,7 +132,7 @@ class EmailService(
         refreshTokenRepository.deleteByUserId(user.id)
         
         // Delete the user
-        userLookupService.deleteUser(user.id)
+        userService.deleteAccount(user.id)
         println("Account with name ${user.username} has been deleted")
         
         return true
