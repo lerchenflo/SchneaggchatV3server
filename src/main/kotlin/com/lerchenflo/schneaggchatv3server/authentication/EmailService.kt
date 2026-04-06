@@ -72,7 +72,6 @@ class EmailService(
 
         if (user.id != userId) return false
 
-        //TODO: Update user even if only the email got verified (All friends resync)?
         userLookupService.save(user.copy(
             emailVerifiedAt = Clock.System.now(),
             updatedAt = Clock.System.now(),

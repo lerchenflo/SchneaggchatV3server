@@ -147,9 +147,8 @@ class FriendsLookupService(
         return friendshipRepository.save(friendship)
     }
 
-    fun deleteFriendship(friendship: Friendship) {
+    fun deleteFriendshipEntry(friendship: Friendship) {
 
-        //TODO: Delete settings for this friendship
         friendshipRepository.delete(friendship)
     }
 

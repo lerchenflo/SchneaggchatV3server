@@ -89,7 +89,7 @@ class MessageService(
             MessageType.POLL -> {
                 require(content is MessageContent.Poll) { "Pollmessage with empty poll" }
 
-                //TODO: Poll validation
+                //TODO: Add poll field validation (title, description, maxAnswers, maxAllowedCustomAnswers, voteOptions count)
                 if (content.poll.closeDate != null) {
                     require(content.poll.closeDate > Clock.System.now()) { "Poll closedate is in the past" }
                 }

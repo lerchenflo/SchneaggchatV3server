@@ -11,15 +11,14 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @Document("friendship_settings")
-data class FriendshipSettings(
+data class FriendshipSetting(
     @Id val id: ObjectId = ObjectId.get(),
 
-    @Indexed val friendshipId: String, // Which friendship does this setting belong to
+    @Indexed val friendshipId: ObjectId, // Which friendship does this setting belong to
 
-    @Indexed val userId: String, // Which user of the friendship does this setting belong to
+    @Indexed val userId: ObjectId, // Which user of the friendship does this setting belong to
 
 
-    //TODO: Fix fields
     var shareLocation: Boolean = false,
     var shareLastSeen: Boolean = false,
     var nickname: String? = null,

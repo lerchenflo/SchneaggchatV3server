@@ -16,8 +16,9 @@ import kotlin.time.Clock
 class FriendsService(
     private val friendsLookupService: FriendsLookupService,
     private val loggingService: LoggingService,
-    private val notificationService: NotificationService
-    ) {
+    private val notificationService: NotificationService,
+    private val friendsSettingsService: FriendsSettingsService
+) {
 
     /**
      * Send a friend request from one user to another
@@ -138,7 +139,7 @@ class FriendsService(
         val friendship = friendsLookupService.findFriendship(userId, friendId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Friendship not found")
 
-        friendsLookupService.deleteFriendship(friendship)
+        deleteFriendship(friendship)
     }
 
     /**
@@ -172,9 +173,15 @@ class FriendsService(
             "User is not blocked"
         }
 
-        //TODO: User is unblocked, they do not know each other now?
-        friendsLookupService.deleteFriendship(friendship)
+        deleteFriendship(friendship)
         return true
+    }
+
+
+    fun deleteFriendship(friendship: Friendship) {
+        friendsSettingsService.deleteFriendshipSettingById(friendship.id)
+
+        friendsLookupService.deleteFriendshipEntry(friendship)
     }
 
 

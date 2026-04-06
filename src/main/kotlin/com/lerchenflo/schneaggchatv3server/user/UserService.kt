@@ -6,6 +6,8 @@ import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsSettingsService
+import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipSetting
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
@@ -31,6 +33,7 @@ class UserService(
 
     private val friendshipsService: FriendsService,
     private val friendsLookupService: FriendsLookupService,
+    private val friendsSettingsService: FriendsSettingsService,
 
 
     private val hashEncoder: HashEncoder,
@@ -232,6 +235,9 @@ class UserService(
         val user = userLookupService.findById(userRequest.userId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
 
+        val timeStamp = Clock.System.now()
+
+
         //Change something about yourself (Status, email, birthdate)
         if (changingUserId == userRequest.userId) {
 
@@ -254,7 +260,7 @@ class UserService(
 
             //TODO: Save email to lowercase and trimmed
             userLookupService.save(requestingUser.copy(
-                updatedAt = if (somethingChanged) Clock.System.now() else requestingUser.updatedAt,
+                updatedAt = if (somethingChanged) timeStamp else requestingUser.updatedAt,
                 userStatus = userRequest.newStatus ?: requestingUser.userStatus,
                 birthDate = userRequest.newBirthDate ?: requestingUser.birthDate,
             ))
@@ -262,18 +268,45 @@ class UserService(
         } else {
             require(friendsLookupService.areFriends(requestingUser.id, user.id))
 
+            val friendshipEntry = friendsLookupService.findFriendship(requestingUser.id, user.id)!!
 
-            //TODO: newNickname
-            val somethingChanged = userRequest.newDescription != null
+
+            val somethingChanged = userRequest.newDescription != null && userRequest.newNickName != null
 
             if (userRequest.newDescription != null) {
                 require(ValidationUtils.validateDescription(userRequest.newDescription)) { "New description is invalid" }
             }
 
+            if (userRequest.newNickName != null) {
+                require(ValidationUtils.validateNickname(userRequest.newNickName)) { "New nickname is invalid" }
+            }
+
+            //save the updated user
             userLookupService.save(user.copy(
-                updatedAt = if (somethingChanged) Clock.System.now() else user.updatedAt,
+                updatedAt = if (somethingChanged) timeStamp else user.updatedAt,
                 userDescription = userRequest.newDescription ?: user.userDescription
             ))
+
+            //update the nickname (Null or text)
+            val friendshipSetting = friendsSettingsService.getFriendshipSettingById(friendshipEntry.id)
+
+            if (friendshipSetting != null) {
+                friendsSettingsService.saveFriendshipSetting(
+                    friendshipSetting.copy(
+                        updatedAt = timeStamp,
+                        nickname = userRequest.newNickName
+                    )
+                )
+            } else {
+                friendsSettingsService.saveFriendshipSetting(
+                    FriendshipSetting(
+                        friendshipId = friendshipEntry.id,
+                        userId = requestingUser.id
+                    )
+                )
+            }
+
+
         }
 
         //TODO: Add user changing + user update notify (Which users??)

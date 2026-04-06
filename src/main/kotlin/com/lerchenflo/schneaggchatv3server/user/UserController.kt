@@ -28,7 +28,6 @@ class UserController(
     private val userService: UserService,
     private val friendshipsService: FriendsService,
     private val emailService: EmailService,
-    //TODO: Friendsettingsservice
     private val imageManager: ImageManager,
 
 
