@@ -7,19 +7,10 @@ import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent
 import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent.Text
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
-import com.lerchenflo.schneaggchatv3server.repository.MessageRepository
-import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.util.*
-import com.lerchenflo.schneaggchatv3server.util.AudioManager
-import com.lerchenflo.schneaggchatv3server.util.ImageManager
-import com.lerchenflo.schneaggchatv3server.util.LogType
-import com.lerchenflo.schneaggchatv3server.util.LoggingService
-import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
-import com.lerchenflo.schneaggchatv3server.util.withOptimisticRetry
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import org.bson.types.ObjectId
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.data.domain.Sort
@@ -41,7 +32,7 @@ import kotlin.time.Instant
 @Component
 class MessageService(
     private val mongoTemplate: MongoTemplate,
-    private val messageRepository: MessageRepository,
+    private val messageLookupService: MessageLookupService,
 
     private val friendsService: FriendsService,
     private val friendsLookupService: FriendsLookupService,
@@ -152,7 +143,7 @@ class MessageService(
 
         val sendDate = Clock.System.now()
 
-        val message = messageRepository.save(Message(
+        val message = messageLookupService.saveMessage(Message(
             id = savedObjectId,
             senderId = sender,
             receiverId = receiver,
@@ -346,7 +337,7 @@ class MessageService(
         //User can access message, change content
         val now = Clock.System.now()
 
-        val newmessage = messageRepository.save(message.copy(
+        val newmessage = messageLookupService.saveMessage(message.copy(
             lastChanged = now,
             content = newContent,
             edited = true
@@ -396,7 +387,7 @@ class MessageService(
             logType = LogType.MESSAGE_DELETED
         )
 
-        val updatedMessage = messageRepository.save(message.copy(deleted = true))
+        val updatedMessage = messageLookupService.saveMessage(message.copy(deleted = true))
 
         notificationService.notifyMessageUpdate(
             message = updatedMessage,
@@ -545,7 +536,7 @@ class MessageService(
         )
     }
 
-    private fun getAllUserMessages(userId: ObjectId): List<Message> {
+    private fun getAllUserMessages(userId: ObjectId, includeDeleted: Boolean = false): List<Message> {
         val userGroups = groupLookupService.getUserGroupIds(userId)
 
         val query = Query()
@@ -561,7 +552,10 @@ class MessageService(
 
         query.addCriteria(criteria)
 
-        query.addCriteria(Criteria.where("deleted").`is`(false))
+        if (!includeDeleted) {
+            query.addCriteria(Criteria.where("deleted").`is`(false))
+        }
+
         query.with(Sort.by(Sort.Direction.DESC, "sendDate"))
 
 
@@ -573,8 +567,8 @@ class MessageService(
         messageId: ObjectId,
         userId: ObjectId,
     ) : Message {
-        val message = messageRepository.findById(messageId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND)
+        val message = messageLookupService.findById(messageId) ?: run {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND)
         }
 
         if (message.groupMessage) {
