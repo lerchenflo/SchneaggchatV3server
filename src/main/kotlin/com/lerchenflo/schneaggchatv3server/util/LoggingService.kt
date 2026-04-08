@@ -2,8 +2,8 @@
 
 package com.lerchenflo.schneaggchatv3server.util
 
+import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.repository.LogRepository
-import com.lerchenflo.schneaggchatv3server.repository.MessageRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
@@ -44,7 +44,7 @@ data class Log(
 @Service
 class LoggingService(
     private val logRepository: LogRepository,
-    private val messageRepository: MessageRepository,
+    private val messageLookupService: MessageLookupService,
     private val userRepository: UserRepository
 
 ) {
@@ -71,7 +71,7 @@ class LoggingService(
         val stats = LogType.entries.associate { logType ->
 
             when (logType) {
-                LogType.MESSAGE_SENT -> logType.name to messageRepository.count()
+                LogType.MESSAGE_SENT -> logType.name to messageLookupService.count()
                 LogType.ACCOUNT_CREATED -> logType.name to userRepository.count()
                 else -> logType.name to logRepository.countByLogType(logType)
             }

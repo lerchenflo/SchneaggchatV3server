@@ -127,9 +127,6 @@ class EmailService(
 
         val user = userLookupService.findByEmail(email) ?: return false
         if (user.id != userId) return false
-
-        // Delete refresh tokens
-        refreshTokenRepository.deleteByUserId(user.id)
         
         // Delete the user
         userService.deleteAccount(user.id)

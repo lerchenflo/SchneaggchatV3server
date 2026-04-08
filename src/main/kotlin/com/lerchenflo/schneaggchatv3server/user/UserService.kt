@@ -1,7 +1,8 @@
 package com.lerchenflo.schneaggchatv3server.user
 
-import com.google.cloud.Identity.user
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
+import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
+import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
@@ -36,6 +37,9 @@ class UserService(
     private val friendsLookupService: FriendsLookupService,
     private val friendsSettingsService: FriendsSettingsService,
 
+    private val groupLookupService: GroupLookupService,
+
+    private val messageLookupService: MessageLookupService,
 
     private val hashEncoder: HashEncoder,
     private val refreshTokenRepository: RefreshTokenRepository,
@@ -419,6 +423,10 @@ class UserService(
      */
     fun deleteAccount(userId: ObjectId) {
 
+
+        //Remove all refreshtokens
+        refreshTokenRepository.deleteByUserId(userId)
+
         //Delete all friendships
         val frienduserids = friendsLookupService.getFriends(userId)
         frienduserids.forEach { friendId ->
@@ -429,16 +437,14 @@ class UserService(
         }
 
         //Leave all groups
+        groupLookupService.leaveAllGroups(userId)
 
         //delete all user messages
-        
-
+        messageLookupService.deleteAllUserMessages(userId)
 
         //delete user
         userLookupService.deleteUser(userId)
 
-        //Remove all refreshtokens
-        refreshTokenRepository.deleteByUserId(userId)
 
         //TODO: SYNC Users for all connected devices
     }
