@@ -79,4 +79,10 @@ class GroupLookupService(
         groupMemberRepository.delete(member)
         return true
     }
+
+    fun leaveAllGroups(userId: ObjectId) {
+        getUserGroupIds(userId).forEach { groupId ->
+            removeGroupMember(groupId, userId)
+        }
+    }
 }

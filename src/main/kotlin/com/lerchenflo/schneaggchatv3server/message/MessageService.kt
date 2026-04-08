@@ -499,7 +499,7 @@ class MessageService(
             it.id to it.timeStamp
         }
 
-        val allMessages = getAllUserMessages(requestingUser)
+        val allMessages = messageLookupService.getAllUserMessages(requestingUser)
 
         val messagesToAdd = allMessages
             .filter { it.id.toHexString() !in clientMessagesMap.keys }
@@ -536,31 +536,7 @@ class MessageService(
         )
     }
 
-    private fun getAllUserMessages(userId: ObjectId, includeDeleted: Boolean = false): List<Message> {
-        val userGroups = groupLookupService.getUserGroupIds(userId)
 
-        val query = Query()
-        // Build criteria: user is sender OR receiver OR (groupMessage AND receiver is in user's groups)
-        val criteria = Criteria().orOperator(
-            Criteria.where("senderId").`is`(userId),
-            Criteria.where("receiverId").`is`(userId),
-            Criteria().andOperator(
-                Criteria.where("groupMessage").`is`(true),
-                Criteria.where("receiverId").`in`(userGroups)
-            )
-        )
-
-        query.addCriteria(criteria)
-
-        if (!includeDeleted) {
-            query.addCriteria(Criteria.where("deleted").`is`(false))
-        }
-
-        query.with(Sort.by(Sort.Direction.DESC, "sendDate"))
-
-
-        return mongoTemplate.find(query, Message::class.java)
-    }
 
 
     private fun canUserAccessMessage(

@@ -437,13 +437,10 @@ class UserService(
         }
 
         //Leave all groups
-        groupLookupService.getUserGroupIds(userId).forEach { groupId ->
-            groupLookupService.removeGroupMember(groupId, userId)
-        }
+        groupLookupService.leaveAllGroups(userId)
 
         //delete all user messages
-        messageLookupService.
-        //TODO: delete user messages
+        messageLookupService.deleteAllUserMessages(userId)
 
         //delete user
         userLookupService.deleteUser(userId)
