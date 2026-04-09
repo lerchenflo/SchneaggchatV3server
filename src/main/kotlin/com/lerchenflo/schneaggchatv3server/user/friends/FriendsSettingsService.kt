@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class FriendsSettingsService(
-    private val friendsLookupService: FriendsLookupService,
+    //private val friendsLookupService: FriendsLookupService,
 
     private val friendshipSettingsRepository: FriendshipSettingsRepository
 
