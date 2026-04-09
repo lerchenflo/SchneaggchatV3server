@@ -54,7 +54,9 @@ sealed interface UserResponse {
         //Custom to friend response:
         val birthDate: String,
         val userDescription: String,
-        val userStatus: String
+        val userStatus: String,
+
+        val nickName: String?
 
 
 

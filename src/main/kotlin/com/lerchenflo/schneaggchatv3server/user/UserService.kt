@@ -112,6 +112,7 @@ class UserService(
                 friendshipStatus = interactionMap[user.id]?.status,
                 requesterId = interactionMap[user.id]?.requesterId,
                 lastChangedAt = newestTimestamp,
+                nickName = interactionMap[user.id]?.nickName,
             )
         }
 
@@ -293,13 +294,13 @@ class UserService(
             ))
 
             //update the nickname (Null or text)
-            val friendshipSetting = friendsSettingsService.getFriendshipSettingById(friendshipEntry.id)
+            val friendshipSetting = friendsSettingsService.getFriendshipSetting(friendshipEntry.id)
 
             if (friendshipSetting != null) {
                 friendsSettingsService.saveFriendshipSetting(
                     friendshipSetting.copy(
                         updatedAt = timeStamp,
-                        nickname = userRequest.newNickName
+                        nickName = userRequest.newNickName
                     )
                 )
             } else {
@@ -373,7 +374,7 @@ class UserService(
      * @param User the user to be serialized
      * @param requestingUserId the user which requested the serialisation
      */
-    private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null): UserResponse {
+    private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null, nickName: String? = null): UserResponse {
         //User requests his own data
         if (requestingUserId == user.id) {
             return UserResponse.SelfUserResponse(
@@ -401,6 +402,7 @@ class UserService(
                 birthDate = user.birthDate,
                 requesterId = requesterId?.toHexString(),
                 profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
+                nickName = nickName
             )
         }
 

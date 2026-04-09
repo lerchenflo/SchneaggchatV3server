@@ -11,7 +11,7 @@ import kotlin.time.Instant
 @Component
 class FriendsLookupService(
     private val friendshipRepository: FriendshipRepository,
-    private val friendshipSettingsRepository: FriendshipSettingsRepository,
+    private val friendshipSettingsService: FriendsSettingsService
 ) {
 
     /**
@@ -28,6 +28,7 @@ class FriendsLookupService(
         val status: FriendshipStatus,
         val requesterId: ObjectId,
         val lastChanged: Instant? = null,
+        val nickName: String? = null,
     )
 
     fun getAllInteractions(userId: ObjectId): List<UserInteraction> {
@@ -38,11 +39,15 @@ class FriendsLookupService(
                 } else {
                     friendship.userId1
                 }
+
+                val friendshipSetting = friendshipSettingsService.getFriendshipSetting(friendship.id)
+
                 UserInteraction(
                     userId = otherUserId,
                     status = friendship.status,
                     requesterId = friendship.requesterId,
                     lastChanged = friendship.updatedAt,
+                    nickName = friendshipSetting?.nickName
                 )
             }
     }
