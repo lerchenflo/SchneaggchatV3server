@@ -21,7 +21,7 @@ data class FriendshipSetting(
 
     var shareLocation: Boolean = false,
     var shareLastSeen: Boolean = false,
-    var nickname: String? = null,
+    var nickName: String? = null,
     var muted: Boolean = false,
 
 
