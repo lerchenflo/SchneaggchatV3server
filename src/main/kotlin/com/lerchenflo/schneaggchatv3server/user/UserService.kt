@@ -250,7 +250,7 @@ class UserService(
             val emailvalid = user.emailVerifiedAt != null && userRequest.newEmail != null
 
             //TODO: Send email to the old verified email address
-            val somethingChanged = (userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null)
+            val somethingChanged = userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null
 
             if (userRequest.newStatus != null) {
                 require(ValidationUtils.validateDescription(userRequest.newStatus)) { "New description is invalid" }
@@ -279,7 +279,7 @@ class UserService(
             val friendshipSetting = friendsSettingsService.getFriendshipSetting(friendshipEntry.id)
 
             //Check if something changed
-            val somethingChanged = userRequest.newDescription != null && userRequest.newNickName != null
+            val somethingChanged = userRequest.newDescription != null || userRequest.newNickName != null
 
             if (userRequest.newDescription != null) {
                 require(ValidationUtils.validateDescription(userRequest.newDescription)) { "New description is invalid" }
@@ -293,7 +293,7 @@ class UserService(
                     friendsSettingsService.saveFriendshipSetting(
                         friendshipSetting.copy(
                             updatedAt = timeStamp,
-                            nickName = userRequest.newNickName?.ifEmpty { null },
+                            nickName = userRequest.newNickName.ifEmpty { null },
                         )
                     )
                 } else {
@@ -301,7 +301,7 @@ class UserService(
                         FriendshipSetting(
                             friendshipId = friendshipEntry.id,
                             userId = requestingUser.id,
-                            nickName = userRequest.newNickName?.ifEmpty { null }
+                            nickName = userRequest.newNickName.ifEmpty { null }
                         )
                     )
                 }
