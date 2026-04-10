@@ -274,9 +274,11 @@ class UserService(
         } else {
             require(friendsLookupService.areFriends(requestingUser.id, user.id))
 
+            //Retrieve friendship from db
             val friendshipEntry = friendsLookupService.findFriendship(requestingUser.id, user.id)!!
+            val friendshipSetting = friendsSettingsService.getFriendshipSetting(friendshipEntry.id)
 
-
+            //Check if something changed
             val somethingChanged = userRequest.newDescription != null && userRequest.newNickName != null
 
             if (userRequest.newDescription != null) {
@@ -285,6 +287,24 @@ class UserService(
 
             if (userRequest.newNickName != null) {
                 require(ValidationUtils.validateNickname(userRequest.newNickName)) { "New nickname is invalid" }
+
+                //update the nickname (Null or text)
+                if (friendshipSetting != null) {
+                    friendsSettingsService.saveFriendshipSetting(
+                        friendshipSetting.copy(
+                            updatedAt = timeStamp,
+                            nickName = userRequest.newNickName?.ifEmpty { null },
+                        )
+                    )
+                } else {
+                    friendsSettingsService.saveFriendshipSetting(
+                        FriendshipSetting(
+                            friendshipId = friendshipEntry.id,
+                            userId = requestingUser.id,
+                            nickName = userRequest.newNickName?.ifEmpty { null }
+                        )
+                    )
+                }
             }
 
             //save the updated user
@@ -292,25 +312,6 @@ class UserService(
                 updatedAt = if (somethingChanged) timeStamp else user.updatedAt,
                 userDescription = userRequest.newDescription ?: user.userDescription
             ))
-
-            //update the nickname (Null or text)
-            val friendshipSetting = friendsSettingsService.getFriendshipSetting(friendshipEntry.id)
-
-            if (friendshipSetting != null) {
-                friendsSettingsService.saveFriendshipSetting(
-                    friendshipSetting.copy(
-                        updatedAt = timeStamp,
-                        nickName = userRequest.newNickName
-                    )
-                )
-            } else {
-                friendsSettingsService.saveFriendshipSetting(
-                    FriendshipSetting(
-                        friendshipId = friendshipEntry.id,
-                        userId = requestingUser.id
-                    )
-                )
-            }
 
 
         }

@@ -105,7 +105,7 @@ object ValidationUtils {
 
     //User can name his friends however he wants
     fun validateNickname(nickname: String): Boolean {
-        if (nickname.isEmpty()) return false
+        //if (nickname.isEmpty()) return false
 
         return true
     }
