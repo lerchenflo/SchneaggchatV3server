@@ -13,8 +13,8 @@ class FriendsSettingsService(
 
 ) {
 
-    fun getFriendshipSetting(id: ObjectId): FriendshipSetting? {
-        return friendshipSettingsRepository.findByFriendshipId(id)
+    fun getFriendshipSetting(friendshipId: ObjectId, userId: ObjectId): FriendshipSetting? {
+        return friendshipSettingsRepository.findByFriendshipIdAndUserId(friendshipId, userId)
     }
 
     fun saveFriendshipSetting(friendshipSetting: FriendshipSetting) : FriendshipSetting {

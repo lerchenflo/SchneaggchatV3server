@@ -19,10 +19,10 @@ data class FriendshipSetting(
     @Indexed val userId: ObjectId, // Which user of the friendship does this setting belong to
 
 
-    var shareLocation: Boolean = false,
-    var shareLastSeen: Boolean = false,
-    var nickName: String? = null,
-    var muted: Boolean = false,
+    var shareLocation: Boolean = false, //Does this user share this property with the other user
+    var shareLastSeen: Boolean = false, //Does this user share this property with the other user
+    var nickName: String? = null, //Nickname from this user for the other user
+    var muted: Boolean = false, //Did this user mute the other
 
 
     var createdAt: Instant = Clock.System.now(),
