@@ -6,5 +6,5 @@ import org.springframework.data.mongodb.repository.MongoRepository
 
 interface FriendshipSettingsRepository : MongoRepository<FriendshipSetting, ObjectId> {
 
-    fun findByFriendshipId(friendshipId: ObjectId): FriendshipSetting?
+    fun findByFriendshipIdAndUserId(friendshipId: ObjectId, userId: ObjectId): FriendshipSetting?
 }

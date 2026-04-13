@@ -276,7 +276,7 @@ class UserService(
 
             //Retrieve friendship from db
             val friendshipEntry = friendsLookupService.findFriendship(requestingUser.id, user.id)!!
-            val friendshipSetting = friendsSettingsService.getFriendshipSetting(friendshipEntry.id)
+            val friendshipSetting = friendsSettingsService.getFriendshipSetting(friendshipEntry.id, requestingUser.id)
 
             //Check if something changed
             val somethingChanged = userRequest.newDescription != null || userRequest.newNickName != null

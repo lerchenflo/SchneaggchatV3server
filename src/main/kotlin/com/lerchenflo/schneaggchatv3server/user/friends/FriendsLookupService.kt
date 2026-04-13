@@ -40,7 +40,7 @@ class FriendsLookupService(
                     friendship.userId1
                 }
 
-                val friendshipSetting = friendshipSettingsService.getFriendshipSetting(friendship.id)
+                val friendshipSetting = friendshipSettingsService.getFriendshipSetting(friendship.id, userId)
 
                 UserInteraction(
                     userId = otherUserId,
