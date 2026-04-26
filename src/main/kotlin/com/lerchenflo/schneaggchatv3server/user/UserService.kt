@@ -272,6 +272,8 @@ class UserService(
             ))
 
         } else {
+            //Change something about another user
+
             require(friendsLookupService.areFriends(requestingUser.id, user.id))
 
             //Retrieve friendship from db
