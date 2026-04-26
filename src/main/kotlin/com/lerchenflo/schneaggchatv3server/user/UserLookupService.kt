@@ -19,12 +19,12 @@ class UserLookupService(
     fun checkExistingUser(username: String, email: String) {
         val usernameexists = userRepository.findByUsername(username)
         if (usernameexists != null) {
-            throw ResponseStatusException(HttpStatus.CONFLICT, "A user with this username already exists")
+            throw ResponseStatusException(HttpStatus.CONFLICT, "A user with this username ($username) already exists")
         }
 
         val emailexists = userRepository.findByEmail(email.trim())
         if (emailexists != null) {
-            throw ResponseStatusException(HttpStatus.CONFLICT, "A user with this email already exists")
+            throw ResponseStatusException(HttpStatus.CONFLICT, "A user with this email ($email) already exists")
         }
     }
 
