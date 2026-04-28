@@ -8,6 +8,7 @@ import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
@@ -86,8 +87,11 @@ class AuthService(
     }
 
     fun login(username: String, password: String) : TokenPair {
+
         //Does this user exist
-        val user = userLookupService.findByUsername(username) ?: throw BadCredentialsException("Invalid credentials")
+        val user = userLookupService.findByUsername(username) ?: run {
+            throw BadCredentialsException("Invalid credentials")
+        }
 
         loggingService.log(
             userId = user.id,
@@ -103,8 +107,9 @@ class AuthService(
         val newAccessToken = jwtService.generateAccessToken(user.id.toHexString())
         val newRefreshToken = jwtService.generateRefreshToken(user.id.toHexString())
 
+
         storeRefreshToken(
-            user.id,
+            userId = user.id,
             rawRefreshToken = newRefreshToken,
         )
 
@@ -119,8 +124,9 @@ class AuthService(
     @Transactional //Only apply db operations if all succeed
     fun refresh(refreshToken: String) : TokenPair {
 
-        //Is the token valid (Created from this server & Not changed & not expired)
-        if (!jwtService.validateRefreshToken(refreshToken)) {
+        val isValidToken = jwtService.validateRefreshToken(refreshToken)
+
+        if (!isValidToken) {
             throw ResponseStatusException(HttpStatusCode.valueOf(401) ,"Invalid refresh token")
         }
 
@@ -129,14 +135,11 @@ class AuthService(
 
         //find the user to the userid (If no user is found exception is thrown)
         val user = userLookupService.findById(userId)
-            ?: run {
-                println("User from token not found: $userId")
-                throw ResponseStatusException(HttpStatusCode.valueOf(401) ,"Invalid refresh token")
-            }
+            ?: throw ResponseStatusException(HttpStatusCode.valueOf(401) ,"Invalid refresh token")
+
 
         val hashed = hashToken(refreshToken)
         val now = Clock.System.now()
-
 
         val query = Query().addCriteria(
             Criteria.where("userId").`is`(ObjectId(userId))
@@ -154,105 +157,40 @@ class AuthService(
             RefreshToken::class.java
         )
 
-
-        //TODO: Fixes user logout for now, use after token refresh fix update
-        /*
         if (claimedToken == null) {
-            // Token was already consumed — check if it's within the 2-minute grace window
-            // (handles the legitimate case of in-flight requests from the same client)
-            val recentlyDeleted = refreshTokenRepository
-                .findByUserIdAndHashedToken(user.id, hashed)
-                .firstOrNull()
-
-            val twoMinutesAgo = now.minus(2.minutes)
-
-            if (recentlyDeleted?.deletedAt != null && recentlyDeleted.deletedAt!! > twoMinutesAgo) {
-
-                println("Token refresh failed for user ${user.username}: Already refreshing")
-
-                // Likely a duplicate in-flight request — let it through safely
-                // (The other request already issued new tokens; this one should retry with those)
-                throw ResponseStatusException(HttpStatusCode.valueOf(409), "Token already being refreshed")
-            }
-
-
             // Deleted too long ago — likely a replay attack
-            println("401: No existing token found for user ${user.username}, recently deleted: $recentlyDeleted")
             throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
         }
 
-         */
 
         val newAccessToken = jwtService.generateAccessToken(userId)
         val newRefreshToken = jwtService.generateRefreshToken(userId)
-        storeRefreshToken(user.id, newRefreshToken)
 
+        try {
+            storeRefreshToken(user.id, newRefreshToken)
+        } catch (e: DuplicateKeyException) {
+            //parallel execution catch
 
-        /*
+            //Restore the just deleted token that the client can use it again
+            mongoTemplate.save(claimedToken.copy(deletedAt = null))
 
-        //Find all existing tokens
-        val existingTokens = refreshTokenRepository.findByUserIdAndHashedToken(user.id, hashed)
-
-        //No tokens for this user
-        if (existingTokens.isEmpty()) {
-            throw ResponseStatusException(
-                HttpStatusCode.valueOf(401),
-                "Invalid refresh token"
-            )
+            throw ResponseStatusException(HttpStatusCode.valueOf(409), "Concurrent refresh - reload tokens")
         }
-
-        // Check if any token is valid (not deleted OR deleted within last 2 minutes)
-        val twoMinutesAgo = now.minus(2.minutes)
-
-        val hasValidToken = existingTokens.any { token ->
-            token.deletedAt == null || token.deletedAt!! > twoMinutesAgo
-        }
-
-        if (!hasValidToken) {
-            try {
-                val deletedFor = now.minus(existingTokens.first().deletedAt!!)
-                println("Attempted to reuse refresh token that was deleted more than 2 minutes ago for user ${user.username}, deleted ${deletedFor.inWholeMinutes} minutes ago")
-            } catch (e: Exception) {
-                println("Deletedfor calculation failed")
-            }
-
-            throw ResponseStatusException(
-                HttpStatusCode.valueOf(401),
-                "Invalid refresh token"
-            )
-        }
-
-        //generate new token
-        val newAccessToken = jwtService.generateAccessToken(userId)
-        val newRefreshToken = jwtService.generateRefreshToken(userId)
-
-        // Soft delete all existing tokens
-        existingTokens.forEach { token ->
-            if (token.deletedAt == null) {
-                token.deletedAt = now
-            }
-        }
-        refreshTokenRepository.saveAll(existingTokens)
-        //println("Refresh token for user $userId deleted")
-
-        storeRefreshToken(user.id, newRefreshToken)
-
-         */
 
         return TokenPair(
             accessToken = newAccessToken,
             refreshToken = newRefreshToken,
             encryptionKey = jwtService.getEncryptionKey()
         )
-
-
     }
 
 
     private fun storeRefreshToken(userId: ObjectId, rawRefreshToken: String) {
+
         val hashed = hashToken(rawRefreshToken)
         val expiryMs = jwtService.refreshTokenValidityMs
         val expiresAt = Clock.System.now().toEpochMilliseconds() + expiryMs
+        
 
         try {
             refreshTokenRepository.save(
@@ -262,8 +200,8 @@ class AuthService(
                     expiresAt = Instant.fromEpochMilliseconds(expiresAt),
                 )
             )
-        } catch (e: DuplicateKeyException) {
-            //println("Error storing refresh token: duplicate")
+        } catch (e: Exception) {
+            throw e
         }
     }
 

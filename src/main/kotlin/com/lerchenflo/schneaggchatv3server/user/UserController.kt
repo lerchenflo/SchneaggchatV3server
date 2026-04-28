@@ -4,6 +4,7 @@ package com.lerchenflo.schneaggchatv3server.user
 
 import com.lerchenflo.schneaggchatv3server.authentication.EmailService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
@@ -27,7 +28,6 @@ class UserController(
     private val userService: UserService,
     private val friendshipsService: FriendsService,
     private val emailService: EmailService,
-    //TODO: Friendsettingsservice
     private val imageManager: ImageManager,
 
 

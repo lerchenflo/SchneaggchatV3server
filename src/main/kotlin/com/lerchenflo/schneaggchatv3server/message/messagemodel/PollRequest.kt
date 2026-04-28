@@ -8,7 +8,6 @@ import kotlin.time.Instant
 
 /**
  * Request payload for creating a poll
- * //TODO: Add full poll field validation (title, description, maxAnswers, maxAllowedCustomAnswers, voteOptions count)
  */
 data class PollCreateRequest(
     @field:NotBlank(message = "Poll title must not be blank")

@@ -7,18 +7,10 @@ import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent
 import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent.Text
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
-import com.lerchenflo.schneaggchatv3server.repository.MessageRepository
-import com.lerchenflo.schneaggchatv3server.user.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.util.*
-import com.lerchenflo.schneaggchatv3server.util.AudioManager
-import com.lerchenflo.schneaggchatv3server.util.ImageManager
-import com.lerchenflo.schneaggchatv3server.util.LogType
-import com.lerchenflo.schneaggchatv3server.util.LoggingService
-import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
-import com.lerchenflo.schneaggchatv3server.util.withOptimisticRetry
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import org.bson.types.ObjectId
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.data.domain.Sort
@@ -40,8 +32,11 @@ import kotlin.time.Instant
 @Component
 class MessageService(
     private val mongoTemplate: MongoTemplate,
-    private val messageRepository: MessageRepository,
+    private val messageLookupService: MessageLookupService,
+
     private val friendsService: FriendsService,
+    private val friendsLookupService: FriendsLookupService,
+
     private val groupLookupService: GroupLookupService,
     private val imageManager: ImageManager,
     private val audioManager: AudioManager,
@@ -85,7 +80,7 @@ class MessageService(
             MessageType.POLL -> {
                 require(content is MessageContent.Poll) { "Pollmessage with empty poll" }
 
-                //TODO: Poll validation
+                //TODO: Add poll field validation (title, description, maxAnswers, maxAllowedCustomAnswers, voteOptions count)
                 if (content.poll.closeDate != null) {
                     require(content.poll.closeDate > Clock.System.now()) { "Poll closedate is in the past" }
                 }
@@ -148,7 +143,7 @@ class MessageService(
 
         val sendDate = Clock.System.now()
 
-        val message = messageRepository.save(Message(
+        val message = messageLookupService.saveMessage(Message(
             id = savedObjectId,
             senderId = sender,
             receiverId = receiver,
@@ -342,7 +337,7 @@ class MessageService(
         //User can access message, change content
         val now = Clock.System.now()
 
-        val newmessage = messageRepository.save(message.copy(
+        val newmessage = messageLookupService.saveMessage(message.copy(
             lastChanged = now,
             content = newContent,
             edited = true
@@ -392,7 +387,7 @@ class MessageService(
             logType = LogType.MESSAGE_DELETED
         )
 
-        val updatedMessage = messageRepository.save(message.copy(deleted = true))
+        val updatedMessage = messageLookupService.saveMessage(message.copy(deleted = true))
 
         notificationService.notifyMessageUpdate(
             message = updatedMessage,
@@ -504,7 +499,7 @@ class MessageService(
             it.id to it.timeStamp
         }
 
-        val allMessages = getAllUserMessages(requestingUser)
+        val allMessages = messageLookupService.getAllUserMessages(requestingUser)
 
         val messagesToAdd = allMessages
             .filter { it.id.toHexString() !in clientMessagesMap.keys }
@@ -541,36 +536,15 @@ class MessageService(
         )
     }
 
-    private fun getAllUserMessages(userId: ObjectId): List<Message> {
-        val userGroups = groupLookupService.getUserGroupIds(userId)
 
-        val query = Query()
-        // Build criteria: user is sender OR receiver OR (groupMessage AND receiver is in user's groups)
-        val criteria = Criteria().orOperator(
-            Criteria.where("senderId").`is`(userId),
-            Criteria.where("receiverId").`is`(userId),
-            Criteria().andOperator(
-                Criteria.where("groupMessage").`is`(true),
-                Criteria.where("receiverId").`in`(userGroups)
-            )
-        )
-
-        query.addCriteria(criteria)
-
-        query.addCriteria(Criteria.where("deleted").`is`(false))
-        query.with(Sort.by(Sort.Direction.DESC, "sendDate"))
-
-
-        return mongoTemplate.find(query, Message::class.java)
-    }
 
 
     private fun canUserAccessMessage(
         messageId: ObjectId,
         userId: ObjectId,
     ) : Message {
-        val message = messageRepository.findById(messageId).orElseThrow {
-            ResponseStatusException(HttpStatus.NOT_FOUND)
+        val message = messageLookupService.findById(messageId) ?: run {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND)
         }
 
         if (message.groupMessage) {
@@ -599,7 +573,7 @@ class MessageService(
             require(sender != receiver) {
                 "You can not send messages to yourself"
             }
-            require(friendsService.areFriends(sender, receiver)) {
+            require(friendsLookupService.areFriends(sender, receiver)) {
                 "You can not send messages to users who are not your friends"
             }
         }

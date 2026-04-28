@@ -10,6 +10,7 @@ import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
+import kotlin.jvm.optionals.getOrNull
 
 @Service
 class GroupLookupService(
@@ -69,5 +70,19 @@ class GroupLookupService(
         return if (group.isPresent) {
             group.get()
         } else null
+    }
+
+    fun removeGroupMember(groupId: ObjectId, userId: ObjectId) : Boolean {
+        //val group = groupRepository.findById(groupId).getOrNull() ?: return false
+
+        val member = getGroupMembers(groupId).first { it.userid == userId }
+        groupMemberRepository.delete(member)
+        return true
+    }
+
+    fun leaveAllGroups(userId: ObjectId) {
+        getUserGroupIds(userId).forEach { groupId ->
+            removeGroupMember(groupId, userId)
+        }
     }
 }

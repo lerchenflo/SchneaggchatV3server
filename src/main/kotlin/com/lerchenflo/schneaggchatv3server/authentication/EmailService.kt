@@ -72,7 +72,6 @@ class EmailService(
 
         if (user.id != userId) return false
 
-        //TODO: Update user even if only the email got verified (All friends resync)?
         userLookupService.save(user.copy(
             emailVerifiedAt = Clock.System.now(),
             updatedAt = Clock.System.now(),
@@ -128,12 +127,9 @@ class EmailService(
 
         val user = userLookupService.findByEmail(email) ?: return false
         if (user.id != userId) return false
-
-        // Delete refresh tokens
-        refreshTokenRepository.deleteByUserId(user.id)
         
         // Delete the user
-        userLookupService.deleteUser(user.id)
+        userService.deleteAccount(user.id)
         println("Account with name ${user.username} has been deleted")
         
         return true

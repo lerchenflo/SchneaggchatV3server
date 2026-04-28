@@ -13,6 +13,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
+import org.springframework.web.server.ResponseStatusException
 import java.util.Locale.getDefault
 
 //https://schneaggchatv3.eu/auth
@@ -73,7 +74,7 @@ class AuthController(
         val user = authService.register(
             username = username.trim().lowercase(getDefault()),
             password = password,
-            email = email,
+            email = email.trim().lowercase(getDefault()),
             birthdate = birthDate,
             profilePic = profilePic
         )
@@ -102,11 +103,19 @@ class AuthController(
     fun refresh(
         @Valid @RequestBody refreshRequest: RefreshRequest
     ): AuthService.TokenPair {
-        require(ValidationUtils.validateToken(refreshRequest.refreshToken)) { "Invalid refresh token" }
 
-        return authService.refresh(
-            refreshRequest.refreshToken,
-        )
+
+        try {
+            require(ValidationUtils.validateToken(refreshRequest.refreshToken)) { "Invalid refresh token" }
+
+            val tokenPair = authService.refresh(
+                refreshRequest.refreshToken,
+            )
+
+            return tokenPair
+        } catch (e: Exception) {
+            throw e
+        }
     }
 
 

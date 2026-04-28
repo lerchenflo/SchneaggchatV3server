@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.core
 
 import com.google.gson.stream.MalformedJsonException
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import org.bson.types.ObjectId
@@ -25,11 +26,11 @@ class GlobalExceptionHandler(
     //Exception handling for annotations (For example Registerrequest: Email)
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationError(e: MethodArgumentNotValidException): ResponseEntity<Map<String, Any>> {
-        println("Validation Error happened: ${e.message}")
+        AppLogger.error("Validation Error happened: ${e.message}")
         val errors = e.bindingResult.allErrors.map {
             it.defaultMessage ?: "Invalid value"
         }
-        logError(e)
+        //logError(e)
         return ResponseEntity
             .status(400)
             .body(mapOf("errors" to errors))
@@ -37,7 +38,7 @@ class GlobalExceptionHandler(
 
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgumentException(e: IllegalArgumentException): ResponseEntity<String> {
-        println("Illegal argument Error happened: ${e.message}")
+        AppLogger.error("Illegal argument Error happened: ${e.message}")
         val error = e.message
         //logError(e)
         return ResponseEntity
@@ -47,15 +48,15 @@ class GlobalExceptionHandler(
 
     @ExceptionHandler(ResponseStatusException::class)
     fun handleResponseStatusException(e: ResponseStatusException): ResponseEntity<String> {
-        println("ResponseStatus Error happened: ${e.message}")
+        AppLogger.error("ResponseStatus Error happened: ${e.message}")
         val error = e.message
 
         // Log 500 errors with full stack trace
         if (e.statusCode.value() >= 500) {
             logger.error("Server error (${e.statusCode.value()}): ${e.message}", e)
+            logError(e)
         }
 
-        logError(e)
         return ResponseEntity
             .status(e.statusCode)
             .body(error)
@@ -63,14 +64,13 @@ class GlobalExceptionHandler(
 
     @ExceptionHandler(NoResourceFoundException::class)
     fun handleNoResourceFoundException(e: NoResourceFoundException): ResponseEntity<String> {
-        println("NoResourceFound Error happened: ${e.message}")
+        AppLogger.error("NoResourceFound Error happened: ${e.message}")
         val resourcePath = e.resourcePath
         
-        logError(e)
+        //logError(e)
         return ResponseEntity
             .status(404)
-            .header("Location", "/error?path=" + resourcePath)
-            .build()
+            .body("Resource not found: $resourcePath")
     }
 
 
@@ -81,7 +81,7 @@ class GlobalExceptionHandler(
         //No stack trace printing for badcredentials (Someone used a wrong username)
         if (e !is BadCredentialsException){
             logger.error("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", e)
-            println("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}")
+            AppLogger.error("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}")
 
             logError(e)
         }

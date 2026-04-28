@@ -86,7 +86,7 @@ object ValidationUtils {
      * - Cannot end with underscore or hyphen
      */
     fun validateUsername(username: String): Boolean {
-        if (username.isBlank()) return false
+        if (username.isEmpty()) return false
         if (username.length !in 3..25) return false
 
         // Must start with alphanumeric
@@ -102,6 +102,14 @@ object ValidationUtils {
 
         return validChars
     }
+
+    //User can name his friends however he wants
+    fun validateNickname(nickname: String): Boolean {
+        //if (nickname.isEmpty()) return false
+
+        return true
+    }
+
 
     /**
      * Validates uploaded profile picture

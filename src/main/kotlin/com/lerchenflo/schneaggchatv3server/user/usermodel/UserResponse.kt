@@ -4,7 +4,7 @@ package com.lerchenflo.schneaggchatv3server.user.usermodel
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.lerchenflo.schneaggchatv3server.user.friendshipmodel.FriendshipStatus
+import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import kotlin.time.ExperimentalTime
 
 
@@ -54,7 +54,9 @@ sealed interface UserResponse {
         //Custom to friend response:
         val birthDate: String,
         val userDescription: String,
-        val userStatus: String
+        val userStatus: String,
+
+        val nickName: String?
 
 
 

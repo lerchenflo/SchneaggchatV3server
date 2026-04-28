@@ -28,10 +28,4 @@ class WebsiteController(
         return "stats"
     }
 
-    @GetMapping("/error")
-    fun getErrorPage(@RequestParam(name = "path", required = false) path: String?, model: Model): String {
-        model.addAttribute("requestedPath", path ?: "Unbekannte Route")
-        return "error"
-    }
-
 }
