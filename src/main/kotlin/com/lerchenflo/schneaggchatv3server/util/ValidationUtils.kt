@@ -236,4 +236,11 @@ object ValidationUtils {
         if (input.length > 500) return false
         return true
     }
+
+    private val APNS_TOKEN_REGEX = "^[0-9a-fA-F]{64}$".toRegex()
+
+    fun validateNotificationToken(token: String, isAndroid: Boolean): Boolean {
+        return if (isAndroid) validateFirebaseToken(token)
+        else APNS_TOKEN_REGEX.matches(token)
+    }
 }

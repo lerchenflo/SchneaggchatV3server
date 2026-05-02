@@ -3,6 +3,7 @@
 package com.lerchenflo.schneaggchatv3server.user
 
 import com.lerchenflo.schneaggchatv3server.authentication.EmailService
+import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
@@ -31,7 +32,8 @@ class UserController(
     private val imageManager: ImageManager,
 
 
-    private val firebaseService: FirebaseService
+    private val firebaseService: FirebaseService,
+    private val apnsService: ApnsService,
 ) {
 
     @PostMapping("/verificationemail")
@@ -45,11 +47,12 @@ class UserController(
         emailService.sendVerificationEmail(ObjectId(requestingUserId))
     }
 
-    @PostMapping("/setfirebasetoken")
-    fun setFirebaseToken(
+    @PostMapping("/setnotificationtoken")
+    fun setNotificationToken(
         @RequestParam token: String,
-    ){
-        require(ValidationUtils.validateFirebaseToken(token)) { "Invalid Firebase token" }
+        @RequestParam isAndroid: Boolean,
+    ) {
+        require(ValidationUtils.validateNotificationToken(token, isAndroid)) { "Invalid notification token" }
 
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
@@ -57,7 +60,9 @@ class UserController(
                 /* reason = */ "Not logged in"
             )
 
-        firebaseService.saveToken(userId = ObjectId(requestingUserId), token = token)
+        val userId = ObjectId(requestingUserId)
+        if (isAndroid) firebaseService.saveToken(userId = userId, token = token)
+        else apnsService.saveToken(userId = userId, token = token)
     }
 
 
