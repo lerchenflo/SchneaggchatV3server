@@ -5,6 +5,7 @@ import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.toMessageResponse
+import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.SocketConnectionHandler
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service
 class NotificationService(
     private val socketConnectionHandler: SocketConnectionHandler,
     private val firebaseMessagingService: FirebaseService,
+    private val apnsService: ApnsService,
 
     private val userLookupService: UserLookupService,
     private val groupLookupService: GroupLookupService
@@ -60,8 +62,16 @@ class NotificationService(
                     )) {
 
                     if (newMessage) {
-                        //Socket connection failed, use firebase
                         firebaseMessagingService.sendNewMessageNotificationToUser(
+                            senderId = message.senderId,
+                            receiverId = member.userid,
+                            messageType = message.msgType,
+                            messageContent = message.content,
+                            msgId = message.id.toHexString(),
+                            groupMessage = true,
+                            groupName = groupName
+                        )
+                        apnsService.sendNewMessageNotificationToUser(
                             senderId = message.senderId,
                             receiverId = member.userid,
                             messageType = message.msgType,
@@ -88,9 +98,17 @@ class NotificationService(
                     receiverId = if (message.senderId == changingUserId) message.receiverId else message.senderId, //Notify the user which did not change the message
                 )) {
 
-                //Message sending failed, use firebase if new, else ignore
                 if (newMessage) {
                     firebaseMessagingService.sendNewMessageNotificationToUser(
+                        senderId = message.senderId,
+                        receiverId = message.receiverId,
+                        messageType = message.msgType,
+                        messageContent = message.content,
+                        msgId = message.id.toHexString(),
+                        groupMessage = false,
+                        groupName = null
+                    )
+                    apnsService.sendNewMessageNotificationToUser(
                         senderId = message.senderId,
                         receiverId = message.receiverId,
                         messageType = message.msgType,
@@ -138,6 +156,11 @@ class NotificationService(
             )
         ) {
             firebaseMessagingService.sendFriendRequestNotificationToUser(
+                senderId = requestingUser,
+                receivingUserId = receivingUser,
+                accepted = accepted
+            )
+            apnsService.sendFriendRequestNotificationToUser(
                 senderId = requestingUser,
                 receivingUserId = receivingUser,
                 accepted = accepted

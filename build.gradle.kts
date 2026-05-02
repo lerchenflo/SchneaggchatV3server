@@ -55,10 +55,16 @@ dependencies {
     //firebase
     implementation("com.google.firebase:firebase-admin:9.7.0")
 
+    //Apns
+    implementation("com.eatthepath:pushy:0.15.4")
+    //Apns tls
+    runtimeOnly("io.netty:netty-tcnative-boringssl-static:2.0.62.Final")
+
     //cryptography
     implementation("dev.whyoleg.cryptography:cryptography-core:0.5.0")
     implementation("dev.whyoleg.cryptography:cryptography-provider-jdk:0.5.0")
 
+    //websockets
     implementation("org.springframework.boot:spring-boot-starter-websocket")
 
 
