@@ -267,9 +267,25 @@ class ApnsService(
         }
         data["type"] = typeName
 
+        // Fallback alert shown when the Notification Service Extension times out or isn't available.
+        // apns-priority: 10 (IMMEDIATE) is set via DeliveryPriority.IMMEDIATE in sendNotificationToUser.
+        val fallbackTitle = when (notification) {
+            is NotificationResponse.MessageNotificationResponse ->
+                if (notification.groupMessage) notification.groupName.ifEmpty { notification.senderName }
+                else notification.senderName
+            is NotificationResponse.FriendRequestNotificationResponse -> "Schneaggchat"
+            is NotificationResponse.SystemNotificationResponse -> notification.title
+        }
+        val fallbackBody = when (notification) {
+            is NotificationResponse.MessageNotificationResponse -> "New message"
+            is NotificationResponse.FriendRequestNotificationResponse ->
+                if (notification.accepted) "Friend request accepted" else "New friend request"
+            is NotificationResponse.SystemNotificationResponse -> notification.message
+        }
+
         val payload: Map<String, Any> = mapOf(
             "aps" to mapOf(
-                "alert" to mapOf("title" to "Schneaggchat", "body" to "New message"),
+                "alert" to mapOf("title" to fallbackTitle, "body" to fallbackBody),
                 "sound" to "default",
                 "mutable-content" to 1,
                 "content-available" to 1,
