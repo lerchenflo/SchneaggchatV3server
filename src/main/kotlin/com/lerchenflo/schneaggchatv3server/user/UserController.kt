@@ -8,6 +8,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseServic
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
@@ -65,6 +66,8 @@ class UserController(
                 /* status = */ HttpStatus.FORBIDDEN,
                 /* reason = */ "Not logged in"
             )
+
+        AppLogger.debug("Setting notification token: Android:${request.isAndroid}} ${request.token}")
 
         val userId = ObjectId(requestingUserId)
         if (request.isAndroid) firebaseService.saveToken(userId = userId, token = request.token)
