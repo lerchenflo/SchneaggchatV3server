@@ -53,6 +53,7 @@ services:
       APNS_TEAM_ID: ${APNS_TEAM_ID}
       APNS_KEY_ID: ${APNS_KEY_ID}
       APNS_BUNDLE_ID: ${APNS_BUNDLE_ID}
+      APNS_DEBUG: ${APNS_DEBUG:-false}
 
 
     networks:
