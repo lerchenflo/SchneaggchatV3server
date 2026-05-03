@@ -277,7 +277,11 @@ class ApnsService(
             is NotificationResponse.SystemNotificationResponse -> notification.title
         }
         val fallbackBody = when (notification) {
-            is NotificationResponse.MessageNotificationResponse -> "New message"
+            is NotificationResponse.MessageNotificationResponse ->
+                if (notification.groupMessage)
+                    "New message in ${notification.groupName.ifEmpty { notification.senderName }}"
+                else
+                    "New message from ${notification.senderName}"
             is NotificationResponse.FriendRequestNotificationResponse ->
                 if (notification.accepted) "Friend request accepted" else "New friend request"
             is NotificationResponse.SystemNotificationResponse -> notification.message
@@ -289,6 +293,7 @@ class ApnsService(
                 "sound" to "default",
                 "mutable-content" to 1,
                 "content-available" to 1,
+                "interruption-level" to "time-sensitive",
             )
         ) + data
         return Json.mapper.writeValueAsString(payload)
