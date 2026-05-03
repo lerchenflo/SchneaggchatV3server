@@ -41,6 +41,9 @@ out/
 ### Kotlin ###
 .kotlin
 
+.env
+
 schneaggchatv3-firebase-admin.json
+ApnsAuthKey.p8
 
 

@@ -228,6 +228,7 @@ class ApnsService(
                 true
             } else {
                 val reason = response.rejectionReason.orElse("unknown")
+                AppLogger.error("Error sending notification APNs: $reason")
                 when (reason) {
                     "Unregistered", "BadDeviceToken", "DeviceTokenNotForTopic", "TopicDisallowed" -> {
                         deleteToken(notification.token)
