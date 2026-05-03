@@ -47,12 +47,18 @@ class UserController(
         emailService.sendVerificationEmail(ObjectId(requestingUserId))
     }
 
+
+    //TODO: Input validation
+    data class NotificationTokenRequest(
+        val token: String,
+        val isAndroid: Boolean
+    )
+
     @PostMapping("/setnotificationtoken")
     fun setNotificationToken(
-        @RequestParam token: String,
-        @RequestParam isAndroid: Boolean,
+        @RequestBody request: NotificationTokenRequest
     ) {
-        require(ValidationUtils.validateNotificationToken(token, isAndroid)) { "Invalid notification token" }
+        require(ValidationUtils.validateNotificationToken(request.token, request.isAndroid)) { "Invalid notification token" }
 
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
@@ -61,8 +67,8 @@ class UserController(
             )
 
         val userId = ObjectId(requestingUserId)
-        if (isAndroid) firebaseService.saveToken(userId = userId, token = token)
-        else apnsService.saveToken(userId = userId, token = token)
+        if (request.isAndroid) firebaseService.saveToken(userId = userId, token = request.token)
+        else apnsService.saveToken(userId = userId, token = request.token)
     }
 
 
