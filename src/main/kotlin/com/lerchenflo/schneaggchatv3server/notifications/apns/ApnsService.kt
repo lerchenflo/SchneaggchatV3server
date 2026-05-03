@@ -36,6 +36,7 @@ class ApnsService(
     @Value("\${apns.team-id}") private val teamId: String,
     @Value("\${apns.key-id}") private val keyId: String,
     @Value("\${apns.bundle-id}") private val bundleId: String,
+    @Value("\${apns.debug}") private val apnsDebug: Boolean,
 ) {
 
     private var apnsClient: ApnsClient? = null
@@ -59,10 +60,13 @@ class ApnsService(
             try {
                 val signingKey = ApnsSigningKey.loadFromPkcs8File(keyFile, teamId, keyId)
                 apnsClient = ApnsClientBuilder()
-                    .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
+                    .setApnsServer(
+                        if (apnsDebug) ApnsClientBuilder.DEVELOPMENT_APNS_HOST
+                        else ApnsClientBuilder.PRODUCTION_APNS_HOST
+                    )
                     .setSigningKey(signingKey)
                     .build()
-                AppLogger.success("APNs client initialized successfully")
+                AppLogger.success("APNs client initialized (sandbox=$apnsDebug)")
             } catch (e: Exception) {
                 AppLogger.error("APNs client initialization failed: ${e.message}")
             }
