@@ -33,6 +33,21 @@ services:
     networks:
       - spring-mongo-network
 
+  schneaggchat_redis:
+    image: redis:7-alpine
+    container_name: schneaggchat_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - spring-mongo-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   schneaggchatv3server:
     build:
       context: .
@@ -40,7 +55,9 @@ services:
     restart: unless-stopped
     depends_on:
       schneaggchat_db:
-        condition: service_healthy  # Wait for MongoDB to be healthy
+        condition: service_healthy
+      schneaggchat_redis:
+        condition: service_healthy
     ports:
       - "8083:8080"
     environment:
@@ -55,6 +72,8 @@ services:
       APNS_BUNDLE_ID: ${APNS_BUNDLE_ID}
       APNS_DEBUG: true
 
+      SPRING_DATA_REDIS_HOST: schneaggchat_redis
+      SPRING_DATA_REDIS_PORT: "6379"
 
     networks:
       - spring-mongo-network
@@ -73,3 +92,4 @@ volumes:
   app-images:
   app-images-messages:
   app-audio-messages:
+  redis-data:

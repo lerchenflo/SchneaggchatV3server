@@ -67,6 +67,11 @@ dependencies {
     //websockets
     implementation("org.springframework.boot:spring-boot-starter-websocket")
 
+    //rate limiting
+    implementation("com.bucket4j:bucket4j-core:8.10.1")
+    implementation("com.bucket4j:bucket4j-redis:8.10.1")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
+
 
     //testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
