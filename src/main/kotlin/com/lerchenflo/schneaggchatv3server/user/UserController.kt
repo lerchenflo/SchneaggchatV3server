@@ -207,6 +207,7 @@ class UserController(
     }
 
 
+    // TODO: These friendship mutation endpoints should use POST, not GET (REST correctness; safe currently since JWT is in header, not cookie)
     @GetMapping("/addfriend/{id}")
     fun sendFriendRequest(
         @PathVariable("id") touserId: String
