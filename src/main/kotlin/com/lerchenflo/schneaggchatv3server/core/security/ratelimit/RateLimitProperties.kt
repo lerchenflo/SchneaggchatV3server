@@ -9,7 +9,12 @@ data class RateLimitProperties(
     val ip: TierConfig = TierConfig(100L, Duration.ofMinutes(1)),
     val user: TierConfig = TierConfig(300L, Duration.ofMinutes(1)),
     val auth: TierConfig = TierConfig(10L, Duration.ofMinutes(1)),
-    val authPathPrefix: String = "/auth/"
+    val login: TierConfig = TierConfig(5L, Duration.ofMinutes(1)),
+    val authPathPrefix: String = "/auth/",
+    // CIDRs of proxies whose X-Real-IP / X-Forwarded-For headers we trust.
+    // Empty = trust no headers (use raw remote address). Required to prevent
+    // clients from spoofing their IP to bypass per-IP rate limits.
+    val trustedProxies: List<String> = emptyList(),
 ) {
     data class TierConfig(
         val capacity: Long = 100L,

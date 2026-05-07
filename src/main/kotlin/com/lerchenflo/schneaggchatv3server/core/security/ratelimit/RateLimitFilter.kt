@@ -1,6 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.core.security.ratelimit
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.lerchenflo.schneaggchatv3server.util.Json
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -15,7 +15,6 @@ class RateLimitFilter(
     private val rateLimitService: RateLimitService,
     private val clientIpResolver: ClientIpResolver,
     private val properties: RateLimitProperties,
-    private val objectMapper: ObjectMapper
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(RateLimitFilter::class.java)
@@ -38,8 +37,15 @@ class RateLimitFilter(
 
         try {
             if (request.servletPath.startsWith(properties.authPathPrefix)) {
-                val probe = rateLimitService.tryConsume("rl:auth-ip:$ip", RateLimitTier.AUTH)
-                if (!probe.isConsumed) { deny(response, probe.nanosToWaitForRefill); return }
+                // Strict login bucket — checked first so denied logins don't drain
+                // the shared auth bucket that refresh / password reset etc. also use.
+                if (isLoginRequest(request)) {
+                    val loginProbe = rateLimitService.tryConsume("rl:auth-login-ip:$ip", RateLimitTier.LOGIN)
+                    if (!loginProbe.isConsumed) { deny(response, loginProbe.nanosToWaitForRefill); return }
+                } else {
+                    val authProbe = rateLimitService.tryConsume("rl:auth-ip:$ip", RateLimitTier.AUTH)
+                    if (!authProbe.isConsumed) { deny(response, authProbe.nanosToWaitForRefill); return }
+                }
             }
 
             val ipProbe = rateLimitService.tryConsume("rl:ip:$ip", RateLimitTier.IP)
@@ -56,6 +62,10 @@ class RateLimitFilter(
         filterChain.doFilter(request, response)
     }
 
+    private fun isLoginRequest(request: HttpServletRequest): Boolean =
+        request.method.equals("POST", ignoreCase = true) &&
+            request.servletPath == "${properties.authPathPrefix}login"
+
     private fun isStaticPath(path: String): Boolean =
         staticPrefixes.any { path.startsWith(it) } || staticSuffixes.any { path.endsWith(it) }
 
@@ -65,7 +75,7 @@ class RateLimitFilter(
         response.setHeader("Retry-After", retryAfter.toString())
         response.contentType = "application/json;charset=UTF-8"
         response.writer.write(
-            objectMapper.writeValueAsString(
+            Json.mapper.writeValueAsString(
                 mapOf("error" to "rate_limited", "retryAfterSeconds" to retryAfter)
             )
         )

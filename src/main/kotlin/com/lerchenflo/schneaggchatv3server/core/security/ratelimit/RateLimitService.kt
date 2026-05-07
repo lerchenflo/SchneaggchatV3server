@@ -6,7 +6,7 @@ import io.github.bucket4j.ConsumptionProbe
 import io.github.bucket4j.distributed.proxy.ProxyManager
 import org.springframework.stereotype.Service
 
-enum class RateLimitTier { IP, USER, AUTH }
+enum class RateLimitTier { IP, USER, AUTH, LOGIN }
 
 @Service
 class RateLimitService(
@@ -23,6 +23,7 @@ class RateLimitService(
             RateLimitTier.IP -> properties.ip
             RateLimitTier.USER -> properties.user
             RateLimitTier.AUTH -> properties.auth
+            RateLimitTier.LOGIN -> properties.login
         }
         return BucketConfiguration.builder()
             .addLimit(
