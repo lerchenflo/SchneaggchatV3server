@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.toMessageResponse
 import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
+import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.SocketConnectionHandler
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
@@ -143,6 +144,17 @@ class NotificationService(
                 receiverId = ObjectId(member.userid),
             )
         }
+    }
+
+    fun notifyBirthday(birthdayUserId: ObjectId, recipientId: ObjectId, ownBirthday: Boolean) {
+        val name = userLookupService.getUsername(birthdayUserId)
+        val notification = NotificationResponse.BirthdayNotificationResponse(
+            birthdayUserId = birthdayUserId.toHexString(),
+            birthdayUserName = name,
+            ownBirthday = ownBirthday,
+        )
+        firebaseMessagingService.sendNotificationToUser(recipientId, notification)
+        apnsService.sendNotificationToUser(recipientId, notification)
     }
 
     fun notifyFriendRequest(requestingUser: ObjectId, receivingUser: ObjectId, accepted: Boolean) {

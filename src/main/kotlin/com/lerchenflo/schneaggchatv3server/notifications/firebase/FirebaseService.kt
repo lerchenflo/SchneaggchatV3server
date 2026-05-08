@@ -303,6 +303,7 @@ class FirebaseService(
             is NotificationResponse.MessageNotificationResponse -> "message"
             is NotificationResponse.FriendRequestNotificationResponse -> "friend_request"
             is NotificationResponse.SystemNotificationResponse -> "system"
+            is NotificationResponse.BirthdayNotificationResponse -> "birthday"
         }
         result["type"] = typeName
 
