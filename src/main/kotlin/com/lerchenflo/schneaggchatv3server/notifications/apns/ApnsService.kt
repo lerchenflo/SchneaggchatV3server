@@ -269,6 +269,7 @@ class ApnsService(
             is NotificationResponse.MessageNotificationResponse -> "message"
             is NotificationResponse.FriendRequestNotificationResponse -> "friend_request"
             is NotificationResponse.SystemNotificationResponse -> "system"
+            is NotificationResponse.BirthdayNotificationResponse -> "birthday"
         }
         data["type"] = typeName
 
@@ -280,6 +281,8 @@ class ApnsService(
                 else notification.senderName
             is NotificationResponse.FriendRequestNotificationResponse -> "Schneaggchat"
             is NotificationResponse.SystemNotificationResponse -> notification.title
+            is NotificationResponse.BirthdayNotificationResponse ->
+                if (notification.ownBirthday) "Happy Birthday!" else "Schneaggchat"
         }
         val fallbackBody = when (notification) {
             is NotificationResponse.MessageNotificationResponse ->
@@ -290,6 +293,9 @@ class ApnsService(
             is NotificationResponse.FriendRequestNotificationResponse ->
                 if (notification.accepted) "Friend request accepted" else "New friend request"
             is NotificationResponse.SystemNotificationResponse -> notification.message
+            is NotificationResponse.BirthdayNotificationResponse ->
+                if (notification.ownBirthday) "Happy birthday to you!"
+                else "${notification.birthdayUserName} has birthday today"
         }
 
         val payload: Map<String, Any> = mapOf(
