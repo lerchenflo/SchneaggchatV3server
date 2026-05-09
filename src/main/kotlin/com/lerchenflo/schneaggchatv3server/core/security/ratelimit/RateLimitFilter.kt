@@ -1,6 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.core.security.ratelimit
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.lerchenflo.schneaggchatv3server.util.Json
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -35,8 +35,8 @@ class RateLimitFilter(
         val ip = clientIpResolver.resolve(request)
         val userId = SecurityContextHolder.getContext().authentication?.principal as? String
 
-        try {
-            if (request.servletPath.startsWith(properties.authPathPrefix)) {
+        if (request.servletPath.startsWith(properties.authPathPrefix)) {
+            try {
                 // Strict login bucket — checked first so denied logins don't drain
                 // the shared auth bucket that refresh / password reset etc. also use.
                 if (isLoginRequest(request)) {
@@ -46,8 +46,16 @@ class RateLimitFilter(
                     val authProbe = rateLimitService.tryConsume("rl:auth-ip:$ip", RateLimitTier.AUTH)
                     if (!authProbe.isConsumed) { deny(response, authProbe.nanosToWaitForRefill); return }
                 }
+            } catch (e: Exception) {
+                // Fail closed on auth paths — if Redis is unavailable we must not let
+                // unauthenticated traffic through unchecked.
+                log.warn("Rate limiter unavailable on auth path, failing closed: ${e.message}")
+                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE)
+                return
             }
+        }
 
+        try {
             val ipProbe = rateLimitService.tryConsume("rl:ip:$ip", RateLimitTier.IP)
             if (!ipProbe.isConsumed) { deny(response, ipProbe.nanosToWaitForRefill); return }
 
@@ -75,7 +83,7 @@ class RateLimitFilter(
         response.setHeader("Retry-After", retryAfter.toString())
         response.contentType = "application/json;charset=UTF-8"
         response.writer.write(
-            objectMapper.writeValueAsString(
+            Json.mapper.writeValueAsString(
                 mapOf("error" to "rate_limited", "retryAfterSeconds" to retryAfter)
             )
         )
