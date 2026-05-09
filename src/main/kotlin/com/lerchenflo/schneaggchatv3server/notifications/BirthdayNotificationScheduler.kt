@@ -15,7 +15,8 @@ class BirthdayNotificationScheduler(
     private val notificationService: NotificationService,
 ) {
 
-    @Scheduled(cron = "0 0 8 * * *", zone = "Europe/Vienna")
+    //@Scheduled(cron = "10 0 0 * * *", zone = "Europe/Vienna") //10 sek nach mitternacht
+    @Scheduled(cron = "0 0 * * * *", zone = "Europe/Vienna") //Jede stunde (Debug)
     fun sendBirthdayNotifications() {
         val today = LocalDate.now(ZoneId.of("Europe/Vienna"))
         val mmdd = String.format("%02d-%02d", today.monthValue, today.dayOfMonth)
