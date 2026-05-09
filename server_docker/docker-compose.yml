@@ -70,7 +70,7 @@ services:
       APNS_KEY_ID: ${APNS_KEY_ID}
       APNS_BUNDLE_ID: ${APNS_BUNDLE_ID}
 
-      # Redis — host/port are fixed to the internal service; no .env entry needed
+      # Redis - host/port are fixed to the internal service; no .env entry needed
       SPRING_DATA_REDIS_HOST: schneaggchat_redis
       SPRING_DATA_REDIS_PORT: 6379
 
