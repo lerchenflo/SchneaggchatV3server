@@ -1,6 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.core.security.ratelimit
 
-import com.lerchenflo.schneaggchatv3server.util.Json
+import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 class RateLimitFilter(
     private val rateLimitService: RateLimitService,
     private val clientIpResolver: ClientIpResolver,
-    private val properties: RateLimitProperties,
+    private val properties: RateLimitProperties
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(RateLimitFilter::class.java)
@@ -75,7 +75,7 @@ class RateLimitFilter(
         response.setHeader("Retry-After", retryAfter.toString())
         response.contentType = "application/json;charset=UTF-8"
         response.writer.write(
-            Json.mapper.writeValueAsString(
+            objectMapper.writeValueAsString(
                 mapOf("error" to "rate_limited", "retryAfterSeconds" to retryAfter)
             )
         )
