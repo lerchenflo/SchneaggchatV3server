@@ -12,8 +12,7 @@ import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 @JsonSubTypes(
     JsonSubTypes.Type(value = NotificationResponse.MessageNotificationResponse::class, name = "message"),
     JsonSubTypes.Type(value = NotificationResponse.FriendRequestNotificationResponse::class, name = "friend_request"),
-    JsonSubTypes.Type(value = NotificationResponse.SystemNotificationResponse::class, name = "system"),
-    JsonSubTypes.Type(value = NotificationResponse.BirthdayNotificationResponse::class, name = "birthday")
+    JsonSubTypes.Type(value = NotificationResponse.SystemNotificationResponse::class, name = "system")
 )
 
 sealed interface NotificationResponse {
@@ -38,11 +37,5 @@ sealed interface NotificationResponse {
     data class SystemNotificationResponse(
         val title: String,
         val message: String
-    ) : NotificationResponse
-
-    data class BirthdayNotificationResponse(
-        val birthdayUserId: String,
-        val birthdayUserName: String,
-        val ownBirthday: Boolean
     ) : NotificationResponse
 }

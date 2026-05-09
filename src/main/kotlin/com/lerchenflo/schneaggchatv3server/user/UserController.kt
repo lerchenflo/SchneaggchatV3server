@@ -3,12 +3,10 @@
 package com.lerchenflo.schneaggchatv3server.user
 
 import com.lerchenflo.schneaggchatv3server.authentication.EmailService
-import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
-import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
@@ -33,8 +31,7 @@ class UserController(
     private val imageManager: ImageManager,
 
 
-    private val firebaseService: FirebaseService,
-    private val apnsService: ApnsService,
+    private val firebaseService: FirebaseService
 ) {
 
     @PostMapping("/verificationemail")
@@ -48,18 +45,11 @@ class UserController(
         emailService.sendVerificationEmail(ObjectId(requestingUserId))
     }
 
-
-    //TODO: Input validation
-    data class NotificationTokenRequest(
-        val token: String,
-        val isAndroid: Boolean
-    )
-
-    @PostMapping("/setnotificationtoken")
-    fun setNotificationToken(
-        @RequestBody request: NotificationTokenRequest
-    ) {
-        require(ValidationUtils.validateNotificationToken(request.token, request.isAndroid)) { "Invalid notification token" }
+    @PostMapping("/setfirebasetoken")
+    fun setFirebaseToken(
+        @RequestParam token: String,
+    ){
+        require(ValidationUtils.validateFirebaseToken(token)) { "Invalid Firebase token" }
 
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
@@ -67,11 +57,7 @@ class UserController(
                 /* reason = */ "Not logged in"
             )
 
-        AppLogger.debug("Setting notification token: Android:${request.isAndroid}} ${request.token}")
-
-        val userId = ObjectId(requestingUserId)
-        if (request.isAndroid) firebaseService.saveToken(userId = userId, token = request.token)
-        else apnsService.saveToken(userId = userId, token = request.token)
+        firebaseService.saveToken(userId = ObjectId(requestingUserId), token = token)
     }
 
 
@@ -207,7 +193,6 @@ class UserController(
     }
 
 
-    // TODO: These friendship mutation endpoints should use POST, not GET (REST correctness; safe currently since JWT is in header, not cookie)
     @GetMapping("/addfriend/{id}")
     fun sendFriendRequest(
         @PathVariable("id") touserId: String

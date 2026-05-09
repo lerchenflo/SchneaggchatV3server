@@ -1,7 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.core.security
 
 import jakarta.servlet.DispatcherType
-import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpStatus
@@ -17,8 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 @EnableWebSecurity
 class SecurityConfig(
-    private val jwtAuthFilter: JwtAuthFilter,
-    private val rateLimitFilter: RateLimitFilter
+    private val jwtAuthFilter: JwtAuthFilter
 ) {
 
     //Create empty default user for ignoring error message
@@ -104,7 +102,6 @@ class SecurityConfig(
                     .authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
             }
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
-            .addFilterAfter(rateLimitFilter, JwtAuthFilter::class.java)
             .build()
     }
 }

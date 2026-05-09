@@ -62,10 +62,6 @@ class GlobalExceptionHandler(
             .body(error)
     }
 
-    @ExceptionHandler(BadCredentialsException::class)
-    fun handleBadCredentials(e: BadCredentialsException): ResponseEntity<String> =
-        ResponseEntity.status(401).body("Invalid credentials")
-
     @ExceptionHandler(NoResourceFoundException::class)
     fun handleNoResourceFoundException(e: NoResourceFoundException): ResponseEntity<String> {
         AppLogger.error("NoResourceFound Error happened: ${e.message}")

@@ -4,6 +4,10 @@ import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.messaging.AndroidConfig
+import com.google.firebase.messaging.ApnsConfig
+import com.google.firebase.messaging.ApnsFcmOptions
+import com.google.firebase.messaging.Aps
+import com.google.firebase.messaging.FcmOptions
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingException
 import com.google.firebase.messaging.Message
@@ -303,7 +307,6 @@ class FirebaseService(
             is NotificationResponse.MessageNotificationResponse -> "message"
             is NotificationResponse.FriendRequestNotificationResponse -> "friend_request"
             is NotificationResponse.SystemNotificationResponse -> "system"
-            is NotificationResponse.BirthdayNotificationResponse -> "birthday"
         }
         result["type"] = typeName
 
@@ -318,6 +321,24 @@ class FirebaseService(
             .setAndroidConfig(
                 AndroidConfig.builder()
                     .setPriority(AndroidConfig.Priority.HIGH) //for immediate delivery: https://firebase.google.com/docs/cloud-messaging/android-message-priority?hl=de
+                    .build()
+            )
+            .setApnsConfig(
+                /*
+                Priority:
+                Apple docs say 10 for immediate: //https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1
+                Firebasee docs say 10 gets blocked: https://firebase.google.com/docs/cloud-messaging/customize-messages/setting-message-priority?hl=de
+
+                solution: Alert, decrypt custom on recieving device (implement first)
+                 */
+                ApnsConfig.builder()
+                    .putHeader("apns-priority", "5")
+                    .setAps(
+                        Aps.builder()
+                            .setContentAvailable(true) //Allow background work on ios
+                            //.setBadge(1) //TODO: Get correct unread message count
+                        .build())
+
                     .build()
             )
             .build()

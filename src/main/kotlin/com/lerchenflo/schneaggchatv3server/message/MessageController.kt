@@ -265,7 +265,6 @@ class MessageController(
 
     @GetMapping("/audios/{id}")
     fun getAudio(@PathVariable("id") messageId: String): ResponseEntity<ByteArray> {
-        require(ValidationUtils.validateObjectId(messageId)) { "Invalid message ID" }
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
                 /* status = */ HttpStatus.FORBIDDEN,
