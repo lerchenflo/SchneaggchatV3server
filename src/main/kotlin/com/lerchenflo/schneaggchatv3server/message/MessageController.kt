@@ -244,6 +244,26 @@ class MessageController(
     }
 
 
+    @PostMapping("/react")
+    fun reactToMessage(
+        @Valid @RequestBody reactionRequest: ReactionRequest
+    ): MessageResponse {
+        require(ValidationUtils.validateObjectId(reactionRequest.messageId)) { "Invalid message ID" }
+
+        val requestingUserId =
+            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "Not logged in"
+            )
+
+        return messageService.reactToMessage(
+            messageId = ObjectId(reactionRequest.messageId),
+            reactingUserId = ObjectId(requestingUserId),
+            content = reactionRequest.content,
+        )
+    }
+
+
     @GetMapping("/images/{id}")
     fun getImage(@PathVariable("id") messageId: String): ResponseEntity<ByteArray> {
         require(ValidationUtils.validateObjectId(messageId)) { "Invalid message ID" }
