@@ -70,7 +70,7 @@ services:
       APNS_TEAM_ID: ${APNS_TEAM_ID}
       APNS_KEY_ID: ${APNS_KEY_ID}
       APNS_BUNDLE_ID: ${APNS_BUNDLE_ID}
-      APNS_DEBUG: true
+      APNS_DEBUG: ${APNS_DEBUG}
 
       SPRING_DATA_REDIS_HOST: schneaggchat_redis
       SPRING_DATA_REDIS_PORT: "6379"

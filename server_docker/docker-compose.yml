@@ -69,6 +69,7 @@ services:
       APNS_TEAM_ID: ${APNS_TEAM_ID}
       APNS_KEY_ID: ${APNS_KEY_ID}
       APNS_BUNDLE_ID: ${APNS_BUNDLE_ID}
+      APNS_DEBUG: ${APNS_DEBUG}
 
       # Redis - host/port are fixed to the internal service; no .env entry needed
       SPRING_DATA_REDIS_HOST: schneaggchat_redis
