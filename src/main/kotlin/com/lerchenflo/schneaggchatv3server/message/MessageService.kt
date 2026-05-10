@@ -365,6 +365,8 @@ class MessageService(
                 it.userId == reactingUserId && it.content == content
             }
 
+            val isAdd = existing == null
+
             val newReactions = if (existing != null) {
                 message.reactions - existing
             } else {
@@ -395,6 +397,14 @@ class MessageService(
                 deleted = false,
                 changingUserId = reactingUserId
             )
+
+            if (isAdd) {
+                notificationService.notifyReactionAdded(
+                    message = savedMessage,
+                    reactorId = reactingUserId,
+                    reactionContent = content,
+                )
+            }
 
             savedMessage.toMessageResponse(reactingUserId)
         }
