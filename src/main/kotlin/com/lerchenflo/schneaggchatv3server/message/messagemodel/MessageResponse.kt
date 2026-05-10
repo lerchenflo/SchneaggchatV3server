@@ -13,12 +13,17 @@ data class MessageResponse(
     val sendDate: Long,
     val lastChanged: Long,
     val deleted: Boolean,
-    val readers: List<ReaderResponse>
-
+    val readers: List<ReaderResponse>,
+    val reactions: List<ReactionResponse>,
 )
 
 
 data class ReaderResponse(
     val userId: String,
     val readAt: Long
+)
+
+data class ReactionResponse(
+    val userId: String,
+    val content: String,
 )

@@ -34,12 +34,19 @@ data class Message(
     val edited: Boolean = false,
 
     val readers: List<Reader>,
+
+    val reactions: List<Reaction> = emptyList(),
 )
 
 data class Reader(
     @Indexed
     val userId: ObjectId,
     val readAt: Instant
+)
+
+data class Reaction(
+    val userId: ObjectId,
+    val content: String,
 )
 
 enum class MessageType {
@@ -65,7 +72,8 @@ fun Message.toMessageResponse(requestingUserId: ObjectId) : MessageResponse {
         sendDate = this.sendDate.toEpochMilliseconds(),
         lastChanged = this.lastChanged.toEpochMilliseconds(),
         deleted = this.deleted,
-        readers = this.readers.map { it.toReaderResponse() }
+        readers = this.readers.map { it.toReaderResponse() },
+        reactions = this.reactions.map { it.toReactionResponse() },
     )
 }
 
@@ -73,5 +81,12 @@ fun Reader.toReaderResponse() : ReaderResponse {
     return ReaderResponse(
         userId = this.userId.toHexString(),
         readAt = this.readAt.toEpochMilliseconds()
+    )
+}
+
+fun Reaction.toReactionResponse() : ReactionResponse {
+    return ReactionResponse(
+        userId = this.userId.toHexString(),
+        content = this.content,
     )
 }
