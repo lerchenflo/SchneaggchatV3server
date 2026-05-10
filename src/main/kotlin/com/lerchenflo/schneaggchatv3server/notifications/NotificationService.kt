@@ -157,6 +157,44 @@ class NotificationService(
         apnsService.sendNotificationToUser(recipientId, notification)
     }
 
+    /**
+     * Notify the original message sender that someone added a reaction.
+     * Only fires on add (not on remove). Skipped if the reactor is the message sender.
+     * The recipient is always the message sender; other group members are not notified.
+     * Live UI sync (WebSocket MessageChange) is already handled by notifyMessageUpdate;
+     * this only takes care of the push fallback when the recipient is offline.
+     */
+    fun notifyReactionAdded(message: Message, reactorId: ObjectId, reactionContent: String) {
+        if (message.senderId == reactorId) return
+
+        val recipient = message.senderId
+
+        if (socketConnectionHandler.isConnected(recipient)) return
+
+        val groupName = if (message.groupMessage) {
+            groupLookupService.getGroupById(message.receiverId)?.name ?: "Unknown Group"
+        } else null
+
+        firebaseMessagingService.sendReactionNotificationToUser(
+            reactorId = reactorId,
+            receiverId = recipient,
+            reactionContent = reactionContent,
+            msgId = message.id.toHexString(),
+            groupMessage = message.groupMessage,
+            messageType = message.msgType,
+            groupName = groupName,
+        )
+        apnsService.sendReactionNotificationToUser(
+            reactorId = reactorId,
+            receiverId = recipient,
+            reactionContent = reactionContent,
+            msgId = message.id.toHexString(),
+            groupMessage = message.groupMessage,
+            messageType = message.msgType,
+            groupName = groupName,
+        )
+    }
+
     fun notifyFriendRequest(requestingUser: ObjectId, receivingUser: ObjectId, accepted: Boolean) {
         if (!socketConnectionHandler.sendMessage(
                 SocketConnectionMessage.FriendRequest(

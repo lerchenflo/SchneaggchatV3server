@@ -146,6 +146,48 @@ class ApnsService(
     }
 
 
+    fun sendReactionNotificationToUser(
+        reactorId: ObjectId,
+        receiverId: ObjectId,
+        reactionContent: String,
+        msgId: String,
+        groupMessage: Boolean,
+        messageType: MessageType,
+        groupName: String? = null
+    ) {
+        val reactorName = userLookupService.getUsername(reactorId)
+        val tokens = getTokensForUser(receiverId)
+
+        if (tokens.isEmpty()) {
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val encodedContent = CryptoUtil.encrypt(reactionContent, jwtService.getEncryptionKey())
+                val notification = NotificationResponse.MessageNotificationResponse(
+                    msgId = msgId,
+                    senderName = reactorName,
+                    messageType = messageType,
+                    groupMessage = groupMessage,
+                    groupName = groupName ?: "",
+                    encodedContent = encodedContent,
+                    reaction = true,
+                )
+                sendNotificationToUser(receiverId, notification)
+            } catch (e: Exception) {
+                AppLogger.error("Error in APNs reaction notification coroutine: ${e.message}")
+                e.printStackTrace()
+                loggingService.log(
+                    userId = receiverId,
+                    logType = LogType.EXCEPTION_THROWN,
+                    message = "APNs reaction notification error: ${e.message}"
+                )
+            }
+        }
+    }
+
+
     fun sendFriendRequestNotificationToUser(
         senderId: ObjectId,
         receivingUserId: ObjectId,
@@ -286,7 +328,9 @@ class ApnsService(
         }
         val fallbackBody = when (notification) {
             is NotificationResponse.MessageNotificationResponse ->
-                if (notification.groupMessage)
+                if (notification.reaction)
+                    "${notification.senderName} reacted to your message"
+                else if (notification.groupMessage)
                     "New message in ${notification.groupName.ifEmpty { notification.senderName }}"
                 else
                     "New message from ${notification.senderName}"

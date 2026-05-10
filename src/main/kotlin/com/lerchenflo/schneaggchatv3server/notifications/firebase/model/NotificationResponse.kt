@@ -24,7 +24,8 @@ sealed interface NotificationResponse {
         val groupMessage: Boolean,
         val messageType: MessageType,
         val groupName: String,
-        val encodedContent: String
+        val encodedContent: String,
+        val reaction: Boolean = false
     ) : NotificationResponse
 
     //Response for a friend request notification
