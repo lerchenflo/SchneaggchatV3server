@@ -36,12 +36,18 @@ class RateLimitFilter(
         val ip = clientIpResolver.resolve(request)
         val userId = SecurityContextHolder.getContext().authentication?.principal as? String
 
-        try {
-            if (request.servletPath.startsWith(properties.authPathPrefix)) {
+        if (request.servletPath.startsWith(properties.authPathPrefix)) {
+            try {
                 val probe = rateLimitService.tryConsume("rl:auth-ip:$ip", RateLimitTier.AUTH)
                 if (!probe.isConsumed) { deny(response, probe.nanosToWaitForRefill); return }
+            } catch (e: Exception) {
+                log.warn("Rate limiter unavailable on auth path, failing closed: ${e.message}")
+                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE)
+                return
             }
+        }
 
+        try {
             val ipProbe = rateLimitService.tryConsume("rl:ip:$ip", RateLimitTier.IP)
             if (!ipProbe.isConsumed) { deny(response, ipProbe.nanosToWaitForRefill); return }
 
