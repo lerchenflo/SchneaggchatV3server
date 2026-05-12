@@ -1,8 +1,10 @@
 package com.lerchenflo.schneaggchatv3server.authentication
 
+import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.ClientIpResolver
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
+import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
@@ -13,7 +15,6 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
-import org.springframework.web.server.ResponseStatusException
 import java.util.Locale.getDefault
 
 //https://schneaggchatv3.eu/auth
@@ -23,8 +24,8 @@ import java.util.Locale.getDefault
 class AuthController(
     private val authService: AuthService,
     private val emailService: EmailService,
-
     private val userLookupService: UserLookupService,
+    private val clientIpResolver: ClientIpResolver,
 ) {
 
     data class LoginRequest(
@@ -87,10 +88,14 @@ class AuthController(
 
     @PostMapping("/login")
     fun login(
-        @Valid @RequestBody loginRequest: LoginRequest
+        @Valid @RequestBody loginRequest: LoginRequest,
+        request: HttpServletRequest
     ): AuthService.TokenPair {
         require(ValidationUtils.validateLoginInput(loginRequest.username)) { "Invalid username" }
         require(ValidationUtils.validateLoginInput(loginRequest.password)) { "Invalid password" }
+
+        val ip = clientIpResolver.resolve(request)
+        AppLogger.info("Login attempt: username=${loginRequest.username.trim().lowercase(getDefault())} ip=$ip")
 
         return authService.login(
             username = loginRequest.username.trim().lowercase(getDefault()),

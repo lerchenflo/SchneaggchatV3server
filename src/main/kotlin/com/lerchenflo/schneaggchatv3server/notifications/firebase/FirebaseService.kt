@@ -124,7 +124,7 @@ class FirebaseService(
         val tokens = getTokensForUser(receiverId)
 
         if (tokens.isEmpty()) {
-            AppLogger.debug("Firebase: no tokens for user ${userLookupService.getUsername(receiverId)} found")
+            //AppLogger.debug("Firebase: no tokens for user ${userLookupService.getUsername(receiverId)} found")
             return
         }
 
@@ -158,6 +158,52 @@ class FirebaseService(
     }
 
 
+    fun sendReactionNotificationToUser(
+        reactorId: ObjectId,
+        receiverId: ObjectId,
+        reactionContent: String,
+        msgId: String,
+        groupMessage: Boolean,
+        messageType: MessageType,
+        groupName: String? = null
+    ) {
+        val reactorName = userLookupService.getUsername(reactorId)
+
+        val tokens = getTokensForUser(receiverId)
+
+        if (tokens.isEmpty()) {
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val encodedContent = CryptoUtil.encrypt(reactionContent, jwtService.getEncryptionKey())
+
+                val notification = NotificationResponse.MessageNotificationResponse(
+                    msgId = msgId,
+                    senderName = reactorName,
+                    messageType = messageType,
+                    groupMessage = groupMessage,
+                    groupName = groupName ?: "",
+                    encodedContent = encodedContent,
+                    reaction = true,
+                )
+
+                sendNotificationToUser(receiverId, notification)
+
+            } catch (e: Exception) {
+                AppLogger.error("Error in Firebase reaction notification coroutine: ${e.message}")
+                e.printStackTrace()
+                loggingService.log(
+                    userId = receiverId,
+                    logType = LogType.EXCEPTION_THROWN,
+                    message = "Firebase reaction notification error: ${e.message}"
+                )
+            }
+        }
+    }
+
+
     fun sendFriendRequestNotificationToUser(
         senderId: ObjectId,
         receivingUserId: ObjectId,
@@ -168,7 +214,7 @@ class FirebaseService(
         val tokens = getTokensForUser(receivingUserId)
 
         if (tokens.isEmpty()) {
-            AppLogger.debug("Firebase: no tokens for user ${userLookupService.getUsername(receivingUserId)} found")
+            //AppLogger.debug("Firebase: no tokens for user ${userLookupService.getUsername(receivingUserId)} found")
             return
         }
 
@@ -203,7 +249,7 @@ class FirebaseService(
     fun sendNotificationToUser(userId: ObjectId, notification: NotificationResponse) {
         val tokens = getTokensForUser(userId)
         if (tokens.isEmpty()) {
-            AppLogger.debug("Firebase: no tokens for user ${userLookupService.getUsername(userId)} found")
+            //AppLogger.debug("Firebase: no tokens for user ${userLookupService.getUsername(userId)} found")
             return
         }
 

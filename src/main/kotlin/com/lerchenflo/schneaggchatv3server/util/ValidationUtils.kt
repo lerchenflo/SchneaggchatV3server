@@ -150,6 +150,11 @@ object ValidationUtils {
         return true
     }
 
+    fun validateReactionContent(content: String): Boolean {
+        if (content.isEmpty() || content.length > 10) return false
+        return true
+    }
+
     fun validatePollVoteText(text: String): Boolean {
         if (text.isBlank()) return false
         if (text.length > 250) return false

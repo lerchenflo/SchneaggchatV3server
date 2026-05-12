@@ -354,6 +354,62 @@ class MessageService(
     }
 
 
+    fun reactToMessage(messageId: ObjectId, reactingUserId: ObjectId, content: String): MessageResponse {
+        return withOptimisticRetry {
+            require(ValidationUtils.validateReactionContent(content)) { "Invalid reaction content" }
+
+            val message = canUserAccessMessage(messageId, reactingUserId)
+            require(!message.deleted) { "Cannot react to deleted message" }
+
+            val existing = message.reactions.firstOrNull {
+                it.userId == reactingUserId && it.content == content
+            }
+
+            val isAdd = existing == null
+
+            val newReactions = if (existing != null) {
+                message.reactions - existing
+            } else {
+                message.reactions + Reaction(userId = reactingUserId, content = content)
+            }
+
+            val now = Clock.System.now()
+
+            val query = Query(
+                Criteria.where("_id").`is`(message.id)
+                    .and("lastChanged.epochSeconds").`is`(message.lastChanged.epochSeconds)
+                    .and("lastChanged.nanosecondsOfSecond").`is`(message.lastChanged.nanosecondsOfSecond)
+            )
+            val update = Update()
+                .set("lastChanged", now)
+                .set("reactions", newReactions)
+
+            val savedMessage = mongoTemplate.findAndModify(
+                query,
+                update,
+                FindAndModifyOptions.options().returnNew(true),
+                Message::class.java
+            ) ?: throw OptimisticLockingFailureException("Message was modified by another request")
+
+            notificationService.notifyMessageUpdate(
+                message = savedMessage,
+                newMessage = false,
+                deleted = false,
+                changingUserId = reactingUserId
+            )
+
+            if (isAdd) {
+                notificationService.notifyReactionAdded(
+                    message = savedMessage,
+                    reactorId = reactingUserId,
+                    reactionContent = content,
+                )
+            }
+
+            savedMessage.toMessageResponse(reactingUserId)
+        }
+    }
+
     fun getImageMessage(messageId: ObjectId, requestingUserId: ObjectId) : ByteArray {
         val message = canUserAccessMessage(messageId, requestingUserId)
 
