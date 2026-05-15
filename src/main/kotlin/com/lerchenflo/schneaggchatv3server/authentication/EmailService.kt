@@ -1,13 +1,13 @@
 package com.lerchenflo.schneaggchatv3server.authentication
 
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
-import com.lerchenflo.schneaggchatv3server.repository.GroupMemberRepository
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import org.bson.types.ObjectId
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.mail.SimpleMailMessage
 import org.springframework.mail.javamail.JavaMailSender
@@ -27,7 +27,14 @@ class EmailService(
     private val mailSender: JavaMailSender,
     private val loggingService: LoggingService,
     private val refreshTokenRepository: RefreshTokenRepository,
-) {
+
+    @Value("\${apns.debug}") private val apnsDebug: Boolean
+    ) {
+
+    private val baseUrl get() = if (apnsDebug)
+        "https://schneaggchatv3test.lerchenflo.eu"
+    else
+        "https://schneaggchatv3.lerchenflo.eu"
 
 
     /**
@@ -48,7 +55,7 @@ class EmailService(
         }
 
         val token = jwtService.generateEmailToken(userId.toHexString(), user.email)
-        val verificationUrl = "https://schneaggchatv3.lerchenflo.eu/auth/verify_email?token=$token"
+        val verificationUrl = "$baseUrl/auth/verify_email?token=$token"
 
         val mail = SimpleMailMessage()
         mail.setTo(user.email)
@@ -93,7 +100,7 @@ class EmailService(
         }
 
         val token = jwtService.generateDelAccEmailToken(userId.toHexString(), email)
-        val verificationUrl = "https://schneaggchatv3.lerchenflo.eu/auth/delete_account?token=$token"
+        val verificationUrl = "$baseUrl/auth/delete_account?token=$token"
 
         val mail = SimpleMailMessage()
         mail.setTo(email)
@@ -156,7 +163,7 @@ class EmailService(
         }
 
         val token = jwtService.generatePasswordResetToken(userId.toHexString(), email)
-        val resetUrl = "https://schneaggchatv3.lerchenflo.eu/auth/reset_password?token=$token"
+        val resetUrl = "$baseUrl/auth/reset_password?token=$token"
 
         val mail = SimpleMailMessage()
         mail.setTo(email)
