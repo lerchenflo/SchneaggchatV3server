@@ -17,5 +17,6 @@ data class ApnsToken(
 
     @Indexed
     val userId: ObjectId,
+    @Indexed
     val token: String,
 )
