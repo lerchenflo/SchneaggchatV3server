@@ -17,5 +17,6 @@ data class FirebaseToken(
 
     @Indexed
     val userId: ObjectId,
+    @Indexed
     val token: String,
 )

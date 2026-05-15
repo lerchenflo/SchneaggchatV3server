@@ -12,7 +12,6 @@ import kotlin.time.Instant
 data class Message(
     val id: ObjectId = ObjectId.get(),
 
-
     @Indexed
     val senderId: ObjectId,
     @Indexed
@@ -24,11 +23,9 @@ data class Message(
     val content: String,
     val poll: PollMessage? = null,
 
-
     val sendDate: Instant,
     val lastChanged: Instant,
 
-    @Indexed
     val deleted: Boolean,
 
     val edited: Boolean = false,
@@ -39,7 +36,6 @@ data class Message(
 )
 
 data class Reader(
-    @Indexed
     val userId: ObjectId,
     val readAt: Instant
 )

@@ -4,6 +4,7 @@ package com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel
 
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
+import org.springframework.data.mongodb.core.index.CompoundIndex
 import org.springframework.data.mongodb.core.index.Indexed
 import org.springframework.data.mongodb.core.mapping.Document
 import kotlin.time.Clock
@@ -11,6 +12,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @Document("friendship_settings")
+@CompoundIndex(name = "friendshipId_userId_unique_idx", def = "{'friendshipId': 1, 'userId': 1}", unique = true)
 data class FriendshipSetting(
     @Id val id: ObjectId = ObjectId.get(),
 
