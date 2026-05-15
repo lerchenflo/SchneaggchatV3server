@@ -4,6 +4,7 @@ import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import org.bson.types.ObjectId
@@ -73,16 +74,29 @@ class EmailService(
      * Client pressed on the link, verify
      */
     fun verifyEmailRequest(token: String) : Boolean {
-        val (email, userId) = jwtService.validateEmailToken(token) ?: return false
+        val tokenData = jwtService.validateEmailToken(token)
+        if (tokenData == null) {
+            AppLogger.warn("Email verification failed: invalid or expired token")
+            return false
+        }
+        val (email, userId) = tokenData
 
-        val user = userLookupService.findByEmail(email) ?: return false
+        val user = userLookupService.findByEmail(email)
+        if (user == null) {
+            AppLogger.warn("Email verification failed: no user found for email $email (userId=$userId)")
+            return false
+        }
 
-        if (user.id != userId) return false
+        if (user.id != userId) {
+            AppLogger.warn("Email verification failed: token userId $userId does not match user ${user.id} for email $email")
+            return false
+        }
 
         userLookupService.save(user.copy(
             emailVerifiedAt = Clock.System.now(),
             updatedAt = Clock.System.now(),
         ))
+        AppLogger.info("Email verified successfully for user ${user.id} (${user.email})")
         return true
     }
 
