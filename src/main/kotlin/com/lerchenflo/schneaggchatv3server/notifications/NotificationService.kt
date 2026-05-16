@@ -134,6 +134,27 @@ class NotificationService(
 
     @OptIn(ExperimentalTime::class)
     fun notifyUserUpdate(user: User, deleted: Boolean) {
+        // Notify the user themselves
+        socketConnectionHandler.sendMessage(
+            SocketConnectionMessage.UserChange(
+                user = UserResponse.SelfUserResponse(
+                    id = user.id.toHexString(),
+                    username = user.username,
+                    updatedAt = user.updatedAt.toEpochMilliseconds(),
+                    profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
+                    birthDate = user.birthDate,
+                    userDescription = user.userDescription,
+                    userStatus = user.userStatus,
+                    email = user.email,
+                    emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
+                    createdAt = user.createdAt.toEpochMilliseconds(),
+                ),
+                deleted = deleted
+            ),
+            receiverId = user.id
+        )
+
+        // Notify friends
         friendsLookupService.getFriendsForUserUpdate(user.id).forEach { (friendId, requesterId, nickName) ->
             socketConnectionHandler.sendMessage(
                 SocketConnectionMessage.UserChange(
