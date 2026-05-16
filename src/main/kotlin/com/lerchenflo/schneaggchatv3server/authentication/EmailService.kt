@@ -1,13 +1,15 @@
 package com.lerchenflo.schneaggchatv3server.authentication
 
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
-import com.lerchenflo.schneaggchatv3server.repository.GroupMemberRepository
+import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import org.bson.types.ObjectId
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.mail.SimpleMailMessage
 import org.springframework.mail.javamail.JavaMailSender
@@ -26,8 +28,16 @@ class EmailService(
     private val userLookupService: UserLookupService,
     private val mailSender: JavaMailSender,
     private val loggingService: LoggingService,
+    private val notificationService: NotificationService,
     private val refreshTokenRepository: RefreshTokenRepository,
-) {
+
+    @Value("\${apns.debug}") private val apnsDebug: Boolean
+    ) {
+
+    private val baseUrl get() = if (apnsDebug)
+        "https://schneaggchatv3test.lerchenflo.eu"
+    else
+        "https://schneaggchatv3.lerchenflo.eu"
 
 
     /**
@@ -41,14 +51,14 @@ class EmailService(
             return //Email already verified
         }
 
-        val lastemailsenttimestamp = getLastEmailTimestamp(userId, LogType.EMAIL_VERIFICATION_EMAIL_SENT)
-        if (lastemailsenttimestamp != null &&
-            (lastemailsenttimestamp.plus(Duration.parse("5m")) > Clock.System.now())) {
+        val lastLog = loggingService.getLastLogByLogtype(logType = LogType.EMAIL_VERIFICATION_EMAIL_SENT, userId = userId)
+        val emailChanged = lastLog?.message != user.email
+        if (!emailChanged && (lastLog.timestamp.plus(Duration.parse("5m")) > Clock.System.now())) {
             throw ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "You need to wait 5 minutes before sending the next mail")
         }
 
         val token = jwtService.generateEmailToken(userId.toHexString(), user.email)
-        val verificationUrl = "https://schneaggchatv3.lerchenflo.eu/auth/verify_email?token=$token"
+        val verificationUrl = "$baseUrl/auth/verify_email?token=$token"
 
         val mail = SimpleMailMessage()
         mail.setTo(user.email)
@@ -56,7 +66,7 @@ class EmailService(
         mail.text = "Click here to validate your email:\n$verificationUrl"
         try {
             mailSender.send(mail)
-            loggingService.log(userId, LogType.EMAIL_VERIFICATION_EMAIL_SENT)
+            loggingService.log(userId, LogType.EMAIL_VERIFICATION_EMAIL_SENT, user.email)
         } catch (e: Exception) {
             println("Mail not sent, error")
         }
@@ -66,16 +76,33 @@ class EmailService(
      * Client pressed on the link, verify
      */
     fun verifyEmailRequest(token: String) : Boolean {
-        val (email, userId) = jwtService.validateEmailToken(token) ?: return false
+        val tokenData = jwtService.validateEmailToken(token)
+        if (tokenData == null) {
+            AppLogger.warn("Email verification failed: invalid or expired token")
+            return false
+        }
+        val (email, userId) = tokenData
 
-        val user = userLookupService.findByEmail(email) ?: return false
+        val user = userLookupService.findByEmail(email)
+        if (user == null) {
+            AppLogger.warn("Email verification failed: no user found for email $email (userId=$userId)")
+            return false
+        }
 
-        if (user.id != userId) return false
+        if (user.id != userId) {
+            AppLogger.warn("Email verification failed: token userId $userId does not match user ${user.id} for email $email")
+            return false
+        }
 
-        userLookupService.save(user.copy(
-            emailVerifiedAt = Clock.System.now(),
-            updatedAt = Clock.System.now(),
-        ))
+        val now = Clock.System.now()
+
+        val updatedUser = user.copy(
+            emailVerifiedAt = now,
+            updatedAt = now,
+        )
+        userLookupService.save(updatedUser)
+        notificationService.notifyUserUpdate(updatedUser, deleted = false)
+        AppLogger.info("Email verified successfully for user ${user.username}: (${user.email})")
         return true
     }
 
@@ -93,7 +120,7 @@ class EmailService(
         }
 
         val token = jwtService.generateDelAccEmailToken(userId.toHexString(), email)
-        val verificationUrl = "https://schneaggchatv3.lerchenflo.eu/auth/delete_account?token=$token"
+        val verificationUrl = "$baseUrl/auth/delete_account?token=$token"
 
         val mail = SimpleMailMessage()
         mail.setTo(email)
@@ -128,10 +155,9 @@ class EmailService(
         val user = userLookupService.findByEmail(email) ?: return false
         if (user.id != userId) return false
         
-        // Delete the user
         userService.deleteAccount(user.id)
         println("Account with name ${user.username} has been deleted")
-        
+
         return true
     }
 
@@ -156,7 +182,7 @@ class EmailService(
         }
 
         val token = jwtService.generatePasswordResetToken(userId.toHexString(), email)
-        val resetUrl = "https://schneaggchatv3.lerchenflo.eu/auth/reset_password?token=$token"
+        val resetUrl = "$baseUrl/auth/reset_password?token=$token"
 
         val mail = SimpleMailMessage()
         mail.setTo(email)

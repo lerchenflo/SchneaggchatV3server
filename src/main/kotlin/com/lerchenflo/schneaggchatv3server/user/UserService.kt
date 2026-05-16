@@ -15,6 +15,7 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.constraints.NotBlank
@@ -25,6 +26,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
+import java.util.Locale
 import java.util.Locale.getDefault
 import kotlin.time.Clock
 
@@ -201,12 +203,12 @@ class UserService(
 
         val user = userRepository.findById(ObjectId(requestingUserId)).get()
 
-        userRepository.save(user.copy(
+        val updatedUser = user.copy(
             username = normalizedNewName,
             updatedAt = Clock.System.now()
-        ))
-
-        //TODO: User sync for connected friends??
+        )
+        userRepository.save(updatedUser)
+        notificationService.notifyUserUpdate(updatedUser, deleted = false)
     }
 
     fun changeProfilepic(requestingUserId: String, newPic: MultipartFile){
@@ -222,13 +224,12 @@ class UserService(
 
         val currenttime = Clock.System.now()
 
-        userRepository.save(user.copy(
+        val updatedUser = user.copy(
             updatedAt = currenttime,
             profilePicUpdatedAt = currenttime
-        ))
-
-        //TODO: User sync for connected friends??
-
+        )
+        userRepository.save(updatedUser)
+        notificationService.notifyUserUpdate(updatedUser, deleted = false)
     }
 
     fun changeUserProfile(
@@ -247,7 +248,7 @@ class UserService(
         //Change something about yourself (Status, email, birthdate)
         if (changingUserId == userRequest.userId) {
 
-            val emailvalid = user.emailVerifiedAt != null && userRequest.newEmail != null
+            val emailvalid = /* user.emailVerifiedAt != null && */ userRequest.newEmail != null
 
             //TODO: Send email to the old verified email address
             val somethingChanged = userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null
@@ -258,19 +259,24 @@ class UserService(
 
             if (userRequest.newEmail != null) {
                 require(ValidationUtils.validateEmail(userRequest.newEmail)) { "New email is invalid" }
+                AppLogger.info("Setting new Email for ${user.username}: ${userRequest.newEmail}")
             }
 
             if (userRequest.newBirthDate != null) {
                 require(ValidationUtils.validateBirthdate(userRequest.newBirthDate)) { "New birthdate is invalid" }
             }
 
-            //TODO: Save email to lowercase and trimmed
-            userLookupService.save(requestingUser.copy(
+            val updatedSelf = requestingUser.copy(
                 updatedAt = if (somethingChanged) timeStamp else requestingUser.updatedAt,
                 userStatus = userRequest.newStatus ?: requestingUser.userStatus,
                 birthDate = userRequest.newBirthDate ?: requestingUser.birthDate,
-            ))
+                email = userRequest.newEmail?.lowercase(getDefault())?.trim() ?: requestingUser.email,
+            )
+            userLookupService.save(updatedSelf)
 
+            if (somethingChanged) {
+                notificationService.notifyUserUpdate(updatedSelf, deleted = false)
+            }
         } else {
             //Change something about another user
 
@@ -309,17 +315,15 @@ class UserService(
                 }
             }
 
-            //save the updated user
-            userLookupService.save(user.copy(
+            val updatedUser = user.copy(
                 updatedAt = if (somethingChanged) timeStamp else user.updatedAt,
                 userDescription = userRequest.newDescription ?: user.userDescription
-            ))
-
-
+            )
+            userLookupService.save(updatedUser)
+            if (somethingChanged) {
+                notificationService.notifyUserUpdate(updatedUser, deleted = false)
+            }
         }
-
-        //TODO: Add user changing + user update notify (Which users??)
-        //notificationService.notifyUserUpdate()
     }
 
 
@@ -427,7 +431,10 @@ class UserService(
      * Function to delete a user account with all messages etc
      */
     fun deleteAccount(userId: ObjectId) {
+        val user = userLookupService.findByObjectId(userId) ?: return
 
+        // Notify friends before deleting friendships (list would be empty after)
+        notificationService.notifyUserUpdate(user, deleted = true)
 
         //Remove all refreshtokens
         refreshTokenRepository.deleteByUserId(userId)
@@ -449,9 +456,6 @@ class UserService(
 
         //delete user
         userLookupService.deleteUser(userId)
-
-
-        //TODO: SYNC Users for all connected devices
     }
 
 
