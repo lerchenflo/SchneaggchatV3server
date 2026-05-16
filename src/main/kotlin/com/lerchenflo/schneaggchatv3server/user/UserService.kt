@@ -247,7 +247,7 @@ class UserService(
         //Change something about yourself (Status, email, birthdate)
         if (changingUserId == userRequest.userId) {
 
-            val emailvalid = user.emailVerifiedAt != null && userRequest.newEmail != null
+            val emailvalid = /* user.emailVerifiedAt != null && */ userRequest.newEmail != null
 
             //TODO: Send email to the old verified email address
             val somethingChanged = userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null
@@ -258,6 +258,7 @@ class UserService(
 
             if (userRequest.newEmail != null) {
                 require(ValidationUtils.validateEmail(userRequest.newEmail)) { "New email is invalid" }
+                println("Setting new Email for ${user.username}: ${userRequest.newEmail}")
             }
 
             if (userRequest.newBirthDate != null) {
