@@ -49,9 +49,9 @@ class EmailService(
             return //Email already verified
         }
 
-        val lastemailsenttimestamp = getLastEmailTimestamp(userId, LogType.EMAIL_VERIFICATION_EMAIL_SENT)
-        if (lastemailsenttimestamp != null &&
-            (lastemailsenttimestamp.plus(Duration.parse("5m")) > Clock.System.now())) {
+        val lastLog = loggingService.getLastLogByLogtype(logType = LogType.EMAIL_VERIFICATION_EMAIL_SENT, userId = userId)
+        val emailChanged = lastLog?.message != user.email
+        if (!emailChanged && (lastLog.timestamp.plus(Duration.parse("5m")) > Clock.System.now())) {
             throw ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "You need to wait 5 minutes before sending the next mail")
         }
 
@@ -64,7 +64,7 @@ class EmailService(
         mail.text = "Click here to validate your email:\n$verificationUrl"
         try {
             mailSender.send(mail)
-            loggingService.log(userId, LogType.EMAIL_VERIFICATION_EMAIL_SENT)
+            loggingService.log(userId, LogType.EMAIL_VERIFICATION_EMAIL_SENT, user.email)
         } catch (e: Exception) {
             println("Mail not sent, error")
         }

@@ -25,6 +25,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
+import java.util.Locale
 import java.util.Locale.getDefault
 import kotlin.time.Clock
 
@@ -264,11 +265,11 @@ class UserService(
                 require(ValidationUtils.validateBirthdate(userRequest.newBirthDate)) { "New birthdate is invalid" }
             }
 
-            //TODO: Save email to lowercase and trimmed
             userLookupService.save(requestingUser.copy(
                 updatedAt = if (somethingChanged) timeStamp else requestingUser.updatedAt,
                 userStatus = userRequest.newStatus ?: requestingUser.userStatus,
                 birthDate = userRequest.newBirthDate ?: requestingUser.birthDate,
+                email = userRequest.newEmail?.lowercase(getDefault())?.trim() ?: requestingUser.email,
             ))
 
         } else {
