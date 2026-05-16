@@ -102,7 +102,7 @@ class EmailService(
         )
         userLookupService.save(updatedUser)
         notificationService.notifyUserUpdate(updatedUser, deleted = false)
-        AppLogger.info("Email verified successfully for user ${user.id} (${user.email})")
+        AppLogger.info("Email verified successfully for user ${user.username}: (${user.email})")
         return true
     }
 
