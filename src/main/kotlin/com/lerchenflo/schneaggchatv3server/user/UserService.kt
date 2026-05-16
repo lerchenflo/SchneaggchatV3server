@@ -15,6 +15,7 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.constraints.NotBlank
@@ -258,7 +259,7 @@ class UserService(
 
             if (userRequest.newEmail != null) {
                 require(ValidationUtils.validateEmail(userRequest.newEmail)) { "New email is invalid" }
-                println("Setting new Email for ${user.username}: ${userRequest.newEmail}")
+                AppLogger.info("Setting new Email for ${user.username}: ${userRequest.newEmail}")
             }
 
             if (userRequest.newBirthDate != null) {
