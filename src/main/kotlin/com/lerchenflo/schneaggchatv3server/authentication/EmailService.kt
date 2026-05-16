@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.authentication
 
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
+import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
@@ -27,6 +28,7 @@ class EmailService(
     private val userLookupService: UserLookupService,
     private val mailSender: JavaMailSender,
     private val loggingService: LoggingService,
+    private val notificationService: NotificationService,
     private val refreshTokenRepository: RefreshTokenRepository,
 
     @Value("\${apns.debug}") private val apnsDebug: Boolean
@@ -92,10 +94,14 @@ class EmailService(
             return false
         }
 
-        userLookupService.save(user.copy(
-            emailVerifiedAt = Clock.System.now(),
-            updatedAt = Clock.System.now(),
-        ))
+        val now = Clock.System.now()
+
+        val updatedUser = user.copy(
+            emailVerifiedAt = now,
+            updatedAt = now,
+        )
+        userLookupService.save(updatedUser)
+        notificationService.notifyUserUpdate(updatedUser, deleted = false)
         AppLogger.info("Email verified successfully for user ${user.id} (${user.email})")
         return true
     }
@@ -149,10 +155,9 @@ class EmailService(
         val user = userLookupService.findByEmail(email) ?: return false
         if (user.id != userId) return false
         
-        // Delete the user
         userService.deleteAccount(user.id)
         println("Account with name ${user.username} has been deleted")
-        
+
         return true
     }
 

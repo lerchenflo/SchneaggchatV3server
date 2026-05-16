@@ -11,9 +11,12 @@ import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.Notifica
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.SocketConnectionHandler
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
+import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
+import kotlin.time.ExperimentalTime
 
 
 /**
@@ -28,7 +31,8 @@ class NotificationService(
     private val apnsService: ApnsService,
 
     private val userLookupService: UserLookupService,
-    private val groupLookupService: GroupLookupService
+    private val groupLookupService: GroupLookupService,
+    private val friendsLookupService: FriendsLookupService
 ) {
 
     
@@ -128,8 +132,27 @@ class NotificationService(
     }
 
 
+    @OptIn(ExperimentalTime::class)
     fun notifyUserUpdate(user: User, deleted: Boolean) {
-        //TODO
+        friendsLookupService.getFriendsForUserUpdate(user.id).forEach { (friendId, requesterId, nickName) ->
+            socketConnectionHandler.sendMessage(
+                SocketConnectionMessage.UserChange(
+                    user = UserResponse.FriendUserResponse(
+                        id = user.id.toHexString(),
+                        username = user.username,
+                        updatedAt = user.updatedAt.toEpochMilliseconds(),
+                        profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
+                        requesterId = requesterId.toHexString(),
+                        birthDate = user.birthDate,
+                        userDescription = user.userDescription,
+                        userStatus = user.userStatus,
+                        nickName = nickName
+                    ),
+                    deleted = deleted
+                ),
+                receiverId = friendId
+            )
+        }
     }
 
     fun notifyGroupUpdate(groupResponse: GroupResponse, deleted: Boolean) {

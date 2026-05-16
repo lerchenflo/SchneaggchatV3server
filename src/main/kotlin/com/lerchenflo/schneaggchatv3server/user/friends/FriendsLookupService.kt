@@ -23,6 +23,18 @@ class FriendsLookupService(
             .map { if (it.userId1 == userId) it.userId2 else it.userId1 }
     }
 
+    data class FriendWithNickname(val friendId: ObjectId, val requesterId: ObjectId, val nickName: String?)
+
+    fun getFriendsForUserUpdate(userId: ObjectId): List<FriendWithNickname> {
+        return friendshipRepository.findByUserId1OrUserId2(userId, userId)
+            .filter { it.status == FriendshipStatus.ACCEPTED }
+            .map { friendship ->
+                val friendId = if (friendship.userId1 == userId) friendship.userId2 else friendship.userId1
+                val setting = friendshipSettingsService.getFriendshipSetting(friendship.id, friendId)
+                FriendWithNickname(friendId, friendship.requesterId, setting?.nickName)
+            }
+    }
+
     data class UserInteraction(
         val userId: ObjectId,
         val status: FriendshipStatus,

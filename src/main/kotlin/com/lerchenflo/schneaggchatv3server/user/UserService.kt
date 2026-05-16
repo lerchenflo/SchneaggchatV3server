@@ -202,12 +202,12 @@ class UserService(
 
         val user = userRepository.findById(ObjectId(requestingUserId)).get()
 
-        userRepository.save(user.copy(
+        val updatedUser = user.copy(
             username = normalizedNewName,
             updatedAt = Clock.System.now()
-        ))
-
-        //TODO: User sync for connected friends??
+        )
+        userRepository.save(updatedUser)
+        notificationService.notifyUserUpdate(updatedUser, deleted = false)
     }
 
     fun changeProfilepic(requestingUserId: String, newPic: MultipartFile){
@@ -223,13 +223,12 @@ class UserService(
 
         val currenttime = Clock.System.now()
 
-        userRepository.save(user.copy(
+        val updatedUser = user.copy(
             updatedAt = currenttime,
             profilePicUpdatedAt = currenttime
-        ))
-
-        //TODO: User sync for connected friends??
-
+        )
+        userRepository.save(updatedUser)
+        notificationService.notifyUserUpdate(updatedUser, deleted = false)
     }
 
     fun changeUserProfile(
@@ -265,13 +264,17 @@ class UserService(
                 require(ValidationUtils.validateBirthdate(userRequest.newBirthDate)) { "New birthdate is invalid" }
             }
 
-            userLookupService.save(requestingUser.copy(
+            val updatedSelf = requestingUser.copy(
                 updatedAt = if (somethingChanged) timeStamp else requestingUser.updatedAt,
                 userStatus = userRequest.newStatus ?: requestingUser.userStatus,
                 birthDate = userRequest.newBirthDate ?: requestingUser.birthDate,
                 email = userRequest.newEmail?.lowercase(getDefault())?.trim() ?: requestingUser.email,
-            ))
+            )
+            userLookupService.save(updatedSelf)
 
+            if (somethingChanged) {
+                notificationService.notifyUserUpdate(updatedSelf, deleted = false)
+            }
         } else {
             //Change something about another user
 
@@ -310,17 +313,15 @@ class UserService(
                 }
             }
 
-            //save the updated user
-            userLookupService.save(user.copy(
+            val updatedUser = user.copy(
                 updatedAt = if (somethingChanged) timeStamp else user.updatedAt,
                 userDescription = userRequest.newDescription ?: user.userDescription
-            ))
-
-
+            )
+            userLookupService.save(updatedUser)
+            if (somethingChanged) {
+                notificationService.notifyUserUpdate(updatedUser, deleted = false)
+            }
         }
-
-        //TODO: Add user changing + user update notify (Which users??)
-        //notificationService.notifyUserUpdate()
     }
 
 
@@ -428,7 +429,10 @@ class UserService(
      * Function to delete a user account with all messages etc
      */
     fun deleteAccount(userId: ObjectId) {
+        val user = userLookupService.findByObjectId(userId) ?: return
 
+        // Notify friends before deleting friendships (list would be empty after)
+        notificationService.notifyUserUpdate(user, deleted = true)
 
         //Remove all refreshtokens
         refreshTokenRepository.deleteByUserId(userId)
@@ -450,9 +454,6 @@ class UserService(
 
         //delete user
         userLookupService.deleteUser(userId)
-
-
-        //TODO: SYNC Users for all connected devices
     }
 
 
