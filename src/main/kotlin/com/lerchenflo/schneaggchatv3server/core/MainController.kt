@@ -79,6 +79,8 @@ class MainController(
                     updatedAt = Clock.System.now()
                 )
             )
+            AppLogger.success("created default user \"$defaultUserUserName\" with password: $defaultPassword")
+
         }
 
     }
