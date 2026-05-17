@@ -56,16 +56,17 @@ class MainController(
     @EventListener(ApplicationReadyEvent::class)
     fun onStartup() {
 
-        migrateDBs()
+        //migrateDBs()
 
         //Code to execute on app start finished
         //listMongoIndexes()
-        printAllGroups()
+        //printAllGroups()
 
         //Create default Account for Google play / App Store
         val defaultUserUserName = "testaccount"
         val defaultUser = userLookupService.findByUsername(defaultUserUserName)
         if(defaultUser == null){
+            AppLogger.success("creating default user with password: $defaultUser")
             userLookupService.save(
                 User(
                     username = defaultUserUserName,
