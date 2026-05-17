@@ -66,7 +66,6 @@ class MainController(
         val defaultUserUserName = "testaccount"
         val defaultUser = userLookupService.findByUsername(defaultUserUserName)
         if(defaultUser == null){
-            AppLogger.success("creating default user with password: $defaultUser")
             userLookupService.save(
                 User(
                     username = defaultUserUserName,
@@ -79,6 +78,8 @@ class MainController(
                     updatedAt = Clock.System.now()
                 )
             )
+            AppLogger.success("created default user \"$defaultUserUserName\" with password: $defaultPassword")
+
         }
 
     }
