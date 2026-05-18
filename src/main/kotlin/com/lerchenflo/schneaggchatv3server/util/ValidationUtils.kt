@@ -150,6 +150,11 @@ object ValidationUtils {
         return true
     }
 
+    fun validateReactionContent(content: String): Boolean {
+        if (content.isEmpty() || content.length > 10) return false
+        return true
+    }
+
     fun validatePollVoteText(text: String): Boolean {
         if (text.isBlank()) return false
         if (text.length > 250) return false
@@ -235,5 +240,12 @@ object ValidationUtils {
         if (input.isBlank()) return false
         if (input.length > 500) return false
         return true
+    }
+
+    private val APNS_TOKEN_REGEX = "^[0-9a-fA-F]{64}$".toRegex()
+
+    fun validateNotificationToken(token: String, isAndroid: Boolean): Boolean {
+        return if (isAndroid) validateFirebaseToken(token)
+        else APNS_TOKEN_REGEX.matches(token)
     }
 }

@@ -77,6 +77,7 @@ class MainController(
                 birthDate = "2000-01-01",
                 createdAt = Clock.System.now(),
                 updatedAt = Clock.System.now(),
+                emailVerifiedAt = Clock.System.now()
             )
         )
     }

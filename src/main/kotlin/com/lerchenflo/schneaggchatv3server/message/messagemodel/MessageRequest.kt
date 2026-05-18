@@ -45,6 +45,16 @@ data class ImageMessageRequest(
     val answerId: String?
 )
 
+data class ReactionRequest(
+    @field:NotBlank(message = "Message ID must not be blank")
+    @field:Size(max = 24, message = "Message ID too long")
+    val messageId: String,
+
+    @field:NotBlank(message = "Reaction content must not be blank")
+    @field:Size(max = 10, message = "Reaction content too long (max 10)")
+    val content: String,
+)
+
 data class AudioMessageRequest(
     val messageId: String?, //Objectid
 

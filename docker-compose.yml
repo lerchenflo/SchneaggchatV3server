@@ -7,8 +7,8 @@ services:
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD}
     volumes:
       - ./mongodb_data:/data/db
     networks:
@@ -26,14 +26,29 @@ services:
     ports:
       - "8081:8081"
     environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
-      ME_CONFIG_MONGODB_ADMINPASSWORD: password
-      ME_CONFIG_MONGODB_URL: mongodb://admin:password@schneaggchat_db:27017/
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGODB_ROOT_USERNAME}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGODB_ROOT_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_ROOT_USERNAME}:${MONGODB_ROOT_PASSWORD}@schneaggchat_db:27017/
       ME_CONFIG_BASICAUTH: false
     depends_on:
       - schneaggchat_db
     networks:
       - spring-mongo-network
+
+  schneaggchat_redis:
+    image: redis:7-alpine
+    container_name: schneaggchat_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - spring-mongo-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   schneaggchatv3server:
     build:
@@ -42,25 +57,41 @@ services:
     #restart: unless-stopped
     depends_on:
       schneaggchat_db:
-        condition: service_healthy  # Wait for MongoDB to be healthy
+        condition: service_healthy
+      schneaggchat_redis:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATA_MONGODB_URI: mongodb://admin:password@schneaggchat_db:27017/db?authSource=admin
-      JWT_SECRET: "very_very_very_very_very_very_very_very_very_secret_key"
-      DEFAULTACCOUNT_PASSWORD: "defaultpassword_verYsEcret1!"
-      EMAIL: "testtest@gmail.com"
-      EMAIL_PASSWORD: "verysecret"
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGODB_ROOT_USERNAME}:${MONGODB_ROOT_PASSWORD}@schneaggchat_db:27017/db?authSource=admin
+      JWT_SECRET: ${JWT_SECRET}
+      DEFAULTACCOUNT_PASSWORD: ${DEFAULTACCOUNT_PASSWORD}
+      EMAIL: ${EMAIL}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+
+      APNS_TEAM_ID: ${APNS_TEAM_ID}
+      APNS_KEY_ID: ${APNS_KEY_ID}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID}
+      APNS_DEBUG: true
+
+      SPRING_DATA_REDIS_HOST: schneaggchat_redis
+      SPRING_DATA_REDIS_PORT: "6379"
+
     networks:
       - spring-mongo-network
     volumes:
-      - gradle-cache:/root/.gradle
-      - ./images:/app/images
-      - ./images_messages:/app/images_messages
+      - app-images-messages:/app/images_messages
+      - app-images:/app/images
+      - app-audio-messages:/app/audio_messages
+      - ./schneaggchatv3-firebase-admin.json:/app/schneaggchatv3-firebase-admin.json:ro
+      - ./ApnsAuthKey.p8:/app/ApnsAuthKey.p8:ro
 
 networks:
   spring-mongo-network:
     driver: bridge
 
 volumes:
-  gradle-cache:
+  app-images:
+  app-images-messages:
+  app-audio-messages:
+  redis-data:
