@@ -31,6 +31,18 @@ class SocketConnectionHandler(
         return connections.find { it.userId == userId } != null
     }
 
+    fun broadcast(message: SocketConnectionMessage, excludeUserId: ObjectId?) {
+        val json = Json.mapper.writeValueAsString(message)
+        for (connection in connections) {
+            if (excludeUserId != null && connection.userId == excludeUserId) continue
+            try {
+                connection.session.sendMessage(TextMessage(json))
+            } catch (e: Exception) {
+                AppLogger.error("Error broadcasting to user ${connection.userId}: ${e.message}")
+            }
+        }
+    }
+
     fun sendMessage(message: SocketConnectionMessage, receiverId: ObjectId) : Boolean {
         val userConnection = connections.find { it.userId == receiverId } ?: return false
 

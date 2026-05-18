@@ -6,6 +6,10 @@ import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.toMessageResponse
 import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.Subtype
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMapEntryResponse
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toSubtypeResponse
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.SocketConnectionHandler
@@ -236,6 +240,29 @@ class NotificationService(
             groupMessage = message.groupMessage,
             messageType = message.msgType,
             groupName = groupName,
+        )
+    }
+
+    @OptIn(ExperimentalTime::class)
+    fun notifyMapUpdate(entry: MapEntry, newEntry: Boolean, deleted: Boolean, changingUserId: ObjectId) {
+        socketConnectionHandler.broadcast(
+            SocketConnectionMessage.MapChange(
+                mapEntry = entry.toMapEntryResponse(),
+                newEntry = newEntry,
+                deleted = deleted,
+            ),
+            excludeUserId = changingUserId,
+        )
+    }
+
+    @OptIn(ExperimentalTime::class)
+    fun notifySubtypeCreated(subtype: Subtype, changingUserId: ObjectId) {
+        socketConnectionHandler.broadcast(
+            SocketConnectionMessage.SubtypeChange(
+                subtype = subtype.toSubtypeResponse(),
+                newSubtype = true,
+            ),
+            excludeUserId = changingUserId,
         )
     }
 

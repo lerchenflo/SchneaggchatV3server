@@ -10,6 +10,7 @@ import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.SchneaggmapService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
+import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import org.springframework.beans.factory.annotation.Value
@@ -35,19 +36,17 @@ class MainController(
     private val userLookupService: UserLookupService,
     private val groupLookupService: GroupLookupService,
 
+    private val userService: UserService,
+
     private val hashEncoder: HashEncoder,
     private val mongoTemplate: MongoTemplate,
     private val groupService: GroupService,
     private val groupRepository: GroupRepository,
 
-    private val userRepository: UserRepository,
 
     private val schneaggmapService: SchneaggmapService,
 
-
-    @Value("\${defaultaccount.password}") private val defaultPassword: String,
-
-){
+    ){
 
     @GetMapping("/public/test")
     fun test(): String {
@@ -57,7 +56,7 @@ class MainController(
     @EventListener(ApplicationReadyEvent::class)
     fun onStartup() {
         migrateDBs()
-        val testaccount = ensureTestaccount()
+        val testaccount = userService.ensureTestaccount()
         schneaggmapService.seedSubtypes(testaccount.id)
         schneaggmapService.importLegacyMapEntries(testaccount.id)
 
@@ -65,22 +64,6 @@ class MainController(
         printAllGroups()
     }
 
-    private fun ensureTestaccount(): User {
-        val username = "testaccount"
-        return userLookupService.findByUsername(username) ?: userLookupService.save(
-            User(
-                username = username,
-                hashedPassword = hashEncoder.encode(defaultPassword),
-                email = "defaultuser@schneaggchat.com",
-                userDescription = "",
-                userStatus = "Default Test Account for Google Play / App store",
-                birthDate = "2000-01-01",
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
-                emailVerifiedAt = Clock.System.now()
-            )
-        )
-    }
 
     fun listMongoIndexes() {
         val collections = mongoTemplate.db.listCollectionNames().toList()

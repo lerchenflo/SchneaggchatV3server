@@ -1,5 +1,15 @@
 package com.lerchenflo.schneaggchatv3server.schneaggmap.model
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonSubTypes(
+    JsonSubTypes.Type(value = AttributeDefinition.StringDef::class, name = "string"),
+    JsonSubTypes.Type(value = AttributeDefinition.IntDef::class, name = "int"),
+    JsonSubTypes.Type(value = AttributeDefinition.DoubleDef::class, name = "double"),
+    JsonSubTypes.Type(value = AttributeDefinition.BoolDef::class, name = "bool"),
+)
 sealed interface AttributeDefinition {
     val key: String
     val required: Boolean
