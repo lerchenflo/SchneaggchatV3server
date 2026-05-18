@@ -17,6 +17,13 @@ sealed interface AttributeDefinition {
         val max: Int? = null,
     ) : AttributeDefinition
 
+    data class DoubleDef(
+        override val key: String,
+        override val required: Boolean,
+        val min: Double? = null,
+        val max: Double? = null,
+    ) : AttributeDefinition
+
     data class BoolDef(
         override val key: String,
         override val required: Boolean,

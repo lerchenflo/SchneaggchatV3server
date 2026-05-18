@@ -14,7 +14,7 @@ data class Subtype(
     @Id val id: ObjectId = ObjectId(),
     @Indexed val mainTypeKey: String,
     val name: String,
-    val createdBy: ObjectId? = null,
+    val createdBy: ObjectId,
     val createdAt: Instant,
     val deleted: Boolean = false,
 )

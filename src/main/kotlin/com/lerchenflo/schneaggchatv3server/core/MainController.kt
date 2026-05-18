@@ -56,32 +56,29 @@ class MainController(
 
     @EventListener(ApplicationReadyEvent::class)
     fun onStartup() {
-
         migrateDBs()
-        schneaggmapService.seedSubtypes()
+        val testaccount = ensureTestaccount()
+        schneaggmapService.seedSubtypes(testaccount.id)
+        schneaggmapService.importLegacyMapEntries(testaccount.id)
 
-        //Code to execute on app start finished
         //listMongoIndexes()
         printAllGroups()
+    }
 
-        //Create default Account for Google play / App Store
-        val defaultUserUserName = "testaccount"
-        val defaultUser = userLookupService.findByUsername(defaultUserUserName)
-        if(defaultUser == null){
-            userLookupService.save(
-                User(
-                    username = defaultUserUserName,
-                    hashedPassword = hashEncoder.encode(defaultPassword),
-                    email = "defaultuser@schneaggchat.com",
-                    userDescription = "",
-                    userStatus = "Default Test Account for Google Play / App store",
-                    birthDate = "2000-01-01",
-                    createdAt = Clock.System.now(),
-                    updatedAt = Clock.System.now()
-                )
+    private fun ensureTestaccount(): User {
+        val username = "testaccount"
+        return userLookupService.findByUsername(username) ?: userLookupService.save(
+            User(
+                username = username,
+                hashedPassword = hashEncoder.encode(defaultPassword),
+                email = "defaultuser@schneaggchat.com",
+                userDescription = "",
+                userStatus = "Default Test Account for Google Play / App store",
+                birthDate = "2000-01-01",
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
             )
-        }
-
+        )
     }
 
     fun listMongoIndexes() {
