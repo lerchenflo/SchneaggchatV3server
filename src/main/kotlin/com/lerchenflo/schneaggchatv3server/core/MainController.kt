@@ -8,6 +8,7 @@ import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
+import com.lerchenflo.schneaggchatv3server.schneaggmap.SchneaggmapService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
@@ -41,8 +42,11 @@ class MainController(
 
     private val userRepository: UserRepository,
 
+    private val schneaggmapService: SchneaggmapService,
 
-    @Value("\${defaultaccount.password}") private val defaultPassword: String
+
+    @Value("\${defaultaccount.password}") private val defaultPassword: String,
+
 ){
 
     @GetMapping("/public/test")
@@ -52,36 +56,30 @@ class MainController(
 
     @EventListener(ApplicationReadyEvent::class)
     fun onStartup() {
+        migrateDBs()
+        val testaccount = ensureTestaccount()
+        schneaggmapService.seedSubtypes(testaccount.id)
+        schneaggmapService.importLegacyMapEntries(testaccount.id)
 
-        //migrateDBs()
-
-        //Code to execute on app start finished
         //listMongoIndexes()
-        //printAllGroups()
+        printAllGroups()
+    }
 
-        //Create default Account for Google play / App Store
-        val defaultUserUserName = "testaccount"
-        val defaultUser = userLookupService.findByUsername(defaultUserUserName)
-        if(defaultUser == null){
-
-            val now = Clock.System.now()
-            userLookupService.save(
-                User(
-                    username = defaultUserUserName,
-                    hashedPassword = hashEncoder.encode(defaultPassword),
-                    email = "defaultuser@schneaggchat.com",
-                    userDescription = "",
-                    userStatus = "Default Test Account for Google Play / App store",
-                    birthDate = "2000-01-01",
-                    createdAt = now,
-                    updatedAt = now,
-                    emailVerifiedAt = now //Instantly verify email to enable login for Apple / Google
-                )
+    private fun ensureTestaccount(): User {
+        val username = "testaccount"
+        return userLookupService.findByUsername(username) ?: userLookupService.save(
+            User(
+                username = username,
+                hashedPassword = hashEncoder.encode(defaultPassword),
+                email = "defaultuser@schneaggchat.com",
+                userDescription = "",
+                userStatus = "Default Test Account for Google Play / App store",
+                birthDate = "2000-01-01",
+                createdAt = Clock.System.now(),
+                updatedAt = Clock.System.now(),
+                emailVerifiedAt = Clock.System.now()
             )
-            AppLogger.success("created default user \"$defaultUserUserName\" with password: $defaultPassword")
-
-        }
-
+        )
     }
 
     fun listMongoIndexes() {
