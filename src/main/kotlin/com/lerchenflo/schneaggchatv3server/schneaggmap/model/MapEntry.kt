@@ -16,7 +16,7 @@ data class MapEntry(
     val subtypeIds: List<ObjectId>,
     val coordinates: LatLong,
     val description: String,
-    val attributes: Map<String, AttributeValue>,
+    val attributes: Map<String, AttributeValueDoc>,
     val createdBy: ObjectId,
     val createdAt: Instant,
     val lastChangedBy: ObjectId,
