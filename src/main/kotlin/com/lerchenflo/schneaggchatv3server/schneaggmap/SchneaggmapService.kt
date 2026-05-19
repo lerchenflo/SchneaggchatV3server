@@ -3,6 +3,7 @@
 package com.lerchenflo.schneaggchatv3server.schneaggmap
 
 import com.fasterxml.jackson.core.type.TypeReference
+import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryRepository
 import com.lerchenflo.schneaggchatv3server.repository.SubtypeRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeDefinition
@@ -10,10 +11,16 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeValue
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MainType
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntryResponse
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.Subtype
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.SubtypeResponse
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMapEntryResponse
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toSubtypeResponse
+import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
 import org.bson.types.ObjectId
+import org.springframework.context.annotation.Lazy
 import org.springframework.core.io.ClassPathResource
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -22,11 +29,26 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
+data class MapSyncResponse(
+    val updatedEntries: List<MapEntryResponse>,
+    val deletedEntries: List<String>,
+    val moreEntries: Boolean,
+)
+
+data class SubtypeSyncResponse(
+    val updatedSubtypes: List<SubtypeResponse>,
+    val deletedSubtypeIds: List<String>,
+    val moreSubtypes: Boolean,
+)
+
 @Service
 class SchneaggmapService(
     private val mapEntryRepository: MapEntryRepository,
     private val subtypeRepository: SubtypeRepository,
+    @Lazy private val notificationService: NotificationService,
 ) {
+
+    // ─── Validation ──────────────────────────────────────────────────────────
 
     fun validateAttributes(mainType: MainType, attrs: Map<String, AttributeValue>, subtypeNames: List<String> = emptyList()) {
         val defs = mainType.attributeDefinitions.associateBy { it.key }
@@ -50,49 +72,28 @@ class SchneaggmapService(
 
             when (def) {
                 is AttributeDefinition.StringDef -> {
-                    if (value !is AttributeValue.StringValue) {
+                    if (value !is AttributeValue.StringValue)
                         throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' must be a string")
-                    }
                     def.maxLength?.let { max ->
-                        if (value.value.length > max) {
+                        if (value.value.length > max)
                             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' exceeds max length $max")
-                        }
                     }
                 }
                 is AttributeDefinition.IntDef -> {
-                    if (value !is AttributeValue.IntValue) {
+                    if (value !is AttributeValue.IntValue)
                         throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' must be an int")
-                    }
-                    def.min?.let { min ->
-                        if (value.value < min) {
-                            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' is below minimum $min")
-                        }
-                    }
-                    def.max?.let { max ->
-                        if (value.value > max) {
-                            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' exceeds maximum $max")
-                        }
-                    }
+                    def.min?.let { if (value.value < it) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' is below minimum $it") }
+                    def.max?.let { if (value.value > it) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' exceeds maximum $it") }
                 }
                 is AttributeDefinition.DoubleDef -> {
-                    if (value !is AttributeValue.DoubleValue) {
+                    if (value !is AttributeValue.DoubleValue)
                         throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' must be a double")
-                    }
-                    def.min?.let { min ->
-                        if (value.value < min) {
-                            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' is below minimum $min")
-                        }
-                    }
-                    def.max?.let { max ->
-                        if (value.value > max) {
-                            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' exceeds maximum $max")
-                        }
-                    }
+                    def.min?.let { if (value.value < it) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' is below minimum $it") }
+                    def.max?.let { if (value.value > it) throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' exceeds maximum $it") }
                 }
                 is AttributeDefinition.BoolDef -> {
-                    if (value !is AttributeValue.BoolValue) {
+                    if (value !is AttributeValue.BoolValue)
                         throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Attribute '$key' must be a bool")
-                    }
                 }
             }
         }
@@ -105,14 +106,192 @@ class SchneaggmapService(
         for (id in subtypeIds) {
             val subtype = found[id]
                 ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Subtype not found: ${id.toHexString()}")
-            if (subtype.deleted) {
+            if (subtype.deleted)
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Subtype is deleted: ${id.toHexString()}")
-            }
-            if (subtype.mainTypeKey != mainTypeKey) {
+            if (subtype.mainTypeKey != mainTypeKey)
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Subtype '${subtype.name}' does not belong to main type '$mainTypeKey'")
-            }
         }
     }
+
+    private fun resolveSubtypeNames(subtypeIds: List<ObjectId>): List<String> {
+        if (subtypeIds.isEmpty()) return emptyList()
+        return subtypeRepository.findAllById(subtypeIds).map { it.name }
+    }
+
+    // ─── CRUD ─────────────────────────────────────────────────────────────────
+
+    fun createMapEntry(
+        mainTypeKey: String,
+        subtypeIdStrings: List<String>,
+        coordinates: LatLong,
+        description: String,
+        attributes: Map<String, AttributeValue>,
+        requesterId: ObjectId,
+    ): MapEntry {
+        val mainType = MainType.fromKey(mainTypeKey)
+            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown main type: $mainTypeKey")
+        val subtypeIds = subtypeIdStrings.map { ObjectId(it) }
+        validateSubtypes(mainTypeKey, subtypeIds)
+        val subtypeNames = resolveSubtypeNames(subtypeIds)
+        validateAttributes(mainType, attributes, subtypeNames)
+
+        val now = Clock.System.now()
+        val entry = mapEntryRepository.save(
+            MapEntry(
+                mainTypeKey = mainTypeKey,
+                subtypeIds = subtypeIds,
+                coordinates = coordinates,
+                description = description,
+                attributes = attributes,
+                createdBy = requesterId,
+                createdAt = now,
+                lastChangedBy = requesterId,
+                lastChangedAt = now,
+            )
+        )
+        notificationService.notifyMapUpdate(entry, newEntry = true, deleted = false, changingUserId = requesterId)
+        return entry
+    }
+
+    fun editMapEntry(
+        entryId: ObjectId,
+        subtypeIdStrings: List<String>,
+        coordinates: LatLong,
+        description: String,
+        attributes: Map<String, AttributeValue>,
+        requesterId: ObjectId,
+    ): MapEntry {
+        val existing = mapEntryRepository.findById(entryId).orElse(null)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Map entry not found")
+
+        val mainType = MainType.fromKey(existing.mainTypeKey)
+            ?: throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unknown main type in stored entry")
+        val subtypeIds = subtypeIdStrings.map { ObjectId(it) }
+        validateSubtypes(existing.mainTypeKey, subtypeIds)
+        val subtypeNames = resolveSubtypeNames(subtypeIds)
+        validateAttributes(mainType, attributes, subtypeNames)
+
+        val updated = existing.copy(
+            subtypeIds = subtypeIds,
+            coordinates = coordinates,
+            description = description,
+            attributes = attributes,
+            lastChangedBy = requesterId,
+            lastChangedAt = Clock.System.now(),
+        )
+        val saved = mapEntryRepository.save(updated)
+        notificationService.notifyMapUpdate(saved, newEntry = false, deleted = false, changingUserId = requesterId)
+        return saved
+    }
+
+    fun deleteMapEntry(entryId: ObjectId, requesterId: ObjectId) {
+        val existing = mapEntryRepository.findById(entryId).orElse(null)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Map entry not found")
+        val deleted = existing.copy(
+            deleted = true,
+            lastChangedBy = requesterId,
+            lastChangedAt = Clock.System.now(),
+        )
+        val saved = mapEntryRepository.save(deleted)
+        notificationService.notifyMapUpdate(saved, newEntry = false, deleted = true, changingUserId = requesterId)
+    }
+
+    fun mapSync(
+        clientEntries: List<UserService.IdTimeStamp>,
+        page: Int,
+        pageSize: Int,
+    ): MapSyncResponse {
+        val clientMap = clientEntries.associate { it.id to it.timeStamp }
+        val allEntries = mapEntryRepository.findAll()
+        val serverIds = allEntries.map { it.id.toHexString() }.toSet()
+
+        val toAdd = allEntries.filter { it.id.toHexString() !in clientMap }
+        val toUpdate = allEntries.filter { entry ->
+            clientMap[entry.id.toHexString()]?.toLongOrNull()?.let { clientTs ->
+                entry.lastChangedAt.toEpochMilliseconds() > clientTs
+            } ?: false
+        }
+
+        val allUpdated = (toAdd + toUpdate)
+            .sortedByDescending { it.lastChangedAt.toEpochMilliseconds() }
+
+        val start = page * pageSize
+        val paged = allUpdated.drop(start).take(pageSize).map { it.toMapEntryResponse() }
+        val moreEntries = (start + pageSize) < allUpdated.size
+
+        val deletedEntries = if (page == 0) clientMap.keys.filter { it !in serverIds } else emptyList()
+
+        return MapSyncResponse(
+            updatedEntries = paged,
+            deletedEntries = deletedEntries,
+            moreEntries = moreEntries,
+        )
+    }
+
+    // ─── Subtypes ─────────────────────────────────────────────────────────────
+
+    fun listSubtypes(mainTypeKey: String): List<SubtypeResponse> {
+        MainType.fromKey(mainTypeKey)
+            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown main type: $mainTypeKey")
+        return subtypeRepository.findByMainTypeKey(mainTypeKey)
+            .filter { !it.deleted }
+            .map { it.toSubtypeResponse() }
+    }
+
+    fun subtypeSync(
+        clientEntries: List<UserService.IdTimeStamp>,
+        page: Int,
+        pageSize: Int,
+    ): SubtypeSyncResponse {
+        val clientMap = clientEntries.associate { it.id to it.timeStamp }
+        val allSubtypes = subtypeRepository.findAll()
+        val serverIds = allSubtypes.map { it.id.toHexString() }.toSet()
+
+        val toAdd = allSubtypes.filter { it.id.toHexString() !in clientMap }
+        val toUpdate = allSubtypes.filter { subtype ->
+            clientMap[subtype.id.toHexString()]?.toLongOrNull()?.let { clientTs ->
+                subtype.lastChangedAt.toEpochMilliseconds() > clientTs
+            } ?: false
+        }
+
+        val allUpdated = (toAdd + toUpdate)
+            .sortedByDescending { it.lastChangedAt.toEpochMilliseconds() }
+
+        val start = page * pageSize
+        val paged = allUpdated.drop(start).take(pageSize).map { it.toSubtypeResponse() }
+        val moreSubtypes = (start + pageSize) < allUpdated.size
+
+        val deletedSubtypeIds = if (page == 0) clientMap.keys.filter { it !in serverIds } else emptyList()
+
+        return SubtypeSyncResponse(
+            updatedSubtypes = paged,
+            deletedSubtypeIds = deletedSubtypeIds,
+            moreSubtypes = moreSubtypes,
+        )
+    }
+
+    fun createSubtype(mainTypeKey: String, name: String, requesterId: ObjectId): SubtypeResponse {
+        MainType.fromKey(mainTypeKey)
+            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown main type: $mainTypeKey")
+        val existing = subtypeRepository.findByMainTypeKeyAndNameIgnoreCase(mainTypeKey, name)
+        if (existing != null && !existing.deleted)
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Subtype '$name' already exists for type '$mainTypeKey'")
+
+        val now = Clock.System.now()
+        val subtype = subtypeRepository.save(
+            Subtype(
+                mainTypeKey = mainTypeKey,
+                name = name,
+                createdBy = requesterId,
+                createdAt = now,
+                lastChangedAt = now,
+            )
+        )
+        notificationService.notifySubtypeCreated(subtype, changingUserId = requesterId)
+        return subtype.toSubtypeResponse()
+    }
+
+    // ─── Boot hooks ───────────────────────────────────────────────────────────
 
     fun seedSubtypes(creatorId: ObjectId) {
         val now = Clock.System.now()
@@ -148,15 +327,15 @@ class SchneaggmapService(
 
         val skippedCategories = setOf("Kraftraum", "Schaffa", "Schule")
         val nameMapping = mapOf(
-            "Radar"            to (MainType.STREET        to "RADAR"),
-            "Polizei"          to (MainType.STREET        to "POLIZEI"),
-            "Motorradstrecke"  to (MainType.STREET        to "MOTORRADSTRECKE"),
-            "Wheeliespot"      to (MainType.STREET        to "WHEELIESPOT"),
+            "Radar"             to (MainType.STREET        to "RADAR"),
+            "Polizei"           to (MainType.STREET        to "POLIZEI"),
+            "Motorradstrecke"   to (MainType.STREET        to "MOTORRADSTRECKE"),
+            "Wheeliespot"       to (MainType.STREET        to "WHEELIESPOT"),
             "Sehenswuerdigkeit" to (MainType.SIGHTSEEINGPLACE to "SEHENSWUERDIGKEIT"),
-            "Badespot"         to (MainType.SIGHTSEEINGPLACE to "BADESPOT"),
-            "Partylocation"    to (MainType.SIGHTSEEINGPLACE to "PARTYLOCATION"),
-            "Kebab"            to (MainType.FOODPLACE     to "KEBAB"),
-            "Essen"            to (MainType.FOODPLACE     to "ESSEN"),
+            "Badespot"          to (MainType.SIGHTSEEINGPLACE to "BADESPOT"),
+            "Partylocation"     to (MainType.SIGHTSEEINGPLACE to "PARTYLOCATION"),
+            "Kebab"             to (MainType.FOODPLACE     to "KEBAB"),
+            "Essen"             to (MainType.FOODPLACE     to "ESSEN"),
         )
 
         val speedRegex = Regex("""^(\d+)""")

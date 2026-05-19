@@ -22,6 +22,7 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
@@ -46,9 +47,34 @@ class UserService(
     private val hashEncoder: HashEncoder,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val imageManager: ImageManager,
-    private val notificationService: NotificationService
+    private val notificationService: NotificationService,
 
-) {
+    @Value("\${defaultaccount.password}") private val defaultPassword: String,
+
+    ) {
+
+    fun ensureTestaccount(): User {
+        val username = "testaccount"
+        return userLookupService.findByUsername(username) ?: run {
+
+            val now = Clock.System.now()
+            userLookupService.save(
+                User(
+                    username = username,
+                    hashedPassword = hashEncoder.encode(defaultPassword),
+                    email = "defaultuser@schneaggchat.com",
+                    userDescription = "",
+                    userStatus = "Default Test Account for Google Play / App store",
+                    birthDate = "2000-01-01",
+                    createdAt = now,
+                    updatedAt = now,
+                    emailVerifiedAt = now
+                )
+            )
+        }
+
+    }
+
 
 
     data class IdTimeStamp(
