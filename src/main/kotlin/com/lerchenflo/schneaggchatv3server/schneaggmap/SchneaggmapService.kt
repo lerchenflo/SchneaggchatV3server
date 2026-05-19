@@ -35,6 +35,12 @@ data class MapSyncResponse(
     val moreEntries: Boolean,
 )
 
+data class SubtypeSyncResponse(
+    val updatedSubtypes: List<SubtypeResponse>,
+    val deletedSubtypeIds: List<String>,
+    val moreSubtypes: Boolean,
+)
+
 @Service
 class SchneaggmapService(
     private val mapEntryRepository: MapEntryRepository,
@@ -232,6 +238,38 @@ class SchneaggmapService(
             .map { it.toSubtypeResponse() }
     }
 
+    fun subtypeSync(
+        clientEntries: List<UserService.IdTimeStamp>,
+        page: Int,
+        pageSize: Int,
+    ): SubtypeSyncResponse {
+        val clientMap = clientEntries.associate { it.id to it.timeStamp }
+        val allSubtypes = subtypeRepository.findAll()
+        val serverIds = allSubtypes.map { it.id.toHexString() }.toSet()
+
+        val toAdd = allSubtypes.filter { it.id.toHexString() !in clientMap }
+        val toUpdate = allSubtypes.filter { subtype ->
+            clientMap[subtype.id.toHexString()]?.toLongOrNull()?.let { clientTs ->
+                subtype.lastChangedAt.toEpochMilliseconds() > clientTs
+            } ?: false
+        }
+
+        val allUpdated = (toAdd + toUpdate)
+            .sortedByDescending { it.lastChangedAt.toEpochMilliseconds() }
+
+        val start = page * pageSize
+        val paged = allUpdated.drop(start).take(pageSize).map { it.toSubtypeResponse() }
+        val moreSubtypes = (start + pageSize) < allUpdated.size
+
+        val deletedSubtypeIds = if (page == 0) clientMap.keys.filter { it !in serverIds } else emptyList()
+
+        return SubtypeSyncResponse(
+            updatedSubtypes = paged,
+            deletedSubtypeIds = deletedSubtypeIds,
+            moreSubtypes = moreSubtypes,
+        )
+    }
+
     fun createSubtype(mainTypeKey: String, name: String, requesterId: ObjectId): SubtypeResponse {
         MainType.fromKey(mainTypeKey)
             ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown main type: $mainTypeKey")
@@ -239,12 +277,14 @@ class SchneaggmapService(
         if (existing != null && !existing.deleted)
             throw ResponseStatusException(HttpStatus.CONFLICT, "Subtype '$name' already exists for type '$mainTypeKey'")
 
+        val now = Clock.System.now()
         val subtype = subtypeRepository.save(
             Subtype(
                 mainTypeKey = mainTypeKey,
                 name = name,
                 createdBy = requesterId,
-                createdAt = Clock.System.now(),
+                createdAt = now,
+                lastChangedAt = now,
             )
         )
         notificationService.notifySubtypeCreated(subtype, changingUserId = requesterId)

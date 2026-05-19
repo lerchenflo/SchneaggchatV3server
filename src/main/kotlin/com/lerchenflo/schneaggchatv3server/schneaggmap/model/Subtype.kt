@@ -16,5 +16,6 @@ data class Subtype(
     val name: String,
     val createdBy: ObjectId,
     val createdAt: Instant,
+    val lastChangedAt: Instant = createdAt,
     val deleted: Boolean = false,
 )

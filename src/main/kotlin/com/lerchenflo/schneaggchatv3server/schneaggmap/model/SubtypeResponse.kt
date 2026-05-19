@@ -10,6 +10,7 @@ data class SubtypeResponse(
     val name: String,
     val createdBy: String,
     val createdAt: Long,
+    val lastChangedAt: Long,
     val deleted: Boolean,
 )
 
@@ -19,5 +20,6 @@ fun Subtype.toSubtypeResponse(): SubtypeResponse = SubtypeResponse(
     name = name,
     createdBy = createdBy.toHexString(),
     createdAt = createdAt.toEpochMilliseconds(),
+    lastChangedAt = lastChangedAt.toEpochMilliseconds(),
     deleted = deleted,
 )

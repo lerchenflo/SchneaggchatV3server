@@ -6,6 +6,7 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MainType
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MainTypeResponse
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntryResponse
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.SubtypeResponse
+import com.lerchenflo.schneaggchatv3server.schneaggmap.SubtypeSyncResponse
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMainTypeResponse
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMapEntryResponse
 import com.lerchenflo.schneaggchatv3server.user.UserService
@@ -127,6 +128,18 @@ class SchneaggmapController(
     fun createSubtype(@Valid @RequestBody request: SubtypeCreateRequest): SubtypeResponse {
         val requesterId = requesterId()
         return schneaggmapService.createSubtype(request.mainTypeKey, request.name, requesterId)
+    }
+
+    @PostMapping("/subtypes/sync")
+    fun syncSubtypes(
+        @RequestParam(value = "page", defaultValue = "0") page: Int,
+        @RequestParam(value = "page_size", defaultValue = "400") pageSize: Int,
+        @RequestBody clientEntries: List<UserService.IdTimeStamp>,
+    ): SubtypeSyncResponse {
+        require(ValidationUtils.validatePaginationPage(page)) { "Invalid page number" }
+        require(ValidationUtils.validatePaginationPageSize(pageSize)) { "Invalid page size" }
+        requesterId()
+        return schneaggmapService.subtypeSync(clientEntries, page, pageSize)
     }
 
     private fun requesterId(): ObjectId {
