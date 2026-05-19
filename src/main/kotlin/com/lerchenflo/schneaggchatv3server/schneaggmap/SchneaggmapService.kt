@@ -8,6 +8,8 @@ import com.lerchenflo.schneaggchatv3server.repository.MapEntryRepository
 import com.lerchenflo.schneaggchatv3server.repository.SubtypeRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeDefinition
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeValue
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeValueDoc
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toDoc
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MainType
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
@@ -142,7 +144,7 @@ class SchneaggmapService(
                 subtypeIds = subtypeIds,
                 coordinates = coordinates,
                 description = description,
-                attributes = attributes,
+                attributes = attributes.mapValues { it.value.toDoc() },
                 createdBy = requesterId,
                 createdAt = now,
                 lastChangedBy = requesterId,
@@ -175,7 +177,7 @@ class SchneaggmapService(
             subtypeIds = subtypeIds,
             coordinates = coordinates,
             description = description,
-            attributes = attributes,
+            attributes = attributes.mapValues { it.value.toDoc() },
             lastChangedBy = requesterId,
             lastChangedAt = Clock.System.now(),
         )
@@ -355,13 +357,13 @@ class SchneaggmapService(
             val lat = (entry["Latitude"] as? String)?.toDoubleOrNull() ?: continue
             val lng = (entry["Longitude"] as? String)?.toDoubleOrNull() ?: continue
 
-            val attributes: Map<String, AttributeValue>
+            val attributes: Map<String, AttributeValueDoc>
             val description: String
 
             if (mainType == MainType.STREET && subtypeName == "RADAR") {
                 val parsed = speedRegex.find(beschreibung)?.groupValues?.get(1)?.toIntOrNull()
                 if (parsed != null && parsed > 0) {
-                    attributes = mapOf("speedLimit" to AttributeValue.IntValue(parsed))
+                    attributes = mapOf("speedLimit" to AttributeValueDoc(type = "int", intValue = parsed))
                     description = ""
                 } else {
                     attributes = emptyMap()
