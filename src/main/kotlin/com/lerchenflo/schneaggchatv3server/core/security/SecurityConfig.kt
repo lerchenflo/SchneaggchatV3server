@@ -1,7 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.core.security
 
-import jakarta.servlet.DispatcherType
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitFilter
+import jakarta.servlet.DispatcherType
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpStatus

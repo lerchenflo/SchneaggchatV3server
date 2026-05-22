@@ -4,7 +4,6 @@ import org.bson.types.ObjectId
 import org.springframework.stereotype.Component
 import org.springframework.web.multipart.MultipartFile
 import java.io.File
-import javax.imageio.ImageIO
 
 @Component
 class AudioManager {

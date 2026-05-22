@@ -109,18 +109,13 @@ class AuthController(
         @Valid @RequestBody refreshRequest: RefreshRequest
     ): AuthService.TokenPair {
 
+        require(ValidationUtils.validateToken(refreshRequest.refreshToken)) { "Invalid refresh token" }
 
-        try {
-            require(ValidationUtils.validateToken(refreshRequest.refreshToken)) { "Invalid refresh token" }
+        val tokenPair = authService.refresh(
+            refreshRequest.refreshToken,
+        )
 
-            val tokenPair = authService.refresh(
-                refreshRequest.refreshToken,
-            )
-
-            return tokenPair
-        } catch (e: Exception) {
-            throw e
-        }
+        return tokenPair
     }
 
 
