@@ -78,7 +78,7 @@ class NotificationService(
                             messageContent = message.content,
                             msgId = message.id.toHexString(),
                             groupMessage = true,
-                            groupName = groupName
+                            groupName = groupName,
                         )
                         apnsService.sendNewMessageNotificationToUser(
                             senderId = message.senderId,
@@ -87,7 +87,7 @@ class NotificationService(
                             messageContent = message.content,
                             msgId = message.id.toHexString(),
                             groupMessage = true,
-                            groupName = groupName
+                            groupName = groupName,
                         )
                     }
                 }
@@ -115,7 +115,7 @@ class NotificationService(
                         messageContent = message.content,
                         msgId = message.id.toHexString(),
                         groupMessage = false,
-                        groupName = null
+                        groupName = null,
                     )
                     apnsService.sendNewMessageNotificationToUser(
                         senderId = message.senderId,
@@ -124,7 +124,7 @@ class NotificationService(
                         messageContent = message.content,
                         msgId = message.id.toHexString(),
                         groupMessage = false,
-                        groupName = null
+                        groupName = null,
                     )
                 }
 

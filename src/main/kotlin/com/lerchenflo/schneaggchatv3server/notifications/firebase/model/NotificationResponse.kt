@@ -25,6 +25,8 @@ sealed interface NotificationResponse {
         val messageType: MessageType,
         val groupName: String,
         val encodedContent: String,
+        val senderId: String,
+        val receiverId: String,
         val reaction: Boolean = false
     ) : NotificationResponse
 

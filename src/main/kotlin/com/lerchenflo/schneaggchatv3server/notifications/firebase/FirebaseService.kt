@@ -117,7 +117,7 @@ class FirebaseService(
         msgId: String,
         groupMessage: Boolean,
         messageType: MessageType,
-        groupName: String? = null
+        groupName: String? = null,
     ) {
         val senderName = userLookupService.getUsername(senderId)
 
@@ -140,6 +140,8 @@ class FirebaseService(
                     groupMessage = groupMessage,
                     groupName = groupName ?: "",
                     encodedContent = encodedContent,
+                    senderId = senderId.toHexString(),
+                    receiverId = receiverId.toHexString()
                 )
 
                 // Reuse the generic sender
@@ -165,7 +167,7 @@ class FirebaseService(
         msgId: String,
         groupMessage: Boolean,
         messageType: MessageType,
-        groupName: String? = null
+        groupName: String? = null,
     ) {
         val reactorName = userLookupService.getUsername(reactorId)
 
@@ -186,6 +188,8 @@ class FirebaseService(
                     groupMessage = groupMessage,
                     groupName = groupName ?: "",
                     encodedContent = encodedContent,
+                    senderId = reactorId.toHexString(),
+                    receiverId = receiverId.toHexString(),
                     reaction = true,
                 )
 
@@ -370,6 +374,7 @@ class FirebaseService(
                     .setPriority(AndroidConfig.Priority.HIGH) //for immediate delivery: https://firebase.google.com/docs/cloud-messaging/android-message-priority?hl=de
                     .build()
             )
+            //APNS CONFIG IS UNUSED, REPLACED BY APNS IMPLEMENTATION
             .setApnsConfig(
                 /*
                 Priority:
