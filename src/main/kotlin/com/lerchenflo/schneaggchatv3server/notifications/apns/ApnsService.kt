@@ -12,11 +12,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.apns.model.ApnsToken
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.repository.ApnsTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
-import com.lerchenflo.schneaggchatv3server.util.AppLogger
-import com.lerchenflo.schneaggchatv3server.util.CryptoUtil
-import com.lerchenflo.schneaggchatv3server.util.Json
-import com.lerchenflo.schneaggchatv3server.util.LogType
-import com.lerchenflo.schneaggchatv3server.util.LoggingService
+import com.lerchenflo.schneaggchatv3server.util.*
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -111,7 +107,7 @@ class ApnsService(
         msgId: String,
         groupMessage: Boolean,
         messageType: MessageType,
-        groupName: String? = null
+        groupName: String? = null,
     ) {
         val senderName = userLookupService.getUsername(senderId)
         val tokens = getTokensForUser(receiverId)
@@ -131,6 +127,8 @@ class ApnsService(
                     groupMessage = groupMessage,
                     groupName = groupName ?: "",
                     encodedContent = encodedContent,
+                    senderId = senderId.toHexString(),
+                    receiverId = receiverId.toHexString(),
                 )
                 sendNotificationToUser(receiverId, notification)
             } catch (e: Exception) {
@@ -153,7 +151,7 @@ class ApnsService(
         msgId: String,
         groupMessage: Boolean,
         messageType: MessageType,
-        groupName: String? = null
+        groupName: String? = null,
     ) {
         val reactorName = userLookupService.getUsername(reactorId)
         val tokens = getTokensForUser(receiverId)
@@ -172,6 +170,8 @@ class ApnsService(
                     groupMessage = groupMessage,
                     groupName = groupName ?: "",
                     encodedContent = encodedContent,
+                    senderId = reactorId.toHexString(),
+                    receiverId = receiverId.toHexString(),
                     reaction = true,
                 )
                 sendNotificationToUser(receiverId, notification)

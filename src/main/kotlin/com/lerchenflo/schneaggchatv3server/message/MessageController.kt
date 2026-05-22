@@ -1,29 +1,17 @@
 package com.lerchenflo.schneaggchatv3server.message
 
+import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
-import com.lerchenflo.schneaggchatv3server.message.messagemodel.AudioMessageRequest
-import com.lerchenflo.schneaggchatv3server.message.messagemodel.ImageMessageRequest
-import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageRequest
-import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageResponse
-import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
-import com.lerchenflo.schneaggchatv3server.message.messagemodel.PollMessageRequest
-import com.lerchenflo.schneaggchatv3server.message.messagemodel.PollVoteRequest
-import com.lerchenflo.schneaggchatv3server.message.messagemodel.toMessageResponse
-import com.lerchenflo.schneaggchatv3server.message.messagemodel.toPoll
-import com.lerchenflo.schneaggchatv3server.user.UserController
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
-import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
-import org.springframework.web.server.ResponseStatusException
 
 @RequestMapping("/messages")
 @RestController
@@ -40,19 +28,15 @@ class MessageController(
         if (messageRequest.messageId != null) require(ValidationUtils.validateObjectId(messageRequest.messageId)) { "Invalid message ID" }
         if (messageRequest.answerId != null) require(ValidationUtils.validateObjectId(messageRequest.answerId)) { "Invalid answer ID" }
 
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         if (messageRequest.messageId != null) {
-            return messageService.editMessage(ObjectId(messageRequest.messageId), ObjectId(requestingUserId), messageRequest.content)
+            return messageService.editMessage(ObjectId(messageRequest.messageId), requestingUserId, messageRequest.content)
         }
 
         //println("Message received: $messageRequest")
         val message = messageService.sendMessage(
-            sender = ObjectId(requestingUserId),
+            sender = requestingUserId,
             receiver = ObjectId(messageRequest.receiverId),
             groupMessage = messageRequest.groupMessage,
             messageType = MessageType.TEXT,
@@ -60,7 +44,7 @@ class MessageController(
             answerId = if (messageRequest.answerId != null) ObjectId(messageRequest.answerId) else null
         )
 
-        return message.toMessageResponse(ObjectId(requestingUserId))
+        return message.toMessageResponse(requestingUserId)
     }
 
 
@@ -74,14 +58,10 @@ class MessageController(
         if (messageRequest.messageId != null) require(ValidationUtils.validateObjectId(messageRequest.messageId)) { "Invalid message ID" }
         if (messageRequest.answerId != null) require(ValidationUtils.validateObjectId(messageRequest.answerId)) { "Invalid answer ID" }
 
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         val message = messageService.sendMessage(
-            sender = ObjectId(requestingUserId),
+            sender = requestingUserId,
             receiver = ObjectId(messageRequest.receiverId),
             groupMessage = messageRequest.groupMessage,
             messageType = MessageType.IMAGE,
@@ -89,7 +69,7 @@ class MessageController(
             answerId = if (messageRequest.answerId != null) ObjectId(messageRequest.answerId) else null
         )
 
-        return message.toMessageResponse(ObjectId(requestingUserId))
+        return message.toMessageResponse(requestingUserId)
     }
 
 
@@ -98,14 +78,10 @@ class MessageController(
         @RequestPart("audio") audio: MultipartFile,
         @RequestPart("request") messageRequest: AudioMessageRequest
     ): MessageResponse {
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         val message = messageService.sendMessage(
-            sender = ObjectId(requestingUserId),
+            sender = requestingUserId,
             receiver = ObjectId(messageRequest.receiverId),
             groupMessage = messageRequest.groupMessage,
             messageType = MessageType.AUDIO,
@@ -113,7 +89,7 @@ class MessageController(
             answerId = if (messageRequest.answerId != null) ObjectId(messageRequest.answerId) else null
         )
 
-        return message.toMessageResponse(ObjectId(requestingUserId))
+        return message.toMessageResponse(requestingUserId)
     }
 
 
@@ -124,25 +100,21 @@ class MessageController(
         require(ValidationUtils.validateObjectId(pollMessageRequest.receiverId)) { "Invalid receiver ID" }
         if (pollMessageRequest.answerId != null) require(ValidationUtils.validateObjectId(pollMessageRequest.answerId)) { "Invalid answer ID" }
 
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         //println("Message received: $messageRequest")
         val message = messageService.sendMessage(
-            sender = ObjectId(requestingUserId),
+            sender = requestingUserId,
             receiver = ObjectId(pollMessageRequest.receiverId),
             groupMessage = pollMessageRequest.groupMessage,
             messageType = MessageType.POLL,
             content = MessageService.MessageContent.Poll(
-                poll = pollMessageRequest.poll.toPoll(creatorId = ObjectId(requestingUserId))
+                poll = pollMessageRequest.poll.toPoll(creatorId = requestingUserId)
             ),
             answerId = if (pollMessageRequest.answerId != null) ObjectId(pollMessageRequest.answerId) else null
         )
 
-        return message.toMessageResponse(ObjectId(requestingUserId))
+        return message.toMessageResponse(requestingUserId)
     }
 
     @PostMapping("/pollvote")
@@ -150,17 +122,13 @@ class MessageController(
         @Valid @RequestBody pollVoteRequest: PollVoteRequest
     ): MessageResponse {
         require(ValidationUtils.validateObjectId(pollVoteRequest.messageId)) { "Invalid message ID" }
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         return messageService.votePoll(
-            requestingUserId = ObjectId(requestingUserId),
+            requestingUserId = requestingUserId,
             pollVoteRequest = pollVoteRequest
         ).toMessageResponse(
-                requestingUserId = ObjectId(requestingUserId)
+                requestingUserId = requestingUserId
             )
 
     }
@@ -177,15 +145,11 @@ class MessageController(
         require(ValidationUtils.validatePaginationPage(page)) { "Invalid page number" }
         require(ValidationUtils.validatePaginationPageSize(pageSize)) { "Invalid page size" }
 
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         return messageService.messageSync(
             clientMessages = messageRequestList,
-            requestingUser = ObjectId(requestingUserId),
+            requestingUser = requestingUserId,
             page = page,
             pageSize = pageSize,
         )
@@ -201,14 +165,11 @@ class MessageController(
     ){
         require(ValidationUtils.validateObjectId(userId)) { "Invalid user ID" }
         require(ValidationUtils.validateTimestamp(timestamp)) { "Invalid timestamp" }
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
+
 
         messageService.setMessagesRead(
-            ObjectId(requestingUserId), ObjectId(userId),
+            requestingUserId, ObjectId(userId),
             group = group,
             timeStamp = timestamp,
         )
@@ -230,15 +191,11 @@ class MessageController(
     ) : MessageResponse {
         require(ValidationUtils.validateObjectId(editMessageRequest.messageId)) { "Invalid message ID" }
 
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
-        
+        val requestingUserId = requireAuth()
+
         return messageService.editMessage(
             messageId = ObjectId(editMessageRequest.messageId),
-            editingUserId = ObjectId(requestingUserId),
+            editingUserId = requestingUserId,
             newContent = editMessageRequest.newContent
         )
     }
@@ -250,15 +207,12 @@ class MessageController(
     ): MessageResponse {
         require(ValidationUtils.validateObjectId(reactionRequest.messageId)) { "Invalid message ID" }
 
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                HttpStatus.FORBIDDEN,
-                "Not logged in"
-            )
+        val requestingUserId = requireAuth()
+
 
         return messageService.reactToMessage(
             messageId = ObjectId(reactionRequest.messageId),
-            reactingUserId = ObjectId(requestingUserId),
+            reactingUserId = requestingUserId,
             content = reactionRequest.content,
         )
     }
@@ -267,15 +221,11 @@ class MessageController(
     @GetMapping("/images/{id}")
     fun getImage(@PathVariable("id") messageId: String): ResponseEntity<ByteArray> {
         require(ValidationUtils.validateObjectId(messageId)) { "Invalid message ID" }
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         val bytearray = messageService.getImageMessage(
             messageId = ObjectId(messageId),
-            requestingUserId = ObjectId(requestingUserId)
+            requestingUserId = requestingUserId
         )
 
         return ResponseEntity.ok()
@@ -285,15 +235,11 @@ class MessageController(
 
     @GetMapping("/audios/{id}")
     fun getAudio(@PathVariable("id") messageId: String): ResponseEntity<ByteArray> {
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         val bytearray = messageService.getAudioMessage(
             messageId = ObjectId(messageId),
-            requestingUserId = ObjectId(requestingUserId)
+            requestingUserId = requestingUserId
         )
 
         return ResponseEntity.ok()
@@ -307,15 +253,11 @@ class MessageController(
         @RequestParam(value = "messageid") messageId: String
     ) {
         require(ValidationUtils.validateObjectId(messageId)) { "Invalid message ID" }
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         messageService.deleteMessage(
             messageId = ObjectId(messageId),
-            deletingUserId = ObjectId(requestingUserId),
+            deletingUserId = requestingUserId,
         )
     }
 

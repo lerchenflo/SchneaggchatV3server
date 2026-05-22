@@ -1,31 +1,15 @@
 package com.lerchenflo.schneaggchatv3server.schneaggmap
 
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeValue
+import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.*
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MainType
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MainTypeResponse
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntryResponse
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.SubtypeResponse
-import com.lerchenflo.schneaggchatv3server.schneaggmap.SubtypeSyncResponse
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMainTypeResponse
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMapEntryResponse
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
-import org.springframework.http.HttpStatus
-import org.springframework.security.core.context.SecurityContextHolder
-import org.springframework.web.bind.annotation.DeleteMapping
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.server.ResponseStatusException
+import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/map")
@@ -66,7 +50,7 @@ class SchneaggmapController(
 
     @PostMapping("/create")
     fun createMapEntry(@Valid @RequestBody request: MapEntryRequest): MapEntryResponse {
-        val requesterId = requesterId()
+        val requesterId = requireAuth()
         require(request.subtypeIds.all { ValidationUtils.validateObjectId(it) }) { "Invalid subtype ID" }
         return schneaggmapService.createMapEntry(
             mainTypeKey = request.mainTypeKey,
@@ -80,7 +64,7 @@ class SchneaggmapController(
 
     @PostMapping("/edit")
     fun editMapEntry(@Valid @RequestBody request: EditMapEntryRequest): MapEntryResponse {
-        val requesterId = requesterId()
+        val requesterId = requireAuth()
         require(ValidationUtils.validateObjectId(request.entryId)) { "Invalid entry ID" }
         require(request.subtypeIds.all { ValidationUtils.validateObjectId(it) }) { "Invalid subtype ID" }
         return schneaggmapService.editMapEntry(
@@ -95,7 +79,7 @@ class SchneaggmapController(
 
     @DeleteMapping("/delete")
     fun deleteMapEntry(@RequestParam entryid: String) {
-        val requesterId = requesterId()
+        val requesterId = requireAuth()
         require(ValidationUtils.validateObjectId(entryid)) { "Invalid entry ID" }
         schneaggmapService.deleteMapEntry(ObjectId(entryid), requesterId)
     }
@@ -108,25 +92,25 @@ class SchneaggmapController(
     ): MapSyncResponse {
         require(ValidationUtils.validatePaginationPage(page)) { "Invalid page number" }
         require(ValidationUtils.validatePaginationPageSize(pageSize)) { "Invalid page size" }
-        requesterId()
+        requireAuth()
         return schneaggmapService.mapSync(clientEntries, page, pageSize)
     }
 
     @GetMapping("/maintypes")
     fun getMainTypes(): List<MainTypeResponse> {
-        requesterId()
+        requireAuth()
         return MainType.entries.map { it.toMainTypeResponse() }
     }
 
     @GetMapping("/subtypes/{mainTypeKey}")
     fun getSubtypes(@PathVariable mainTypeKey: String): List<SubtypeResponse> {
-        requesterId()
+        requireAuth()
         return schneaggmapService.listSubtypes(mainTypeKey)
     }
 
     @PostMapping("/subtypes/create")
     fun createSubtype(@Valid @RequestBody request: SubtypeCreateRequest): SubtypeResponse {
-        val requesterId = requesterId()
+        val requesterId = requireAuth()
         return schneaggmapService.createSubtype(request.mainTypeKey, request.name, requesterId)
     }
 
@@ -138,13 +122,8 @@ class SchneaggmapController(
     ): SubtypeSyncResponse {
         require(ValidationUtils.validatePaginationPage(page)) { "Invalid page number" }
         require(ValidationUtils.validatePaginationPageSize(pageSize)) { "Invalid page size" }
-        requesterId()
+        requireAuth()
         return schneaggmapService.subtypeSync(clientEntries, page, pageSize)
     }
 
-    private fun requesterId(): ObjectId {
-        val id = SecurityContextHolder.getContext().authentication?.principal as? String
-            ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not logged in")
-        return ObjectId(id)
-    }
 }

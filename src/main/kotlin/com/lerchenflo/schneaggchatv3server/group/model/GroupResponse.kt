@@ -1,7 +1,5 @@
 package com.lerchenflo.schneaggchatv3server.group.model
 
-import org.bson.types.ObjectId
-
 data class GroupResponse(
     val id: String,
     val name: String,

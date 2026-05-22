@@ -8,7 +8,6 @@ import java.awt.geom.Ellipse2D
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.io.ObjectInput
 import javax.imageio.ImageIO
 import kotlin.math.sqrt
 

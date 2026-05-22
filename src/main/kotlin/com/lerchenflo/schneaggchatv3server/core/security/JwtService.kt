@@ -13,15 +13,17 @@ import java.util.*
 @Service
 class JwtService(
     //Inject jwt secret from .env -> docker-compose.yaml -> application.properties -> here
-    @Value($$"${jwt.secret}") private val jwtSecret: String
-) {
+    @Value($$"${jwt.secret}") private val jwtSecret: String,
+    @Value("\${apns.debug}") private val apnsDebug: Boolean,
+
+    ) {
     fun getEncryptionKey() : String {
         return jwtSecret.take(20)
     }
 
     private val secretKey = Keys.hmacShaKeyFor(jwtSecret.toByteArray())
     private val accessTokenValidityMs = 15L /*min*/ * 60L * 1000L    //How a user can use his access token
-    //private val accessTokenValidityMs = 10L * 1000L    //Debug 10 s
+    private val debugAccessTokenValidityMs = 10L * 1000L    //Debug 10 s
 
     val refreshTokenValidityMs = 30L /*days*/ * 24L * 60L * 60L * 1000L
     private val emailTokenValidityMs = 24L * 60L * 60L * 1000L
@@ -50,7 +52,7 @@ class JwtService(
         return generateToken(
             userId = userId,
             type = "access_token",
-            expiry = accessTokenValidityMs
+            expiry = if (apnsDebug) debugAccessTokenValidityMs else accessTokenValidityMs,
         )
     }
 

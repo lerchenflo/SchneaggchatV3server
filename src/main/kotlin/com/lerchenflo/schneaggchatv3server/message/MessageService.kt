@@ -13,7 +13,6 @@ import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.util.*
 import org.bson.types.ObjectId
 import org.springframework.dao.OptimisticLockingFailureException
-import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.FindAndModifyOptions
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.find

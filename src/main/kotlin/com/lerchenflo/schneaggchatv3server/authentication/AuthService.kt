@@ -8,11 +8,7 @@ import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
-import com.lerchenflo.schneaggchatv3server.util.AppLogger
-import com.lerchenflo.schneaggchatv3server.util.ImageManager
-import com.lerchenflo.schneaggchatv3server.util.LogType
-import com.lerchenflo.schneaggchatv3server.util.LoggingService
-import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
+import com.lerchenflo.schneaggchatv3server.util.*
 import org.bson.types.ObjectId
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.data.mongodb.core.FindAndModifyOptions
@@ -23,14 +19,14 @@ import org.springframework.data.mongodb.core.query.Update
 import org.springframework.http.HttpStatusCode
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.security.MessageDigest
 import java.util.*
 import java.util.Locale.getDefault
+import kotlin.jvm.optionals.getOrNull
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -121,12 +117,11 @@ class AuthService(
     }
 
 
-    @Transactional //Only apply db operations if all succeed
     fun refresh(refreshToken: String) : TokenPair {
+        val now = Clock.System.now()
 
-        val isValidToken = jwtService.validateRefreshToken(refreshToken)
-
-        if (!isValidToken) {
+        //Check if the token is in a correct format and issued by this server
+        if (!jwtService.validateRefreshToken(refreshToken)) {
             throw ResponseStatusException(HttpStatusCode.valueOf(401) ,"Invalid refresh token")
         }
 
@@ -137,17 +132,64 @@ class AuthService(
         val user = userLookupService.findById(userId)
             ?: throw ResponseStatusException(HttpStatusCode.valueOf(401) ,"Invalid refresh token")
 
+        //Create a hash from the token to compare to the db entry
+        val oldTokenHashed = hashToken(refreshToken)
 
-        val hashed = hashToken(refreshToken)
-        val now = Clock.System.now()
+        //Get newest token for this user
+        val oldTokenEntry = refreshTokenRepository.findByUserIdAndHashedToken(
+            userId = user.id,
+            hashedToken = oldTokenHashed,
+        ).maxByOrNull {
+            it.createdAt //Sort by created timestamp
+        }
+
+        if (oldTokenEntry == null) {
+            AppLogger.debug("TOKENREFRESH: Old token for user ${user.username} not found")
+            throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
+        }
+
+        //Check if the token refresh was already executed with this one, if true get the new token
+        if (oldTokenEntry.deletedAt != null && oldTokenEntry.replacedByToken != null /* Needed for migration if old tokens do not have a replacedby set*/) {
+            val newToken = refreshTokenRepository.findById(oldTokenEntry.replacedByToken).getOrNull()
+
+            //Check the new token
+            if (newToken != null && //Token exists (Should always be)
+                newToken.deletedAt == null && //New token not deleted (If deleted, token was already rotated once again)
+                newToken.rawToken != null //The raw token is still saved in the db (May not be saved during migration)
+                ) {
+
+                AppLogger.success("User failed the sync but got the linked token")
+
+                return TokenPair(
+                    accessToken = jwtService.generateAccessToken(userId),
+                    refreshToken = newToken.rawToken,
+                    encryptionKey = jwtService.getEncryptionKey()
+                )
+            }
+
+            //At this point the token was either old (not migrated) or already deleted, throw an exception
+            throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
+        }
+
+        //The token is working normally, return new
+        val newAccessToken = jwtService.generateAccessToken(userId)
+        val newRefreshToken = jwtService.generateRefreshToken(userId)
+
+        //Store the new refresh token
+        val newTokenEntry = storeRefreshToken(user.id, newRefreshToken)
+
 
         val query = Query().addCriteria(
-            Criteria.where("userId").`is`(ObjectId(userId))
-                .and("hashedToken").`is`(hashed)
+            Criteria.where("userId").`is`(user.id)
+                .and("hashedToken").`is`(oldTokenHashed)
                 .and("deletedAt").`is`(null)
         )
 
-        val update = Update().set("deletedAt", now)
+        val update = Update()
+            .set("deletedAt", now)
+            .set("replacedByToken", newTokenEntry.id)
+            .set("rawToken", null) //New token is in place, delete the old raw entry
+
 
         // Returns the document BEFORE the update — null if already claimed
         val claimedToken = mongoTemplate.findAndModify(
@@ -157,25 +199,27 @@ class AuthService(
             RefreshToken::class.java
         )
 
+        // Deleted too long ago — likely a replay attack
         if (claimedToken == null) {
-            // Deleted too long ago — likely a replay attack
+            refreshTokenRepository.delete(newTokenEntry) //Remove new unused token
+            AppLogger.warn("TOKENREFRESH REPLAY?: Token was already deleted for user ${user.username}")
             throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
         }
 
 
-        val newAccessToken = jwtService.generateAccessToken(userId)
-        val newRefreshToken = jwtService.generateRefreshToken(userId)
-
+        /*
+        //Try to save the new token, if another token was already saved in the meantime, remove the change
         try {
             storeRefreshToken(user.id, newRefreshToken)
         } catch (e: DuplicateKeyException) {
-            //parallel execution catch
 
             //Restore the just deleted token that the client can use it again
             mongoTemplate.save(claimedToken.copy(deletedAt = null))
 
             throw ResponseStatusException(HttpStatusCode.valueOf(409), "Concurrent refresh - reload tokens")
         }
+
+         */
 
         return TokenPair(
             accessToken = newAccessToken,
@@ -185,24 +229,20 @@ class AuthService(
     }
 
 
-    private fun storeRefreshToken(userId: ObjectId, rawRefreshToken: String) {
+    private fun storeRefreshToken(userId: ObjectId, rawRefreshToken: String): RefreshToken {
 
         val hashed = hashToken(rawRefreshToken)
         val expiryMs = jwtService.refreshTokenValidityMs
         val expiresAt = Clock.System.now().toEpochMilliseconds() + expiryMs
-        
 
-        try {
-            refreshTokenRepository.save(
-                RefreshToken(
-                    userId = userId,
-                    hashedToken = hashed,
-                    expiresAt = Instant.fromEpochMilliseconds(expiresAt),
-                )
+        return refreshTokenRepository.save(
+            RefreshToken(
+                userId = userId,
+                hashedToken = hashed,
+                rawToken = rawRefreshToken,
+                expiresAt = Instant.fromEpochMilliseconds(expiresAt),
             )
-        } catch (e: Exception) {
-            throw e
-        }
+        )
     }
 
     private fun hashToken(token: String) : String {

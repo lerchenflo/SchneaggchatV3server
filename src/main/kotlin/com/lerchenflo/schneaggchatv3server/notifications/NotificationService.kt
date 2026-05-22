@@ -3,17 +3,16 @@ package com.lerchenflo.schneaggchatv3server.notifications
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
-import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.toMessageResponse
 import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.Subtype
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMapEntryResponse
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toSubtypeResponse
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.SocketConnectionHandler
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.Subtype
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMapEntryResponse
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toSubtypeResponse
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
@@ -78,7 +77,7 @@ class NotificationService(
                             messageContent = message.content,
                             msgId = message.id.toHexString(),
                             groupMessage = true,
-                            groupName = groupName
+                            groupName = groupName,
                         )
                         apnsService.sendNewMessageNotificationToUser(
                             senderId = message.senderId,
@@ -87,7 +86,7 @@ class NotificationService(
                             messageContent = message.content,
                             msgId = message.id.toHexString(),
                             groupMessage = true,
-                            groupName = groupName
+                            groupName = groupName,
                         )
                     }
                 }
@@ -115,7 +114,7 @@ class NotificationService(
                         messageContent = message.content,
                         msgId = message.id.toHexString(),
                         groupMessage = false,
-                        groupName = null
+                        groupName = null,
                     )
                     apnsService.sendNewMessageNotificationToUser(
                         senderId = message.senderId,
@@ -124,7 +123,7 @@ class NotificationService(
                         messageContent = message.content,
                         msgId = message.id.toHexString(),
                         groupMessage = false,
-                        groupName = null
+                        groupName = null,
                     )
                 }
 
