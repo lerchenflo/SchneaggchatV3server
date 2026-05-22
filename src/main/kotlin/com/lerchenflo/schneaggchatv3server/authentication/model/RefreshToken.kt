@@ -25,9 +25,12 @@ data class RefreshToken(
     //@Indexed(unique = true)
     val hashedToken: String,
 
+    val rawToken: String? = null,
+
     @Indexed(expireAfter = "0s")
     val expiresAt: Instant,
     val createdAt: Instant = Clock.System.now(),
 
-    var deletedAt: Instant? = null
-    )
+    val deletedAt: Instant? = null,
+    val replacedByToken: ObjectId? = null
+)
