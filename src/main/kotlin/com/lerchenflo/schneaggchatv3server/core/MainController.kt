@@ -54,11 +54,10 @@ class MainController(
     fun onStartup() {
         migrateDBs()
         val testaccount = userService.ensureTestaccount()
-        schneaggmapService.seedSubtypes(testaccount.id)
         schneaggmapService.importLegacyMapEntries(testaccount.id)
 
         //listMongoIndexes()
-        printAllGroups()
+        //printAllGroups()
     }
 
 

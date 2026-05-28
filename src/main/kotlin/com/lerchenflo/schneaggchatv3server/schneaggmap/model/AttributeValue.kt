@@ -11,6 +11,7 @@ import org.springframework.data.annotation.TypeAlias
     JsonSubTypes.Type(value = AttributeValue.DoubleValue::class, name = "double"),
     JsonSubTypes.Type(value = AttributeValue.BoolValue::class, name = "bool"),
 )
+
 sealed class AttributeValue {
 
     @TypeAlias("av_string")

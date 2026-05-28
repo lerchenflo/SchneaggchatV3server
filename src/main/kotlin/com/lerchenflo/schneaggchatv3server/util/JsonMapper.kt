@@ -4,4 +4,5 @@ import com.fasterxml.jackson.databind.ObjectMapper
 
 object Json {
     val mapper: ObjectMapper = ObjectMapper()
+        .findAndRegisterModules()
 }

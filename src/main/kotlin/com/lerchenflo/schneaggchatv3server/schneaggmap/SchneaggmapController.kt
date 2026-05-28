@@ -18,47 +18,36 @@ class SchneaggmapController(
 ) {
 
     data class MapEntryRequest(
-        @field:NotBlank(message = "Main type key must not be blank")
-        @field:Size(max = 50, message = "Main type key too long")
-        val mainTypeKey: String,
-        val subtypeIds: List<String>,
-        val coordinates: LatLong,
+        @field:NotBlank(message = "Name must not be blank")
+        @field:Size(max = 100, message = "Name too long")
+        val name: String,
         @field:Size(max = 500, message = "Description too long")
         val description: String,
-        val attributes: Map<String, AttributeValue>,
+        val coordinates: LatLong,
+        val locationData: LocationData,
     )
 
     data class EditMapEntryRequest(
         @field:NotBlank(message = "Entry ID must not be blank")
-        @field:Size(max = 24, message = "Entry ID too long")
         val entryId: String,
-        val subtypeIds: List<String>,
-        val coordinates: LatLong,
+        @field:NotBlank(message = "Name must not be blank")
+        @field:Size(max = 100, message = "Name too long")
+        val name: String,
         @field:Size(max = 500, message = "Description too long")
         val description: String,
-        val attributes: Map<String, AttributeValue>,
-    )
-
-    data class SubtypeCreateRequest(
-        @field:NotBlank(message = "Main type key must not be blank")
-        @field:Size(max = 50, message = "Main type key too long")
-        val mainTypeKey: String,
-        @field:NotBlank(message = "Name must not be blank")
-        @field:Size(max = 50, message = "Name too long")
-        val name: String,
+        val coordinates: LatLong,
+        val locationData: LocationData,
     )
 
     @PostMapping("/create")
     fun createMapEntry(@Valid @RequestBody request: MapEntryRequest): MapEntryResponse {
         val requesterId = requireAuth()
-        require(request.subtypeIds.all { ValidationUtils.validateObjectId(it) }) { "Invalid subtype ID" }
         return schneaggmapService.createMapEntry(
-            mainTypeKey = request.mainTypeKey,
-            subtypeIdStrings = request.subtypeIds,
-            coordinates = request.coordinates,
-            description = request.description,
-            attributes = request.attributes,
-            requesterId = requesterId,
+            name         = request.name,
+            description  = request.description,
+            coordinates  = request.coordinates,
+            locationData = request.locationData,
+            requesterId  = requesterId,
         ).toMapEntryResponse()
     }
 
@@ -66,14 +55,13 @@ class SchneaggmapController(
     fun editMapEntry(@Valid @RequestBody request: EditMapEntryRequest): MapEntryResponse {
         val requesterId = requireAuth()
         require(ValidationUtils.validateObjectId(request.entryId)) { "Invalid entry ID" }
-        require(request.subtypeIds.all { ValidationUtils.validateObjectId(it) }) { "Invalid subtype ID" }
         return schneaggmapService.editMapEntry(
-            entryId = ObjectId(request.entryId),
-            subtypeIdStrings = request.subtypeIds,
-            coordinates = request.coordinates,
-            description = request.description,
-            attributes = request.attributes,
-            requesterId = requesterId,
+            entryId      = ObjectId(request.entryId),
+            name         = request.name,
+            description  = request.description,
+            coordinates  = request.coordinates,
+            locationData = request.locationData,
+            requesterId  = requesterId,
         ).toMapEntryResponse()
     }
 
@@ -94,36 +82,6 @@ class SchneaggmapController(
         require(ValidationUtils.validatePaginationPageSize(pageSize)) { "Invalid page size" }
         requireAuth()
         return schneaggmapService.mapSync(clientEntries, page, pageSize)
-    }
-
-    @GetMapping("/maintypes")
-    fun getMainTypes(): List<MainTypeResponse> {
-        requireAuth()
-        return MainType.entries.map { it.toMainTypeResponse() }
-    }
-
-    @GetMapping("/subtypes/{mainTypeKey}")
-    fun getSubtypes(@PathVariable mainTypeKey: String): List<SubtypeResponse> {
-        requireAuth()
-        return schneaggmapService.listSubtypes(mainTypeKey)
-    }
-
-    @PostMapping("/subtypes/create")
-    fun createSubtype(@Valid @RequestBody request: SubtypeCreateRequest): SubtypeResponse {
-        val requesterId = requireAuth()
-        return schneaggmapService.createSubtype(request.mainTypeKey, request.name, requesterId)
-    }
-
-    @PostMapping("/subtypes/sync")
-    fun syncSubtypes(
-        @RequestParam(value = "page", defaultValue = "0") page: Int,
-        @RequestParam(value = "page_size", defaultValue = "400") pageSize: Int,
-        @RequestBody clientEntries: List<UserService.IdTimeStamp>,
-    ): SubtypeSyncResponse {
-        require(ValidationUtils.validatePaginationPage(page)) { "Invalid page number" }
-        require(ValidationUtils.validatePaginationPageSize(pageSize)) { "Invalid page size" }
-        requireAuth()
-        return schneaggmapService.subtypeSync(clientEntries, page, pageSize)
     }
 
 }

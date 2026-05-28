@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageResponse
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntryResponse
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.SubtypeResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 
 @JsonTypeInfo(
@@ -19,7 +18,6 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
     JsonSubTypes.Type(value = SocketConnectionMessage.GroupChange::class, name = "groupchange"),
     JsonSubTypes.Type(value = SocketConnectionMessage.FriendRequest::class, name = "friendrequest"),
     JsonSubTypes.Type(value = SocketConnectionMessage.MapChange::class, name = "mapchange"),
-    JsonSubTypes.Type(value = SocketConnectionMessage.SubtypeChange::class, name = "subtypechange"),
 )
 sealed interface SocketConnectionMessage {
 
@@ -36,6 +34,4 @@ sealed interface SocketConnectionMessage {
     ) : SocketConnectionMessage
 
     data class MapChange(val mapEntry: MapEntryResponse, val newEntry: Boolean, val deleted: Boolean) : SocketConnectionMessage
-
-    data class SubtypeChange(val subtype: SubtypeResponse, val newSubtype: Boolean) : SocketConnectionMessage
 }

@@ -2,32 +2,34 @@
 
 package com.lerchenflo.schneaggchatv3server.schneaggmap.model
 
+import com.lerchenflo.schneaggchatv3server.schneaggmap.LocationData
 import kotlin.time.ExperimentalTime
 
 data class MapEntryResponse(
     val id: String,
-    val mainTypeKey: String,
-    val subtypeIds: List<String>,
+
     val coordinates: LatLong,
+    val name: String,
     val description: String,
-    val attributes: Map<String, AttributeValue>,
+
+    val locationData: LocationData,
+
     val createdBy: String,
     val createdAt: Long,
-    val lastChangedBy: String,
-    val lastChangedAt: Long,
-    val deleted: Boolean,
+
+    val updatedBy: String,
+    val updatedAt: Long,
+
 )
 
 fun MapEntry.toMapEntryResponse(): MapEntryResponse = MapEntryResponse(
     id = id.toHexString(),
-    mainTypeKey = mainTypeKey,
-    subtypeIds = subtypeIds.map { it.toHexString() },
     coordinates = coordinates,
     description = description,
-    attributes = attributes.mapValues { it.value.toAttributeValue() },
     createdBy = createdBy.toHexString(),
     createdAt = createdAt.toEpochMilliseconds(),
-    lastChangedBy = lastChangedBy.toHexString(),
-    lastChangedAt = lastChangedAt.toEpochMilliseconds(),
-    deleted = deleted,
+    updatedBy = updatedBy.toHexString(),
+    updatedAt = updatedAt.toEpochMilliseconds(),
+    name = name,
+    locationData = locationData
 )

@@ -10,9 +10,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.Notifica
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.SocketConnectionHandler
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.Subtype
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMapEntryResponse
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toSubtypeResponse
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
@@ -242,24 +240,12 @@ class NotificationService(
         )
     }
 
-    @OptIn(ExperimentalTime::class)
     fun notifyMapUpdate(entry: MapEntry, newEntry: Boolean, deleted: Boolean, changingUserId: ObjectId) {
         socketConnectionHandler.broadcast(
             SocketConnectionMessage.MapChange(
                 mapEntry = entry.toMapEntryResponse(),
                 newEntry = newEntry,
                 deleted = deleted,
-            ),
-            excludeUserId = changingUserId,
-        )
-    }
-
-    @OptIn(ExperimentalTime::class)
-    fun notifySubtypeCreated(subtype: Subtype, changingUserId: ObjectId) {
-        socketConnectionHandler.broadcast(
-            SocketConnectionMessage.SubtypeChange(
-                subtype = subtype.toSubtypeResponse(),
-                newSubtype = true,
             ),
             excludeUserId = changingUserId,
         )
