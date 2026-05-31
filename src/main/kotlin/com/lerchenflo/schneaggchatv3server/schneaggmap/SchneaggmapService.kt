@@ -15,6 +15,7 @@ import org.springframework.core.io.ClassPathResource
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
+import kotlin.collections.forEach
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -93,10 +94,12 @@ class SchneaggmapService(
         name: String,
         description: String,
         coordinates: LatLong,
-        locationData: LocationData,
+        locationDatas: List<LocationData>,
         requesterId: ObjectId,
     ): MapEntry {
-        validate(locationData)
+        locationDatas.forEach { locationData ->
+            validate(locationData)
+        }
 
         val now = Clock.System.now()
         val entry = mapEntryRepository.save(
@@ -104,7 +107,7 @@ class SchneaggmapService(
                 name         = name,
                 description  = description,
                 coordinates  = coordinates,
-                locationData = locationData,
+                locationData = locationDatas,
                 createdBy    = requesterId,
                 createdAt    = now,
                 updatedBy    = requesterId,
@@ -120,19 +123,21 @@ class SchneaggmapService(
         name: String,
         description: String,
         coordinates: LatLong,
-        locationData: LocationData,
+        locationDatas: List<LocationData>,
         requesterId: ObjectId,
     ): MapEntry {
         val existing = mapEntryRepository.findById(entryId).orElse(null)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Map entry not found")
 
-        validate(locationData)
+        locationDatas.forEach { locationData ->
+            validate(locationData)
+        }
 
         val updated = existing.copy(
             name         = name,
             description  = description,
             coordinates  = coordinates,
-            locationData = locationData,
+            locationData = locationDatas,
             updatedBy    = requesterId,
             updatedAt    = Clock.System.now(),
         )
@@ -305,7 +310,7 @@ class SchneaggmapService(
                     name = name,
                     description = description,
                     coordinates = LatLong(lat = lat, long = lng),
-                    locationData = locationData,
+                    locationData = listOf(locationData),
                     createdBy = creatorId,
                     createdAt = createdAt,
                     updatedBy = creatorId,

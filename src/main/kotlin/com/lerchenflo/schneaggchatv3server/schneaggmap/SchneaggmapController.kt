@@ -24,7 +24,7 @@ class SchneaggmapController(
         @field:Size(max = 500, message = "Description too long")
         val description: String,
         val coordinates: LatLong,
-        val locationData: LocationData,
+        val locationData: List<LocationData>,
     )
 
     data class EditMapEntryRequest(
@@ -36,7 +36,7 @@ class SchneaggmapController(
         @field:Size(max = 500, message = "Description too long")
         val description: String,
         val coordinates: LatLong,
-        val locationData: LocationData,
+        val locationData: List<LocationData>,
     )
 
     @PostMapping("/create")
@@ -46,7 +46,7 @@ class SchneaggmapController(
             name         = request.name,
             description  = request.description,
             coordinates  = request.coordinates,
-            locationData = request.locationData,
+            locationDatas = request.locationData,
             requesterId  = requesterId,
         ).toMapEntryResponse()
     }
@@ -60,7 +60,7 @@ class SchneaggmapController(
             name         = request.name,
             description  = request.description,
             coordinates  = request.coordinates,
-            locationData = request.locationData,
+            locationDatas = request.locationData,
             requesterId  = requesterId,
         ).toMapEntryResponse()
     }
