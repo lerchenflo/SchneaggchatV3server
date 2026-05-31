@@ -3364,5 +3364,16 @@
         "Latitude":  "47.10973549976747",
         "Longitude":  "14.911767145094842",
         "Name":  "Motorradstrecke"
+    },
+    {
+        "Beschreibung":  "Ampelblitzer",
+        "CreationTime":  "1752088469541",
+        "CreatorId":  8,
+        "Id":  355,
+        "LastChanged":  "1752088469541",
+        "LastChangedId":  0,
+        "Latitude":  "47.4215354",
+        "Longitude":  "9.7422881",
+        "Name":  "Radar"
     }
 ]

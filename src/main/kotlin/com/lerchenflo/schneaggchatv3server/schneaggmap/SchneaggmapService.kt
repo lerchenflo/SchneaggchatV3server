@@ -227,12 +227,19 @@ class SchneaggmapService(
             when (categoryName) {
                 "Radar" -> {
                     val speed = speedRegex.find(beschreibung)?.groupValues?.get(1)?.toIntOrNull()
-                    locationData = LocationData.Radar(
-                        speedLimit = AttributeValue.IntValue(speed ?: 0),
-                        radarType  = LocationData.RadarType.SPEED,
-                    )
+                    if (beschreibung == "Ampelblitzer") {
+                        locationData = LocationData.Radar(
+                            radarType = LocationData.RadarType.REDLIGHT,
+                            speedLimit = AttributeValue.IntValue(speed ?: 0),
+                        )
+                    } else {
+                        locationData = LocationData.Radar(
+                            speedLimit = AttributeValue.IntValue(speed ?: 0),
+                            radarType  = LocationData.RadarType.SPEED,
+                        )
+                    }
                     name        = if (speed != null) "$speed km/h Radar" else "Radar"
-                    description = if (speed != null) "" else "needs to be filled in"
+                    description = ""
                 }
 
                 "Polizei" -> {
