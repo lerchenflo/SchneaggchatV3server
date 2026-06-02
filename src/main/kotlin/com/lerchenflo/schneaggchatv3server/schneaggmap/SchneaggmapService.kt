@@ -69,6 +69,14 @@ class SchneaggmapService(
                     if (value !is AttributeValue.BoolValue)
                         errors += "${def.key}: expected bool"
                 }
+
+                is AttributeDefinition.EnumDef -> {
+                    if (value !is AttributeValue.EnumValue)
+                        errors += "${def.key}: expected enum"
+                    if (def.options.isEmpty()) {
+                        errors += "${def.key}: cannot be empty"
+                    }
+                }
             }
         }
 

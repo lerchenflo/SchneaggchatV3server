@@ -35,9 +35,14 @@ sealed class LocationData {
 
 
         ): LocationData() {
-            override fun schema() = listOf(
-                AttributeDefinition.IntDef(key = "speedLimit", required = true, min = 0, max = 300)
-            )
+        override fun schema() = listOf(
+            AttributeDefinition.EnumDef(
+                key = "radarType",
+                required = true,
+                options = RadarType.entries.map { it.name }
+            ),
+            AttributeDefinition.IntDef(key = "speedLimit", required = true, min = 0, max = 300),
+        )
     }
 
     @TypeAlias("street")
@@ -114,6 +119,11 @@ sealed class LocationData {
 
     ): LocationData() {
         override fun schema() = listOf(
+            AttributeDefinition.EnumDef(
+                key = "foodType",
+                required = true,
+                options = FoodType.entries.map { it.name }
+            ),
             AttributeDefinition.BoolDef(key = "allYouCanEat", required = false),
         )
     }

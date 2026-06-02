@@ -25,4 +25,8 @@ sealed class AttributeValue {
 
     @TypeAlias("av_bool")
     data class BoolValue(val value: Boolean) : AttributeValue()
+
+    @TypeAlias("av_enum")
+    data class EnumValue(val value: String) : AttributeValue()
+
 }
