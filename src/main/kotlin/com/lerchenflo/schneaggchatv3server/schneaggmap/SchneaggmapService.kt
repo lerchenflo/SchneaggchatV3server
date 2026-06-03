@@ -16,6 +16,7 @@ import org.springframework.core.io.ClassPathResource
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
+import java.nio.charset.Charset
 import kotlin.collections.forEach
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -191,7 +192,9 @@ class SchneaggmapService(
 
     fun importLegacyMapEntries(creatorId: ObjectId) {
         if (mapEntryRepository.count() > 0) {
-            AppLogger.info("Legacy map entry import skipped: collection not empty")
+            AppLogger.info("Legacy map entry import skipped: collection not empty, testing for deserialization error:")
+            println(mapEntryRepository.findAll().first()) //Query one entry to show deserialization errors
+            AppLogger.info("No error")
             return
         }
 
@@ -327,7 +330,30 @@ class SchneaggmapService(
         AppLogger.success("Legacy map entry import complete: imported=${batch.size}, skipped=$skipped")
     }
 
-    //Reverse wrong encoding from v2 schneaggmap strings ("Seebrünzler" to "SeebrÃƒÂ¼nzler")
-    fun fixEncoding(s: String): String =
-        String(s.toByteArray(Charsets.ISO_8859_1), Charsets.UTF_8)
+
+}
+
+
+private val cp1252 = Charset.forName("windows-1252")
+
+//Reverse wrong encoding from v2 schneaggmap strings ("Seebrünzler" to "SeebrÃƒÂ¼nzler")
+
+fun fixEncoding(s: String): String {
+    var current = s
+
+    repeat(5) {
+        val fixed = try {
+            String(current.toByteArray(cp1252), Charsets.UTF_8)
+        } catch (_: Exception) {
+            return current
+        }
+
+        if (fixed == current) {
+            return current
+        }
+
+        current = fixed
+    }
+
+    return current
 }
