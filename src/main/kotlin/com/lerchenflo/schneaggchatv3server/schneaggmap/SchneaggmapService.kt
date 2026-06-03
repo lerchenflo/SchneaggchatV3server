@@ -207,10 +207,10 @@ class SchneaggmapService(
         var skipped = 0
 
         for (entry in raw) {
-            val categoryName = entry["Name"] as? String ?: continue
+            val categoryName = fixEncoding(entry["Name"] as? String ?: continue)
             if (categoryName in skippedCategories) { skipped++; continue }
 
-            val beschreibung = (entry["Beschreibung"] as? String).orEmpty()
+            val beschreibung = fixEncoding((entry["Beschreibung"] as? String).orEmpty())
             val createdAt  = Instant.fromEpochMilliseconds((entry["CreationTime"] as? String)?.toLongOrNull() ?: 0L)
             val updatedAt  = Instant.fromEpochMilliseconds((entry["LastChanged"]   as? String)?.toLongOrNull() ?: 0L)
             val lat = (entry["Latitude"]  as? String)?.toDoubleOrNull() ?: continue
@@ -326,4 +326,8 @@ class SchneaggmapService(
         mapEntryRepository.saveAll(batch)
         AppLogger.success("Legacy map entry import complete: imported=${batch.size}, skipped=$skipped")
     }
+
+    //Reverse wrong encoding from v2 schneaggmap strings ("Seebrünzler" to "SeebrÃƒÂ¼nzler")
+    fun fixEncoding(s: String): String =
+        String(s.toByteArray(Charsets.ISO_8859_1), Charsets.UTF_8)
 }

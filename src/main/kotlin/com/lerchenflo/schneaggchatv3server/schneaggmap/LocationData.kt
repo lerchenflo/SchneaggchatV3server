@@ -18,7 +18,7 @@ import org.springframework.data.annotation.TypeAlias
     JsonSubTypes.Type(value = LocationData.Food::class,            name = "food"),
 )
 
-
+@TypeAlias("locationData")
 sealed class LocationData {
 
     abstract fun schema(): List<AttributeDefinition>
