@@ -18,6 +18,7 @@ class SchneaggmapController(
 ) {
 
     data class MapEntryRequest(
+        val entryId: String?,
         @field:NotBlank(message = "Name must not be blank")
         @field:Size(max = 100, message = "Name too long")
         val name: String,
@@ -27,22 +28,12 @@ class SchneaggmapController(
         val locationData: List<LocationData>,
     )
 
-    data class EditMapEntryRequest(
-        @field:NotBlank(message = "Entry ID must not be blank")
-        val entryId: String,
-        @field:NotBlank(message = "Name must not be blank")
-        @field:Size(max = 100, message = "Name too long")
-        val name: String,
-        @field:Size(max = 500, message = "Description too long")
-        val description: String,
-        val coordinates: LatLong,
-        val locationData: List<LocationData>,
-    )
 
-    @PostMapping("/create")
+    @PostMapping("/upsert")
     fun createMapEntry(@Valid @RequestBody request: MapEntryRequest): MapEntryResponse {
         val requesterId = requireAuth()
-        return schneaggmapService.createMapEntry(
+        return schneaggmapService.upsertMapEntry(
+            entryId      = request.entryId?.let { ObjectId(it) },
             name         = request.name,
             description  = request.description,
             coordinates  = request.coordinates,
@@ -51,19 +42,6 @@ class SchneaggmapController(
         ).toMapEntryResponse()
     }
 
-    @PostMapping("/edit")
-    fun editMapEntry(@Valid @RequestBody request: EditMapEntryRequest): MapEntryResponse {
-        val requesterId = requireAuth()
-        require(ValidationUtils.validateObjectId(request.entryId)) { "Invalid entry ID" }
-        return schneaggmapService.editMapEntry(
-            entryId      = ObjectId(request.entryId),
-            name         = request.name,
-            description  = request.description,
-            coordinates  = request.coordinates,
-            locationDatas = request.locationData,
-            requesterId  = requesterId,
-        ).toMapEntryResponse()
-    }
 
     @DeleteMapping("/delete")
     fun deleteMapEntry(@RequestParam entryid: String) {

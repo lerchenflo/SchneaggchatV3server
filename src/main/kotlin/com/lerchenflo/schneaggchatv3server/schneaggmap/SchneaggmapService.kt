@@ -10,6 +10,7 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
+import com.lerchenflo.schneaggchatv3server.util.withOptimisticRetry
 import org.bson.types.ObjectId
 import org.springframework.core.io.ClassPathResource
 import org.springframework.http.HttpStatus
@@ -98,20 +99,33 @@ class SchneaggmapService(
 
     // ─── CRUD ─────────────────────────────────────────────────────────────────
 
-    fun createMapEntry(
+    fun upsertMapEntry(
+        entryId: ObjectId? = null,
         name: String,
         description: String,
         coordinates: LatLong,
         locationDatas: List<LocationData>,
         requesterId: ObjectId,
     ): MapEntry {
-        locationDatas.forEach { locationData ->
-            validate(locationData)
-        }
+        return withOptimisticRetry {
+            val existing = entryId?.let {
+                mapEntryRepository.findById(it).orElse(null)
+                    ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Map entry not found")
+            }
 
-        val now = Clock.System.now()
-        val entry = mapEntryRepository.save(
-            MapEntry(
+            locationDatas.forEach { locationData ->
+                validate(locationData)
+            }
+
+            val now = Clock.System.now()
+            val entry = existing?.copy(
+                name         = name,
+                description  = description,
+                coordinates  = coordinates,
+                locationData = locationDatas,
+                updatedBy    = requesterId,
+                updatedAt    = now,
+            ) ?: MapEntry(
                 name         = name,
                 description  = description,
                 coordinates  = coordinates,
@@ -121,37 +135,11 @@ class SchneaggmapService(
                 updatedBy    = requesterId,
                 updatedAt    = now,
             )
-        )
-        notificationService.notifyMapUpdate(entry, newEntry = true, deleted = false, changingUserId = requesterId)
-        return entry
-    }
 
-    fun editMapEntry(
-        entryId: ObjectId,
-        name: String,
-        description: String,
-        coordinates: LatLong,
-        locationDatas: List<LocationData>,
-        requesterId: ObjectId,
-    ): MapEntry {
-        val existing = mapEntryRepository.findById(entryId).orElse(null)
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Map entry not found")
-
-        locationDatas.forEach { locationData ->
-            validate(locationData)
+            val saved = mapEntryRepository.save(entry)
+            notificationService.notifyMapUpdate(saved, newEntry = existing == null, deleted = false, changingUserId = requesterId)
+            saved
         }
-
-        val updated = existing.copy(
-            name         = name,
-            description  = description,
-            coordinates  = coordinates,
-            locationData = locationDatas,
-            updatedBy    = requesterId,
-            updatedAt    = Clock.System.now(),
-        )
-        val saved = mapEntryRepository.save(updated)
-        notificationService.notifyMapUpdate(saved, newEntry = false, deleted = false, changingUserId = requesterId)
-        return saved
     }
 
     fun deleteMapEntry(entryId: ObjectId, requesterId: ObjectId) {
