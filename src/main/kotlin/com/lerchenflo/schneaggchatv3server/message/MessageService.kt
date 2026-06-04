@@ -369,7 +369,7 @@ class MessageService(
             val newReactions = if (existing != null) {
                 message.reactions - existing
             } else {
-                message.reactions + Reaction(userId = reactingUserId, content = content)
+                message.reactions + Reaction(userId = reactingUserId, content = content.trim())
             }
 
             val now = Clock.System.now()
