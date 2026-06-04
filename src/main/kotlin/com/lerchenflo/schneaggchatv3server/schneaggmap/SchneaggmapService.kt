@@ -228,13 +228,13 @@ class SchneaggmapService(
                     val speed = speedRegex.find(beschreibung)?.groupValues?.get(1)?.toIntOrNull()
                     if (beschreibung == "Ampelblitzer") {
                         locationData = LocationData.Radar(
-                            radarType = LocationData.RadarType.REDLIGHT,
+                            radarType = AttributeValue.EnumValue(LocationData.RadarType.REDLIGHT.name),
                             speedLimit = AttributeValue.IntValue(speed ?: 0),
                         )
                     } else {
                         locationData = LocationData.Radar(
                             speedLimit = AttributeValue.IntValue(speed ?: 0),
-                            radarType  = LocationData.RadarType.SPEED,
+                            radarType  = AttributeValue.EnumValue(LocationData.RadarType.SPEED.name),
                         )
                     }
                     name        = if (speed != null) "$speed km/h Radar" else "Radar"
@@ -244,7 +244,7 @@ class SchneaggmapService(
                 "Polizei" -> {
                     locationData = LocationData.Radar(
                         speedLimit = AttributeValue.IntValue(0),
-                        radarType  = LocationData.RadarType.POLICE,
+                        radarType  = AttributeValue.EnumValue(LocationData.RadarType.POLICE.name),
                     )
                     name        = "Polizeikontrolle"
                     description = beschreibung
@@ -292,7 +292,7 @@ class SchneaggmapService(
 
                 "Kebab" -> {
                     locationData = LocationData.Food(
-                        foodType     = LocationData.FoodType.KEBAB,
+                        foodType     = AttributeValue.EnumValue(LocationData.FoodType.KEBAB.name),
                         allYouCanEat = null,
                     )
                     name        = beschreibung.ifBlank { "Kebab" }
@@ -301,7 +301,7 @@ class SchneaggmapService(
 
                 "Essen" -> {
                     locationData = LocationData.Food(
-                        foodType     = LocationData.FoodType.OTHER,
+                        foodType     = AttributeValue.EnumValue(LocationData.FoodType.OTHER.name),
                         allYouCanEat = null,
                     )
                     name        = beschreibung.ifBlank { "Essen" }

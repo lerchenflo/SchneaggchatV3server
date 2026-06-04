@@ -1,10 +1,5 @@
 package com.lerchenflo.schneaggchatv3server.core
 
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.MapperFeature
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.KotlinFeature
-import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.lerchenflo.schneaggchatv3server.schneaggmap.LocationData
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeValue
 import com.lerchenflo.schneaggchatv3server.util.Json
@@ -16,103 +11,83 @@ import org.springframework.data.convert.ReadingConverter
 import org.springframework.data.convert.WritingConverter
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions
 
-
 @Configuration
 class MongoConfig {
 
     @Bean
     fun customConversions(): MongoCustomConversions {
         return MongoCustomConversions(listOf(
-            LocationDataReadConverter(),
+            AttributeValueWriteConverter(),
+            AttributeValueReadConverter(),
             LocationDataWriteConverter(),
-            AttributeValueReadConverter()
-        )
-        )
+            LocationDataReadConverter(),
+        ))
     }
 }
 
-// plain mapper with no @JsonTypeInfo interference
-private val schneaggmapMapper: ObjectMapper = ObjectMapper()
-    .registerModule(
-        KotlinModule.Builder()
-            .configure(KotlinFeature.SingletonSupport, true)
-            .build()
-    )
-    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-    .configure(MapperFeature.USE_ANNOTATIONS, false)
+@WritingConverter
+class AttributeValueWriteConverter : Converter<AttributeValue, Document> {
+    override fun convert(source: AttributeValue): Document {
+        // Manually create document with type discriminator
+        return when (source) {
+            is AttributeValue.StringValue -> Document("type", "string").append("value", source.value)
+            is AttributeValue.IntValue -> Document("type", "int").append("value", source.value)
+            is AttributeValue.DoubleValue -> Document("type", "double").append("value", source.value)
+            is AttributeValue.BoolValue -> Document("type", "bool").append("value", source.value)
+            is AttributeValue.EnumValue -> Document("type", "enum").append("value", source.value)
+        }
+    }
+}
+
+@ReadingConverter
+class AttributeValueReadConverter : Converter<Document, AttributeValue> {
+    override fun convert(source: Document): AttributeValue {
+        val type = source.getString("type")
+        val value = source["value"]
+
+        return when (type) {
+            "string" -> AttributeValue.StringValue(value.toString())
+            "int" -> AttributeValue.IntValue((value as Number).toInt())
+            "double" -> AttributeValue.DoubleValue((value as Number).toDouble())
+            "bool" -> AttributeValue.BoolValue(value as Boolean)
+            "enum" -> AttributeValue.EnumValue(value.toString())
+            else -> throw IllegalArgumentException("Unknown attribute type: $type")
+        }
+    }
+}
 
 @WritingConverter
 class LocationDataWriteConverter : Converter<LocationData, Document> {
     override fun convert(source: LocationData): Document {
-        val doc = Document(Json.mapper.convertValue(source, Map::class.java) as Map<String, Any?>)
+        // Use Jackson to serialize the entire object
+        val json = Json.mapper.writeValueAsString(source)
+        val doc = Document.parse(json)
+
+        // Add the discriminator field for sealed class
+        val typeName = when (source) {
+            is LocationData.Radar -> "radar"
+            is LocationData.Street -> "street"
+            is LocationData.Camping -> "camping"
+            is LocationData.SightSeeing -> "sightseeing"
+            is LocationData.SwimmingLocation -> "swimming"
+            is LocationData.PartyLocation -> "party"
+            is LocationData.Food -> "food"
+        }
+        doc["_class"] = typeName
+
         return doc
     }
 }
 
-
 @ReadingConverter
-class LocationDataReadConverter : Converter<Document, LocationData?> {
-
-    private val aliasToType = mapOf(
-        "radar"       to "radar",
-        "street"      to "street",
-        "camping"     to "camping",
-        "sightseeing" to "sightseeing",
-        "swimming"    to "swimming",
-        "party"       to "party",
-        "food"        to "food",
-
-        "av_string"   to "string",
-        "av_int"      to "int",
-        "av_double"   to "double",
-        "av_bool"     to "bool",
-        "av_enum"     to "enum",
-    )
-
-    override fun convert(source: Document): LocationData? {
-        val map = injectTypes(source.toMap().toMutableMap())
-        return Json.mapper.convertValue(map, LocationData::class.java)
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun injectTypes(map: MutableMap<String, Any?>): MutableMap<String, Any?> {
-        (map["_class"] as? String)?.let { alias ->
-            map["type"] = aliasToType[alias]
-                ?: throw IllegalArgumentException("Unknown _class alias: $alias")
+class LocationDataReadConverter : Converter<Document, LocationData> {
+    override fun convert(source: Document): LocationData {
+        // Add the type discriminator that Jackson expects
+        val docWithType = Document(source).apply {
+            val type = getString("_class")
+            put("type", type)
         }
-        map.forEach { (key, value) ->
-            when (value) {
-                is MutableMap<*, *> ->
-                    map[key] = injectTypes(value as MutableMap<String, Any?>)
-                is List<*> ->
-                    map[key] = value.map { item ->
-                        if (item is MutableMap<*, *>)
-                            injectTypes(item as MutableMap<String, Any?>)
-                        else item
-                    }
-            }
-        }
-        return map
-    }
-}
 
-@ReadingConverter
-class AttributeValueReadConverter : Converter<Document, AttributeValue?> {
-
-
-    override fun convert(source: Document): AttributeValue? {
-        val typeAlias = source["_class"] as? String
-            ?: throw IllegalArgumentException("Type alias not found in document")
-
-        val map = source.toMap()
-
-        return when (typeAlias) {
-            "av_string" -> schneaggmapMapper.convertValue(map, AttributeValue.StringValue::class.java)
-            "av_int"    -> schneaggmapMapper.convertValue(map, AttributeValue.IntValue::class.java)
-            "av_double" -> schneaggmapMapper.convertValue(map, AttributeValue.DoubleValue::class.java)
-            "av_bool"   -> schneaggmapMapper.convertValue(map, AttributeValue.BoolValue::class.java)
-            "av_enum"   -> schneaggmapMapper.convertValue(map, AttributeValue.EnumValue::class.java)
-            else        -> throw IllegalArgumentException("Unknown AttributeValue type alias: $typeAlias")
-        }
+        return Json.mapper.convertValue(docWithType, LocationData::class.java)
     }
 }

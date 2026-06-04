@@ -30,7 +30,7 @@ sealed class LocationData {
     data class Radar(
 
         val speedLimit: AttributeValue.IntValue,
-        val radarType: RadarType,
+        val radarType: AttributeValue.EnumValue,
 
 
         ): LocationData() {
@@ -113,7 +113,7 @@ sealed class LocationData {
     @TypeAlias("food")
     data class Food(
 
-        val foodType: FoodType,
+        val foodType: AttributeValue.EnumValue,
         val allYouCanEat: AttributeValue.BoolValue?,
 
     ): LocationData() {

@@ -15,19 +15,19 @@ import org.springframework.data.annotation.TypeAlias
 
 sealed class AttributeValue {
 
-    @TypeAlias("av_string")
+    @TypeAlias("string")
     data class StringValue(val value: String) : AttributeValue()
 
-    @TypeAlias("av_int")
+    @TypeAlias("int")
     data class IntValue(val value: Int) : AttributeValue()
 
-    @TypeAlias("av_double")
+    @TypeAlias("double")
     data class DoubleValue(val value: Double) : AttributeValue()
 
-    @TypeAlias("av_bool")
+    @TypeAlias("bool")
     data class BoolValue(val value: Boolean) : AttributeValue()
 
-    @TypeAlias("av_enum")
+    @TypeAlias("enum")
     data class EnumValue(val value: String) : AttributeValue()
 
 }

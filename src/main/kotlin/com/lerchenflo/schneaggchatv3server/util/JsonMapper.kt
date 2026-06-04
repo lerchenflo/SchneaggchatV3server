@@ -7,4 +7,5 @@ object Json {
     val mapper: ObjectMapper = ObjectMapper()
         .findAndRegisterModules()
         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+
 }
