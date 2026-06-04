@@ -71,14 +71,6 @@ class SchneaggmapService(
                     if (value !is AttributeValue.BoolValue)
                         errors += "${def.key}: expected bool"
                 }
-
-                is AttributeDefinition.EnumDef -> {
-                    if (value !is AttributeValue.EnumValue)
-                        errors += "${def.key}: expected enum"
-                    if (def.options.isEmpty()) {
-                        errors += "${def.key}: cannot be empty"
-                    }
-                }
             }
         }
 
@@ -209,6 +201,8 @@ class SchneaggmapService(
         val batch = mutableListOf<MapEntry>()
         var skipped = 0
 
+
+
         for (entry in raw) {
             val categoryName = fixEncoding(entry["Name"] as? String ?: continue)
             if (categoryName in skippedCategories) { skipped++; continue }
@@ -223,31 +217,25 @@ class SchneaggmapService(
             val name: String
             val description: String
 
+
             when (categoryName) {
                 "Radar" -> {
                     val speed = speedRegex.find(beschreibung)?.groupValues?.get(1)?.toIntOrNull()
                     if (beschreibung == "Ampelblitzer") {
                         locationData = LocationData.Radar(
-                            radarType = AttributeValue.EnumValue(LocationData.RadarType.REDLIGHT.name),
-                            speedLimit = AttributeValue.IntValue(speed ?: 0),
+                            speedLimit = AttributeValue.IntValue(0),
+                            mobile = AttributeValue.BoolValue(false),
+                            redLight = AttributeValue.BoolValue(true)
                         )
                     } else {
                         locationData = LocationData.Radar(
                             speedLimit = AttributeValue.IntValue(speed ?: 0),
-                            radarType  = AttributeValue.EnumValue(LocationData.RadarType.SPEED.name),
+                            mobile = AttributeValue.BoolValue(false),
+                            redLight = AttributeValue.BoolValue(false)
                         )
                     }
                     name        = if (speed != null) "$speed km/h Radar" else "Radar"
                     description = ""
-                }
-
-                "Polizei" -> {
-                    locationData = LocationData.Radar(
-                        speedLimit = AttributeValue.IntValue(0),
-                        radarType  = AttributeValue.EnumValue(LocationData.RadarType.POLICE.name),
-                    )
-                    name        = "Polizeikontrolle"
-                    description = beschreibung
                 }
 
                 "Motorradstrecke" -> {
@@ -291,18 +279,20 @@ class SchneaggmapService(
                 }
 
                 "Kebab" -> {
-                    locationData = LocationData.Food(
-                        foodType     = AttributeValue.EnumValue(LocationData.FoodType.KEBAB.name),
-                        allYouCanEat = null,
+                    locationData = LocationData.FastFood(
+                        burger = AttributeValue.BoolValue(false),
+                        kebab = AttributeValue.BoolValue(false),
+                        pizza = AttributeValue.BoolValue(false),
+                        allYouCanEat = AttributeValue.BoolValue(false)
                     )
                     name        = beschreibung.ifBlank { "Kebab" }
                     description = ""
                 }
 
                 "Essen" -> {
-                    locationData = LocationData.Food(
-                        foodType     = AttributeValue.EnumValue(LocationData.FoodType.OTHER.name),
-                        allYouCanEat = null,
+                    locationData = LocationData.GenericFood(
+                        cuisine = AttributeValue.StringValue(beschreibung),
+                        allYouCanEat = AttributeValue.BoolValue(false)
                     )
                     name        = beschreibung.ifBlank { "Essen" }
                     description = ""

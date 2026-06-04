@@ -9,7 +9,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
     JsonSubTypes.Type(value = AttributeDefinition.IntDef::class, name = "int"),
     JsonSubTypes.Type(value = AttributeDefinition.DoubleDef::class, name = "double"),
     JsonSubTypes.Type(value = AttributeDefinition.BoolDef::class, name = "bool"),
-    JsonSubTypes.Type(value = AttributeDefinition.EnumDef::class, name = "enum")
 )
 sealed interface AttributeDefinition {
     val key: String
@@ -40,9 +39,5 @@ sealed interface AttributeDefinition {
         override val required: Boolean,
     ) : AttributeDefinition
 
-    data class EnumDef(
-        override val key: String,
-        override val required: Boolean,
-        val options: List<String>, // the enum names
-    ) : AttributeDefinition
+
 }

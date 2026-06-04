@@ -39,7 +39,6 @@ class AttributeValueWriteConverter : Converter<AttributeValue, Document> {
             is AttributeValue.IntValue -> Document("_class", "int").append("value", source.value)
             is AttributeValue.DoubleValue -> Document("_class", "double").append("value", source.value)
             is AttributeValue.BoolValue -> Document("_class", "bool").append("value", source.value)
-            is AttributeValue.EnumValue -> Document("_class", "enum").append("value", source.value)
         }
     }
 }
@@ -55,7 +54,6 @@ class AttributeValueReadConverter : Converter<Document, AttributeValue> {
             "int" -> AttributeValue.IntValue((value as Number).toInt())
             "double" -> AttributeValue.DoubleValue((value as Number).toDouble())
             "bool" -> AttributeValue.BoolValue(value as Boolean)
-            "enum" -> AttributeValue.EnumValue(value.toString())
             else -> throw IllegalArgumentException("Unknown attribute type: $type")
         }
     }
@@ -79,7 +77,9 @@ class LocationDataWriteConverter : Converter<LocationData, Document> {
             is LocationData.SightSeeing -> "sightseeing"
             is LocationData.SwimmingLocation -> "swimming"
             is LocationData.PartyLocation -> "party"
-            is LocationData.Food -> "food"
+            is LocationData.AsianFood -> "asian_food"
+            is LocationData.FastFood -> "fast_food"
+            is LocationData.GenericFood -> "generic_food"
         }
         doc["_class"] = typeName
 

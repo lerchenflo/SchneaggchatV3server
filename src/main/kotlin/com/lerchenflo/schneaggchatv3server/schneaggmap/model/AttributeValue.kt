@@ -10,7 +10,6 @@ import org.springframework.data.annotation.TypeAlias
     JsonSubTypes.Type(value = AttributeValue.IntValue::class, name = "int"),
     JsonSubTypes.Type(value = AttributeValue.DoubleValue::class, name = "double"),
     JsonSubTypes.Type(value = AttributeValue.BoolValue::class, name = "bool"),
-    JsonSubTypes.Type(value = AttributeValue.EnumValue::class, name = "enum"),
 )
 
 sealed class AttributeValue {
@@ -26,8 +25,5 @@ sealed class AttributeValue {
 
     @TypeAlias("bool")
     data class BoolValue(val value: Boolean) : AttributeValue()
-
-    @TypeAlias("enum")
-    data class EnumValue(val value: String) : AttributeValue()
 
 }

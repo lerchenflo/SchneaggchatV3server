@@ -15,8 +15,9 @@ import org.springframework.data.annotation.TypeAlias
     JsonSubTypes.Type(value = LocationData.SightSeeing::class,     name = "sightseeing"),
     JsonSubTypes.Type(value = LocationData.SwimmingLocation::class, name = "swimming"),
     JsonSubTypes.Type(value = LocationData.PartyLocation::class,   name = "party"),
-    JsonSubTypes.Type(value = LocationData.Food::class,            name = "food"),
-)
+    JsonSubTypes.Type(value = LocationData.FastFood::class,        name = "fast_food"),
+    JsonSubTypes.Type(value = LocationData.AsianFood::class,       name = "asian_food"),
+    JsonSubTypes.Type(value = LocationData.GenericFood::class,     name = "generic_food"),)
 
 sealed class LocationData {
 
@@ -24,25 +25,21 @@ sealed class LocationData {
 
 
     //STREET LOCATION TYPES
-    enum class RadarType { REDLIGHT, SPEED, MOBILE, POLICE }
 
     @TypeAlias("radar")
     data class Radar(
-
         val speedLimit: AttributeValue.IntValue,
-        val radarType: AttributeValue.EnumValue,
-
-
-        ): LocationData() {
+        val mobile: AttributeValue.BoolValue?,
+        val redLight: AttributeValue.BoolValue
+    ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.EnumDef(
-                key = "radarType",
-                required = true,
-                options = RadarType.entries.map { it.name }
-            ),
-            AttributeDefinition.IntDef(key = "speedLimit", required = true, min = 0, max = 300),
+            AttributeDefinition.IntDef(key = "speedLimit", required = true, min = 0),
+            AttributeDefinition.BoolDef(key = "mobile", required = false),
+            AttributeDefinition.BoolDef(key = "redLight", required = true)
         )
     }
+
+
 
     @TypeAlias("street")
     data class Street(
@@ -109,20 +106,45 @@ sealed class LocationData {
 
 
     //Food
-    enum class FoodType { KEBAB, PIZZA, GREEK, CHINESE, ASIAN, AUSTRIAN, BURGER, OTHER}
-    @TypeAlias("food")
-    data class Food(
-
-        val foodType: AttributeValue.EnumValue,
+    @TypeAlias("fast_food")
+    data class FastFood(
+        val burger: AttributeValue.BoolValue?,
+        val kebab: AttributeValue.BoolValue?,
+        val pizza: AttributeValue.BoolValue?,
         val allYouCanEat: AttributeValue.BoolValue?,
-
-    ): LocationData() {
+    ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.EnumDef(
-                key = "foodType",
-                required = true,
-                options = FoodType.entries.map { it.name }
-            ),
+            AttributeDefinition.BoolDef(key = "burger", required = false),
+            AttributeDefinition.BoolDef(key = "kebab", required = false),
+            AttributeDefinition.BoolDef(key = "pizza", required = false),
+            AttributeDefinition.BoolDef(key = "allYouCanEat", required = false),
+        )
+    }
+
+
+    @TypeAlias("asian_food")
+    data class AsianFood(
+        val chinese: AttributeValue.BoolValue?,
+        val japanese: AttributeValue.BoolValue?,
+        val thai: AttributeValue.BoolValue?,
+        val allYouCanEat: AttributeValue.BoolValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.BoolDef(key = "chinese", required = false),
+            AttributeDefinition.BoolDef(key = "japanese", required = false),
+            AttributeDefinition.BoolDef(key = "thai", required = false),
+            AttributeDefinition.BoolDef(key = "allYouCanEat", required = false),
+        )
+    }
+
+
+    @TypeAlias("generic_food")
+    data class GenericFood(
+        val cuisine: AttributeValue.StringValue,  // Free text field for any cuisine
+        val allYouCanEat: AttributeValue.BoolValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.StringDef(key = "cuisine", required = true),
             AttributeDefinition.BoolDef(key = "allYouCanEat", required = false),
         )
     }
