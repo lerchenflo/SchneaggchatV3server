@@ -7,7 +7,7 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeValue
 import org.springframework.data.annotation.TypeAlias
 
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "_class")
 @JsonSubTypes(
     JsonSubTypes.Type(value = LocationData.Radar::class,           name = "radar"),
     JsonSubTypes.Type(value = LocationData.Street::class,          name = "street"),

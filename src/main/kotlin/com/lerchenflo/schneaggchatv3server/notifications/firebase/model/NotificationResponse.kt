@@ -7,7 +7,7 @@ import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.PROPERTY,
-    property = "type"
+    property = "_class"
 )
 @JsonSubTypes(
     JsonSubTypes.Type(value = NotificationResponse.MessageNotificationResponse::class, name = "message"),

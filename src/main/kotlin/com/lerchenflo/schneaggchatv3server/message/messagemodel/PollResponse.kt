@@ -66,7 +66,7 @@ fun PollMessage.toPollMessageResponse(requestingUserId: ObjectId): PollResponse 
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.PROPERTY,
-    property = "type"
+    property = "_class"
 )
 @JsonSubTypes(
     JsonSubTypes.Type(value = PollResponse.PublicPollResponse::class, name = "public"),

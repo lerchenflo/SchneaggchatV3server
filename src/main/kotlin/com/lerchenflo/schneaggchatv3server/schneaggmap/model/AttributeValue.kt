@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import org.springframework.data.annotation.TypeAlias
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "_class")
 @JsonSubTypes(
     JsonSubTypes.Type(value = AttributeValue.StringValue::class, name = "string"),
     JsonSubTypes.Type(value = AttributeValue.IntValue::class, name = "int"),

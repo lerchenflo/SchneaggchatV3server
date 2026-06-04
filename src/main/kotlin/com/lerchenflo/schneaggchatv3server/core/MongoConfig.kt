@@ -11,6 +11,7 @@ import org.springframework.data.convert.ReadingConverter
 import org.springframework.data.convert.WritingConverter
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions
 
+
 @Configuration
 class MongoConfig {
 
@@ -25,16 +26,20 @@ class MongoConfig {
     }
 }
 
+
+
+
+
 @WritingConverter
 class AttributeValueWriteConverter : Converter<AttributeValue, Document> {
     override fun convert(source: AttributeValue): Document {
         // Manually create document with type discriminator
         return when (source) {
-            is AttributeValue.StringValue -> Document("type", "string").append("value", source.value)
-            is AttributeValue.IntValue -> Document("type", "int").append("value", source.value)
-            is AttributeValue.DoubleValue -> Document("type", "double").append("value", source.value)
-            is AttributeValue.BoolValue -> Document("type", "bool").append("value", source.value)
-            is AttributeValue.EnumValue -> Document("type", "enum").append("value", source.value)
+            is AttributeValue.StringValue -> Document("_class", "string").append("value", source.value)
+            is AttributeValue.IntValue -> Document("_class", "int").append("value", source.value)
+            is AttributeValue.DoubleValue -> Document("_class", "double").append("value", source.value)
+            is AttributeValue.BoolValue -> Document("_class", "bool").append("value", source.value)
+            is AttributeValue.EnumValue -> Document("_class", "enum").append("value", source.value)
         }
     }
 }
@@ -42,7 +47,7 @@ class AttributeValueWriteConverter : Converter<AttributeValue, Document> {
 @ReadingConverter
 class AttributeValueReadConverter : Converter<Document, AttributeValue> {
     override fun convert(source: Document): AttributeValue {
-        val type = source.getString("type")
+        val type = source.getString("_class")
         val value = source["value"]
 
         return when (type) {
@@ -55,6 +60,9 @@ class AttributeValueReadConverter : Converter<Document, AttributeValue> {
         }
     }
 }
+
+
+
 
 @WritingConverter
 class LocationDataWriteConverter : Converter<LocationData, Document> {
@@ -79,15 +87,16 @@ class LocationDataWriteConverter : Converter<LocationData, Document> {
     }
 }
 
+
 @ReadingConverter
 class LocationDataReadConverter : Converter<Document, LocationData> {
     override fun convert(source: Document): LocationData {
         // Add the type discriminator that Jackson expects
-        val docWithType = Document(source).apply {
-            val type = getString("_class")
-            put("type", type)
-        }
+        val docWithType = Document(source)
 
         return Json.mapper.convertValue(docWithType, LocationData::class.java)
     }
 }
+
+
+

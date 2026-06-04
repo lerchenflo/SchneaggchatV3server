@@ -11,7 +11,7 @@ import kotlin.time.ExperimentalTime
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.PROPERTY,
-    property = "type"
+    property = "_class"
 )
 @JsonSubTypes(
     JsonSubTypes.Type(value = UserResponse.SimpleUserResponse::class, name = "simple"),

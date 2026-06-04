@@ -3,7 +3,7 @@ package com.lerchenflo.schneaggchatv3server.schneaggmap.model
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "_class")
 @JsonSubTypes(
     JsonSubTypes.Type(value = AttributeDefinition.StringDef::class, name = "string"),
     JsonSubTypes.Type(value = AttributeDefinition.IntDef::class, name = "int"),

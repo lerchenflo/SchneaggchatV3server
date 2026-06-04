@@ -10,7 +10,7 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.PROPERTY,
-    property = "type"
+    property = "_class"
 )
 @JsonSubTypes(
     JsonSubTypes.Type(value = SocketConnectionMessage.MessageChange::class, name = "messagechange"),
