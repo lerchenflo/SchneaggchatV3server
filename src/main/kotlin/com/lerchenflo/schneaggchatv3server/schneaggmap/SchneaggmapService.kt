@@ -71,6 +71,13 @@ class SchneaggmapService(
                     if (value !is AttributeValue.BoolValue)
                         errors += "${def.key}: expected bool"
                 }
+
+                is AttributeDefinition.LongDef -> {
+                    val v = (value as? AttributeValue.LongValue)?.value
+                        ?: run { errors += "${def.key}: expected long"; continue }
+                    def.min?.let { if (v < it) errors += "${def.key}: $v is below minimum $it" }
+                    def.max?.let { if (v > it) errors += "${def.key}: $v exceeds maximum $it" }
+                }
             }
         }
 
@@ -185,7 +192,7 @@ class SchneaggmapService(
     fun importLegacyMapEntries(creatorId: ObjectId) {
         if (mapEntryRepository.count() > 0) {
             AppLogger.info("Legacy map entry import skipped: collection not empty, testing for deserialization error:")
-            println(mapEntryRepository.findAll().first()) //Query one entry to show deserialization errors
+            println(mapEntryRepository.findAll().first())
             AppLogger.info("No error")
             return
         }
@@ -201,15 +208,13 @@ class SchneaggmapService(
         val batch = mutableListOf<MapEntry>()
         var skipped = 0
 
-
-
         for (entry in raw) {
             val categoryName = fixEncoding(entry["Name"] as? String ?: continue)
             if (categoryName in skippedCategories) { skipped++; continue }
 
             val beschreibung = fixEncoding((entry["Beschreibung"] as? String).orEmpty())
-            val createdAt  = Instant.fromEpochMilliseconds((entry["CreationTime"] as? String)?.toLongOrNull() ?: 0L)
-            val updatedAt  = Instant.fromEpochMilliseconds((entry["LastChanged"]   as? String)?.toLongOrNull() ?: 0L)
+            val createdAt = Instant.fromEpochMilliseconds((entry["CreationTime"] as? String)?.toLongOrNull() ?: 0L)
+            val updatedAt = Instant.fromEpochMilliseconds((entry["LastChanged"]  as? String)?.toLongOrNull() ?: 0L)
             val lat = (entry["Latitude"]  as? String)?.toDoubleOrNull() ?: continue
             val lng = (entry["Longitude"] as? String)?.toDoubleOrNull() ?: continue
 
@@ -217,21 +222,21 @@ class SchneaggmapService(
             val name: String
             val description: String
 
-
             when (categoryName) {
+
                 "Radar" -> {
                     val speed = speedRegex.find(beschreibung)?.groupValues?.get(1)?.toIntOrNull()
-                    if (beschreibung == "Ampelblitzer") {
-                        locationData = LocationData.Radar(
+                    locationData = if (beschreibung == "Ampelblitzer") {
+                        LocationData.Radar(
                             speedLimit = AttributeValue.IntValue(0),
-                            mobile = AttributeValue.BoolValue(false),
-                            redLight = AttributeValue.BoolValue(true)
+                            mobile     = AttributeValue.BoolValue(false),
+                            redLight   = AttributeValue.BoolValue(true),
                         )
                     } else {
-                        locationData = LocationData.Radar(
+                        LocationData.Radar(
                             speedLimit = AttributeValue.IntValue(speed ?: 0),
-                            mobile = AttributeValue.BoolValue(false),
-                            redLight = AttributeValue.BoolValue(false)
+                            mobile     = AttributeValue.BoolValue(false),
+                            redLight   = AttributeValue.BoolValue(false),
                         )
                     }
                     name        = if (speed != null) "$speed km/h Radar" else "Radar"
@@ -239,22 +244,18 @@ class SchneaggmapService(
                 }
 
                 "Motorradstrecke" -> {
-                    locationData = LocationData.Street(
-                        mautFee         = null,
-                        heightLimit     = null,
-                        closedInWinter  = null,
-                        wheeliesAllowed = null,
+                    locationData = LocationData.MountainStreet(
+                        mautFee        = null,
+                        heightLimit    = null,
+                        closedInWinter = null,
                     )
                     name        = beschreibung.ifBlank { "Motorradstrecke" }
                     description = ""
                 }
 
                 "Wheeliespot" -> {
-                    locationData = LocationData.Street(
-                        mautFee         = null,
-                        heightLimit     = null,
-                        closedInWinter  = null,
-                        wheeliesAllowed = AttributeValue.BoolValue(true),
+                    locationData = LocationData.Wheeliespot(
+                        onlyOnWeekends = null,
                     )
                     name        = beschreibung.ifBlank { "Wheeliespot" }
                     description = ""
@@ -279,20 +280,14 @@ class SchneaggmapService(
                 }
 
                 "Kebab" -> {
-                    locationData = LocationData.FastFood(
-                        burger = AttributeValue.BoolValue(false),
-                        kebab = AttributeValue.BoolValue(false),
-                        pizza = AttributeValue.BoolValue(false),
-                        allYouCanEat = AttributeValue.BoolValue(false)
-                    )
+                    locationData = LocationData.FoodKebab(kebabPrice = null)
                     name        = beschreibung.ifBlank { "Kebab" }
                     description = ""
                 }
 
                 "Essen" -> {
-                    locationData = LocationData.GenericFood(
-                        cuisine = AttributeValue.StringValue(beschreibung),
-                        allYouCanEat = AttributeValue.BoolValue(false)
+                    locationData = LocationData.FoodOther(
+                        cuisine = AttributeValue.StringValue(beschreibung.ifBlank { "Essen" }),
                     )
                     name        = beschreibung.ifBlank { "Essen" }
                     description = ""
@@ -303,15 +298,15 @@ class SchneaggmapService(
 
             batch.add(
                 MapEntry(
-                    name = name,
-                    description = description,
-                    coordinates = LatLong(lat = lat, long = lng),
+                    name         = name,
+                    description  = description,
+                    coordinates  = LatLong(lat = lat, long = lng),
                     locationData = listOf(locationData),
-                    createdBy = creatorId,
-                    createdAt = createdAt,
-                    updatedBy = creatorId,
-                    updatedAt = updatedAt,
-                    deleted = false,
+                    createdBy    = creatorId,
+                    createdAt    = createdAt,
+                    updatedBy    = creatorId,
+                    updatedAt    = updatedAt,
+                    deleted      = false,
                 )
             )
         }

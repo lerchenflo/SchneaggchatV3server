@@ -10,6 +10,7 @@ import org.springframework.data.annotation.TypeAlias
     JsonSubTypes.Type(value = AttributeValue.IntValue::class, name = "int"),
     JsonSubTypes.Type(value = AttributeValue.DoubleValue::class, name = "double"),
     JsonSubTypes.Type(value = AttributeValue.BoolValue::class, name = "bool"),
+    JsonSubTypes.Type(value = AttributeValue.LongValue::class, name = "long"),
 )
 
 sealed class AttributeValue {
@@ -22,6 +23,9 @@ sealed class AttributeValue {
 
     @TypeAlias("double")
     data class DoubleValue(val value: Double) : AttributeValue()
+
+    @TypeAlias("long")
+    data class LongValue(val value: Long) : AttributeValue()
 
     @TypeAlias("bool")
     data class BoolValue(val value: Boolean) : AttributeValue()

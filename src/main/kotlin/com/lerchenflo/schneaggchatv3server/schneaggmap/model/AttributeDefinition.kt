@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
     JsonSubTypes.Type(value = AttributeDefinition.IntDef::class, name = "int"),
     JsonSubTypes.Type(value = AttributeDefinition.DoubleDef::class, name = "double"),
     JsonSubTypes.Type(value = AttributeDefinition.BoolDef::class, name = "bool"),
+    JsonSubTypes.Type(value = AttributeDefinition.LongDef::class, name = "long"),
 )
 sealed interface AttributeDefinition {
     val key: String
@@ -32,6 +33,13 @@ sealed interface AttributeDefinition {
         override val required: Boolean,
         val min: Double? = null,
         val max: Double? = null,
+    ) : AttributeDefinition
+
+    data class LongDef(
+        override val key: String,
+        override val required: Boolean,
+        val min: Long? = null,
+        val max: Long? = null,
     ) : AttributeDefinition
 
     data class BoolDef(

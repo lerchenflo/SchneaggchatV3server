@@ -39,6 +39,7 @@ class AttributeValueWriteConverter : Converter<AttributeValue, Document> {
             is AttributeValue.IntValue -> Document("_class", "int").append("value", source.value)
             is AttributeValue.DoubleValue -> Document("_class", "double").append("value", source.value)
             is AttributeValue.BoolValue -> Document("_class", "bool").append("value", source.value)
+            is AttributeValue.LongValue -> Document("_class", "long").append("value", source.value)
         }
     }
 }
@@ -54,6 +55,7 @@ class AttributeValueReadConverter : Converter<Document, AttributeValue> {
             "int" -> AttributeValue.IntValue((value as Number).toInt())
             "double" -> AttributeValue.DoubleValue((value as Number).toDouble())
             "bool" -> AttributeValue.BoolValue(value as Boolean)
+            "long" -> AttributeValue.LongValue(value as Long)
             else -> throw IllegalArgumentException("Unknown attribute type: $type")
         }
     }
@@ -71,15 +73,34 @@ class LocationDataWriteConverter : Converter<LocationData, Document> {
 
         // Add the discriminator field for sealed class
         val typeName = when (source) {
-            is LocationData.Radar -> "radar"
-            is LocationData.Street -> "street"
-            is LocationData.Camping -> "camping"
-            is LocationData.SightSeeing -> "sightseeing"
+
+            // Traffic & Hazards
+            is LocationData.Radar          -> "radar"
+            is LocationData.Police         -> "police"
+
+            // Rider Spots
+            is LocationData.MountainStreet -> "mountain_street"
+            is LocationData.Wheeliespot    -> "wheeliespot"
+            is LocationData.Viewpoint      -> "viewpoint"
+
+            // Nature & Activities
+            is LocationData.Camping        -> "camping"
             is LocationData.SwimmingLocation -> "swimming"
-            is LocationData.PartyLocation -> "party"
-            is LocationData.AsianFood -> "asian_food"
-            is LocationData.FastFood -> "fast_food"
-            is LocationData.GenericFood -> "generic_food"
+
+            // Social & Entertainment
+            is LocationData.SightSeeing    -> "sightseeing"
+            is LocationData.PartyLocation  -> "party"
+
+            // Fast Food & Snacks
+            is LocationData.FoodKebab      -> "food_kebab"
+            is LocationData.FoodPizza      -> "food_pizza"
+            is LocationData.FoodBurger     -> "food_burger"
+            is LocationData.FoodBeer       -> "food_beer"
+
+            // Restaurant
+            is LocationData.FoodAsian      -> "food_asian"
+            is LocationData.FoodGreek      -> "food_greek"
+            is LocationData.FoodOther      -> "food_other"
         }
         doc["_class"] = typeName
 
