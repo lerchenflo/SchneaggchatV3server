@@ -22,11 +22,11 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
-import java.util.Locale
 import java.util.Locale.getDefault
 import kotlin.time.Clock
 
@@ -46,9 +46,34 @@ class UserService(
     private val hashEncoder: HashEncoder,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val imageManager: ImageManager,
-    private val notificationService: NotificationService
+    private val notificationService: NotificationService,
 
-) {
+    @Value("\${defaultaccount.password}") private val defaultPassword: String,
+
+    ) {
+
+    fun ensureTestaccount(): User {
+        val username = "testaccount"
+        return userLookupService.findByUsername(username) ?: run {
+
+            val now = Clock.System.now()
+            userLookupService.save(
+                User(
+                    username = username,
+                    hashedPassword = hashEncoder.encode(defaultPassword),
+                    email = "defaultuser@schneaggchat.com",
+                    userDescription = "",
+                    userStatus = "Default Test Account for Google Play / App store",
+                    birthDate = "2000-01-01",
+                    createdAt = now,
+                    updatedAt = now,
+                    emailVerifiedAt = now
+                )
+            )
+        }
+
+    }
+
 
 
     data class IdTimeStamp(
@@ -126,20 +151,19 @@ class UserService(
 
     fun getAvailableUsers(
         searchTerm: String?,
-        requestingUserId: String
+        requestingUserId: ObjectId
     ) : List<NewFriendsUserResponse>{
         //Is user searching?
         if (searchTerm.isNullOrBlank()) {
             //User is not searching
-            val requestingUserObjectId = ObjectId(requestingUserId)
             val allUserIds = userRepository.findAll().map { it.id }
 
             // Check if requesting user has any friendships
-            val hasFriendships = friendsLookupService.getAllInteractions(requestingUserObjectId).isNotEmpty()
+            val hasFriendships = friendsLookupService.getAllInteractions(requestingUserId).isNotEmpty()
 
             // Get users with no interaction
             val usersWithNoInteraction = friendsLookupService.getUsersWithNoInteraction(
-                userId = requestingUserObjectId,
+                userId = requestingUserId,
                 allUserIds = allUserIds
             )
 
@@ -147,7 +171,7 @@ class UserService(
                 // Return only users with common friends (at least 1)
                 userRepository.findAllById(usersWithNoInteraction)
                     .filter { user ->
-                        friendsLookupService.getCommonFriendCount(requestingUserObjectId, user.id) > 0
+                        friendsLookupService.getCommonFriendCount(requestingUserId, user.id) > 0
                     }
             } else {
                 // Return all users with no interaction
@@ -158,7 +182,7 @@ class UserService(
                 NewFriendsUserResponse(
                     id = user.id.toHexString(),
                     username = user.username,
-                    commonFriendCount = friendsLookupService.getCommonFriendCount(requestingUserObjectId, user.id),
+                    commonFriendCount = friendsLookupService.getCommonFriendCount(requestingUserId, user.id),
                 )
             }
         } else {
@@ -167,13 +191,13 @@ class UserService(
                 searchTerm.trim().lowercase(getDefault())
             )
 
-            val interactedUserIds = friendsLookupService.getAllInteractions(ObjectId(requestingUserId))
+            val interactedUserIds = friendsLookupService.getAllInteractions(requestingUserId)
                 .map { it.userId }
                 .toSet()
 
             return searchResults
                 .filter { user ->
-                    user.id != ObjectId(requestingUserId) && // Exclude self
+                    user.id != requestingUserId && // Exclude self
                             user.id !in interactedUserIds // Exclude already interacted users
                 }
                 .map { user ->
@@ -181,7 +205,7 @@ class UserService(
                         id = user.id.toHexString(),
                         username = user.username,
                         commonFriendCount = friendsLookupService.getCommonFriendCount(
-                            ObjectId(requestingUserId),
+                            requestingUserId,
                             user.id
                         )
                     )
@@ -191,7 +215,7 @@ class UserService(
     }
 
 
-    fun changeUsername(requestingUserId: String, newName: String) {
+    fun changeUsername(requestingUserId: ObjectId, newName: String) {
         val normalizedNewName = newName.trim().lowercase(getDefault())
         val existingUser = userRepository.findByUsername(normalizedNewName)
 
@@ -201,7 +225,7 @@ class UserService(
 
         require(ValidationUtils.validateUsername(normalizedNewName)) { "New username is invalid: $normalizedNewName" }
 
-        val user = userRepository.findById(ObjectId(requestingUserId)).get()
+        val user = userRepository.findById(requestingUserId).get()
 
         val updatedUser = user.copy(
             username = normalizedNewName,
@@ -211,14 +235,14 @@ class UserService(
         notificationService.notifyUserUpdate(updatedUser, deleted = false)
     }
 
-    fun changeProfilepic(requestingUserId: String, newPic: MultipartFile){
-        val user = userRepository.findById(ObjectId(requestingUserId)).get()
+    fun changeProfilepic(requestingUserId: ObjectId, newPic: MultipartFile){
+        val user = userRepository.findById(requestingUserId).get()
 
         require(ValidationUtils.validatePicture(newPic)) { "New picture is invalid" }
 
         imageManager.saveProfilePic(
             image = newPic,
-            userId = requestingUserId,
+            userId = requestingUserId.toHexString(),
             group = false
         )
 
@@ -233,7 +257,7 @@ class UserService(
     }
 
     fun changeUserProfile(
-        changingUserId: String,
+        changingUserId: ObjectId,
         userRequest: UserRequest
     ) {
         val requestingUser = userLookupService.findById(changingUserId)
@@ -246,7 +270,7 @@ class UserService(
 
 
         //Change something about yourself (Status, email, birthdate)
-        if (changingUserId == userRequest.userId) {
+        if (changingUserId.toHexString() == userRequest.userId) {
 
             val emailvalid = /* user.emailVerifiedAt != null && */ userRequest.newEmail != null
 
@@ -340,8 +364,8 @@ class UserService(
         val newPassword: String
     )
 
-    fun changePassword(requestingUserId: String, passwordChangeRequest: PasswordChangeRequest) {
-        val user = userRepository.findById(ObjectId(requestingUserId)).get()
+    fun changePassword(requestingUserId: ObjectId, passwordChangeRequest: PasswordChangeRequest) {
+        val user = userRepository.findById(requestingUserId).get()
 
         require(
             hashEncoder.matches(passwordChangeRequest.oldPassword, user.hashedPassword)
@@ -431,7 +455,7 @@ class UserService(
      * Function to delete a user account with all messages etc
      */
     fun deleteAccount(userId: ObjectId) {
-        val user = userLookupService.findByObjectId(userId) ?: return
+        val user = userLookupService.findById(userId) ?: return
 
         // Notify friends before deleting friendships (list would be empty after)
         notificationService.notifyUserUpdate(user, deleted = true)

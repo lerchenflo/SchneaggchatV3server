@@ -7,7 +7,7 @@ import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.PROPERTY,
-    property = "type"
+    property = "_class"
 )
 @JsonSubTypes(
     JsonSubTypes.Type(value = NotificationResponse.MessageNotificationResponse::class, name = "message"),
@@ -25,6 +25,8 @@ sealed interface NotificationResponse {
         val messageType: MessageType,
         val groupName: String,
         val encodedContent: String,
+        val senderId: String,
+        val receiverId: String,
         val reaction: Boolean = false
     ) : NotificationResponse
 

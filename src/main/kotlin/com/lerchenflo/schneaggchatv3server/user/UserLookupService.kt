@@ -1,7 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.user
 
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
-import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
@@ -35,10 +34,10 @@ class UserLookupService(
     fun findById(id: String): User? {
         val objid = ObjectId(id)
 
-        return findByObjectId(objid)
+        return findById(objid)
     }
 
-    fun findByObjectId(id: ObjectId): User? {
+    fun findById(id: ObjectId): User? {
 
         val optuser = userRepository.findById(id)
 

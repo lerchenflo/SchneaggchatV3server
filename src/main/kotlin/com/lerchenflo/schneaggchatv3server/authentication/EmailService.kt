@@ -45,7 +45,7 @@ class EmailService(
      */
     fun sendVerificationEmail(userId: ObjectId) {
 
-        val user = userLookupService.findByObjectId(userId) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User $userId not found")
+        val user = userLookupService.findById(userId) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User $userId not found")
 
         if (user.emailVerifiedAt != null) {
             return //Email already verified
@@ -166,7 +166,7 @@ class EmailService(
      * Send a password reset email to a client (only if email is verified)
      */
     fun sendPasswordResetEmail(userId: ObjectId, email: String) {
-        val user = userLookupService.findByObjectId(userId)
+        val user = userLookupService.findById(userId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
 
         // Only send if email is verified

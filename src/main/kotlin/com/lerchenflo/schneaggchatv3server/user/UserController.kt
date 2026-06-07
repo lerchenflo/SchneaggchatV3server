@@ -3,24 +3,20 @@
 package com.lerchenflo.schneaggchatv3server.user
 
 import com.lerchenflo.schneaggchatv3server.authentication.EmailService
+import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
 import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
-import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
 import org.bson.types.ObjectId
-import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
-import org.springframework.web.server.ResponseStatusException
-import java.util.Locale
 import java.util.Locale.getDefault
 import kotlin.time.ExperimentalTime
 
@@ -39,13 +35,9 @@ class UserController(
 
     @PostMapping("/verificationemail")
     fun sendVerificationEmail(){
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
-        emailService.sendVerificationEmail(ObjectId(requestingUserId))
+        emailService.sendVerificationEmail(requestingUserId)
     }
 
 
@@ -61,15 +53,11 @@ class UserController(
     ) {
         require(ValidationUtils.validateNotificationToken(request.token, request.isAndroid)) { "Invalid notification token" }
 
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         //AppLogger.debug("Setting notification token: Android:${request.isAndroid}} ${request.token}")
 
-        val userId = ObjectId(requestingUserId)
+        val userId = requestingUserId
         if (request.isAndroid) firebaseService.saveToken(userId = userId, token = request.token)
         else apnsService.saveToken(userId = userId, token = request.token)
     }
@@ -79,10 +67,7 @@ class UserController(
     fun changeUsername(
         @RequestBody(required = true) newUsername: String,
     ){
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in")
+        val requestingUserId = requireAuth()
 
         userService.changeUsername(requestingUserId, newUsername.trim().lowercase(getDefault()))
     }
@@ -91,10 +76,7 @@ class UserController(
     fun changePassword(
         @Valid @RequestBody(required = true) changeRequest: UserService.PasswordChangeRequest,
     ){
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in")
+        val requestingUserId = requireAuth()
 
         userService.changePassword(
             requestingUserId = requestingUserId,
@@ -106,21 +88,15 @@ class UserController(
 
 
 
-
-
     @PostMapping("/sync")
     fun syncUsers(
         @RequestBody requestBody: List<UserService.IdTimeStamp>
     ) : UserService.UserSyncResponse {
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         return userService.userIdSync(
             idTimeStamps = requestBody,
-            requesterId = ObjectId(requestingUserId),
+            requesterId = requestingUserId,
         )
     }
 
@@ -132,11 +108,8 @@ class UserController(
     @GetMapping("/profilepic/{id}")
     fun getProfilePic(@PathVariable("id") userId: String): ResponseEntity<ByteArray> {
         require(ValidationUtils.validateObjectId(userId)) { "Invalid user ID" }
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
+
 
         //TODO: Move into userservice
         return try {
@@ -154,11 +127,7 @@ class UserController(
     fun setProfilePic(
         @RequestParam("profilepic") multipartFile: MultipartFile
     ) {
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         userService.changeProfilepic(
             requestingUserId = requestingUserId,
@@ -171,11 +140,7 @@ class UserController(
     fun changeProfile(
         @Valid @RequestBody request: UserRequest
     ) {
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         userService.changeUserProfile(
             changingUserId = requestingUserId,
@@ -192,11 +157,7 @@ class UserController(
             require(ValidationUtils.validateSearchTerm(searchTerm)) { "Search term too long" }
         }
 
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
 
         return userService.getAvailableUsers(
@@ -213,14 +174,10 @@ class UserController(
         @PathVariable("id") touserId: String
     ) {
         require(ValidationUtils.validateObjectId(touserId)) { "Invalid user ID" }
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
 
         val friendship = friendshipsService.sendFriendRequest(
-            fromUserId = ObjectId(requestingUserId),
+            fromUserId = requestingUserId,
             toUserId = ObjectId(touserId)
         )
 
@@ -232,14 +189,11 @@ class UserController(
         @PathVariable("id") touserId: String
     ) {
         require(ValidationUtils.validateObjectId(touserId)) { "Invalid user ID" }
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
+
 
         friendshipsService.declineFriendRequest(
-            ObjectId(requestingUserId),
+            requestingUserId,
             ObjectId(touserId)
         )
     }
@@ -249,14 +203,11 @@ class UserController(
         @PathVariable("id") removedfriend: String
     ) {
         require(ValidationUtils.validateObjectId(removedfriend)) { "Invalid user ID" }
-        val requestingUserId =
-            SecurityContextHolder.getContext().authentication?.principal as? String ?: throw ResponseStatusException(
-                /* status = */ HttpStatus.FORBIDDEN,
-                /* reason = */ "Not logged in"
-            )
+        val requestingUserId = requireAuth()
+
 
         friendshipsService.removeFriend(
-            userId = ObjectId(requestingUserId),
+            userId = requestingUserId,
             friendId = ObjectId(removedfriend)
         )
     }

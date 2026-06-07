@@ -4,7 +4,6 @@ import org.springframework.web.multipart.MultipartFile
 import java.time.LocalDate
 import java.time.Period
 import java.time.format.DateTimeParseException
-import java.util.Locale
 import java.util.Locale.getDefault
 
 object ValidationUtils {

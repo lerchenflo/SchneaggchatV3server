@@ -1,7 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.user.friends
 
 import com.lerchenflo.schneaggchatv3server.repository.FriendshipRepository
-import com.lerchenflo.schneaggchatv3server.repository.FriendshipSettingsRepository
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.Friendship
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import org.bson.types.ObjectId

@@ -3,26 +3,14 @@ package com.lerchenflo.schneaggchatv3server.notifications.firebase
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
-import com.google.firebase.messaging.AndroidConfig
-import com.google.firebase.messaging.ApnsConfig
-import com.google.firebase.messaging.ApnsFcmOptions
-import com.google.firebase.messaging.Aps
-import com.google.firebase.messaging.FcmOptions
-import com.google.firebase.messaging.FirebaseMessaging
-import com.google.firebase.messaging.FirebaseMessagingException
-import com.google.firebase.messaging.Message
-import com.google.firebase.messaging.MessagingErrorCode
+import com.google.firebase.messaging.*
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
-import com.lerchenflo.schneaggchatv3server.util.CryptoUtil
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.FirebaseToken
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.repository.FirebaseTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
-import com.lerchenflo.schneaggchatv3server.util.AppLogger
-import com.lerchenflo.schneaggchatv3server.util.Json
-import com.lerchenflo.schneaggchatv3server.util.LogType
-import com.lerchenflo.schneaggchatv3server.util.LoggingService
+import com.lerchenflo.schneaggchatv3server.util.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -117,7 +105,7 @@ class FirebaseService(
         msgId: String,
         groupMessage: Boolean,
         messageType: MessageType,
-        groupName: String? = null
+        groupName: String? = null,
     ) {
         val senderName = userLookupService.getUsername(senderId)
 
@@ -140,6 +128,8 @@ class FirebaseService(
                     groupMessage = groupMessage,
                     groupName = groupName ?: "",
                     encodedContent = encodedContent,
+                    senderId = senderId.toHexString(),
+                    receiverId = receiverId.toHexString()
                 )
 
                 // Reuse the generic sender
@@ -165,7 +155,7 @@ class FirebaseService(
         msgId: String,
         groupMessage: Boolean,
         messageType: MessageType,
-        groupName: String? = null
+        groupName: String? = null,
     ) {
         val reactorName = userLookupService.getUsername(reactorId)
 
@@ -186,6 +176,8 @@ class FirebaseService(
                     groupMessage = groupMessage,
                     groupName = groupName ?: "",
                     encodedContent = encodedContent,
+                    senderId = reactorId.toHexString(),
+                    receiverId = receiverId.toHexString(),
                     reaction = true,
                 )
 
@@ -370,6 +362,7 @@ class FirebaseService(
                     .setPriority(AndroidConfig.Priority.HIGH) //for immediate delivery: https://firebase.google.com/docs/cloud-messaging/android-message-priority?hl=de
                     .build()
             )
+            //APNS CONFIG IS UNUSED, REPLACED BY APNS IMPLEMENTATION
             .setApnsConfig(
                 /*
                 Priority:

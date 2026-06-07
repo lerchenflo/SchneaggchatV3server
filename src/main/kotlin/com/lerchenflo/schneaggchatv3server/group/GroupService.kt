@@ -9,10 +9,10 @@ import com.lerchenflo.schneaggchatv3server.group.model.toGroupMemberResponse
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.GroupMemberRepository
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
-import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.util.*
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
@@ -126,14 +126,14 @@ class GroupService(
         val deletedGroups: List<String>
     )
 
-    fun syncGroups(userId: String, ids: List<UserService.IdTimeStamp>): GroupSyncResponse {
+    fun syncGroups(userId: ObjectId, ids: List<UserService.IdTimeStamp>): GroupSyncResponse {
         // Groups which the client has on their device
         val clientGroups = ids.associate {
             it.id to it.timeStamp
         }
 
         // All groups this user is part of on the server
-        val serverGroups = groupLookupService.getUserGroupIdsLastchanged(ObjectId(userId)).associate {
+        val serverGroups = groupLookupService.getUserGroupIdsLastchanged(userId).associate {
             it.id to it.timeStamp
         }
 

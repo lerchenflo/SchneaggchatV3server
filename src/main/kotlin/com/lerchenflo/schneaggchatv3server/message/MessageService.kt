@@ -13,7 +13,6 @@ import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.util.*
 import org.bson.types.ObjectId
 import org.springframework.dao.OptimisticLockingFailureException
-import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.FindAndModifyOptions
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.find
@@ -370,7 +369,7 @@ class MessageService(
             val newReactions = if (existing != null) {
                 message.reactions - existing
             } else {
-                message.reactions + Reaction(userId = reactingUserId, content = content)
+                message.reactions + Reaction(userId = reactingUserId, content = content.trim())
             }
 
             val now = Clock.System.now()

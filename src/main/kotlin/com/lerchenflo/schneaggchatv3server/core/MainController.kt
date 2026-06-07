@@ -6,14 +6,12 @@ import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.group.model.Group
-import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
-import com.lerchenflo.schneaggchatv3server.repository.UserRepository
+import com.lerchenflo.schneaggchatv3server.schneaggmap.SchneaggmapService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
-import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.data.mongodb.core.MongoTemplate
@@ -22,10 +20,8 @@ import org.springframework.data.mongodb.core.aggregation.SetOperation
 import org.springframework.data.mongodb.core.index.IndexInfo
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
-import org.springframework.data.mongodb.core.query.Update
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
-import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
@@ -37,16 +33,17 @@ class MainController(
     private val userLookupService: UserLookupService,
     private val groupLookupService: GroupLookupService,
 
+    private val userService: UserService,
+
     private val hashEncoder: HashEncoder,
     private val mongoTemplate: MongoTemplate,
     private val groupService: GroupService,
     private val groupRepository: GroupRepository,
 
-    private val userRepository: UserRepository,
 
+    private val schneaggmapService: SchneaggmapService,
 
-    @Value("\${defaultaccount.password}") private val defaultPassword: String
-){
+    ){
 
     @GetMapping("/public/test")
     fun test(): String {
@@ -55,10 +52,10 @@ class MainController(
 
     @EventListener(ApplicationReadyEvent::class)
     fun onStartup() {
+        migrateDBs()
+        val testaccount = userService.ensureTestaccount()
+        schneaggmapService.importLegacyMapEntries(testaccount.id)
 
-        //migrateDBs()
-
-        //Code to execute on app start finished
         //listMongoIndexes()
         //printAllGroups()
 
@@ -84,6 +81,7 @@ class MainController(
         }
 
     }
+
 
     fun listMongoIndexes() {
         val collections = mongoTemplate.db.listCollectionNames().toList()

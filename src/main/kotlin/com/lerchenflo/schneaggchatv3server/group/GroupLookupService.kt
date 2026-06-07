@@ -10,7 +10,6 @@ import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
-import kotlin.jvm.optionals.getOrNull
 
 @Service
 class GroupLookupService(

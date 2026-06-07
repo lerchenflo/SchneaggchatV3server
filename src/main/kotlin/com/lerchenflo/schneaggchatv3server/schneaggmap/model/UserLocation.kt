@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalTime::class)
 
-package com.lerchenflo.schneaggchatv3server.location.model
+package com.lerchenflo.schneaggchatv3server.schneaggmap.model
 
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
