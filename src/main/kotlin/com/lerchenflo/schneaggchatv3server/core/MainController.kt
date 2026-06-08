@@ -52,7 +52,7 @@ class MainController(
 
     @EventListener(ApplicationReadyEvent::class)
     fun onStartup() {
-        migrateDBs()
+        //migrateDBs()
         val testaccount = userService.ensureTestaccount()
         schneaggmapService.importLegacyMapEntries(testaccount.id)
 
@@ -87,6 +87,7 @@ class MainController(
         }
         AppLogger.info("========================================")
     }
+
 
 
     fun migrateDBs() {
@@ -129,6 +130,8 @@ class MainController(
 
 
     }
+
+
 
 
 

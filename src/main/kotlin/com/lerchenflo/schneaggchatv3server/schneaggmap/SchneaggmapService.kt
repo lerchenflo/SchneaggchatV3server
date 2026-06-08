@@ -10,6 +10,8 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
+import com.lerchenflo.schneaggchatv3server.util.LogType
+import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import com.lerchenflo.schneaggchatv3server.util.withOptimisticRetry
 import org.bson.types.ObjectId
 import org.springframework.core.io.ClassPathResource
@@ -33,6 +35,7 @@ data class MapSyncResponse(
 class SchneaggmapService(
     private val mapEntryRepository: MapEntryRepository,
     private val notificationService: NotificationService,
+    private val loggingService: LoggingService
 ) {
 
     // ─── Validation ──────────────────────────────────────────────────────────
@@ -136,6 +139,10 @@ class SchneaggmapService(
                 updatedAt    = now,
             )
 
+            loggingService.log(
+                userId = requesterId,
+                logType = if (existing == null) LogType.MAP_ENTRY_CREATED else LogType.MAP_ENTRY_EDITED,
+            )
             val saved = mapEntryRepository.save(entry)
             notificationService.notifyMapUpdate(saved, newEntry = existing == null, deleted = false, changingUserId = requesterId)
             saved
@@ -152,6 +159,10 @@ class SchneaggmapService(
         )
         val saved = mapEntryRepository.save(deleted)
         notificationService.notifyMapUpdate(saved, newEntry = false, deleted = true, changingUserId = requesterId)
+        loggingService.log(
+            userId = requesterId,
+            logType = LogType.MAP_ENTRY_DELETED,
+        )
     }
 
     fun mapSync(

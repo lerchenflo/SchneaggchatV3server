@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM eclipse-temurin:25-jdk-alpine AS build
 WORKDIR /app
 
 # Install git
@@ -22,7 +22,7 @@ RUN chmod +x gradlew && \
 RUN ./gradlew clean build -x test --no-daemon
 
 # Production runtime stage
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 ARG TZ=Europe/Vienna
 WORKDIR /app
 
