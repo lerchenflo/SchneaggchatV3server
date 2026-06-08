@@ -1,18 +1,18 @@
 plugins {
 	kotlin("jvm") version "2.3.0"
 	kotlin("plugin.spring") version "2.3.0"
-	id("org.springframework.boot") version "4.0.2"
+	id("org.springframework.boot") version "4.1.0-RC1"
     id("com.google.devtools.ksp") version "2.3.5"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
 group = "com.lerchenflo"
-version = "3.0.10"
+version = "3.0.12"
 description = "SchneaggchatV3 server"
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
+		languageVersion = JavaLanguageVersion.of(25)
 	}
 }
 

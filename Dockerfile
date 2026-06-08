@@ -1,5 +1,5 @@
 # Build stage (Alpine)
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM eclipse-temurin:25-jdk-alpine AS build
 ARG TZ=Europe/Vienna
 WORKDIR /app
 
@@ -26,7 +26,7 @@ RUN ./gradlew clean build -x test --no-daemon
 
 
 # Runtime stage (Alpine)
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 ARG TZ=Europe/Vienna
 WORKDIR /app
 
