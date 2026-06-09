@@ -279,48 +279,57 @@ class FirebaseService(
     private fun safeSend(message: Message, token: String): Boolean {
         try {
             val response = FirebaseMessaging.getInstance().send(message)
-            //println("Firebase send response: $response")
             return true
 
         } catch (e: FirebaseMessagingException) {
-            // Use error codes instead of string comparison
-            //println("[Firebase] Exception: Code=${errorCode}, Message=${e.message}")
+            val errorCode = e.messagingErrorCode
+            val rawErrorCode = e.errorCode?.name // fallback: raw string like "registration-token-not-registered"
 
-            // Remove tokens only for permanent failures
-            when (val errorCode = e.messagingErrorCode) {
-                MessagingErrorCode.UNREGISTERED,
-                MessagingErrorCode.INVALID_ARGUMENT,
-                MessagingErrorCode.SENDER_ID_MISMATCH -> {
-                    //println("[Firebase] Removing invalid token: $token (Code: $errorCode)")
+            // Known invalid-token raw error codes from Firebase
+            val invalidTokenRawCodes = setOf(
+                "registration-token-not-registered",
+                "invalid-registration-token",
+                "mismatched-credential",
+                "invalid-argument",
+            )
+
+            return when (errorCode) {
+                in setOf(
+                    MessagingErrorCode.UNREGISTERED,
+                    MessagingErrorCode.INVALID_ARGUMENT,
+                    MessagingErrorCode.SENDER_ID_MISMATCH
+                ) -> {
                     deleteToken(token)
-                    return false
+                    false
                 }
 
-                // Transient errors - don't remove token
-                MessagingErrorCode.UNAVAILABLE,
-                MessagingErrorCode.INTERNAL,
-                MessagingErrorCode.QUOTA_EXCEEDED -> {
+                // Null error code — fall back to raw string check
+                null if rawErrorCode in invalidTokenRawCodes -> {
+                    AppLogger.warn("[Firebase] Removing invalid token via raw error code '$rawErrorCode': $token")
+                    deleteToken(token)
+                    false
+                }
+
+                // Transient errors — don't remove token
+                in setOf(
+                    MessagingErrorCode.UNAVAILABLE,
+                    MessagingErrorCode.INTERNAL,
+                    MessagingErrorCode.QUOTA_EXCEEDED
+                ) -> {
                     AppLogger.warn("[Firebase] Transient error for token: $token (Code: $errorCode)")
-                    return false
+                    false
                 }
 
-                // Other errors - log but don't remove token
+                // Everything else (including null with unknown raw code) — log both codes
                 else -> {
-                    AppLogger.warn("[Firebase] Error sending to token: $token (Code: $errorCode)")
-                    return false
+                    AppLogger.warn("[Firebase] Unhandled error for token: $token (Code: $errorCode, Raw: $rawErrorCode, HTTP: ${e.httpResponse?.statusCode})")
+                    false
                 }
             }
-
         } catch (e: Exception) {
-            // Catch-all for network, JSON, etc.
-            AppLogger.error(
-                "[Firebase] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}"
-            )
+            AppLogger.error("[Firebase] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}")
             e.printStackTrace()
-            loggingService.log(
-                userId = null,
-                logType = LogType.EXCEPTION_THROWN
-            )
+            loggingService.log(userId = null, logType = LogType.EXCEPTION_THROWN)
             return false
         }
     }
