@@ -45,23 +45,23 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     compileOnly("jakarta.servlet:jakarta.servlet-api:6.1.0")
-    implementation("io.jsonwebtoken:jjwt-api:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
+    implementation("io.jsonwebtoken:jjwt-api:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
 
     //firebase
-    implementation("com.google.firebase:firebase-admin:9.7.0")
+    implementation("com.google.firebase:firebase-admin:9.9.0")
 
     //APNs
-    implementation("com.eatthepath:pushy:0.15.4")
-    runtimeOnly("io.netty:netty-tcnative-boringssl-static:2.0.62.Final")
+    implementation("com.eatthepath:pushy:0.15.6")
+    runtimeOnly("io.netty:netty-tcnative-boringssl-static:2.0.78.Final")
 
     //cryptography
-    implementation("dev.whyoleg.cryptography:cryptography-core:0.5.0")
-    implementation("dev.whyoleg.cryptography:cryptography-provider-jdk:0.5.0")
+    implementation("dev.whyoleg.cryptography:cryptography-core:0.6.0")
+    implementation("dev.whyoleg.cryptography:cryptography-provider-jdk:0.6.0")
 
     implementation("org.springframework.boot:spring-boot-starter-websocket")
 
