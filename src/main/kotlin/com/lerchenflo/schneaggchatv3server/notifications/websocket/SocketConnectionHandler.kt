@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.notifications.websocket
 
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
+import com.lerchenflo.schneaggchatv3server.notifications.websocket.connectiontimelogger.ConnectionTimeLogger
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnection
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
@@ -16,11 +17,13 @@ import org.springframework.web.socket.WebSocketMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.time.Clock
 
 @Component
 class SocketConnectionHandler(
     private val jwtService: JwtService,
     private val userLookupService: UserLookupService,
+    private val connectionTimeLogger: ConnectionTimeLogger
 ): TextWebSocketHandler() {
 
     var connections : CopyOnWriteArrayList<SocketConnection> = CopyOnWriteArrayList()
@@ -57,7 +60,13 @@ class SocketConnectionHandler(
 
     override fun handleMessage(session: WebSocketSession, message: WebSocketMessage<*>) {
         super.handleMessage(session, message)
-        AppLogger.debug("Message received: $message")
+
+        val sendingSession = connections.find { it.sessionId == session.id }
+
+        if (sendingSession != null) {
+            AppLogger.info("Websocket message received from user ${userLookupService.findById(sendingSession.userId)}")
+        }
+
         //TODO: Handle messages
     }
 
@@ -107,12 +116,24 @@ class SocketConnectionHandler(
         //Remove session
         //println("Socket connection closed: $status")
 
-        //TODO: Log connection time?
+        val connectionToRemove: SocketConnection?
 
         synchronized(connections) {
-            //println("Socket connection closed: ${session.id}")
-            connections.removeIf { it.sessionId == session.id }
+
+            connectionToRemove = connections.find { it.sessionId == session.id }
+
+            connections.remove(connectionToRemove)
         }
+
+        connectionToRemove?.let { //Should always happpen
+            connectionTimeLogger.upsertEntry(
+                userId = it.userId,
+                startTime = it.startedAt,
+                endTime = Clock.System.now()
+            )
+        }
+
+
 
         //println("Socket connection closed: $status. Remaining connections: ${connections.size}")
 
