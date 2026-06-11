@@ -81,9 +81,9 @@ class SecurityConfig(
                     .requestMatchers("/web_images/**")
                     .permitAll()
 
-                    //Allow websockets
-                    //.requestMatchers("/ws")
-                    //.permitAll()
+                    .requestMatchers("/actuator/**")
+                    .permitAll()
+
 
 
                     //Allow forward of all Errors

@@ -78,6 +78,10 @@ services:
       # Rate limiting (both have safe defaults if omitted)
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       RATE_LIMIT_TRUSTED_PROXIES: ${RATE_LIMIT_TRUSTED_PROXIES:-}
+
+      PROMETHEUS_KEY: ${PROMETHEUS_KEY}
+
+
     networks:
       - spring-mongo-network
     volumes:
