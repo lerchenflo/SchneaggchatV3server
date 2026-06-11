@@ -70,6 +70,9 @@ dependencies {
     implementation("com.bucket4j:bucket4j-redis:8.10.1")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
+    //Prometheus (Logging)
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
 
     //testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
