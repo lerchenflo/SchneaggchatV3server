@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.*
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
+import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
@@ -35,6 +36,7 @@ data class MapSyncResponse(
 class SchneaggmapService(
     private val mapEntryRepository: MapEntryRepository,
     private val notificationService: NotificationService,
+    private val userLookupService: UserLookupService,
     private val loggingService: LoggingService
 ) {
 
@@ -139,12 +141,14 @@ class SchneaggmapService(
                 updatedAt    = now,
             )
 
+            AppLogger.info("MAP: ENTRY \"$name\" ${if (existing != null) "updated" else "created"} by ${userLookupService.getUsername(requesterId)}")
+
             loggingService.log(
                 userId = requesterId,
                 logType = if (existing == null) LogType.MAP_ENTRY_CREATED else LogType.MAP_ENTRY_EDITED,
             )
             val saved = mapEntryRepository.save(entry)
-            notificationService.notifyMapUpdate(saved, newEntry = existing == null, deleted = false, changingUserId = requesterId)
+            notificationService.notifyMapUpdate(saved, newEntry = existing == null, deleted = false, excludeUserId = requesterId) //Exclude creator, he gets the new entry with the response when upserting
             saved
         }
     }
@@ -158,7 +162,7 @@ class SchneaggmapService(
             updatedAt = Clock.System.now(),
         )
         val saved = mapEntryRepository.save(deleted)
-        notificationService.notifyMapUpdate(saved, newEntry = false, deleted = true, changingUserId = requesterId)
+        notificationService.notifyMapUpdate(saved, newEntry = false, deleted = true, excludeUserId = requesterId) //Notify all users of the deleted entry
         loggingService.log(
             userId = requesterId,
             logType = LogType.MAP_ENTRY_DELETED,
@@ -202,9 +206,9 @@ class SchneaggmapService(
 
     fun importLegacyMapEntries(creatorId: ObjectId) {
         if (mapEntryRepository.count() > 0) {
-            AppLogger.info("Legacy map entry import skipped: collection not empty, testing for deserialization error:")
-            println(mapEntryRepository.findAll().first())
-            AppLogger.info("No error")
+            //AppLogger.info("Legacy map entry import skipped: collection not empty, testing for deserialization error:")
+            mapEntryRepository.findAll().first()
+            //AppLogger.info("No error")
             return
         }
 

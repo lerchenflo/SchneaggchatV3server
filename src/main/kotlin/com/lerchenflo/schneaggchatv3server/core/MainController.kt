@@ -60,6 +60,8 @@ class MainController(
         //printAllGroups()
 
 
+        AppLogger.success("Server started successfully")
+
     }
 
 
