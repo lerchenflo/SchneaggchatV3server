@@ -240,14 +240,14 @@ class NotificationService(
         )
     }
 
-    fun notifyMapUpdate(entry: MapEntry, newEntry: Boolean, deleted: Boolean, changingUserId: ObjectId) {
+    fun notifyMapUpdate(entry: MapEntry, newEntry: Boolean, deleted: Boolean, excludeUserId: ObjectId?) {
         socketConnectionHandler.broadcast(
             SocketConnectionMessage.MapChange(
                 mapEntry = entry.toMapEntryResponse(),
                 newEntry = newEntry,
                 deleted = deleted,
             ),
-            excludeUserId = changingUserId,
+            excludeUserId = excludeUserId //Do not exclude the editor, he also needs the update
         )
     }
 
