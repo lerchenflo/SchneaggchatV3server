@@ -2,6 +2,7 @@ package com.lerchenflo.schneaggchatv3server.user.friends
 
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.Friendship
+import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipSetting
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
@@ -184,6 +185,49 @@ class FriendsService(
         friendsLookupService.deleteFriendshipEntry(friendship)
     }
 
+    /**
+     * Enable or disable sharing the requesting user's location with a specific friend.
+     * @param userId the user changing their own sharing setting
+     * @param friendId the friend this setting applies to
+     * @param share whether userId should share their location with friendId
+     * @throws ResponseStatusException NOT_FOUND if there is no friendship between the two users
+     * @throws IllegalArgumentException if the friendship is not currently ACCEPTED
+     */
+    fun setLocationSharing(userId: ObjectId, friendId: ObjectId, share: Boolean) {
+        val friendship = friendsLookupService.findFriendship(userId, friendId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Friendship not found")
 
+        require(friendship.status == FriendshipStatus.ACCEPTED) {
+            "Cannot change location sharing - friendship status is ${friendship.status}"
+        }
+
+        val existingSetting = friendsSettingsService.getFriendshipSetting(friendship.id, userId)
+
+        //No-op if the value didn't actually change (no setting yet defaults to false)
+        if ((existingSetting?.shareLocation ?: false) == share) return
+
+        if (existingSetting != null) {
+            friendsSettingsService.saveFriendshipSetting(
+                existingSetting.copy(
+                    shareLocation = share,
+                    updatedAt = Clock.System.now()
+                )
+            )
+        } else {
+            friendsSettingsService.saveFriendshipSetting(
+                FriendshipSetting(
+                    friendshipId = friendship.id,
+                    userId = userId,
+                    shareLocation = share
+                )
+            )
+        }
+
+        notificationService.notifyLocationSharingChange(
+            changingUserId = userId,
+            friendId = friendId,
+            shareLocation = share
+        )
+    }
 
 }

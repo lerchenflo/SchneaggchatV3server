@@ -171,6 +171,19 @@ object ValidationUtils {
     }
 
     /**
+     * Validates a latitude/longitude pair
+     * - Latitude must be between -90 and 90
+     * - Longitude must be between -180 and 180
+     * - Neither value may be NaN or infinite
+     */
+    fun validateLatLong(lat: Double, long: Double): Boolean {
+        if (lat.isNaN() || long.isNaN() || lat.isInfinite() || long.isInfinite()) return false
+        if (lat < -90.0 || lat > 90.0) return false
+        if (long < -180.0 || long > 180.0) return false
+        return true
+    }
+
+    /**
      * Validates token strings (JWT, email verification, etc.)
      * - Must not be blank
      * - Maximum 2000 characters

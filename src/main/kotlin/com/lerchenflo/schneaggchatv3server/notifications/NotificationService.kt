@@ -13,6 +13,7 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMapEntryResponse
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsSettingsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 import org.bson.types.ObjectId
@@ -33,7 +34,8 @@ class NotificationService(
 
     private val userLookupService: UserLookupService,
     private val groupLookupService: GroupLookupService,
-    private val friendsLookupService: FriendsLookupService
+    private val friendsLookupService: FriendsLookupService,
+    private val friendsSettingsService: FriendsSettingsService
 ) {
 
     
@@ -149,6 +151,7 @@ class NotificationService(
                     email = user.email,
                     emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
                     createdAt = user.createdAt.toEpochMilliseconds(),
+                    locationShared = user.locationShared,
                 ),
                 deleted = deleted
             ),
@@ -156,7 +159,7 @@ class NotificationService(
         )
 
         // Notify friends
-        friendsLookupService.getFriendsForUserUpdate(user.id).forEach { (friendId, requesterId, nickName) ->
+        friendsLookupService.getFriendsForUserUpdate(user.id).forEach { (friendId, requesterId, nickName, shareLocation) ->
             socketConnectionHandler.sendMessage(
                 SocketConnectionMessage.UserChange(
                     user = UserResponse.FriendUserResponse(
@@ -168,13 +171,49 @@ class NotificationService(
                         birthDate = user.birthDate,
                         userDescription = user.userDescription,
                         userStatus = user.userStatus,
-                        nickName = nickName
+                        nickName = nickName,
+                        shareLocation = shareLocation
                     ),
                     deleted = deleted
                 ),
                 receiverId = friendId
             )
         }
+    }
+
+    /**
+     * Notify the changing user's own devices that they updated whether they share
+     * their location with a specific friend. The friend's view of the relationship
+     * is unaffected by this change, so only the changing user is pushed to.
+     * @param changingUserId the user who changed their own sharing setting
+     * @param friendId the friend this setting applies to
+     * @param shareLocation the new sharing value (changingUserId -> friendId)
+     */
+    @OptIn(ExperimentalTime::class)
+    fun notifyLocationSharingChange(changingUserId: ObjectId, friendId: ObjectId, shareLocation: Boolean) {
+        val friend = userLookupService.findById(friendId) ?: return
+        val friendship = friendsLookupService.findFriendship(changingUserId, friendId) ?: return
+        //changingUserId's own nickname for the friend
+        val nickName = friendsSettingsService.getFriendshipSetting(friendship.id, changingUserId)?.nickName
+
+        socketConnectionHandler.sendMessage(
+            SocketConnectionMessage.UserChange(
+                user = UserResponse.FriendUserResponse(
+                    id = friend.id.toHexString(),
+                    username = friend.username,
+                    updatedAt = friend.updatedAt.toEpochMilliseconds(),
+                    profilePicUpdatedAt = friend.profilePicUpdatedAt.toEpochMilliseconds(),
+                    requesterId = friendship.requesterId.toHexString(),
+                    birthDate = friend.birthDate,
+                    userDescription = friend.userDescription,
+                    userStatus = friend.userStatus,
+                    nickName = nickName,
+                    shareLocation = shareLocation
+                ),
+                deleted = false
+            ),
+            receiverId = changingUserId
+        )
     }
 
     fun notifyGroupUpdate(groupResponse: GroupResponse, deleted: Boolean) {

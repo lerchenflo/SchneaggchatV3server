@@ -28,6 +28,7 @@ data class User(
     val createdAt: Instant,
     val updatedAt: Instant,
 
-    val profilePicUpdatedAt: Instant = updatedAt  // New field with default
+    val profilePicUpdatedAt: Instant = updatedAt,  // New field with default
 
+    val locationShared: Boolean = false // Global master switch - does this user share their location at all
 )

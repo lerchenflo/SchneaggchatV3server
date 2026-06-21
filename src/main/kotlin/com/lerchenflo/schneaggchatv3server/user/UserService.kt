@@ -140,6 +140,7 @@ class UserService(
                 requesterId = interactionMap[user.id]?.requesterId,
                 lastChangedAt = newestTimestamp,
                 nickName = interactionMap[user.id]?.nickName,
+                shareLocation = interactionMap[user.id]?.shareLocation ?: false,
             )
         }
 
@@ -275,7 +276,7 @@ class UserService(
             val emailvalid = /* user.emailVerifiedAt != null && */ userRequest.newEmail != null
 
             //TODO: Send email to the old verified email address
-            val somethingChanged = userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null
+            val somethingChanged = userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null || userRequest.newLocationShared != null
 
             if (userRequest.newStatus != null) {
                 require(ValidationUtils.validateDescription(userRequest.newStatus)) { "New description is invalid" }
@@ -295,6 +296,7 @@ class UserService(
                 userStatus = userRequest.newStatus ?: requestingUser.userStatus,
                 birthDate = userRequest.newBirthDate ?: requestingUser.birthDate,
                 email = userRequest.newEmail?.lowercase(getDefault())?.trim() ?: requestingUser.email,
+                locationShared = userRequest.newLocationShared ?: requestingUser.locationShared,
             )
             userLookupService.save(updatedSelf)
 
@@ -405,7 +407,7 @@ class UserService(
      * @param User the user to be serialized
      * @param requestingUserId the user which requested the serialisation
      */
-    private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null, nickName: String? = null): UserResponse {
+    private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null, nickName: String? = null, shareLocation: Boolean = false): UserResponse {
         //User requests his own data
         if (requestingUserId == user.id) {
             return UserResponse.SelfUserResponse(
@@ -419,6 +421,7 @@ class UserService(
                 createdAt = user.createdAt.toEpochMilliseconds(),
                 emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
                 profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
+                locationShared = user.locationShared,
             )
         }
 
@@ -433,7 +436,8 @@ class UserService(
                 birthDate = user.birthDate,
                 requesterId = requesterId?.toHexString(),
                 profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
-                nickName = nickName
+                nickName = nickName,
+                shareLocation = shareLocation
             )
         }
 

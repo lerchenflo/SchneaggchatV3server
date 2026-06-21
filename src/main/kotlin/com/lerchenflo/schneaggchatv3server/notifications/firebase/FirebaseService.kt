@@ -283,7 +283,7 @@ class FirebaseService(
 
         } catch (e: FirebaseMessagingException) {
             val errorCode = e.messagingErrorCode
-            e.printStackTrace()
+            //e.printStackTrace()
             val rawErrorCode = e.errorCode?.name // fallback: raw string like "registration-token-not-registered"
 
             // Known invalid-token raw error codes from Firebase
