@@ -4,6 +4,7 @@ package com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel
 
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
+import org.springframework.data.annotation.TypeAlias
 import org.springframework.data.mongodb.core.index.CompoundIndex
 import org.springframework.data.mongodb.core.index.Indexed
 import org.springframework.data.mongodb.core.mapping.Document
@@ -13,7 +14,8 @@ import kotlin.time.Instant
 
 enum class FriendshipStatus { PENDING, ACCEPTED, DECLINED, BLOCKED }
 
-@Document("frienships")
+@TypeAlias("friendship")
+@Document("friendships")
 @CompoundIndex(name = "userId1_userId2_unique_idx", def = "{'userId1': 1, 'userId2': 1}", unique = true)
 data class Friendship(
     //Each friendship has an ID as PK

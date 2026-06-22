@@ -2,10 +2,12 @@ package com.lerchenflo.schneaggchatv3server.notifications.apns.model
 
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
+import org.springframework.data.annotation.TypeAlias
 import org.springframework.data.mongodb.core.index.CompoundIndex
 import org.springframework.data.mongodb.core.index.Indexed
 import org.springframework.data.mongodb.core.mapping.Document
 
+@TypeAlias("apnstoken")
 @Document("apnstokens")
 @CompoundIndex(
     name = "apns_user_token_unique_idx",
