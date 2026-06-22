@@ -142,15 +142,32 @@ class MainController(
     /**
      * One-time fix for the "frienships" collection name typo -> "friendships".
      * Renaming preserves all documents and indexes. No-op once already renamed.
+     *
+     * Spring's auto-index-creation (spring.data.mongodb.auto-index-creation=true) runs during
+     * context startup - BEFORE this ApplicationReadyEvent listener - and will have already
+     * created an empty "friendships" collection (with its indexes) from the updated @Document
+     * annotation. That pre-existing empty collection must not block the rename.
      */
     fun renameTypoCollections() {
         val db = mongoTemplate.db
         val existingCollections = db.listCollectionNames().toSet()
 
-        if (existingCollections.contains("frienships") && !existingCollections.contains("friendships")) {
-            db.getCollection("frienships").renameCollection(MongoNamespace(db.name, "friendships"))
-            AppLogger.success("Migration completed: Renamed collection 'frienships' -> 'friendships'")
+        if (!existingCollections.contains("frienships")) {
+            return // Already renamed (or never existed on a fresh install)
         }
+
+        if (existingCollections.contains("friendships")) {
+            val targetCount = db.getCollection("friendships").countDocuments()
+            if (targetCount > 0) {
+                AppLogger.warn("Migration skipped: 'friendships' already has $targetCount document(s) - refusing to overwrite. Resolve 'frienships' vs 'friendships' manually.")
+                return
+            }
+            // Empty collection auto-created by Spring's index creation - safe to drop before the rename.
+            db.getCollection("friendships").drop()
+        }
+
+        db.getCollection("frienships").renameCollection(MongoNamespace(db.name, "friendships"))
+        AppLogger.success("Migration completed: Renamed collection 'frienships' -> 'friendships'")
     }
 
     /**
@@ -171,8 +188,8 @@ class MainController(
             AliasMigration("groupmembers", "com.lerchenflo.schneaggchatv3server.group.model.GroupMember", "groupmember"),
             AliasMigration("apnstokens", "com.lerchenflo.schneaggchatv3server.notifications.apns.model.ApnsToken", "apnstoken"),
             AliasMigration("firebasetokens", "com.lerchenflo.schneaggchatv3server.notifications.firebase.model.FirebaseToken", "firebasetoken"),
-            AliasMigration("friendships", "com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.Friendship", "friendship"),
-            AliasMigration("friendship_settings", "com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipSetting", "friendshipsetting"),
+            AliasMigration("friendships", "com.lerchenflo.schneaggchatv3server.user.friendshipmodel.Friendship", "friendship"),
+            AliasMigration("friendship_settings", "com.lerchenflo.schneaggchatv3server.user.friendshipmodel.FriendshipSetting", "friendshipsetting"),
             AliasMigration("refreshTokens", "com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken", "refreshtoken"),
             AliasMigration("userlocations", "com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.UserLocation", "userlocation"),
             AliasMigration("logs", "com.lerchenflo.schneaggchatv3server.util.Log", "log"),
