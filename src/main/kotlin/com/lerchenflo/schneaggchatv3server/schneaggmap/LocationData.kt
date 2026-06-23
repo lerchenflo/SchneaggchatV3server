@@ -93,18 +93,26 @@ sealed class LocationData {
     @TypeAlias("camping")
     data class Camping(
         val official: AttributeValue,
+        val waterDistance: AttributeValue?,
+        val sittingPossibility: AttributeValue?,
+        val grillPossibility: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "official", required = true),
+            AttributeDefinition.BoolDef(key = "official",           required = true),
+            AttributeDefinition.IntDef (key = "waterDistance",      required = false, min = 0),
+            AttributeDefinition.BoolDef(key = "sittingPossibility", required = false),
+            AttributeDefinition.BoolDef(key = "grillPossibility",   required = false),
         )
     }
 
     @TypeAlias("swimming")
     data class SwimmingLocation(
         val indoor: AttributeValue?,
+        val jumpSpot: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "indoor", required = false),
+            AttributeDefinition.BoolDef(key = "indoor",   required = false),
+            AttributeDefinition.BoolDef(key = "jumpSpot", required = false),
         )
     }
 
