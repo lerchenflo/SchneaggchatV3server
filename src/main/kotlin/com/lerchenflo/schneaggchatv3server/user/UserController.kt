@@ -173,7 +173,7 @@ class UserController(
      * location, and returns the latest known locations of every friend currently sharing
      * their location with the requesting user.
      */
-    @PostMapping("/userlocations")
+    @PostMapping("/locations")
     fun updateAndGetLocations(
         @RequestBody request: LocationUpdateRequest
     ): List<UserLocationResponse> {
