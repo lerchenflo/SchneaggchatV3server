@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.model.FieldChange
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapChangeType
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntryVersion
+import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.util.Json
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
@@ -21,6 +22,7 @@ import kotlin.time.ExperimentalTime
 @Service
 class MapEntryVersionService(
     private val mapEntryVersionRepository: MapEntryVersionRepository,
+    private val userLookupService: UserLookupService
 ) {
 
     /** Records the creation of an entry, capturing every field as an addition (oldValue = null). */
@@ -60,6 +62,7 @@ class MapEntryVersionService(
             MapEntryVersion(
                 entryId = entryId,
                 editedBy = requesterId,
+                editedByUsername = userLookupService.getUsername(requesterId),
                 editedAt = Clock.System.now(),
                 changeType = changeType,
                 changes = changes,

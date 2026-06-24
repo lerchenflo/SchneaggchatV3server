@@ -22,6 +22,7 @@ data class MapEntryVersion(
     @Id val id: ObjectId = ObjectId(),
     val entryId: ObjectId,
     val editedBy: ObjectId,
+    val editedByUsername: String, //Resolve username for simple lookup
     val editedAt: Instant,
     val changeType: MapChangeType,
     val changes: List<FieldChange> = emptyList(),
