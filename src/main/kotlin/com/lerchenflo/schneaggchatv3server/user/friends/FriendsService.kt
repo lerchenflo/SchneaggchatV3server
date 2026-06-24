@@ -186,14 +186,23 @@ class FriendsService(
     }
 
     /**
-     * Enable or disable sharing the requesting user's location with a specific friend.
-     * @param userId the user changing their own sharing setting
-     * @param friendId the friend this setting applies to
-     * @param share whether userId should share their location with friendId
+     * Set what the requesting user shares with a specific friend on the live map. This is a full
+     * replacement of that friend's per-friend map-sharing state, so the client sends every field.
+     * @param userId the user changing their own sharing settings
+     * @param friendId the friend these settings apply to
+     * @param share whether userId shares their location with friendId
+     * @param shareSpeedHeading whether userId shares live speed + heading with friendId
+     * @param snailTrailHours trail userId shares with friendId: null = none, 0 = full 24h, N = last N hours
      * @throws ResponseStatusException NOT_FOUND if there is no friendship between the two users
      * @throws IllegalArgumentException if the friendship is not currently ACCEPTED
      */
-    fun setLocationSharing(userId: ObjectId, friendId: ObjectId, share: Boolean) {
+    fun setLocationSharing(
+        userId: ObjectId,
+        friendId: ObjectId,
+        share: Boolean,
+        shareSpeedHeading: Boolean = false,
+        snailTrailHours: Int? = null,
+    ) {
         val friendship = friendsLookupService.findFriendship(userId, friendId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Friendship not found")
 
@@ -202,32 +211,28 @@ class FriendsService(
         }
 
         val existingSetting = friendsSettingsService.getFriendshipSetting(friendship.id, userId)
+            ?: FriendshipSetting(friendshipId = friendship.id, userId = userId)
 
-        //No-op if the value didn't actually change (no setting yet defaults to false)
-        if ((existingSetting?.shareLocation ?: false) == share) return
+        val updatedSetting = existingSetting.copy(
+            shareLocation = share,
+            shareSpeedHeading = shareSpeedHeading,
+            snailTrailHours = snailTrailHours,
+            updatedAt = Clock.System.now(),
+        )
 
-        if (existingSetting != null) {
-            friendsSettingsService.saveFriendshipSetting(
-                existingSetting.copy(
-                    shareLocation = share,
-                    updatedAt = Clock.System.now()
-                )
-            )
-        } else {
-            friendsSettingsService.saveFriendshipSetting(
-                FriendshipSetting(
-                    friendshipId = friendship.id,
-                    userId = userId,
-                    shareLocation = share
-                )
+        //No-op if nothing actually changed (ignoring the bumped updatedAt)
+        if (updatedSetting.copy(updatedAt = existingSetting.updatedAt) == existingSetting) return
+
+        friendsSettingsService.saveFriendshipSetting(updatedSetting)
+
+        //Notify the friend only when the location-sharing flag itself changed
+        if (share != existingSetting.shareLocation) {
+            notificationService.notifyLocationSharingChange(
+                changingUserId = userId,
+                friendId = friendId,
+                shareLocation = share
             )
         }
-
-        notificationService.notifyLocationSharingChange(
-            changingUserId = userId,
-            friendId = friendId,
-            shareLocation = share
-        )
     }
 
 }

@@ -25,6 +25,8 @@ data class FriendshipSetting(
 
     var shareLocation: Boolean = false, //Does this user share this property with the other user
     var shareLastSeen: Boolean = false, //Does this user share this property with the other user
+    var shareSpeedHeading: Boolean = false, //Does this user share live speed + heading with the other user
+    var snailTrailHours: Int? = null, //Snail trail shared with the other: null = none, 0 = full 24h history, N = last N hours
     var nickName: String? = null, //Nickname from this user for the other user
     var muted: Boolean = false, //Did this user mute the other
 
@@ -32,3 +34,6 @@ data class FriendshipSetting(
     var createdAt: Instant = Clock.System.now(),
     var updatedAt: Instant = Clock.System.now()
 )
+
+//Snail trail history is capped by the 24h location TTL -> at most 24 hours of trail.
+const val MAX_SNAIL_TRAIL_HOURS = 24

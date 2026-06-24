@@ -11,6 +11,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.websocket.SocketConnect
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMapEntryResponse
+import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.FriendLocationPayload
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsSettingsService
@@ -287,6 +288,25 @@ class NotificationService(
                 deleted = deleted,
             ),
             excludeUserId = excludeUserId //Do not exclude the editor, he also needs the update
+        )
+    }
+
+    /** Is the user currently connected via a WebSocket? Lets callers skip work for offline users. */
+    fun isUserConnected(userId: ObjectId): Boolean = socketConnectionHandler.isConnected(userId)
+
+    /** Push one friend's live location to [recipientId] (no FCM fallback - live data only). */
+    fun notifyFriendLocationChange(recipientId: ObjectId, friend: FriendLocationPayload) {
+        socketConnectionHandler.sendMessage(
+            SocketConnectionMessage.FriendLocationChange(friend = friend),
+            receiverId = recipientId,
+        )
+    }
+
+    /** Push the full set of currently-visible friend locations to [recipientId] (initial load). */
+    fun notifyLocationSnapshot(recipientId: ObjectId, friends: List<FriendLocationPayload>) {
+        socketConnectionHandler.sendMessage(
+            SocketConnectionMessage.FriendLocationsSnapshot(friends = friends),
+            receiverId = recipientId,
         )
     }
 

@@ -20,6 +20,16 @@ class UserLocation(
     val location: LatLong,
     val locationTime: Instant,
 
+    // Optional driving telemetry - only lat/long are mandatory, everything below is nullable.
+    val speed: Double? = null,           // meters/second
+    val heading: Double? = null,         // degrees, 0-360, 0 = north
+    val altitude: Double? = null,        // meters above sea level
+    val batteryLevel: Int? = null,       // percent, 0-100
+
+    // Distance bookkeeping, computed at insert time (see UserLocationService.saveUserLocation).
+    val distanceFromPreviousMeters: Double = 0.0,
+    val distanceTraveled24hMeters: Double = 0.0,
+
     @Indexed(expireAfter = "0s")
     val expiresAt: Instant,
 )

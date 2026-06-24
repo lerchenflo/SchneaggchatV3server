@@ -6,8 +6,6 @@ import com.lerchenflo.schneaggchatv3server.authentication.EmailService
 import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
 import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
-import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
-import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.UserLocationService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
@@ -29,8 +27,6 @@ class UserController(
     private val friendshipsService: FriendsService,
     private val emailService: EmailService,
     private val imageManager: ImageManager,
-    private val userLocationService: UserLocationService,
-
 
     private val firebaseService: FirebaseService,
     private val apnsService: ApnsService,
@@ -152,57 +148,28 @@ class UserController(
     }
 
 
-    data class LocationUpdateRequest(
-        val lat: Double,
-        val long: Double,
-    )
-
     data class LocationShareRequest(
         val friendId: String,
-        val share: Boolean,
+        // Full desired per-friend map-sharing state - the client sends all of these every time.
+        val share: Boolean,                      // share location at all
+        val shareSpeedHeading: Boolean,          // share speed + heading together
+        val snailTrailHours: Int? = null,        // snail trail: null = off, 0 = full 24h, N = last N hours
     )
-
-    data class UserLocationResponse(
-        val userId: String,
-        val coordinates: LatLong,
-        val locationTime: Long,
-    )
-
-    /**
-     * Called periodically (every ~5s) by the client. Stores the requesting user's current
-     * location, and returns the latest known locations of every friend currently sharing
-     * their location with the requesting user.
-     */
-    @PostMapping("/locations")
-    fun updateAndGetLocations(
-        @RequestBody request: LocationUpdateRequest
-    ): List<UserLocationResponse> {
-        require(ValidationUtils.validateLatLong(request.lat, request.long)) { "Invalid coordinates" }
-        val requestingUserId = requireAuth()
-
-        return userLocationService.updateAndGetFriendLocations(
-            userId = requestingUserId,
-            location = LatLong(lat = request.lat, long = request.long),
-        ).map {
-            UserLocationResponse(
-                userId = it.userId.toHexString(),
-                coordinates = it.location,
-                locationTime = it.locationTime.toEpochMilliseconds(),
-            )
-        }
-    }
 
     @PostMapping("/sharelocation")
     fun setLocationSharing(
         @RequestBody request: LocationShareRequest
     ) {
         require(ValidationUtils.validateObjectId(request.friendId)) { "Invalid friend ID" }
+        request.snailTrailHours?.let { require(ValidationUtils.validateSnailTrailHours(it)) { "Invalid snail trail hours" } }
         val requestingUserId = requireAuth()
 
         friendshipsService.setLocationSharing(
             userId = requestingUserId,
             friendId = ObjectId(request.friendId),
             share = request.share,
+            shareSpeedHeading = request.shareSpeedHeading,
+            snailTrailHours = request.snailTrailHours,
         )
     }
 

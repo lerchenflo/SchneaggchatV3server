@@ -58,8 +58,11 @@ sealed interface UserResponse {
 
         val nickName: String?,
 
-        //Does this friend share their location with the recipient of this response
+        //What the recipient of this response shares with this friend on the map
         val shareLocation: Boolean = false,
+        val shareSpeedHeading: Boolean = false,
+        //Snail trail shared with this friend: null = none, 0 = full 24h history, N = last N hours
+        val snailTrailHours: Int? = null,
 
         ) : UserResponse
 

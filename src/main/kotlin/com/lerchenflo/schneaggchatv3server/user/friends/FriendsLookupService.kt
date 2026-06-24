@@ -27,6 +27,8 @@ class FriendsLookupService(
         val requesterId: ObjectId,
         val nickName: String?,
         val shareLocation: Boolean,
+        val shareSpeedHeading: Boolean = false,
+        val snailTrailHours: Int? = null,
     )
 
     fun getFriendsForUserUpdate(userId: ObjectId): List<FriendWithNickname> {
@@ -34,10 +36,17 @@ class FriendsLookupService(
             .filter { it.status == FriendshipStatus.ACCEPTED }
             .map { friendship ->
                 val friendId = if (friendship.userId1 == userId) friendship.userId2 else friendship.userId1
-                //Recipient's (friendId's) own setting: nickname they gave to userId, and whether
-                //they (friendId) share their location with userId
+                //Recipient's (friendId's) own setting: nickname they gave to userId, and what
+                //they (friendId) share with userId (location, speed/heading, snail trail)
                 val friendSetting = friendshipSettingsService.getFriendshipSetting(friendship.id, friendId)
-                FriendWithNickname(friendId, friendship.requesterId, friendSetting?.nickName, friendSetting?.shareLocation ?: false)
+                FriendWithNickname(
+                    friendId = friendId,
+                    requesterId = friendship.requesterId,
+                    nickName = friendSetting?.nickName,
+                    shareLocation = friendSetting?.shareLocation ?: false,
+                    shareSpeedHeading = friendSetting?.shareSpeedHeading ?: false,
+                    snailTrailHours = friendSetting?.snailTrailHours,
+                )
             }
     }
 
@@ -48,6 +57,8 @@ class FriendsLookupService(
         val lastChanged: Instant? = null,
         val nickName: String? = null,
         val shareLocation: Boolean = false,
+        val shareSpeedHeading: Boolean = false,
+        val snailTrailHours: Int? = null,
     )
 
     fun getAllInteractions(userId: ObjectId): List<UserInteraction> {
@@ -69,7 +80,9 @@ class FriendsLookupService(
                     requesterId = friendship.requesterId,
                     lastChanged = friendship.updatedAt,
                     nickName = friendshipSetting?.nickName,
-                    shareLocation = friendshipSetting?.shareLocation ?: false
+                    shareLocation = friendshipSetting?.shareLocation ?: false,
+                    shareSpeedHeading = friendshipSetting?.shareSpeedHeading ?: false,
+                    snailTrailHours = friendshipSetting?.snailTrailHours,
                 )
             }
     }

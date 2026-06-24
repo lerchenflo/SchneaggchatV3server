@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.util
 
+import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.MAX_SNAIL_TRAIL_HOURS
 import org.springframework.web.multipart.MultipartFile
 import java.time.LocalDate
 import java.time.Period
@@ -259,5 +260,51 @@ object ValidationUtils {
     fun validateNotificationToken(token: String, isAndroid: Boolean): Boolean {
         return if (isAndroid) validateFirebaseToken(token)
         else APNS_TOKEN_REGEX.matches(token)
+    }
+
+    /**
+     * Validates a speed reading in meters/second.
+     * - Must not be NaN/infinite
+     * - Must be non-negative, and below a sane upper bound (sanity check, not a real-world limit)
+     */
+    fun validateSpeed(speed: Double): Boolean {
+        if (speed.isNaN() || speed.isInfinite()) return false
+        return speed in 0.0..120.0 // ~430 km/h, generous upper bound to reject garbage input
+    }
+
+    /**
+     * Validates a compass heading in degrees.
+     * - Must not be NaN/infinite
+     * - Must be in [0, 360]
+     */
+    fun validateHeading(heading: Double): Boolean {
+        if (heading.isNaN() || heading.isInfinite()) return false
+        return heading in 0.0..360.0
+    }
+
+    /**
+     * Validates a battery level percentage.
+     * - Must be between 0 and 100 inclusive
+     */
+    fun validateBatteryLevel(batteryLevel: Int): Boolean {
+        return batteryLevel in 0..100
+    }
+
+    /**
+     * Validates an altitude reading in meters above sea level.
+     * - Must not be NaN/infinite
+     * - Bounded to a sane range (Dead Sea shore to above Everest, with margin)
+     */
+    fun validateAltitude(altitude: Double): Boolean {
+        if (altitude.isNaN() || altitude.isInfinite()) return false
+        return altitude in -500.0..9000.0
+    }
+
+    /**
+     * Validates the snail-trail window a user shares with a friend, in hours.
+     * Null (not shared) is handled by the caller; here 0 = full 24h history, N = last N hours.
+     */
+    fun validateSnailTrailHours(snailTrailHours: Int): Boolean {
+        return snailTrailHours in 0..MAX_SNAIL_TRAIL_HOURS
     }
 }
