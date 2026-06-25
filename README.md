@@ -115,8 +115,10 @@ Once a friend may see your location, the individual fields are controlled per fr
 | **snail trail** | per-friend `snailTrailHours` | off (null) |
 
 `snailTrailHours` semantics: **`null`** = no trail, **`0`** = full retained history (last 24h),
-**`N`** = the last N hours. The trail is sampled at ~1 point per minute from history the server
-already keeps (no extra storage). Each snail-trail point also carries speed/heading, gated by the same
+**`N`** = the last N hours. Within that window the trail is sampled at **at most one point per
+minute**, and a minute's point is only emitted when the user moved **more than 10 m** from the
+previous emitted point (so a stationary user yields ~no trail), read from history the server already
+keeps (no extra storage). Each snail-trail point also carries speed/heading, gated by the same
 `shareSpeedHeading` toggle.
 
 `POST /users/sharelocation` is a **full replacement** of one friend's settings — send all of
@@ -143,10 +145,15 @@ ever write your own location. Invalid frames (bad coordinates/telemetry) are dro
 
 | `_class` | When | Payload |
 | :--- | :--- | :--- |
-| `friendlocationchange` | a friend you can see moved | `{ "friend": FriendLocationPayload }` |
-| `friendlocationssnapshot` | once, right after you connect (initial load) | `{ "friends": [FriendLocationPayload, ...] }` |
+| `friendlocationchange` | a friend you can see moved (~every 5s) | `{ "friend": FriendLocationPayload }` — live position only, **no trail** |
+| `snailtrailpointadded` | a friend's trail advanced (at most once/min, only while moving) | `{ "userId": "665f1...", "point": SnailTrailPointPayload }` |
+| `friendlocationssnapshot` | once, right after you connect (initial load) | `{ "friends": [FriendLocationSnapshot, ...] }` |
 
-`FriendLocationPayload`:
+The live position and the trail are delivered separately so the every-5s update stays small: the
+client moves a friend's marker on every `friendlocationchange`, appends to that friend's trail polyline
+on each `snailtrailpointadded`, and seeds both from the snapshot on connect.
+
+`FriendLocationPayload` (live position):
 
 ```json
 {
@@ -157,16 +164,21 @@ ever write your own location. Invalid frames (bad coordinates/telemetry) are dro
   "heading": null,
   "altitude": 180.4,
   "batteryLevel": 73,
-  "distanceTraveled24h": 15234.7,
-  "snailTrail": [
-    { "coordinates": { "lat": 48.205, "long": 16.371 }, "locationTime": 1749999940000, "speed": null, "heading": null }
-  ]
+  "distanceTraveled24h": 15234.7
 }
 ```
 
-Any field the friend hasn't opted to share is `null` (or `snailTrail` empty). `locationTime` is epoch
-millis; `userId` is a hex string.
+`SnailTrailPointPayload`: `{ "coordinates": {lat,long}, "locationTime": Long, "speed": Double?, "heading": Double? }`.
 
+`FriendLocationSnapshot` (one per friend in the snapshot): `{ "position": FriendLocationPayload, "snailTrail": [SnailTrailPointPayload, ...] }`.
+
+Any field the friend hasn't opted to share is `null` (and `snailTrail` is empty if they don't share a
+trail). `locationTime` is epoch millis; `userId` is a hex string.
+
+> **Migration note (snail trail delivery):** the snail trail is no longer bundled into every live
+> update. The every-5s `friendlocationchange` carries position only; the trail arrives as the full set
+> in `friendlocationssnapshot` on connect and then one point at a time via `snailtrailpointadded`.
+>
 > **Migration note:** the old `POST /users/locations` HTTP endpoint has been **removed**. Clients now
 > push via `locationupdate` and receive friends' locations via `friendlocationssnapshot` (on connect)
 > + `friendlocationchange` (live). Note `/ws` is not behind the HTTP rate limiter, and live updates are

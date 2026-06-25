@@ -12,6 +12,8 @@ import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketC
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMapEntryResponse
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.FriendLocationPayload
+import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.FriendLocationSnapshot
+import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.SnailTrailPointPayload
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsSettingsService
@@ -294,7 +296,7 @@ class NotificationService(
     /** Is the user currently connected via a WebSocket? Lets callers skip work for offline users. */
     fun isUserConnected(userId: ObjectId): Boolean = socketConnectionHandler.isConnected(userId)
 
-    /** Push one friend's live location to [recipientId] (no FCM fallback - live data only). */
+    /** Push one friend's live position to [recipientId] (~every 5s; no snail trail, no FCM fallback). */
     fun notifyFriendLocationChange(recipientId: ObjectId, friend: FriendLocationPayload) {
         socketConnectionHandler.sendMessage(
             SocketConnectionMessage.FriendLocationChange(friend = friend),
@@ -302,10 +304,18 @@ class NotificationService(
         )
     }
 
-    /** Push the full set of currently-visible friend locations to [recipientId] (initial load). */
-    fun notifyLocationSnapshot(recipientId: ObjectId, friends: List<FriendLocationPayload>) {
+    /** Push the full set of currently-visible friend positions + trails to [recipientId] (initial load). */
+    fun notifyLocationSnapshot(recipientId: ObjectId, friends: List<FriendLocationSnapshot>) {
         socketConnectionHandler.sendMessage(
             SocketConnectionMessage.FriendLocationsSnapshot(friends = friends),
+            receiverId = recipientId,
+        )
+    }
+
+    /** Push one new snail-trail point of [ownerUserId] to [recipientId] (~once/minute when moving). */
+    fun notifySnailTrailPointAdded(recipientId: ObjectId, ownerUserId: String, point: SnailTrailPointPayload) {
+        socketConnectionHandler.sendMessage(
+            SocketConnectionMessage.SnailTrailPointAdded(userId = ownerUserId, point = point),
             receiverId = recipientId,
         )
     }

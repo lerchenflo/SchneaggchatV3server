@@ -1,16 +1,13 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model
 
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
-import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.FriendLocationView
-import kotlin.time.ExperimentalTime
 
 /**
- * Wire shape of a friend's live location, pushed over the WebSocket. Mirrors what the old HTTP
- * `UserLocationResponse` returned - ObjectId as hex string, timestamps as epoch millis. Every
- * optional field is already privacy-gated by the time it reaches this payload (see
- * `UserLocationService.buildFriendView`).
+ * Wire shape of a friend's live position, pushed over the WebSocket on every update (~5s).
+ * Carries only the current position + telemetry, NOT the snail trail - the trail grows at most once
+ * per minute and is delivered separately (full list in the initial snapshot, then one point at a
+ * time via `SnailTrailPointAdded`). ObjectId is a hex string, timestamps are epoch millis, and every
+ * optional field is already privacy-gated by the time it reaches this payload.
  */
 data class FriendLocationPayload(
     val userId: String,
@@ -21,9 +18,9 @@ data class FriendLocationPayload(
     val altitude: Double?,
     val batteryLevel: Int?,
     val distanceTraveled24h: Double?,
-    val snailTrail: List<SnailTrailPointPayload>,
 )
 
+/** One point of a friend's snail trail. */
 data class SnailTrailPointPayload(
     val coordinates: LatLong,
     val locationTime: Long,
@@ -31,21 +28,8 @@ data class SnailTrailPointPayload(
     val heading: Double?,
 )
 
-fun FriendLocationView.toPayload(): FriendLocationPayload = FriendLocationPayload(
-    userId = userId.toHexString(),
-    coordinates = coordinates,
-    locationTime = locationTime.toEpochMilliseconds(),
-    speed = speed,
-    heading = heading,
-    altitude = altitude,
-    batteryLevel = batteryLevel,
-    distanceTraveled24h = distanceTraveled24hMeters,
-    snailTrail = snailTrail.map {
-        SnailTrailPointPayload(
-            coordinates = it.coordinates,
-            locationTime = it.locationTime.toEpochMilliseconds(),
-            speed = it.speed,
-            heading = it.heading,
-        )
-    },
+/** Initial-load entry for one friend: their current position plus their full historical snail trail. */
+data class FriendLocationSnapshot(
+    val position: FriendLocationPayload,
+    val snailTrail: List<SnailTrailPointPayload>,
 )
