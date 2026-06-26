@@ -150,9 +150,9 @@ class UserController(
 
     data class LocationShareRequest(
         val friendId: String,
-        // Full desired per-friend map-sharing state - the client sends all of these every time.
-        val share: Boolean,                      // share location at all
-        val shareSpeedHeading: Boolean = false,          // share speed + heading together
+
+        val share: Boolean = false,              // share location at all
+        val shareSpeedHeading: Boolean = false,  // share speed + heading together
         val shareSnailTrail: Boolean = false,    // share snail trail (full 24h history)
     )
 
@@ -166,9 +166,9 @@ class UserController(
         friendshipsService.setLocationSharing(
             userId = requestingUserId,
             friendId = ObjectId(request.friendId),
-            share = request.share,
-            shareSpeedHeading = request.shareSpeedHeading,
-            shareSnailTrail = request.shareSnailTrail,
+            share = request.share ?: false,
+            shareSpeedHeading = request.shareSpeedHeading ?: false,
+            shareSnailTrail = request.shareSnailTrail ?: false,
         )
     }
 
