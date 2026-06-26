@@ -1,6 +1,5 @@
 package com.lerchenflo.schneaggchatv3server.util
 
-import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.MAX_SNAIL_TRAIL_HOURS
 import org.springframework.web.multipart.MultipartFile
 import java.time.LocalDate
 import java.time.Period
@@ -298,13 +297,5 @@ object ValidationUtils {
     fun validateAltitude(altitude: Double): Boolean {
         if (altitude.isNaN() || altitude.isInfinite()) return false
         return altitude in -500.0..9000.0
-    }
-
-    /**
-     * Validates the snail-trail window a user shares with a friend, in hours.
-     * Null (not shared) is handled by the caller; here 0 = full 24h history, N = last N hours.
-     */
-    fun validateSnailTrailHours(snailTrailHours: Int): Boolean {
-        return snailTrailHours in 0..MAX_SNAIL_TRAIL_HOURS
     }
 }

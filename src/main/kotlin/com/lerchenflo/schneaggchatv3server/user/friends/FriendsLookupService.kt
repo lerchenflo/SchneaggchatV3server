@@ -28,7 +28,7 @@ class FriendsLookupService(
         val nickName: String?,
         val shareLocation: Boolean,
         val shareSpeedHeading: Boolean = false,
-        val snailTrailHours: Int? = null,
+        val shareSnailTrail: Boolean = false,
     )
 
     fun getFriendsForUserUpdate(userId: ObjectId): List<FriendWithNickname> {
@@ -45,7 +45,7 @@ class FriendsLookupService(
                     nickName = friendSetting?.nickName,
                     shareLocation = friendSetting?.shareLocation ?: false,
                     shareSpeedHeading = friendSetting?.shareSpeedHeading ?: false,
-                    snailTrailHours = friendSetting?.snailTrailHours,
+                    shareSnailTrail = friendSetting?.shareSnailTrail ?: false,
                 )
             }
     }
@@ -58,7 +58,7 @@ class FriendsLookupService(
         val nickName: String? = null,
         val shareLocation: Boolean = false,
         val shareSpeedHeading: Boolean = false,
-        val snailTrailHours: Int? = null,
+        val shareSnailTrail: Boolean = false,
     )
 
     fun getAllInteractions(userId: ObjectId): List<UserInteraction> {
@@ -82,7 +82,7 @@ class FriendsLookupService(
                     nickName = friendshipSetting?.nickName,
                     shareLocation = friendshipSetting?.shareLocation ?: false,
                     shareSpeedHeading = friendshipSetting?.shareSpeedHeading ?: false,
-                    snailTrailHours = friendshipSetting?.snailTrailHours,
+                    shareSnailTrail = friendshipSetting?.shareSnailTrail ?: false,
                 )
             }
     }

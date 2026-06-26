@@ -153,7 +153,7 @@ class UserController(
         // Full desired per-friend map-sharing state - the client sends all of these every time.
         val share: Boolean,                      // share location at all
         val shareSpeedHeading: Boolean,          // share speed + heading together
-        val snailTrailHours: Int? = null,        // snail trail: null = off, 0 = full 24h, N = last N hours
+        val shareSnailTrail: Boolean = false,    // share snail trail (full 24h history)
     )
 
     @PostMapping("/sharelocation")
@@ -161,7 +161,6 @@ class UserController(
         @RequestBody request: LocationShareRequest
     ) {
         require(ValidationUtils.validateObjectId(request.friendId)) { "Invalid friend ID" }
-        request.snailTrailHours?.let { require(ValidationUtils.validateSnailTrailHours(it)) { "Invalid snail trail hours" } }
         val requestingUserId = requireAuth()
 
         friendshipsService.setLocationSharing(
@@ -169,7 +168,7 @@ class UserController(
             friendId = ObjectId(request.friendId),
             share = request.share,
             shareSpeedHeading = request.shareSpeedHeading,
-            snailTrailHours = request.snailTrailHours,
+            shareSnailTrail = request.shareSnailTrail,
         )
     }
 

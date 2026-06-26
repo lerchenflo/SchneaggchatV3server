@@ -192,7 +192,7 @@ class FriendsService(
      * @param friendId the friend these settings apply to
      * @param share whether userId shares their location with friendId
      * @param shareSpeedHeading whether userId shares live speed + heading with friendId
-     * @param snailTrailHours trail userId shares with friendId: null = none, 0 = full 24h, N = last N hours
+     * @param shareSnailTrail whether userId shares their snail trail (full 24h history) with friendId
      * @throws ResponseStatusException NOT_FOUND if there is no friendship between the two users
      * @throws IllegalArgumentException if the friendship is not currently ACCEPTED
      */
@@ -201,7 +201,7 @@ class FriendsService(
         friendId: ObjectId,
         share: Boolean,
         shareSpeedHeading: Boolean = false,
-        snailTrailHours: Int? = null,
+        shareSnailTrail: Boolean = false,
     ) {
         val friendship = friendsLookupService.findFriendship(userId, friendId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Friendship not found")
@@ -216,7 +216,7 @@ class FriendsService(
         val updatedSetting = existingSetting.copy(
             shareLocation = share,
             shareSpeedHeading = shareSpeedHeading,
-            snailTrailHours = snailTrailHours,
+            shareSnailTrail = shareSnailTrail,
             updatedAt = Clock.System.now(),
         )
 

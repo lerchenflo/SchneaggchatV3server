@@ -142,7 +142,7 @@ class UserService(
                 nickName = interactionMap[user.id]?.nickName,
                 shareLocation = interactionMap[user.id]?.shareLocation ?: false,
                 shareSpeedHeading = interactionMap[user.id]?.shareSpeedHeading ?: false,
-                snailTrailHours = interactionMap[user.id]?.snailTrailHours,
+                shareSnailTrail = interactionMap[user.id]?.shareSnailTrail ?: false,
             )
         }
 
@@ -409,7 +409,7 @@ class UserService(
      * @param User the user to be serialized
      * @param requestingUserId the user which requested the serialisation
      */
-    private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null, nickName: String? = null, shareLocation: Boolean = false, shareSpeedHeading: Boolean = false, snailTrailHours: Int? = null): UserResponse {
+    private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null, nickName: String? = null, shareLocation: Boolean = false, shareSpeedHeading: Boolean = false, shareSnailTrail: Boolean = false): UserResponse {
         //User requests his own data
         if (requestingUserId == user.id) {
             return UserResponse.SelfUserResponse(
@@ -441,7 +441,7 @@ class UserService(
                 nickName = nickName,
                 shareLocation = shareLocation,
                 shareSpeedHeading = shareSpeedHeading,
-                snailTrailHours = snailTrailHours,
+                shareSnailTrail = shareSnailTrail,
             )
         }
 

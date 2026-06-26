@@ -70,7 +70,7 @@ The server will run on port 8080
 | `GET` | `/users/addfriend/{id}` | Send friend request | **Path**:<br>`id`: String |
 | `GET` | `/users/denyfriend/{id}` | Deny friend request | **Path**:<br>`id`: String |
 | `GET` | `/users/removefriend/{id}` | Remove a friend | **Path**:<br>`id`: String |
-| `POST` | `/users/sharelocation` | Set per-friend live-location sharing (full replace) | **Body**:<br>`friendId`: String<br>`share`: Boolean<br>`shareSpeedHeading`: Boolean<br>`snailTrailHours`: Int? (`null`=off, `0`=full 24h, `N`=last N hours) |
+| `POST` | `/users/sharelocation` | Set per-friend live-location sharing (full replace) | **Body**:<br>`friendId`: String<br>`share`: Boolean<br>`shareSpeedHeading`: Boolean<br>`shareSnailTrail`: Boolean (default false) |
 
 > **Note:** The global location master switch is set via `POST /users/changeprofile` with `newLocationShared: Boolean`. Sending/receiving live locations themselves happens over the **WebSocket** — see [Live Location](#live-location) below.
 
@@ -112,19 +112,19 @@ Once a friend may see your location, the individual fields are controlled per fr
 | coordinates, time | always shared once visible | — |
 | **altitude, battery, 24h distance** | always shared once visible (not toggleable) | on |
 | **speed + heading** | per-friend `shareSpeedHeading` (one toggle for both) | off |
-| **snail trail** | per-friend `snailTrailHours` | off (null) |
+| **snail trail** | per-friend `shareSnailTrail` | off (false) |
 
-`snailTrailHours` semantics: **`null`** = no trail, **`0`** = full retained history (last 24h),
-**`N`** = the last N hours. Within that window the trail is sampled at **at most one point per
+`shareSnailTrail` semantics: **`false`** = no trail, **`true`** = the full retained history (last
+24h, bounded by the location TTL). Within that window the trail is sampled at **at most one point per
 minute**, and a minute's point is only emitted when the user moved **more than 10 m** from the
 previous emitted point (so a stationary user yields ~no trail), read from history the server already
 keeps (no extra storage). Each snail-trail point also carries speed/heading, gated by the same
 `shareSpeedHeading` toggle.
 
 `POST /users/sharelocation` is a **full replacement** of one friend's settings — send all of
-`share`, `shareSpeedHeading`, `snailTrailHours` every time. The current values are echoed back on
+`share`, `shareSpeedHeading`, `shareSnailTrail` every time. The current values are echoed back on
 `POST /users/sync` in each `FriendUserResponse` (`shareLocation`, `shareSpeedHeading`,
-`snailTrailHours`) so the client can render the settings screen.
+`shareSnailTrail`) so the client can render the settings screen.
 
 ### WebSocket transport
 

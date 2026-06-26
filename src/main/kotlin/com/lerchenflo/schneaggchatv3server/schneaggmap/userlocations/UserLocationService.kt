@@ -62,7 +62,7 @@ class UserLocationService(
      *
      * Gating is from the SENDER's side here: a friend F receives anything only if [userId]'s global
      * `locationShared` is on AND [userId]'s per-friend `shareLocation` towards F is on. speed/heading
-     * are gated by `shareSpeedHeading` and the trail by `snailTrailHours` (null = no trail);
+     * are gated by `shareSpeedHeading` and the trail by `shareSnailTrail` (false = no trail);
      * altitude/battery/distance are always included once F may see the location.
      *
      * Invalid frames are dropped silently - a socket has no per-message error response channel.
@@ -91,7 +91,7 @@ class UserLocationService(
                     friend = livePayload(userId, interaction.shareSpeedHeading, saved),
                 )
 
-                if (newTrailPoint != null && interaction.snailTrailHours != null) {
+                if (newTrailPoint != null && interaction.shareSnailTrail) {
                     notificationService.notifySnailTrailPointAdded(
                         recipientId = interaction.userId,
                         ownerUserId = userId.toHexString(),
@@ -143,7 +143,7 @@ class UserLocationService(
             val settings = sharingFriends.getValue(friend.id)
             FriendLocationSnapshot(
                 position = livePayload(friend.id, settings.shareSpeedHeading, latest),
-                snailTrail = buildSnailTrail(friend.id, settings.shareSpeedHeading, settings.snailTrailHours),
+                snailTrail = buildSnailTrail(friend.id, settings.shareSpeedHeading, settings.shareSnailTrail),
             )
         }
 
@@ -174,17 +174,16 @@ class UserLocationService(
     /**
      * Builds a friend's full snail trail (oldest to newest) from their own location history: at most
      * one point per minute, kept only when they moved more than [SNAIL_TRAIL_MIN_DISTANCE_METERS]
-     * from the previous kept point - so a stationary user yields almost no trail. [snailTrailHours]
-     * decides the window: null = trail not shared (empty), 0 = the full retained history (the 24h TTL
-     * window), N = the last N hours. Uses the same rule as [commitTrailPoint] so incremental points
-     * line up with this. No extra storage - reads the same history kept for the distance calculation.
+     * from the previous kept point - so a stationary user yields almost no trail. [shareSnailTrail]
+     * gates the whole trail: false = not shared (empty), true = the full retained history (the 24h
+     * TTL window). Uses the same rule as [commitTrailPoint] so incremental points line up with this.
+     * No extra storage - reads the same history kept for the distance calculation.
      */
-    private fun buildSnailTrail(friendId: ObjectId, shareSpeedHeading: Boolean, snailTrailHours: Int?): List<SnailTrailPointPayload> {
-        if (snailTrailHours == null) return emptyList()
+    private fun buildSnailTrail(friendId: ObjectId, shareSpeedHeading: Boolean, shareSnailTrail: Boolean): List<SnailTrailPointPayload> {
+        if (!shareSnailTrail) return emptyList()
 
-        // 0 means "share my whole retained history" (bounded by the 24h TTL); N means last N hours.
-        val windowHours = if (snailTrailHours == 0) MAX_SNAIL_TRAIL_HOURS else snailTrailHours
-        val since = Clock.System.now().minus(windowHours.hours)
+        // The trail is the full retained history, bounded by the 24h location TTL.
+        val since = Clock.System.now().minus(MAX_SNAIL_TRAIL_HOURS.hours)
         val history = userLocationRepository.findByUserIdAndLocationTimeGreaterThanEqualOrderByLocationTimeAsc(friendId, since)
 
         // Keep the first point of each new minute that is also >10m from the last kept point.
