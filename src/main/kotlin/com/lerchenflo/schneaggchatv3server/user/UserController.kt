@@ -152,7 +152,7 @@ class UserController(
         val friendId: String,
         // Full desired per-friend map-sharing state - the client sends all of these every time.
         val share: Boolean,                      // share location at all
-        val shareSpeedHeading: Boolean,          // share speed + heading together
+        val shareSpeedHeading: Boolean = false,          // share speed + heading together
         val shareSnailTrail: Boolean = false,    // share snail trail (full 24h history)
     )
 
