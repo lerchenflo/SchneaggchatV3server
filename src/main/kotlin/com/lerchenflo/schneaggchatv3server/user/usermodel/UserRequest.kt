@@ -14,5 +14,6 @@ data class UserRequest(
     @field:Size(max = 10, message = "Birth date too long")
     val newBirthDate: String?,
     @field:Size(max = 25, message = "Nickname too long")
-    val newNickName: String?
+    val newNickName: String?,
+    val newLocationShared: Boolean? = null
 )

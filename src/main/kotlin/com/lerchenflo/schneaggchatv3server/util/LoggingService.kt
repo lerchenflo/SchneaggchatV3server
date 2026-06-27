@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.repository.LogRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
+import org.springframework.data.annotation.TypeAlias
 import org.springframework.data.mongodb.core.index.CompoundIndex
 import org.springframework.data.mongodb.core.mapping.Document
 import org.springframework.stereotype.Service
@@ -40,6 +41,7 @@ enum class LogType {
     PASSWORD_RESET_EMAIL_SENT
 }
 
+@TypeAlias("log")
 @Document("logs")
 @CompoundIndex(name = "logtype_userid_timestamp_idx", def = "{'logType': 1, 'userId': 1, 'timestamp': -1}")
 data class Log(

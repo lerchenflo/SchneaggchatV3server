@@ -10,7 +10,6 @@ import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.*
 import org.bson.types.ObjectId
-import org.springframework.dao.DuplicateKeyException
 import org.springframework.data.mongodb.core.FindAndModifyOptions
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
@@ -199,27 +198,29 @@ class AuthService(
             RefreshToken::class.java
         )
 
-        // Deleted too long ago — likely a replay attack
+        // Lost the race to claim the old token — most likely a concurrent refresh request for the
+        // SAME old token that got there first. Try to recover the token it rotated to, instead of
+        // forcing this caller to 401 / re-login.
         if (claimedToken == null) {
             refreshTokenRepository.delete(newTokenEntry) //Remove new unused token
+
+            val rotated = refreshTokenRepository.findById(oldTokenEntry.id).getOrNull()
+            val linked = rotated?.replacedByToken?.let { refreshTokenRepository.findById(it).getOrNull() }
+
+            if (linked != null && linked.deletedAt == null && linked.rawToken != null) {
+                AppLogger.success("Concurrent refresh: returned winner's rotated token for user ${user.username}")
+
+                return TokenPair(
+                    accessToken = jwtService.generateAccessToken(userId),
+                    refreshToken = linked.rawToken,
+                    encryptionKey = jwtService.getEncryptionKey()
+                )
+            }
+
+            //At this point the token was either old (not migrated) or already deleted, throw an exception
             AppLogger.warn("TOKENREFRESH REPLAY?: Token was already deleted for user ${user.username}")
             throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
         }
-
-
-        /*
-        //Try to save the new token, if another token was already saved in the meantime, remove the change
-        try {
-            storeRefreshToken(user.id, newRefreshToken)
-        } catch (e: DuplicateKeyException) {
-
-            //Restore the just deleted token that the client can use it again
-            mongoTemplate.save(claimedToken.copy(deletedAt = null))
-
-            throw ResponseStatusException(HttpStatusCode.valueOf(409), "Concurrent refresh - reload tokens")
-        }
-
-         */
 
         return TokenPair(
             accessToken = newAccessToken,

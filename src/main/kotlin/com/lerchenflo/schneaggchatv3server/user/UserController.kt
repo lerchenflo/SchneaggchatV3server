@@ -28,7 +28,6 @@ class UserController(
     private val emailService: EmailService,
     private val imageManager: ImageManager,
 
-
     private val firebaseService: FirebaseService,
     private val apnsService: ApnsService,
 ) {
@@ -145,6 +144,31 @@ class UserController(
         userService.changeUserProfile(
             changingUserId = requestingUserId,
             userRequest = request
+        )
+    }
+
+
+    data class LocationShareRequest(
+        val friendId: String,
+
+        val share: Boolean = false,              // share location at all
+        val shareSpeedHeading: Boolean = false,  // share speed + heading together
+        val shareSnailTrail: Boolean = false,    // share snail trail (full 24h history)
+    )
+
+    @PostMapping("/sharelocation")
+    fun setLocationSharing(
+        @RequestBody request: LocationShareRequest
+    ) {
+        require(ValidationUtils.validateObjectId(request.friendId)) { "Invalid friend ID" }
+        val requestingUserId = requireAuth()
+
+        friendshipsService.setLocationSharing(
+            userId = requestingUserId,
+            friendId = ObjectId(request.friendId),
+            share = request.share ?: false,
+            shareSpeedHeading = request.shareSpeedHeading ?: false,
+            shareSnailTrail = request.shareSnailTrail ?: false,
         )
     }
 

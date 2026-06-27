@@ -2,6 +2,7 @@ package com.lerchenflo.schneaggchatv3server.user.friends
 
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.Friendship
+import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipSetting
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
@@ -184,6 +185,54 @@ class FriendsService(
         friendsLookupService.deleteFriendshipEntry(friendship)
     }
 
+    /**
+     * Set what the requesting user shares with a specific friend on the live map. This is a full
+     * replacement of that friend's per-friend map-sharing state, so the client sends every field.
+     * @param userId the user changing their own sharing settings
+     * @param friendId the friend these settings apply to
+     * @param share whether userId shares their location with friendId
+     * @param shareSpeedHeading whether userId shares live speed + heading with friendId
+     * @param shareSnailTrail whether userId shares their snail trail (full 24h history) with friendId
+     * @throws ResponseStatusException NOT_FOUND if there is no friendship between the two users
+     * @throws IllegalArgumentException if the friendship is not currently ACCEPTED
+     */
+    fun setLocationSharing(
+        userId: ObjectId,
+        friendId: ObjectId,
+        share: Boolean,
+        shareSpeedHeading: Boolean = false,
+        shareSnailTrail: Boolean = false,
+    ) {
+        val friendship = friendsLookupService.findFriendship(userId, friendId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Friendship not found")
 
+        require(friendship.status == FriendshipStatus.ACCEPTED) {
+            "Cannot change location sharing - friendship status is ${friendship.status}"
+        }
+
+        val existingSetting = friendsSettingsService.getFriendshipSetting(friendship.id, userId)
+            ?: FriendshipSetting(friendshipId = friendship.id, userId = userId)
+
+        val updatedSetting = existingSetting.copy(
+            shareLocation = share,
+            shareSpeedHeading = shareSpeedHeading,
+            shareSnailTrail = shareSnailTrail,
+            updatedAt = Clock.System.now(),
+        )
+
+        //No-op if nothing actually changed (ignoring the bumped updatedAt)
+        if (updatedSetting.copy(updatedAt = existingSetting.updatedAt) == existingSetting) return
+
+        friendsSettingsService.saveFriendshipSetting(updatedSetting)
+
+        //Notify the friend only when the location-sharing flag itself changed
+        if (share != existingSetting.shareLocation) {
+            notificationService.notifyLocationSharingChange(
+                changingUserId = userId,
+                friendId = friendId,
+                shareLocation = share
+            )
+        }
+    }
 
 }

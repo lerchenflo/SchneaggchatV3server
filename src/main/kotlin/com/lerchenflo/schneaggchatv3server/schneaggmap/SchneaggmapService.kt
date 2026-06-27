@@ -37,7 +37,8 @@ class SchneaggmapService(
     private val mapEntryRepository: MapEntryRepository,
     private val notificationService: NotificationService,
     private val userLookupService: UserLookupService,
-    private val loggingService: LoggingService
+    private val loggingService: LoggingService,
+    private val mapEntryVersionService: MapEntryVersionService,
 ) {
 
     // ─── Validation ──────────────────────────────────────────────────────────
@@ -148,6 +149,11 @@ class SchneaggmapService(
                 logType = if (existing == null) LogType.MAP_ENTRY_CREATED else LogType.MAP_ENTRY_EDITED,
             )
             val saved = mapEntryRepository.save(entry)
+            if (existing == null) {
+                mapEntryVersionService.recordCreate(saved, requesterId)
+            } else {
+                mapEntryVersionService.recordUpdate(existing, saved, requesterId)
+            }
             notificationService.notifyMapUpdate(saved, newEntry = existing == null, deleted = false, excludeUserId = requesterId) //Exclude creator, he gets the new entry with the response when upserting
             saved
         }
@@ -162,6 +168,7 @@ class SchneaggmapService(
             updatedAt = Clock.System.now(),
         )
         val saved = mapEntryRepository.save(deleted)
+        mapEntryVersionService.recordDelete(saved, requesterId)
         notificationService.notifyMapUpdate(saved, newEntry = false, deleted = true, excludeUserId = requesterId) //Notify all users of the deleted entry
         loggingService.log(
             userId = requesterId,
@@ -283,7 +290,7 @@ class SchneaggmapService(
                 }
 
                 "Badespot" -> {
-                    locationData = LocationData.SwimmingLocation(indoor = null)
+                    locationData = LocationData.SwimmingLocation(indoor = null, jumpSpot = null)
                     name        = beschreibung.ifBlank { "Badespot" }
                     description = ""
                 }

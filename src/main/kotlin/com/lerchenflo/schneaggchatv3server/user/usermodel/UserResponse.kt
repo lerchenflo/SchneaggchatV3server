@@ -56,9 +56,13 @@ sealed interface UserResponse {
         val userDescription: String,
         val userStatus: String,
 
-        val nickName: String?
+        val nickName: String?,
 
-
+        //What the recipient of this response shares with this friend on the map
+        val shareLocation: Boolean = false,
+        val shareSpeedHeading: Boolean = false,
+        //Whether the recipient shares their snail trail (full 24h history) with this friend
+        val shareSnailTrail: Boolean = false,
 
         ) : UserResponse
 
@@ -79,6 +83,8 @@ sealed interface UserResponse {
         val emailVerifiedAt: Long?,
         val createdAt: Long,
 
+        //Global master switch - does this user share their location at all
+        val locationShared: Boolean = false,
 
         //TODO: User profile pic privacy settings??
 

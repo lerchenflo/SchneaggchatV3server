@@ -22,15 +22,31 @@ class FriendsLookupService(
             .map { if (it.userId1 == userId) it.userId2 else it.userId1 }
     }
 
-    data class FriendWithNickname(val friendId: ObjectId, val requesterId: ObjectId, val nickName: String?)
+    data class FriendWithNickname(
+        val friendId: ObjectId,
+        val requesterId: ObjectId,
+        val nickName: String?,
+        val shareLocation: Boolean,
+        val shareSpeedHeading: Boolean = false,
+        val shareSnailTrail: Boolean = false,
+    )
 
     fun getFriendsForUserUpdate(userId: ObjectId): List<FriendWithNickname> {
         return friendshipRepository.findByUserId1OrUserId2(userId, userId)
             .filter { it.status == FriendshipStatus.ACCEPTED }
             .map { friendship ->
                 val friendId = if (friendship.userId1 == userId) friendship.userId2 else friendship.userId1
-                val setting = friendshipSettingsService.getFriendshipSetting(friendship.id, friendId)
-                FriendWithNickname(friendId, friendship.requesterId, setting?.nickName)
+                //Recipient's (friendId's) own setting: nickname they gave to userId, and what
+                //they (friendId) share with userId (location, speed/heading, snail trail)
+                val friendSetting = friendshipSettingsService.getFriendshipSetting(friendship.id, friendId)
+                FriendWithNickname(
+                    friendId = friendId,
+                    requesterId = friendship.requesterId,
+                    nickName = friendSetting?.nickName,
+                    shareLocation = friendSetting?.shareLocation ?: false,
+                    shareSpeedHeading = friendSetting?.shareSpeedHeading ?: false,
+                    shareSnailTrail = friendSetting?.shareSnailTrail ?: false,
+                )
             }
     }
 
@@ -40,6 +56,9 @@ class FriendsLookupService(
         val requesterId: ObjectId,
         val lastChanged: Instant? = null,
         val nickName: String? = null,
+        val shareLocation: Boolean = false,
+        val shareSpeedHeading: Boolean = false,
+        val shareSnailTrail: Boolean = false,
     )
 
     fun getAllInteractions(userId: ObjectId): List<UserInteraction> {
@@ -51,6 +70,8 @@ class FriendsLookupService(
                     friendship.userId1
                 }
 
+                //This user's (userId's) own setting: nickname they gave to otherUserId, and
+                //whether they (userId) share their location with otherUserId
                 val friendshipSetting = friendshipSettingsService.getFriendshipSetting(friendship.id, userId)
 
                 UserInteraction(
@@ -58,7 +79,10 @@ class FriendsLookupService(
                     status = friendship.status,
                     requesterId = friendship.requesterId,
                     lastChanged = friendship.updatedAt,
-                    nickName = friendshipSetting?.nickName
+                    nickName = friendshipSetting?.nickName,
+                    shareLocation = friendshipSetting?.shareLocation ?: false,
+                    shareSpeedHeading = friendshipSetting?.shareSpeedHeading ?: false,
+                    shareSnailTrail = friendshipSetting?.shareSnailTrail ?: false,
                 )
             }
     }

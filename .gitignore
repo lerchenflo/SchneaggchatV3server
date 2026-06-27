@@ -41,6 +41,8 @@ out/
 ### Kotlin ###
 .kotlin
 
+.claude
+
 schneaggchatv3-firebase-admin.json
 
 

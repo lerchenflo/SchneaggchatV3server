@@ -12,6 +12,7 @@ import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
+import com.mongodb.MongoNamespace
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.data.mongodb.core.MongoTemplate
@@ -20,6 +21,7 @@ import org.springframework.data.mongodb.core.aggregation.SetOperation
 import org.springframework.data.mongodb.core.index.IndexInfo
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.Update
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 import kotlin.time.ExperimentalTime
@@ -53,6 +55,9 @@ class MainController(
     @EventListener(ApplicationReadyEvent::class)
     fun onStartup() {
         //migrateDBs()
+        renameTypoCollections()
+        migrateTypeAliases()
+
         val testaccount = userService.ensureTestaccount()
         schneaggmapService.importLegacyMapEntries(testaccount.id)
 
@@ -131,6 +136,78 @@ class MainController(
         }
 
 
+    }
+
+
+    /**
+     * One-time fix for the "frienships" collection name typo -> "friendships".
+     * Renaming preserves all documents and indexes. No-op once already renamed.
+     *
+     * Spring's auto-index-creation (spring.data.mongodb.auto-index-creation=true) runs during
+     * context startup - BEFORE this ApplicationReadyEvent listener - and will have already
+     * created an empty "friendships" collection (with its indexes) from the updated @Document
+     * annotation. That pre-existing empty collection must not block the rename.
+     */
+    fun renameTypoCollections() {
+        val db = mongoTemplate.db
+        val existingCollections = db.listCollectionNames().toSet()
+
+        if (!existingCollections.contains("frienships")) {
+            return // Already renamed (or never existed on a fresh install)
+        }
+
+        if (existingCollections.contains("friendships")) {
+            val targetCount = db.getCollection("friendships").countDocuments()
+            if (targetCount > 0) {
+                AppLogger.warn("Migration skipped: 'friendships' already has $targetCount document(s) - refusing to overwrite. Resolve 'frienships' vs 'friendships' manually.")
+                return
+            }
+            // Empty collection auto-created by Spring's index creation - safe to drop before the rename.
+            db.getCollection("friendships").drop()
+        }
+
+        db.getCollection("frienships").renameCollection(MongoNamespace(db.name, "friendships"))
+        AppLogger.success("Migration completed: Renamed collection 'frienships' -> 'friendships'")
+    }
+
+    /**
+     * Every @Document entity now declares a short @TypeAlias instead of relying on Spring's
+     * default behaviour of storing the fully-qualified class name in '_class'. Documents written
+     * before the alias was added still have the old FQCN in '_class' - rewrite those so old and
+     * new documents are consistent (and so future class renames/moves don't break old data).
+     */
+    fun migrateTypeAliases() {
+        AppLogger.info("Running type alias migration...")
+
+        data class AliasMigration(val collection: String, val oldClassName: String, val newAlias: String)
+
+        val migrations = listOf(
+            AliasMigration("users", "com.lerchenflo.schneaggchatv3server.user.usermodel.User", "user"),
+            AliasMigration("messages", "com.lerchenflo.schneaggchatv3server.message.messagemodel.Message", "message"),
+            AliasMigration("groups", "com.lerchenflo.schneaggchatv3server.group.model.Group", "group"),
+            AliasMigration("groupmembers", "com.lerchenflo.schneaggchatv3server.group.model.GroupMember", "groupmember"),
+            AliasMigration("apnstokens", "com.lerchenflo.schneaggchatv3server.notifications.apns.model.ApnsToken", "apnstoken"),
+            AliasMigration("firebasetokens", "com.lerchenflo.schneaggchatv3server.notifications.firebase.model.FirebaseToken", "firebasetoken"),
+            AliasMigration("friendships", "com.lerchenflo.schneaggchatv3server.user.friendshipmodel.Friendship", "friendship"),
+            AliasMigration("friendship_settings", "com.lerchenflo.schneaggchatv3server.user.friendshipmodel.FriendshipSetting", "friendshipsetting"),
+            AliasMigration("refreshTokens", "com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken", "refreshtoken"),
+            AliasMigration("userlocations", "com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.UserLocation", "userlocation"),
+            AliasMigration("logs", "com.lerchenflo.schneaggchatv3server.util.Log", "log"),
+        )
+
+        for (migration in migrations) {
+            val result = mongoTemplate.updateMulti(
+                Query(Criteria.where("_class").`is`(migration.oldClassName)),
+                Update.update("_class", migration.newAlias),
+                migration.collection
+            )
+
+            if (result.modifiedCount > 0) {
+                AppLogger.success("Migration completed: Updated _class -> '${migration.newAlias}' for ${result.modifiedCount} documents in '${migration.collection}'")
+            }
+        }
+
+        AppLogger.success("Type alias migration check complete")
     }
 
 

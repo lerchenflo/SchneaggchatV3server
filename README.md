@@ -69,6 +69,120 @@ The server will run on port 8080
 | `GET` | `/users/availableusers` | Search or list available users | **Query**:<br>`searchterm`: String (Optional) |
 | `GET` | `/users/addfriend/{id}` | Send friend request | **Path**:<br>`id`: String |
 | `GET` | `/users/denyfriend/{id}` | Deny friend request | **Path**:<br>`id`: String |
+| `GET` | `/users/removefriend/{id}` | Remove a friend | **Path**:<br>`id`: String |
+| `POST` | `/users/sharelocation` | Set per-friend live-location sharing (full replace) | **Body**:<br>`friendId`: String<br>`share`: Boolean<br>`shareSpeedHeading`: Boolean<br>`shareSnailTrail`: Boolean (default false) |
+
+> **Note:** The global location master switch is set via `POST /users/changeprofile` with `newLocationShared: Boolean`. Sending/receiving live locations themselves happens over the **WebSocket** — see [Live Location](#live-location) below.
+
+## Live Location
+
+Live location started as a simple HTTP poll that only carried `lat`/`long`. It is now a richer,
+privacy-gated feature delivered entirely over the **WebSocket**. This section documents everything
+added since then.
+
+### What a location carries
+
+A location update is `lat` + `long` (mandatory) plus optional driving telemetry — all nullable, so a
+client that only has coordinates still works:
+
+| Field | Type | Notes |
+| :--- | :--- | :--- |
+| `lat`, `long` | Double | Mandatory. |
+| `speed` | Double? | meters/second, 0–120. |
+| `heading` | Double? | degrees, 0–360 (0 = north). |
+| `altitude` | Double? | meters above sea level, −500–9000. |
+| `batteryLevel` | Int? | percent, 0–100. |
+
+On every update the server also computes the user's **distance traveled in the last 24h** (great-circle
+sum of consecutive points, with a small jitter guard), stored alongside the point.
+
+### Sharing model (two gates + per-field control)
+
+A friend sees your location only if **both** gates pass:
+
+1. **Global master switch** — `User.locationShared`, set via `POST /users/changeprofile`
+   (`newLocationShared`). If off, you share with nobody.
+2. **Per-friend toggle** — `FriendshipSetting.shareLocation` toward that friend, set via
+   `POST /users/sharelocation`.
+
+Once a friend may see your location, the individual fields are controlled per friend:
+
+| Field | Control | Default |
+| :--- | :--- | :--- |
+| coordinates, time | always shared once visible | — |
+| **altitude, battery, 24h distance** | always shared once visible (not toggleable) | on |
+| **speed + heading** | per-friend `shareSpeedHeading` (one toggle for both) | off |
+| **snail trail** | per-friend `shareSnailTrail` | off (false) |
+
+`shareSnailTrail` semantics: **`false`** = no trail, **`true`** = the full retained history (last
+24h, bounded by the location TTL). Within that window the trail is sampled at **at most one point per
+minute**, and a minute's point is only emitted when the user moved **more than 10 m** from the
+previous emitted point (so a stationary user yields ~no trail), read from history the server already
+keeps (no extra storage). Each snail-trail point also carries speed/heading, gated by the same
+`shareSpeedHeading` toggle.
+
+`POST /users/sharelocation` is a **full replacement** of one friend's settings — send all of
+`share`, `shareSpeedHeading`, `shareSnailTrail` every time. The current values are echoed back on
+`POST /users/sync` in each `FriendUserResponse` (`shareLocation`, `shareSpeedHeading`,
+`shareSnailTrail`) so the client can render the settings screen.
+
+### WebSocket transport
+
+Connect to **`/ws`** with the access token in the handshake header: `Authorization: Bearer <token>`
+(invalid/missing → connection rejected with 403). All frames are JSON with a `_class` discriminator.
+
+**Inbound (client → server)** — push your own current location:
+
+```json
+{ "_class": "locationupdate", "lat": 48.2082, "long": 16.3738,
+  "speed": 12.5, "heading": 270.0, "altitude": 180.4, "batteryLevel": 73 }
+```
+
+Identity is taken from the authenticated socket session — there is no `userId` field and you can only
+ever write your own location. Invalid frames (bad coordinates/telemetry) are dropped silently.
+
+**Outbound (server → client):**
+
+| `_class` | When | Payload |
+| :--- | :--- | :--- |
+| `friendlocationchange` | a friend you can see moved (~every 5s) | `{ "friend": FriendLocationPayload }` — live position only, **no trail** |
+| `snailtrailpointadded` | a friend's trail advanced (at most once/min, only while moving) | `{ "userId": "665f1...", "point": SnailTrailPointPayload }` |
+| `friendlocationssnapshot` | once, right after you connect (initial load) | `{ "friends": [FriendLocationSnapshot, ...] }` |
+
+The live position and the trail are delivered separately so the every-5s update stays small: the
+client moves a friend's marker on every `friendlocationchange`, appends to that friend's trail polyline
+on each `snailtrailpointadded`, and seeds both from the snapshot on connect.
+
+`FriendLocationPayload` (live position):
+
+```json
+{
+  "userId": "665f1...",
+  "coordinates": { "lat": 48.21, "long": 16.37 },
+  "locationTime": 1750000000000,
+  "speed": null,
+  "heading": null,
+  "altitude": 180.4,
+  "batteryLevel": 73,
+  "distanceTraveled24h": 15234.7
+}
+```
+
+`SnailTrailPointPayload`: `{ "coordinates": {lat,long}, "locationTime": Long, "speed": Double?, "heading": Double? }`.
+
+`FriendLocationSnapshot` (one per friend in the snapshot): `{ "position": FriendLocationPayload, "snailTrail": [SnailTrailPointPayload, ...] }`.
+
+Any field the friend hasn't opted to share is `null` (and `snailTrail` is empty if they don't share a
+trail). `locationTime` is epoch millis; `userId` is a hex string.
+
+> **Migration note (snail trail delivery):** the snail trail is no longer bundled into every live
+> update. The every-5s `friendlocationchange` carries position only; the trail arrives as the full set
+> in `friendlocationssnapshot` on connect and then one point at a time via `snailtrailpointadded`.
+>
+> **Migration note:** the old `POST /users/locations` HTTP endpoint has been **removed**. Clients now
+> push via `locationupdate` and receive friends' locations via `friendlocationssnapshot` (on connect)
+> + `friendlocationchange` (live). Note `/ws` is not behind the HTTP rate limiter, and live updates are
+> delivered to a user's first active connection.
 
 ## General
 | Method | Endpoint | Description | Parameters |

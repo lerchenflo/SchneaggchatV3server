@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest
 import org.bson.types.ObjectId
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -77,6 +78,18 @@ class GlobalExceptionHandler(
             .body("Resource not found: $resourcePath")
     }
 
+
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException, request: HttpServletRequest): ResponseEntity<Map<String, String>> {
+        val ip = clientIpResolver.resolve(request)
+        AppLogger.error("HttpMessageNotReadableException Error happened: ${e.message} | ip=$ip")
+
+        e.printStackTrace()
+
+        return ResponseEntity
+            .badRequest()
+            .body(mapOf("error" to "Invalid request body: ${e.message}"))
+    }
 
     // Catch-all handler for any unhandled exceptions
     @ExceptionHandler(Exception::class)

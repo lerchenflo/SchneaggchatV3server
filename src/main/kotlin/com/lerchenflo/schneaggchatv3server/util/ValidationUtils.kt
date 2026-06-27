@@ -171,6 +171,19 @@ object ValidationUtils {
     }
 
     /**
+     * Validates a latitude/longitude pair
+     * - Latitude must be between -90 and 90
+     * - Longitude must be between -180 and 180
+     * - Neither value may be NaN or infinite
+     */
+    fun validateLatLong(lat: Double, long: Double): Boolean {
+        if (lat.isNaN() || long.isNaN() || lat.isInfinite() || long.isInfinite()) return false
+        if (lat < -90.0 || lat > 90.0) return false
+        if (long < -180.0 || long > 180.0) return false
+        return true
+    }
+
+    /**
      * Validates token strings (JWT, email verification, etc.)
      * - Must not be blank
      * - Maximum 2000 characters
@@ -246,5 +259,43 @@ object ValidationUtils {
     fun validateNotificationToken(token: String, isAndroid: Boolean): Boolean {
         return if (isAndroid) validateFirebaseToken(token)
         else APNS_TOKEN_REGEX.matches(token)
+    }
+
+    /**
+     * Validates a speed reading in meters/second.
+     * - Must not be NaN/infinite
+     * - Must be non-negative, and below a sane upper bound (sanity check, not a real-world limit)
+     */
+    fun validateSpeed(speed: Double): Boolean {
+        if (speed.isNaN() || speed.isInfinite()) return false
+        return speed in 0.0..120.0 // ~430 km/h, generous upper bound to reject garbage input
+    }
+
+    /**
+     * Validates a compass heading in degrees.
+     * - Must not be NaN/infinite
+     * - Must be in [0, 360]
+     */
+    fun validateHeading(heading: Double): Boolean {
+        if (heading.isNaN() || heading.isInfinite()) return false
+        return heading in 0.0..360.0
+    }
+
+    /**
+     * Validates a battery level percentage.
+     * - Must be between 0 and 100 inclusive
+     */
+    fun validateBatteryLevel(batteryLevel: Int): Boolean {
+        return batteryLevel in 0..100
+    }
+
+    /**
+     * Validates an altitude reading in meters above sea level.
+     * - Must not be NaN/infinite
+     * - Bounded to a sane range (Dead Sea shore to above Everest, with margin)
+     */
+    fun validateAltitude(altitude: Double): Boolean {
+        if (altitude.isNaN() || altitude.isInfinite()) return false
+        return altitude in -500.0..9000.0
     }
 }

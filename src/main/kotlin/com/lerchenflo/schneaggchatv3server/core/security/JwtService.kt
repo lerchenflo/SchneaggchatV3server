@@ -41,6 +41,7 @@ class JwtService(
         return Jwts.builder()
             .setHeaderParam("typ", type)
             .subject(userId)
+            .id(UUID.randomUUID().toString())   // jti - guarantees token uniqueness even within the same millisecond
             .claim("type", type)
             .issuedAt(now)
             .expiration(expiryDate)
