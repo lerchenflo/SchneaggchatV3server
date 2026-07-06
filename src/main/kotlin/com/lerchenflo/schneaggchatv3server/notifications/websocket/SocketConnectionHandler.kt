@@ -130,7 +130,7 @@ class SocketConnectionHandler(
         //println("Total connections: ${connections.size}")
 
         // Initial load: push the connecting user the current locations of all friends they may see.
-        userLocationService.sendInitialSnapshot(ObjectId(requestingUserId))
+        userLocationService.sendInitialLocationSnapshot(ObjectId(requestingUserId))
     }
 
     override fun afterConnectionClosed(session: WebSocketSession, status: CloseStatus) {

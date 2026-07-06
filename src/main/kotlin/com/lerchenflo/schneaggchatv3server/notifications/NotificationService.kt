@@ -154,7 +154,7 @@ class NotificationService(
                     email = user.email,
                     emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
                     createdAt = user.createdAt.toEpochMilliseconds(),
-                    locationShared = user.locationShared,
+                    locationShared = friendsLookupService.hasActiveLocationSharing(user.id),
                 ),
                 deleted = deleted
             ),

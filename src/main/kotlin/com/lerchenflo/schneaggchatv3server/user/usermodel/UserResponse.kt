@@ -83,7 +83,7 @@ sealed interface UserResponse {
         val emailVerifiedAt: Long?,
         val createdAt: Long,
 
-        //Global master switch - does this user share their location at all
+        //Auto-derived: does this user share their location with at least one accepted friend
         val locationShared: Boolean = false,
 
         //TODO: User profile pic privacy settings??
