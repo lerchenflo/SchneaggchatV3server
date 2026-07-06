@@ -114,29 +114,33 @@ class UserLocationService(
     }
 
     /**
-     * Push [userId] the current positions and full snail trails of all friends they may see (initial
-     * load on connect). Gating is from the RECEIVER's side here: a friend G is included only if G's
-     * per-friend setting shares location towards [userId] (which requires an ACCEPTED friendship);
-     * the extra fields are gated by G's own per-friend settings towards [userId].
+     * Push [userId] their own current position and full snail trail, plus the current positions and
+     * full snail trails of all friends they may see (initial load on connect). Gating for friends is
+     * from the RECEIVER's side here: a friend G is included only if G's per-friend setting shares
+     * location towards [userId] (which requires an ACCEPTED friendship); the extra fields are gated by
+     * G's own per-friend settings towards [userId]. [userId]'s own entry is never gated - a user always
+     * sees their full own position and trail.
      */
     fun sendInitialLocationSnapshot(userId: ObjectId) {
-        val sharingFriends = friendsLookupService.getFriendsForUserUpdate(userId)
-            .filter { it.shareLocation }
-        if (sharingFriends.isEmpty()) {
-            notificationService.notifyLocationSnapshot(userId, emptyList())
-            return
-        }
-
-        val snapshots = sharingFriends.mapNotNull { settings ->
-            val latest = userLocationRepository.findTopByUserIdOrderByLocationTimeDesc(settings.friendId)
-                ?: return@mapNotNull null
+        val selfSnapshot = userLocationRepository.findTopByUserIdOrderByLocationTimeDesc(userId)?.let { latest ->
             FriendLocationSnapshot(
-                position = livePayload(settings.friendId, settings.shareSpeedHeading, latest),
-                snailTrail = buildSnailTrail(settings.friendId, settings.shareSpeedHeading, settings.shareSnailTrail),
+                position = livePayload(userId, shareSpeedHeading = true, latest),
+                snailTrail = buildSnailTrail(userId, shareSpeedHeading = true, shareSnailTrail = true),
             )
         }
 
-        notificationService.notifyLocationSnapshot(userId, snapshots)
+        val friendSnapshots = friendsLookupService.getFriendsForUserUpdate(userId)
+            .filter { it.shareLocation }
+            .mapNotNull { settings ->
+                val latest = userLocationRepository.findTopByUserIdOrderByLocationTimeDesc(settings.friendId)
+                    ?: return@mapNotNull null
+                FriendLocationSnapshot(
+                    position = livePayload(settings.friendId, settings.shareSpeedHeading, latest),
+                    snailTrail = buildSnailTrail(settings.friendId, settings.shareSpeedHeading, settings.shareSnailTrail),
+                )
+            }
+
+        notificationService.notifyLocationSnapshot(userId, listOfNotNull(selfSnapshot) + friendSnapshots)
     }
 
     /** Current position + telemetry (no trail). Altitude/battery/distance are always shared once visible. */
