@@ -64,6 +64,9 @@ sealed interface UserResponse {
         //Whether the recipient shares their snail trail (full 24h history) with this friend
         val shareSnailTrail: Boolean = false,
 
+        //Last time this friend's final WebSocket session disconnected. Null if never seen offline yet.
+        val lastSeen: Long? = null,
+
         ) : UserResponse
 
     //Response for yourself (You request your own data)

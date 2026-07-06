@@ -30,5 +30,7 @@ data class User(
     val createdAt: Instant,
     val updatedAt: Instant,
 
-    val profilePicUpdatedAt: Instant = updatedAt  // New field with default
+    val profilePicUpdatedAt: Instant = updatedAt,  // New field with default
+
+    val lastSeen: Instant? = null  // Last time the user's final WebSocket session disconnected
 )

@@ -441,6 +441,7 @@ class UserService(
                 shareLocation = shareLocation,
                 shareSpeedHeading = shareSpeedHeading,
                 shareSnailTrail = shareSnailTrail,
+                lastSeen = user.lastSeen?.toEpochMilliseconds(),
             )
         }
 

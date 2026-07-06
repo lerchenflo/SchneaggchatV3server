@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.notifications.websocket
 
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
+import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.connectiontimelogger.ConnectionTimeLogger
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnection
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
@@ -29,6 +30,8 @@ class SocketConnectionHandler(
     private val connectionTimeLogger: ConnectionTimeLogger,
     // @Lazy breaks the cycle: UserLocationService -> NotificationService -> SocketConnectionHandler.
     @Lazy private val userLocationService: UserLocationService,
+    // @Lazy breaks the cycle: NotificationService -> SocketConnectionHandler.
+    @Lazy private val notificationService: NotificationService,
 ): TextWebSocketHandler() {
 
     var connections : CopyOnWriteArrayList<SocketConnection> = CopyOnWriteArrayList()
@@ -118,11 +121,15 @@ class SocketConnectionHandler(
 
         //println("New socket connection from user ${userLookupService.getUsername(ObjectId(requestingUserId))} IP: ${session.handshakeHeaders["X-Real-IP"]}")
 
+        val userId = ObjectId(requestingUserId)
+
         //Update session or create new (Multiple connections from the same userid are allowed
+        var wasOffline = false
         synchronized(connections) {
+            wasOffline = connections.none { it.userId == userId }
             connections += SocketConnection(
                 sessionId = session.id,
-                userId = ObjectId(requestingUserId),
+                userId = userId,
                 session = session,
             )
         }
@@ -130,7 +137,15 @@ class SocketConnectionHandler(
         //println("Total connections: ${connections.size}")
 
         // Initial load: push the connecting user the current locations of all friends they may see.
-        userLocationService.sendInitialLocationSnapshot(ObjectId(requestingUserId))
+        userLocationService.sendInitialLocationSnapshot(userId)
+
+        // Initial load: push the connecting user which of their friends are currently online.
+        notificationService.sendInitialFriendOnlineSnapshot(userId)
+
+        // This was the user's first active session -> they just went online.
+        if (wasOffline) {
+            notificationService.notifyFriendOnlineStatusChange(userId, online = true)
+        }
     }
 
     override fun afterConnectionClosed(session: WebSocketSession, status: CloseStatus) {
@@ -140,12 +155,15 @@ class SocketConnectionHandler(
         //println("Socket connection closed: $status")
 
         val connectionToRemove: SocketConnection?
+        var isNowOffline = false
 
         synchronized(connections) {
 
             connectionToRemove = connections.find { it.sessionId == session.id }
 
             connections.remove(connectionToRemove)
+
+            isNowOffline = connectionToRemove != null && connections.none { it.userId == connectionToRemove.userId }
         }
 
         connectionToRemove?.let { //Should always happpen
@@ -154,6 +172,15 @@ class SocketConnectionHandler(
                 startTime = it.startedAt,
                 endTime = Clock.System.now()
             )
+
+            // That was the user's last active session -> they just went offline.
+            if (isNowOffline) {
+                val now = Clock.System.now()
+                userLookupService.findById(it.userId)?.let { user ->
+                    userLookupService.save(user.copy(lastSeen = now, updatedAt = now))
+                }
+                notificationService.notifyFriendOnlineStatusChange(it.userId, online = false, lastSeen = now)
+            }
         }
 
 
