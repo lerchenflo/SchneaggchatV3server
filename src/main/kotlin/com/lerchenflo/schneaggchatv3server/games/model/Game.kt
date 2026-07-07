@@ -10,6 +10,7 @@ enum class Game(
     SNAKE(higherScoreWins = true, lowerTimeWins = false),
     TETRIS(higherScoreWins = true, lowerTimeWins = false),
     TOWERSTACK(higherScoreWins = true, lowerTimeWins = false),
+    SCHNEAGGAHUS(higherScoreWins = true, lowerTimeWins = false),
     MORSE(higherScoreWins = true, lowerTimeWins = true);
 
     /** Best result first: score, then time as tiebreaker, earliest submission wins full ties. */
