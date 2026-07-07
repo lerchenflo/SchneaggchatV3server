@@ -11,7 +11,8 @@ enum class Game(
     TETRIS(higherScoreWins = true, lowerTimeWins = false),
     TOWERSTACK(higherScoreWins = true, lowerTimeWins = false),
     SCHNEAGGAHUS(higherScoreWins = true, lowerTimeWins = false),
-    MORSE(higherScoreWins = true, lowerTimeWins = true);
+    MORSE(higherScoreWins = true, lowerTimeWins = true),
+    GRIDRUSH(higherScoreWins = true, lowerTimeWins = true);
 
     /** Best result first: score, then time as tiebreaker, earliest submission wins full ties. */
     fun leaderboardSort(): Sort = Sort.by(

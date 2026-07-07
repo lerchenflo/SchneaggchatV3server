@@ -177,7 +177,7 @@ class NotificationService(
                         userStatus = user.userStatus,
                         nickName = nickName,
                         shareLocation = shareLocation,
-                        lastSeen = user.lastSeen?.toEpochMilliseconds()
+                        lastSeen = user.lastSeen.toEpochMilliseconds()
                     ),
                     deleted = deleted
                 ),
@@ -214,7 +214,7 @@ class NotificationService(
                     userStatus = friend.userStatus,
                     nickName = nickName,
                     shareLocation = shareLocation,
-                    lastSeen = friend.lastSeen?.toEpochMilliseconds()
+                    lastSeen = friend.lastSeen.toEpochMilliseconds()
                 ),
                 deleted = false
             ),

@@ -57,6 +57,7 @@ class MainController(
         //migrateDBs()
         renameTypoCollections()
         migrateTypeAliases()
+        migrateLastSeen()
 
         val testaccount = userService.ensureTestaccount()
         schneaggmapService.importLegacyMapEntries(testaccount.id)
@@ -138,6 +139,39 @@ class MainController(
 
     }
 
+
+    /**
+     * `User.lastSeen` was made non-nullable, defaulting to `updatedAt`. Documents written before
+     * this field existed (or with it explicitly null) are backfilled here rather than relying on
+     * the Kotlin default, since Mongo's `updateMulti` never deserializes the document into a `User`
+     * instance - a missing/null `lastSeen` on a document read straight into a `User` object anywhere
+     * else in the app would otherwise throw a mapping exception.
+     */
+    fun migrateLastSeen() {
+        AppLogger.info("Running lastSeen migration...")
+
+        val query = Query(
+            Criteria().orOperator(
+                Criteria.where("lastSeen").exists(false),
+                Criteria.where("lastSeen").`is`(null)
+            )
+        )
+
+        val update = AggregationUpdate.update()
+            .set(
+                SetOperation.builder()
+                    .set("lastSeen")
+                    .toValueOf("updatedAt")
+            )
+
+        val result = mongoTemplate.updateMulti(query, update, User::class.java)
+
+        if (result.modifiedCount > 0) {
+            AppLogger.success("Migration completed: Set lastSeen -> updatedAt for ${result.modifiedCount} users")
+        } else {
+            AppLogger.success("Migration check: All users already have a lastSeen field")
+        }
+    }
 
     /**
      * One-time fix for the "frienships" collection name typo -> "friendships".
