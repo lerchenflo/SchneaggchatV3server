@@ -5,6 +5,7 @@ package com.lerchenflo.schneaggchatv3server.recap
 import com.lerchenflo.schneaggchatv3server.games.GamesService
 import com.lerchenflo.schneaggchatv3server.games.model.Difficulty
 import com.lerchenflo.schneaggchatv3server.games.model.Game
+import com.lerchenflo.schneaggchatv3server.games.model.LeaderboardPeriod
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
@@ -158,7 +159,7 @@ class RecapService(
                 sentAt = it.sendDate.toEpochMilliseconds(),
                 toId = it.receiverId.toHexString(),
                 toName = if (it.groupMessage) groupNameFor(it.receiverId) else nameFor(it.receiverId),
-                isGroup = it.groupMessage,
+                group = it.groupMessage,
             )
         }
 
@@ -287,7 +288,7 @@ class RecapService(
             PartnerRecap(
                 id = key.id.toHexString(),
                 name = if (key.isGroup) groupNameFor(key.id) else nameFor(key.id),
-                isGroup = key.isGroup,
+                group = key.isGroup,
                 messagesExchanged = bucket.total,
                 messagesFromMe = bucket.fromMe,
                 messagesFromThem = bucket.fromThem,
@@ -371,7 +372,7 @@ class RecapService(
         val entries = mutableListOf<GameRecapEntry>()
         for (game in Game.entries) {
             for (difficulty in Difficulty.entries) {
-                val mine = gamesService.getHighscores(game, difficulty, requesterId).entries
+                val mine = gamesService.getHighscores(game, difficulty, LeaderboardPeriod.ALL_TIME, requesterId).entries
                     .find { it.userId == requesterHex } ?: continue
                 entries += GameRecapEntry(
                     game = game.name,

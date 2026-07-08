@@ -5,6 +5,7 @@ import com.lerchenflo.schneaggchatv3server.games.model.Difficulty
 import com.lerchenflo.schneaggchatv3server.games.model.Game
 import com.lerchenflo.schneaggchatv3server.games.model.GameScoreResponse
 import com.lerchenflo.schneaggchatv3server.games.model.HighscoresResponse
+import com.lerchenflo.schneaggchatv3server.games.model.LeaderboardPeriod
 import com.lerchenflo.schneaggchatv3server.games.model.toGameScoreResponse
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
@@ -46,10 +47,12 @@ class GamesController(
     fun getHighscores(
         @RequestParam gameid: String,
         @RequestParam(value = "difficulty", defaultValue = "MEDIUM") difficultyId: String,
+        @RequestParam(value = "period", defaultValue = "ALL_TIME") periodId: String,
     ): HighscoresResponse {
         val requesterId = requireAuth()
         val game = requireNotNull(Game.fromId(gameid)) { "Unknown game id: $gameid" }
         val difficulty = requireNotNull(Difficulty.fromId(difficultyId)) { "Unknown difficulty: $difficultyId" }
-        return gamesService.getHighscores(game, difficulty, requesterId)
+        val period = requireNotNull(LeaderboardPeriod.fromId(periodId)) { "Unknown period: $periodId" }
+        return gamesService.getHighscores(game, difficulty, period, requesterId)
     }
 }

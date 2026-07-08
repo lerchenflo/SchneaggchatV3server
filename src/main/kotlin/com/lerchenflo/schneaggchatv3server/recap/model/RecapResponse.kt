@@ -51,7 +51,7 @@ data class LongestMessageRecap(
     val sentAt: Long,
     val toId: String,
     val toName: String,
-    val isGroup: Boolean,
+    val group: Boolean,
 )
 
 data class DayCount(val date: String, val count: Long)
@@ -85,7 +85,7 @@ data class SocialRecap(
 data class PartnerRecap(
     val id: String,
     val name: String,
-    val isGroup: Boolean,
+    val group: Boolean,
     val messagesExchanged: Long,
     val messagesFromMe: Long,
     val messagesFromThem: Long,

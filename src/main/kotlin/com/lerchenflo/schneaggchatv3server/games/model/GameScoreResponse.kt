@@ -36,6 +36,7 @@ data class HighscoreEntryResponse(
 data class HighscoresResponse(
     val gameId: String,
     val difficulty: String,
+    val period: String,
     // Top 20; the requester is appended with their true rank when placed below that.
     val entries: List<HighscoreEntryResponse>,
 )

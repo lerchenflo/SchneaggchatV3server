@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.games.model.Game
 import com.lerchenflo.schneaggchatv3server.games.model.GameScore
 import com.lerchenflo.schneaggchatv3server.games.model.HighscoreEntryResponse
 import com.lerchenflo.schneaggchatv3server.games.model.HighscoresResponse
+import com.lerchenflo.schneaggchatv3server.games.model.LeaderboardPeriod
 import com.lerchenflo.schneaggchatv3server.repository.GameScoreRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.util.LogType
@@ -51,9 +52,14 @@ class GamesService(
         return saved
     }
 
-    fun getHighscores(game: Game, difficulty: Difficulty, requesterId: ObjectId): HighscoresResponse {
+    fun getHighscores(game: Game, difficulty: Difficulty, period: LeaderboardPeriod, requesterId: ObjectId): HighscoresResponse {
+        // kotlin.time.Instant is stored as a nested {epochSeconds, nanosecondsOfSecond} doc,
+        // so the period cutoff has to match on the epochSeconds field.
+        val criteria = Criteria.where("game").`is`(game.name).and("difficulty").`is`(difficulty.name)
+        period.startEpochSeconds()?.let { criteria.and("createdAt.epochSeconds").gte(it) }
+
         val aggregation = Aggregation.newAggregation(
-            Aggregation.match(Criteria.where("game").`is`(game.name).and("difficulty").`is`(difficulty.name)),
+            Aggregation.match(criteria),
             Aggregation.sort(game.leaderboardSort()),
             Aggregation.group("userId")
                 .first("userId").`as`("userId")
@@ -79,6 +85,7 @@ class GamesService(
         return HighscoresResponse(
             gameId = game.name,
             difficulty = difficulty.name,
+            period = period.name,
             entries = rows.map { (index, best) ->
                 HighscoreEntryResponse(
                     rank = index + 1,
