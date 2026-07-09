@@ -13,6 +13,8 @@ data class RecapResponse(
     val groups: GroupsRecap,
     val map: MapRecap,
     val games: List<GameRecapEntry>,
+    val betaTester: BetaTesterRecap,
+    val passwordResets: PasswordResetRecap,
 )
 
 data class AccountRecap(
@@ -132,4 +134,24 @@ data class GameRecapEntry(
     val bestTimeMillis: Long,
     val rank: Int,
     val achievedAt: Long,
+)
+
+data class BetaTesterRow(
+    val rank: Int,
+    val userId: String,
+    val username: String,
+    val exceptionCount: Long,
+)
+
+// All-time, not year-scoped - the population of users who ever hit an exception is small
+// enough that the full list (not just a top-N) is shipped to the client.
+data class BetaTesterRecap(
+    val all: List<BetaTesterRow>,
+    val myRank: Int?,
+    val myExceptionCount: Long,
+)
+
+data class PasswordResetRecap(
+    val passwordResetEmailsSentThisYear: Long,
+    val passwordResetEmailsSentAllTime: Long,
 )

@@ -11,6 +11,8 @@ import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 import com.lerchenflo.schneaggchatv3server.recap.model.AccountRecap
+import com.lerchenflo.schneaggchatv3server.recap.model.BetaTesterRecap
+import com.lerchenflo.schneaggchatv3server.recap.model.BetaTesterRow
 import com.lerchenflo.schneaggchatv3server.recap.model.DayCount
 import com.lerchenflo.schneaggchatv3server.recap.model.EmojiCount
 import com.lerchenflo.schneaggchatv3server.recap.model.GameRecapEntry
@@ -24,6 +26,7 @@ import com.lerchenflo.schneaggchatv3server.recap.model.MessagingRecap
 import com.lerchenflo.schneaggchatv3server.recap.model.MonthCount
 import com.lerchenflo.schneaggchatv3server.recap.model.MostReactedMessage
 import com.lerchenflo.schneaggchatv3server.recap.model.PartnerRecap
+import com.lerchenflo.schneaggchatv3server.recap.model.PasswordResetRecap
 import com.lerchenflo.schneaggchatv3server.recap.model.PollsRecap
 import com.lerchenflo.schneaggchatv3server.recap.model.ReactionsRecap
 import com.lerchenflo.schneaggchatv3server.recap.model.RecapResponse
@@ -106,6 +109,8 @@ class RecapService(
             groups = buildGroupsRecap(requesterId, yearMessages, groupNameFor),
             map = buildMapRecap(requesterId, yearStart, yearEnd),
             games = buildGamesRecap(requesterId),
+            betaTester = buildBetaTesterRecap(requesterId),
+            passwordResets = buildPasswordResetRecap(requesterId, yearStart, yearEnd),
         )
     }
 
@@ -385,5 +390,48 @@ class RecapService(
             }
         }
         return entries
+    }
+
+    private data class UserExceptionCount(val userId: ObjectId, val count: Long)
+
+    // All-time (not year-scoped) ranking of exceptions thrown per user - the "betatester" stat.
+    // The population that ever hit an exception is small, so the full list ships, not just a top-N.
+    private fun buildBetaTesterRecap(requesterId: ObjectId): BetaTesterRecap {
+        val aggregation = Aggregation.newAggregation(
+            Aggregation.match(
+                Criteria.where("logType").`is`(LogType.EXCEPTION_THROWN.name).and("userId").ne(null)
+            ),
+            Aggregation.group("userId")
+                .count().`as`("count")
+                .first("userId").`as`("userId"),
+            Aggregation.sort(Sort.Direction.DESC, "count"),
+        )
+        val ranked = mongoTemplate.aggregate(aggregation, "logs", UserExceptionCount::class.java).mappedResults
+
+        val usernames = userLookupService.findAllById(ranked.map { it.userId }).associate { it.id to it.username }
+        val rows = ranked.mapIndexed { index, entry ->
+            BetaTesterRow(
+                rank = index + 1,
+                userId = entry.userId.toHexString(),
+                username = usernames[entry.userId] ?: "Unknown",
+                exceptionCount = entry.count,
+            )
+        }
+
+        val myIndex = ranked.indexOfFirst { it.userId == requesterId }
+        return BetaTesterRecap(
+            all = rows,
+            myRank = if (myIndex >= 0) myIndex + 1 else null,
+            myExceptionCount = ranked.getOrNull(myIndex)?.count ?: 0,
+        )
+    }
+
+    private fun buildPasswordResetRecap(requesterId: ObjectId, yearStart: Long, yearEnd: Long): PasswordResetRecap {
+        val resets = logRepository.findByLogTypeAndUserId(LogType.PASSWORD_RESET_EMAIL_SENT, requesterId)
+        val thisYear = resets.count { it.timestamp.epochSeconds in yearStart until yearEnd }
+        return PasswordResetRecap(
+            passwordResetEmailsSentThisYear = thisYear.toLong(),
+            passwordResetEmailsSentAllTime = resets.size.toLong(),
+        )
     }
 }
