@@ -64,6 +64,9 @@ sealed interface UserResponse {
         //Whether the recipient shares their snail trail (full 24h history) with this friend
         val shareSnailTrail: Boolean = false,
 
+        //Last time this friend's final WebSocket session disconnected. Null if never seen offline yet.
+        val lastSeen: Long? = null,
+
         ) : UserResponse
 
     //Response for yourself (You request your own data)
@@ -83,7 +86,7 @@ sealed interface UserResponse {
         val emailVerifiedAt: Long?,
         val createdAt: Long,
 
-        //Global master switch - does this user share their location at all
+        //Auto-derived: does this user share their location with at least one accepted friend
         val locationShared: Boolean = false,
 
         //TODO: User profile pic privacy settings??

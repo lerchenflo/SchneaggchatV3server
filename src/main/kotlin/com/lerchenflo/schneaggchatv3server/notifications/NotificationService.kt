@@ -22,6 +22,7 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 
 /**
@@ -154,7 +155,7 @@ class NotificationService(
                     email = user.email,
                     emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
                     createdAt = user.createdAt.toEpochMilliseconds(),
-                    locationShared = user.locationShared,
+                    locationShared = friendsLookupService.hasActiveLocationSharing(user.id),
                 ),
                 deleted = deleted
             ),
@@ -175,7 +176,8 @@ class NotificationService(
                         userDescription = user.userDescription,
                         userStatus = user.userStatus,
                         nickName = nickName,
-                        shareLocation = shareLocation
+                        shareLocation = shareLocation,
+                        lastSeen = user.lastSeen.toEpochMilliseconds()
                     ),
                     deleted = deleted
                 ),
@@ -211,11 +213,46 @@ class NotificationService(
                     userDescription = friend.userDescription,
                     userStatus = friend.userStatus,
                     nickName = nickName,
-                    shareLocation = shareLocation
+                    shareLocation = shareLocation,
+                    lastSeen = friend.lastSeen.toEpochMilliseconds()
                 ),
                 deleted = false
             ),
             receiverId = changingUserId
+        )
+    }
+
+    /**
+     * Fan out a friend's online/offline status edge to all of their connected friends.
+     * No FCM/APNs fallback - this is a live-only event, offline friends catch up via `/sync`'s lastSeen field.
+     * @param userId the user whose connection state just changed
+     * @param online true if this was their first connection, false if their last connection just closed
+     * @param lastSeen only populated when going offline
+     */
+    @OptIn(ExperimentalTime::class)
+    fun notifyFriendOnlineStatusChange(userId: ObjectId, online: Boolean, lastSeen: Instant? = null) {
+        val message = SocketConnectionMessage.FriendOnlineStatusChange(
+            userId = userId.toHexString(),
+            online = online,
+            lastSeen = lastSeen?.toEpochMilliseconds()
+        )
+
+        friendsLookupService.getFriends(userId).forEach { friendId ->
+            socketConnectionHandler.sendMessage(message, friendId)
+        }
+    }
+
+    /**
+     * Push the connecting user a one-time snapshot of which of their friends are currently online.
+     */
+    fun sendInitialFriendOnlineSnapshot(userId: ObjectId) {
+        val onlineFriendIds = friendsLookupService.getFriends(userId)
+            .filter { socketConnectionHandler.isConnected(it) }
+            .map { it.toHexString() }
+
+        socketConnectionHandler.sendMessage(
+            SocketConnectionMessage.FriendOnlineStatusSnapshot(onlineFriendIds),
+            receiverId = userId
         )
     }
 

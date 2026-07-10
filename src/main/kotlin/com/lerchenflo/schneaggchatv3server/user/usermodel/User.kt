@@ -32,5 +32,5 @@ data class User(
 
     val profilePicUpdatedAt: Instant = updatedAt,  // New field with default
 
-    val locationShared: Boolean = false // Global master switch - does this user share their location at all
+    val lastSeen: Instant = updatedAt  // Last time the user's final WebSocket session disconnected
 )

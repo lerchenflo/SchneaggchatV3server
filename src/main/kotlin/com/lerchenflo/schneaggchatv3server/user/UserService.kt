@@ -278,7 +278,7 @@ class UserService(
             val emailvalid = /* user.emailVerifiedAt != null && */ userRequest.newEmail != null
 
             //TODO: Send email to the old verified email address
-            val somethingChanged = userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null || userRequest.newLocationShared != null
+            val somethingChanged = userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null
 
             if (userRequest.newStatus != null) {
                 require(ValidationUtils.validateDescription(userRequest.newStatus)) { "New description is invalid" }
@@ -298,7 +298,6 @@ class UserService(
                 userStatus = userRequest.newStatus ?: requestingUser.userStatus,
                 birthDate = userRequest.newBirthDate ?: requestingUser.birthDate,
                 email = userRequest.newEmail?.lowercase(getDefault())?.trim() ?: requestingUser.email,
-                locationShared = userRequest.newLocationShared ?: requestingUser.locationShared,
             )
             userLookupService.save(updatedSelf)
 
@@ -423,7 +422,7 @@ class UserService(
                 createdAt = user.createdAt.toEpochMilliseconds(),
                 emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
                 profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
-                locationShared = user.locationShared,
+                locationShared = friendsLookupService.hasActiveLocationSharing(user.id),
             )
         }
 
@@ -442,6 +441,7 @@ class UserService(
                 shareLocation = shareLocation,
                 shareSpeedHeading = shareSpeedHeading,
                 shareSnailTrail = shareSnailTrail,
+                lastSeen = user.lastSeen.toEpochMilliseconds(),
             )
         }
 

@@ -9,7 +9,6 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.Frien
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.FriendLocationSnapshot
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.SnailTrailPointPayload
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.UserLocation
-import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.MAX_SNAIL_TRAIL_HOURS
@@ -41,7 +40,6 @@ data class LocationTelemetry(
 class UserLocationService(
     private val userLocationRepository: UserLocationRepository,
     private val friendsLookupService: FriendsLookupService,
-    private val userLookupService: UserLookupService,
     private val notificationService: NotificationService,
     private val mongoTemplate: MongoTemplate,
 ) {
@@ -60,8 +58,8 @@ class UserLocationService(
      *  - pushes a single new snail-trail point only when the trail actually advances (at most once
      *    per minute, and only after moving >10m), to that friend if they have the trail enabled.
      *
-     * Gating is from the SENDER's side here: a friend F receives anything only if [userId]'s global
-     * `locationShared` is on AND [userId]'s per-friend `shareLocation` towards F is on. speed/heading
+     * Gating is from the SENDER's side here: a friend F receives anything only if [userId]'s
+     * per-friend `shareLocation` towards F is on (which requires an ACCEPTED friendship). speed/heading
      * are gated by `shareSpeedHeading` and the trail by `shareSnailTrail` (false = no trail);
      * altitude/battery/distance are always included once F may see the location.
      *
@@ -77,9 +75,6 @@ class UserLocationService(
         val saved = saveUserLocation(location, userId, telemetry)
         // Did this update advance the user's snail trail (new minute + moved >10m)? At most once/min.
         val newTrailPoint = if (commitTrailPoint(userId, saved)) saved else null
-
-        val sender = userLookupService.findById(userId) ?: return
-        if (!sender.locationShared) return // global master switch off -> share with nobody
 
         friendsLookupService.getAllInteractions(userId)
             .filter { it.status == FriendshipStatus.ACCEPTED && it.shareLocation }
@@ -119,35 +114,33 @@ class UserLocationService(
     }
 
     /**
-     * Push [userId] the current positions and full snail trails of all friends they may see (initial
-     * load on connect). Gating is from the RECEIVER's side here: a friend G is included only if G's
-     * global `locationShared` is on AND G's per-friend setting shares location towards [userId]; the
-     * extra fields are gated by G's own per-friend settings towards [userId].
+     * Push [userId] their own current position and full snail trail, plus the current positions and
+     * full snail trails of all friends they may see (initial load on connect). Gating for friends is
+     * from the RECEIVER's side here: a friend G is included only if G's per-friend setting shares
+     * location towards [userId] (which requires an ACCEPTED friendship); the extra fields are gated by
+     * G's own per-friend settings towards [userId]. [userId]'s own entry is never gated - a user always
+     * sees their full own position and trail.
      */
-    fun sendInitialSnapshot(userId: ObjectId) {
-        val sharingFriends = friendsLookupService.getFriendsForUserUpdate(userId)
-            .filter { it.shareLocation }
-            .associateBy { it.friendId }
-        if (sharingFriends.isEmpty()) {
-            notificationService.notifyLocationSnapshot(userId, emptyList())
-            return
-        }
-
-        // Gate on each friend's global master switch
-        val globallySharingFriends = userLookupService.findAllById(sharingFriends.keys.toList())
-            .filter { it.locationShared }
-
-        val snapshots = globallySharingFriends.mapNotNull { friend ->
-            val latest = userLocationRepository.findTopByUserIdOrderByLocationTimeDesc(friend.id)
-                ?: return@mapNotNull null
-            val settings = sharingFriends.getValue(friend.id)
+    fun sendInitialLocationSnapshot(userId: ObjectId) {
+        val selfSnapshot = userLocationRepository.findTopByUserIdOrderByLocationTimeDesc(userId)?.let { latest ->
             FriendLocationSnapshot(
-                position = livePayload(friend.id, settings.shareSpeedHeading, latest),
-                snailTrail = buildSnailTrail(friend.id, settings.shareSpeedHeading, settings.shareSnailTrail),
+                position = livePayload(userId, shareSpeedHeading = true, latest),
+                snailTrail = buildSnailTrail(userId, shareSpeedHeading = true, shareSnailTrail = true),
             )
         }
 
-        notificationService.notifyLocationSnapshot(userId, snapshots)
+        val friendSnapshots = friendsLookupService.getFriendsForUserUpdate(userId)
+            .filter { it.shareLocation }
+            .mapNotNull { settings ->
+                val latest = userLocationRepository.findTopByUserIdOrderByLocationTimeDesc(settings.friendId)
+                    ?: return@mapNotNull null
+                FriendLocationSnapshot(
+                    position = livePayload(settings.friendId, settings.shareSpeedHeading, latest),
+                    snailTrail = buildSnailTrail(settings.friendId, settings.shareSpeedHeading, settings.shareSnailTrail),
+                )
+            }
+
+        notificationService.notifyLocationSnapshot(userId, listOfNotNull(selfSnapshot) + friendSnapshots)
     }
 
     /** Current position + telemetry (no trail). Altitude/battery/distance are always shared once visible. */

@@ -88,6 +88,15 @@ class FriendsLookupService(
     }
 
     /**
+     * Whether [userId] currently shares their location with at least one ACCEPTED friend (i.e. their
+     * own FriendshipSetting.shareLocation is true on at least one ACCEPTED friendship). Computed live -
+     * this replaces the old denormalized User.locationShared field.
+     */
+    fun hasActiveLocationSharing(userId: ObjectId): Boolean {
+        return getAllInteractions(userId).any { it.status == FriendshipStatus.ACCEPTED && it.shareLocation }
+    }
+
+    /**
      * Get all users that the given user has not interacted with yet
      * (no friendship, pending request, block, or declined status)
      * @param userId The user to check interactions for

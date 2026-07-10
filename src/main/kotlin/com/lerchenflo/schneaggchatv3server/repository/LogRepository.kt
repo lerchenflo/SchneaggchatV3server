@@ -9,4 +9,6 @@ interface LogRepository : MongoRepository<Log, ObjectId> {
     fun countByLogType(logType: LogType): Long
 
     fun findFirstByLogTypeAndUserIdOrderByTimestampDesc(logType: LogType, userId: ObjectId?): Log?
+
+    fun findByLogTypeAndUserId(logType: LogType, userId: ObjectId?): List<Log>
 }

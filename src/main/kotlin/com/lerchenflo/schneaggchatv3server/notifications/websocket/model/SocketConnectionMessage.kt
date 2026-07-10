@@ -25,6 +25,8 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
     JsonSubTypes.Type(value = SocketConnectionMessage.FriendLocationChange::class, name = "friendlocationchange"),
     JsonSubTypes.Type(value = SocketConnectionMessage.FriendLocationsSnapshot::class, name = "friendlocationssnapshot"),
     JsonSubTypes.Type(value = SocketConnectionMessage.SnailTrailPointAdded::class, name = "snailtrailpointadded"),
+    JsonSubTypes.Type(value = SocketConnectionMessage.FriendOnlineStatusChange::class, name = "friendonlinestatuschange"),
+    JsonSubTypes.Type(value = SocketConnectionMessage.FriendOnlineStatusSnapshot::class, name = "friendonlinestatussnapshot"),
 )
 sealed interface SocketConnectionMessage {
 
@@ -69,4 +71,17 @@ sealed interface SocketConnectionMessage {
      * user's trail actually advances. The client appends it to that user's existing trail.
      */
     data class SnailTrailPointAdded(val userId: String, val point: SnailTrailPointPayload) : SocketConnectionMessage
+
+    /**
+     * OUTBOUND: [userId] just went online (first session connected) or offline (last session
+     * disconnected). [lastSeen] is populated only when going offline.
+     */
+    data class FriendOnlineStatusChange(
+        val userId: String,
+        val online: Boolean,
+        val lastSeen: Long? = null,
+    ) : SocketConnectionMessage
+
+    /** OUTBOUND: which friends are currently online, pushed once when a client connects. */
+    data class FriendOnlineStatusSnapshot(val onlineFriendIds: List<String>) : SocketConnectionMessage
 }
