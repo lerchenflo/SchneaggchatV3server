@@ -55,8 +55,8 @@ class GamesService(
     fun getHighscores(game: Game, difficulty: Difficulty, period: LeaderboardPeriod, requesterId: ObjectId): HighscoresResponse {
         // kotlin.time.Instant is stored as a nested {epochSeconds, nanosecondsOfSecond} doc,
         // so the period cutoff has to match on the epochSeconds field.
-        val criteria = Criteria.where("game").`is`(game.name).and("difficulty").`is`(difficulty.name)
-        period.startEpochSeconds()?.let { criteria.and("createdAt.epochSeconds").gte(it) }
+        var criteria = Criteria.where("game").`is`(game.name).and("difficulty").`is`(difficulty.name)
+        period.startEpochSeconds()?.let { criteria = criteria.and("createdAt.epochSeconds").gte(it) }
 
         val aggregation = Aggregation.newAggregation(
             Aggregation.match(criteria),
