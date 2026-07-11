@@ -16,6 +16,10 @@ import org.springframework.data.annotation.TypeAlias
     JsonSubTypes.Type(value = LocationData.Viewpoint::class,       name = "viewpoint"),
     JsonSubTypes.Type(value = LocationData.Camping::class,         name = "camping"),
     JsonSubTypes.Type(value = LocationData.SwimmingLocation::class, name = "swimming"),
+    JsonSubTypes.Type(value = LocationData.Volleyball::class,      name = "volleyball"),
+    JsonSubTypes.Type(value = LocationData.OutdoorFitness::class,  name = "outdoor_fitness"),
+    JsonSubTypes.Type(value = LocationData.TableTennis::class,     name = "table_tennis"),
+    JsonSubTypes.Type(value = LocationData.Tennis::class,          name = "tennis"),
     JsonSubTypes.Type(value = LocationData.SightSeeing::class,     name = "sightseeing"),
     JsonSubTypes.Type(value = LocationData.PartyLocation::class,   name = "party"),
     JsonSubTypes.Type(value = LocationData.FoodKebab::class,       name = "food_kebab"),
@@ -113,6 +117,49 @@ sealed class LocationData {
         override fun schema() = listOf(
             AttributeDefinition.BoolDef(key = "indoor",   required = false),
             AttributeDefinition.BoolDef(key = "jumpSpot", required = false),
+        )
+    }
+
+
+    // Sport
+
+    @TypeAlias("volleyball")
+    data class Volleyball(
+        val goodNet: AttributeValue?,
+        val goodField: AttributeValue?,
+        val outdoor: AttributeValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.BoolDef(key = "goodNet",   required = false),
+            AttributeDefinition.BoolDef(key = "goodField", required = false),
+            AttributeDefinition.BoolDef(key = "outdoor",   required = false),
+        )
+    }
+
+    @TypeAlias("outdoor_fitness")
+    data class OutdoorFitness(
+        val shadow: AttributeValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.BoolDef(key = "shadow", required = false),
+        )
+    }
+
+    @TypeAlias("table_tennis")
+    data class TableTennis(
+        val `private`: AttributeValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.BoolDef(key = "private", required = false),
+        )
+    }
+
+    @TypeAlias("tennis")
+    data class Tennis(
+        val paddle: AttributeValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.BoolDef(key = "paddle", required = false),
         )
     }
 

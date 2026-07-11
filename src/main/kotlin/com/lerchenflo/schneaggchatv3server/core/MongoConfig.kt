@@ -87,6 +87,12 @@ class LocationDataWriteConverter : Converter<LocationData, Document> {
             is LocationData.Camping        -> "camping"
             is LocationData.SwimmingLocation -> "swimming"
 
+            // Sport
+            is LocationData.Volleyball     -> "volleyball"
+            is LocationData.OutdoorFitness -> "outdoor_fitness"
+            is LocationData.TableTennis    -> "table_tennis"
+            is LocationData.Tennis         -> "tennis"
+
             // Social & Entertainment
             is LocationData.SightSeeing    -> "sightseeing"
             is LocationData.PartyLocation  -> "party"
