@@ -35,6 +35,7 @@ data class PollVoteOptionCreateRequest(
     @field:NotBlank(message = "Vote option text must not be blank")
     @field:Size(max = 250, message = "Vote option text too long")
     val text: String,
+    val maxVoters: Int? = null, // null = unlimited
 )
 
 
@@ -55,6 +56,7 @@ fun PollCreateRequest.toPoll(creatorId: ObjectId) : PollMessage {
                 custom = false,
                 creatorId = creatorId,
                 voters = emptyList(),
+                maxVoters = it.maxVoters,
             )
         }
     )

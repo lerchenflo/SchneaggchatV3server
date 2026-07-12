@@ -19,11 +19,12 @@ fun PollMessage.toPollMessageResponse(requestingUserId: ObjectId): PollResponse 
                 maxAllowedCustomAnswers = poll.maxAllowedCustomAnswers,
                 visibility = poll.visibility,
                 closeDate = poll.closeDate?.toEpochMilliseconds(),
-                voteOptions = poll.voteOptions.map { option -> 
+                voteOptions = poll.voteOptions.map { option ->
                     AnonymousPollVoteOptionResponse(
                         id = option.id,
                         text = option.text,
-                        voters = option.voters.map { voter -> 
+                        maxVoters = option.maxVoters,
+                        voters = option.voters.map { voter ->
                             AnonymousPollVoterResponse(
                                 votedAt = voter.votedAt.toEpochMilliseconds(),
                                 myAnswer = voter.userId == requestingUserId
@@ -49,6 +50,7 @@ fun PollMessage.toPollMessageResponse(requestingUserId: ObjectId): PollResponse 
                         text = option.text,
                         custom = option.custom,
                         creatorId = option.creatorId.toHexString(),
+                        maxVoters = option.maxVoters,
                         voters = option.voters.map { voter ->
                             PublicPollVoterResponse(
                                 userId = voter.userId.toHexString(),
@@ -125,6 +127,7 @@ interface PollResponse {
 data class AnonymousPollVoteOptionResponse(
     val id: String,
     val text: String,
+    val maxVoters: Int? = null, // null = unlimited
     val voters : List<AnonymousPollVoterResponse>
 )
 
@@ -141,6 +144,7 @@ data class PublicPollVoteOptionResponse(
     val text: String,
     val custom: Boolean,
     val creatorId: String,
+    val maxVoters: Int? = null, // null = unlimited
     val voters : List<PublicPollVoterResponse>
 )
 
