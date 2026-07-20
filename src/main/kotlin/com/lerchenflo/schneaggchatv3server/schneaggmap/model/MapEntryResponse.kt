@@ -20,9 +20,11 @@ data class MapEntryResponse(
     val updatedBy: String,
     val updatedAt: Long,
 
+    /** Username of [updatedBy], resolved server side so the client does not need the user in its DB. */
+    val updatedByName: String,
 )
 
-fun MapEntry.toMapEntryResponse(): MapEntryResponse = MapEntryResponse(
+fun MapEntry.toMapEntryResponse(updatedByName: String): MapEntryResponse = MapEntryResponse(
     id = id.toHexString(),
     coordinates = coordinates,
     description = description,
@@ -31,5 +33,6 @@ fun MapEntry.toMapEntryResponse(): MapEntryResponse = MapEntryResponse(
     updatedBy = updatedBy.toHexString(),
     updatedAt = updatedAt.toEpochMilliseconds(),
     name = name,
-    locationData = locationData
+    locationData = locationData,
+    updatedByName = updatedByName,
 )

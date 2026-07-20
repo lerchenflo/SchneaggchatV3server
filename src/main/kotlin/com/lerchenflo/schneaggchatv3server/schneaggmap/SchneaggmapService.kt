@@ -159,6 +159,10 @@ class SchneaggmapService(
         }
     }
 
+    /** Builds the client facing response, resolving the last editor's username. */
+    fun toResponse(entry: MapEntry): MapEntryResponse = entry.toMapEntryResponse(
+        updatedByName = userLookupService.findById(entry.updatedBy)?.username ?: "Unknown" )
+
     fun deleteMapEntry(entryId: ObjectId, requesterId: ObjectId) {
         val existing = mapEntryRepository.findById(entryId).orElse(null)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Map entry not found")
@@ -196,7 +200,16 @@ class SchneaggmapService(
             .sortedByDescending { it.updatedAt.toEpochMilliseconds() }
 
         val start = page * pageSize
-        val paged = allUpdated.drop(start).take(pageSize).map { it.toMapEntryResponse() }
+        val pagedEntries = allUpdated.drop(start).take(pageSize)
+
+        //One lookup for the whole page instead of one per entry
+        val editorNames = userLookupService
+            .findAllById(pagedEntries.map { it.updatedBy }.distinct())
+            .associate { it.id to it.username }
+
+        val paged = pagedEntries.map {
+            it.toMapEntryResponse(updatedByName = editorNames[it.updatedBy] ?: UNKNOWN_EDITOR)
+        }
         val moreEntries = (start + pageSize) < allUpdated.size
 
         val deletedEntries = if (page == 0) clientMap.keys.filter { it !in serverIds } else emptyList()

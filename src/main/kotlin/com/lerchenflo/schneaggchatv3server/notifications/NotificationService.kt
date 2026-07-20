@@ -322,7 +322,9 @@ class NotificationService(
     fun notifyMapUpdate(entry: MapEntry, newEntry: Boolean, deleted: Boolean, excludeUserId: ObjectId?) {
         socketConnectionHandler.broadcast(
             SocketConnectionMessage.MapChange(
-                mapEntry = entry.toMapEntryResponse(),
+                mapEntry = entry.toMapEntryResponse(
+                    updatedByName = userLookupService.findById(entry.updatedBy)?.username ?: "Unknown"
+                ),
                 newEntry = newEntry,
                 deleted = deleted,
             ),
