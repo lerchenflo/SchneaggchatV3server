@@ -4,6 +4,7 @@ import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
 import com.lerchenflo.schneaggchatv3server.games.model.Difficulty
 import com.lerchenflo.schneaggchatv3server.games.model.Game
 import com.lerchenflo.schneaggchatv3server.games.model.GameScoreResponse
+import com.lerchenflo.schneaggchatv3server.games.model.GlobalRankingResponse
 import com.lerchenflo.schneaggchatv3server.games.model.HighscoresResponse
 import com.lerchenflo.schneaggchatv3server.games.model.LeaderboardPeriod
 import com.lerchenflo.schneaggchatv3server.games.model.toGameScoreResponse
@@ -54,5 +55,14 @@ class GamesController(
         val difficulty = requireNotNull(Difficulty.fromId(difficultyId)) { "Unknown difficulty: $difficultyId" }
         val period = requireNotNull(LeaderboardPeriod.fromId(periodId)) { "Unknown period: $periodId" }
         return gamesService.getHighscores(game, difficulty, period, requesterId)
+    }
+
+    @GetMapping("/globalranking")
+    fun getGlobalRanking(
+        @RequestParam(value = "period", defaultValue = "ALL_TIME") periodId: String,
+    ): GlobalRankingResponse {
+        val requesterId = requireAuth()
+        val period = requireNotNull(LeaderboardPeriod.fromId(periodId)) { "Unknown period: $periodId" }
+        return gamesService.getGlobalRanking(period, requesterId)
     }
 }
