@@ -235,4 +235,43 @@ class FriendsService(
         }
     }
 
+    /**
+     * Set whether [friendId] is allowed to wake [userId] (play an alarm on their devices).
+     * The setting is owned by [userId] - it grants the friend a permission over them, so only the
+     * user being woken can ever change it.
+     * @throws ResponseStatusException NOT_FOUND if there is no friendship between the two users
+     * @throws IllegalArgumentException if the friendship is not currently ACCEPTED
+     */
+    fun setWakePermission(
+        userId: ObjectId,
+        friendId: ObjectId,
+        allowWake: Boolean,
+    ) {
+        val friendship = friendsLookupService.findFriendship(userId, friendId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Friendship not found")
+
+        require(friendship.status == FriendshipStatus.ACCEPTED) {
+            "Cannot change wake permission - friendship status is ${friendship.status}"
+        }
+
+        val existingSetting = friendsSettingsService.getFriendshipSetting(friendship.id, userId)
+            ?: FriendshipSetting(friendshipId = friendship.id, userId = userId)
+
+        if (existingSetting.allowWake == allowWake) return
+
+        friendsSettingsService.saveFriendshipSetting(
+            existingSetting.copy(
+                allowWake = allowWake,
+                updatedAt = Clock.System.now(),
+            )
+        )
+
+        //Only the changing user's own devices need to know - the friend's view is unaffected.
+        notificationService.notifyWakePermissionChange(
+            changingUserId = userId,
+            friendId = friendId,
+            allowWake = allowWake
+        )
+    }
+
 }

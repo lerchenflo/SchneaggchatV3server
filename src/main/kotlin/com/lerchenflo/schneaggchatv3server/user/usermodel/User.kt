@@ -32,5 +32,9 @@ data class User(
 
     val profilePicUpdatedAt: Instant = updatedAt,  // New field with default
 
-    val lastSeen: Instant = updatedAt  // Last time the user's final WebSocket session disconnected
+    val lastSeen: Instant = updatedAt,  // Last time the user's final WebSocket session disconnected
+
+    // Master switch for the wake feature. Opt-in: nobody can wake this user until they turn it on
+    // AND enable the specific friend via FriendshipSetting.allowWake.
+    val allowWakeGlobal: Boolean = false
 )

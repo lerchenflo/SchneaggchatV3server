@@ -29,6 +29,8 @@ class FriendsLookupService(
         val shareLocation: Boolean,
         val shareSpeedHeading: Boolean = false,
         val shareSnailTrail: Boolean = false,
+        //Keep new fields at the END - NotificationService destructures this positionally.
+        val allowWake: Boolean = false,
     )
 
     fun getFriendsForUserUpdate(userId: ObjectId): List<FriendWithNickname> {
@@ -46,6 +48,7 @@ class FriendsLookupService(
                     shareLocation = friendSetting?.shareLocation ?: false,
                     shareSpeedHeading = friendSetting?.shareSpeedHeading ?: false,
                     shareSnailTrail = friendSetting?.shareSnailTrail ?: false,
+                    allowWake = friendSetting?.allowWake ?: false,
                 )
             }
     }
@@ -59,6 +62,7 @@ class FriendsLookupService(
         val shareLocation: Boolean = false,
         val shareSpeedHeading: Boolean = false,
         val shareSnailTrail: Boolean = false,
+        val allowWake: Boolean = false,
     )
 
     fun getAllInteractions(userId: ObjectId): List<UserInteraction> {
@@ -78,11 +82,18 @@ class FriendsLookupService(
                     userId = otherUserId,
                     status = friendship.status,
                     requesterId = friendship.requesterId,
-                    lastChanged = friendship.updatedAt,
+                    //Settings changes must move this timestamp too, otherwise a pure setting flip
+                    //(nickname, sharing toggles) is only ever delivered by the socket and a client
+                    //that was offline at the time keeps a stale value forever.
+                    lastChanged = maxOf(
+                        friendship.updatedAt,
+                        friendshipSetting?.updatedAt ?: Instant.DISTANT_PAST
+                    ),
                     nickName = friendshipSetting?.nickName,
                     shareLocation = friendshipSetting?.shareLocation ?: false,
                     shareSpeedHeading = friendshipSetting?.shareSpeedHeading ?: false,
                     shareSnailTrail = friendshipSetting?.shareSnailTrail ?: false,
+                    allowWake = friendshipSetting?.allowWake ?: false,
                 )
             }
     }

@@ -208,7 +208,7 @@ class SchneaggmapService(
             .associate { it.id to it.username }
 
         val paged = pagedEntries.map {
-            it.toMapEntryResponse(updatedByName = editorNames[it.updatedBy] ?: UNKNOWN_EDITOR)
+            it.toMapEntryResponse(updatedByName = editorNames[it.updatedBy] ?: "Unknown")
         }
         val moreEntries = (start + pageSize) < allUpdated.size
 
