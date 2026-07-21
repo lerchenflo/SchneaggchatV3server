@@ -59,7 +59,8 @@ data class PollVoteOption(
     val text: String,
     val custom: Boolean,
     val creatorId: ObjectId,
-    val voters : List<PollVoter>
+    val voters : List<PollVoter>,
+    val maxVoters: Int? = null, // null = unlimited
 )
 
 data class PollVoter(

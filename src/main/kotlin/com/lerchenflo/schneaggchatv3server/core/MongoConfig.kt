@@ -81,11 +81,19 @@ class LocationDataWriteConverter : Converter<LocationData, Document> {
             // Rider Spots
             is LocationData.MountainStreet -> "mountain_street"
             is LocationData.Wheeliespot    -> "wheeliespot"
+            is LocationData.OffroadMotorcycle -> "offroad_motorcycle"
             is LocationData.Viewpoint      -> "viewpoint"
 
             // Nature & Activities
             is LocationData.Camping        -> "camping"
             is LocationData.SwimmingLocation -> "swimming"
+
+            // Sport
+            is LocationData.Volleyball     -> "volleyball"
+            is LocationData.Bicycle        -> "bicycle"
+            is LocationData.OutdoorFitness -> "outdoor_fitness"
+            is LocationData.TableTennis    -> "table_tennis"
+            is LocationData.Tennis         -> "tennis"
 
             // Social & Entertainment
             is LocationData.SightSeeing    -> "sightseeing"

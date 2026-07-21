@@ -205,6 +205,13 @@ class MessageService(
                 require(Clock.System.now() < poll.closeDate) { "Poll is closed" }
             }
 
+            //Block new selections on a full entry (unselecting your own claim is always allowed)
+            val targetOption = poll.voteOptions.find { it.id == pollVoteRequest.id }
+            if (pollVoteRequest.selected && targetOption?.maxVoters != null) {
+                val claimedByOthers = targetOption.voters.count { it.userId != requestingUserId }
+                require(claimedByOthers < targetOption.maxVoters) { "This entry is full" }
+            }
+
             //Check max answer limit for this poll
             if (poll.maxAnswers != null) {
                 val thisUserVoteCount = poll.getVoteCountForUser(requestingUserId)
