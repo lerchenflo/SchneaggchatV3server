@@ -41,7 +41,10 @@ enum class LogType {
 
     ACCOUNT_DELETION_EMAIL_SENT,
     EMAIL_VERIFICATION_EMAIL_SENT,
-    PASSWORD_RESET_EMAIL_SENT
+    PASSWORD_RESET_EMAIL_SENT,
+
+    //Wake
+    WAKE_SENT
 }
 
 @TypeAlias("log")

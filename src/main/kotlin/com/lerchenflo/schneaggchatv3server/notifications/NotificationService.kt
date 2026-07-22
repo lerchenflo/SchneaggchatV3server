@@ -223,6 +223,46 @@ class NotificationService(
     }
 
     /**
+     * Push a wake-permission change to the changing user's OWN devices for multi-device sync.
+     * The friend is deliberately not notified - they have no business knowing whether someone
+     * allows them to wake them until they actually try.
+     * @param changingUserId the user who changed who may wake them
+     * @param friendId the friend the permission applies to
+     * @param allowWake the new value (friendId may wake changingUserId)
+     */
+    @OptIn(ExperimentalTime::class)
+    fun notifyWakePermissionChange(changingUserId: ObjectId, friendId: ObjectId, allowWake: Boolean) {
+        val friend = userLookupService.findById(friendId) ?: return
+        val friendship = friendsLookupService.findFriendship(changingUserId, friendId) ?: return
+        //changingUserId's own settings row towards the friend. Send every field it carries - the
+        //client replaces the whole user row, so omitting one would silently reset it.
+        val setting = friendsSettingsService.getFriendshipSetting(friendship.id, changingUserId)
+
+        socketConnectionHandler.sendMessage(
+            SocketConnectionMessage.UserChange(
+                user = UserResponse.FriendUserResponse(
+                    id = friend.id.toHexString(),
+                    username = friend.username,
+                    updatedAt = friend.updatedAt.toEpochMilliseconds(),
+                    profilePicUpdatedAt = friend.profilePicUpdatedAt.toEpochMilliseconds(),
+                    requesterId = friendship.requesterId.toHexString(),
+                    birthDate = friend.birthDate,
+                    userDescription = friend.userDescription,
+                    userStatus = friend.userStatus,
+                    nickName = setting?.nickName,
+                    shareLocation = setting?.shareLocation ?: false,
+                    shareSpeedHeading = setting?.shareSpeedHeading ?: false,
+                    shareSnailTrail = setting?.shareSnailTrail ?: false,
+                    allowWake = allowWake,
+                    lastSeen = friend.lastSeen.toEpochMilliseconds()
+                ),
+                deleted = false
+            ),
+            receiverId = changingUserId
+        )
+    }
+
+    /**
      * Fan out a friend's online/offline status edge to all of their connected friends.
      * No FCM/APNs fallback - this is a live-only event, offline friends catch up via `/sync`'s lastSeen field.
      * @param userId the user whose connection state just changed
@@ -322,7 +362,9 @@ class NotificationService(
     fun notifyMapUpdate(entry: MapEntry, newEntry: Boolean, deleted: Boolean, excludeUserId: ObjectId?) {
         socketConnectionHandler.broadcast(
             SocketConnectionMessage.MapChange(
-                mapEntry = entry.toMapEntryResponse(),
+                mapEntry = entry.toMapEntryResponse(
+                    updatedByName = userLookupService.findById(entry.updatedBy)?.username ?: "Unknown"
+                ),
                 newEntry = newEntry,
                 deleted = deleted,
             ),

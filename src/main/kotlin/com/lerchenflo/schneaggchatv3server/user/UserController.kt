@@ -173,6 +173,48 @@ class UserController(
     }
 
 
+    data class WakePermissionRequest(
+        val friendId: String,
+        val allowWake: Boolean = false, // may this friend wake the requesting user
+    )
+
+    /**
+     * Set whether a single friend is allowed to wake the requesting user.
+     * The setting always belongs to the caller, so a user can only ever change who may wake
+     * themselves - never who may wake someone else.
+     */
+    @PostMapping("/setwakepermission")
+    fun setWakePermission(
+        @RequestBody request: WakePermissionRequest
+    ) {
+        require(ValidationUtils.validateObjectId(request.friendId)) { "Invalid friend ID" }
+        val requestingUserId = requireAuth()
+
+        friendshipsService.setWakePermission(
+            userId = requestingUserId,
+            friendId = ObjectId(request.friendId),
+            allowWake = request.allowWake,
+        )
+    }
+
+
+    data class WakeGlobalRequest(
+        val enabled: Boolean = false,
+    )
+
+    /**
+     * Master switch for the wake feature. While off, nobody can wake the requesting user
+     * regardless of the per-friend permissions.
+     */
+    @PostMapping("/setwakeglobal")
+    fun setWakeGlobal(
+        @RequestBody request: WakeGlobalRequest
+    ) {
+        val requestingUserId = requireAuth()
+        userService.setWakeGlobal(requestingUserId, request.enabled)
+    }
+
+
     @GetMapping("/availableusers")
     fun getAvailableUsers(
         @RequestParam("searchterm", required = false) searchTerm: String?,

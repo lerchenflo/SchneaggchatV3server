@@ -64,6 +64,9 @@ sealed interface UserResponse {
         //Whether the recipient shares their snail trail (full 24h history) with this friend
         val shareSnailTrail: Boolean = false,
 
+        //Whether the recipient allows this friend to wake them (alarm ringtone). Opt-in.
+        val allowWake: Boolean = false,
+
         //Last time this friend's final WebSocket session disconnected. Null if never seen offline yet.
         val lastSeen: Long? = null,
 
@@ -88,6 +91,9 @@ sealed interface UserResponse {
 
         //Auto-derived: does this user share their location with at least one accepted friend
         val locationShared: Boolean = false,
+
+        //Master switch: may anyone wake this user at all. Opt-in.
+        val allowWakeGlobal: Boolean = false,
 
         //TODO: User profile pic privacy settings??
 
