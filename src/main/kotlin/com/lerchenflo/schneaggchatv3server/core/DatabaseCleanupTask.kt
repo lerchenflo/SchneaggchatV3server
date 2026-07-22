@@ -30,7 +30,7 @@ class DatabaseCleanupTask(
             AppLogger.info("Deleted ${deletedUserlocationsCount} user locations")
         }
 
-        //TODO: Delete old Groups
+        //TODO: Delete groups which have expired
         // groupRepository.deleteExpiredGroups()
     }
 }

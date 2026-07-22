@@ -6,6 +6,25 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeDefinition
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeValue
 import org.springframework.data.annotation.TypeAlias
 
+/**
+ * HOW TO ADD A NEW LOCATION ENTRY
+ * ================================
+ *
+ * SERVER SIDE (SchneaggchatV3server):
+ * 1. Add the new type to @JsonSubTypes annotation with name in snake_case
+ * 2. Add the data class in LocationData sealed class with:
+ *    - @TypeAlias annotation with snake_case name (must match JsonSubTypes name)
+ *    - Properties with AttributeValue types (nullable if optional)
+ *    - Override fun schema() returning list of AttributeDefinitions
+ * 3. Add the new type to LocationDataWriteConverter in MongoConfig.kt
+ * 4. Update any service files that instantiate LocationData (e.g., SchneaggmapService.kt)
+ *
+ * CLIENT SIDE (SchneaggchatV3):
+ * See client LocationData.kt for detailed client-side instructions
+ *
+ * IMPORTANT: Keep the serial/type alias names consistent between client and server (snake_case)
+ */
+
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "_class")
 @JsonSubTypes(
