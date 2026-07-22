@@ -303,7 +303,7 @@ class SchneaggmapService(
                 }
 
                 "Badespot" -> {
-                    locationData = LocationData.SwimmingLocation(indoor = null, jumpSpot = null, lieDownFriendly = null)
+                    locationData = LocationData.SwimmingLocation(indoor = null, jumpSpot = null, lieDownFriendly = null, price = null)
                     name        = beschreibung.ifBlank { "Badespot" }
                     description = ""
                 }

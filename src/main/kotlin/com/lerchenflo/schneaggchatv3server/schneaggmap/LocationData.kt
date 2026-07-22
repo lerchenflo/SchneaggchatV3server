@@ -31,6 +31,8 @@ import org.springframework.data.annotation.TypeAlias
     JsonSubTypes.Type(value = LocationData.FoodAsian::class,       name = "food_asian"),
     JsonSubTypes.Type(value = LocationData.FoodGreek::class,       name = "food_greek"),
     JsonSubTypes.Type(value = LocationData.FoodOther::class,       name = "food_other"),
+    JsonSubTypes.Type(value = LocationData.Climbingspot::class,    name = "climbingspot"),
+    JsonSubTypes.Type(value = LocationData.FoodCafeBakery::class,  name = "food_cafe_bakery"),
 )
 
 sealed class LocationData {
@@ -133,11 +135,26 @@ sealed class LocationData {
         val indoor: AttributeValue?,
         val jumpSpot: AttributeValue?,
         val lieDownFriendly: AttributeValue?,
+        val price: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
             AttributeDefinition.BoolDef(key = "indoor",          required = false),
             AttributeDefinition.BoolDef(key = "jumpSpot",        required = false),
             AttributeDefinition.BoolDef(key = "lieDownFriendly", required = false),
+            AttributeDefinition.IntDef (key = "price",          required = false, min = 0),
+        )
+    }
+
+    @TypeAlias("climbingspot")
+    data class Climbingspot(
+        val viaFerrata: AttributeValue?,
+        val outdoor: AttributeValue?,
+        val price: AttributeValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.BoolDef(key = "viaFerrata", required = false),
+            AttributeDefinition.BoolDef(key = "outdoor",    required = false),
+            AttributeDefinition.IntDef (key = "price",      required = false, min = 0),
         )
     }
 
@@ -254,6 +271,21 @@ sealed class LocationData {
     ) : LocationData() {
         override fun schema() = listOf(
             AttributeDefinition.DoubleDef(key = "beerPrice", required = false, min = 0.0),
+        )
+    }
+
+    @TypeAlias("food_cafe_bakery")
+    data class FoodCafeBakery(
+        val outdoorSeating: AttributeValue?,
+        val alcohol: AttributeValue?,
+        val coffee: AttributeValue?,
+        val breakfast: AttributeValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.BoolDef(key = "outdoorSeating", required = false),
+            AttributeDefinition.BoolDef(key = "alcohol",       required = false),
+            AttributeDefinition.BoolDef(key = "coffee",        required = false),
+            AttributeDefinition.BoolDef(key = "breakfast",     required = false),
         )
     }
 

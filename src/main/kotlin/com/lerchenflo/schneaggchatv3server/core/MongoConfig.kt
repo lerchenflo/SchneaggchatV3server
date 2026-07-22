@@ -87,6 +87,7 @@ class LocationDataWriteConverter : Converter<LocationData, Document> {
             // Nature & Activities
             is LocationData.Camping        -> "camping"
             is LocationData.SwimmingLocation -> "swimming"
+            is LocationData.Climbingspot   -> "climbingspot"
 
             // Sport
             is LocationData.Volleyball     -> "volleyball"
@@ -104,6 +105,7 @@ class LocationDataWriteConverter : Converter<LocationData, Document> {
             is LocationData.FoodPizza      -> "food_pizza"
             is LocationData.FoodBurger     -> "food_burger"
             is LocationData.FoodBeer       -> "food_beer"
+            is LocationData.FoodCafeBakery -> "food_cafe_bakery"
 
             // Restaurant
             is LocationData.FoodAsian      -> "food_asian"
