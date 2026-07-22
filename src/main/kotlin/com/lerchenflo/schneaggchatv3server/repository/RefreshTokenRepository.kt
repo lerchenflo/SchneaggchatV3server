@@ -3,6 +3,7 @@ package com.lerchenflo.schneaggchatv3server.repository
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import org.bson.types.ObjectId
 import org.springframework.data.mongodb.repository.MongoRepository
+import kotlin.time.Instant
 
 interface RefreshTokenRepository: MongoRepository<RefreshToken, ObjectId> {
 
@@ -13,5 +14,10 @@ interface RefreshTokenRepository: MongoRepository<RefreshToken, ObjectId> {
 
 
     fun deleteByUserId(userId: ObjectId)
+
+    /**
+     * Delete all entries with a deleted at before the passed time
+     */
+    fun deleteByDeletedAtBefore(time: Instant): Long
 
 }

@@ -15,4 +15,10 @@ interface UserLocationRepository : MongoRepository<UserLocation, ObjectId> {
     /** Backed by the existing {userId, locationTime} compound index - used to build snail trails. */
     fun findByUserIdAndLocationTimeGreaterThanEqualOrderByLocationTimeAsc(userId: ObjectId, from: Instant): List<UserLocation>
 
+
+    /**
+     * Delete old locations
+     */
+    fun deleteByExpiresAtBefore(time: Instant): Int
+
 }
