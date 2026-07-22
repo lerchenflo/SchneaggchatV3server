@@ -76,5 +76,6 @@ data class PollVoteRequest(
     val id: String?, //Pass if available, else this is a new custom option
     @field:Size(max = 250, message = "Vote text too long")
     val text: String?, //Pass if the id is null (New custom option with this text)
+    val maxAllowedAnswers: Int?, //Pass if the user creates a custom entry and the poll supports restricting the entries for votes
     val selected: Boolean, //Did the user select or unselect this item
 )

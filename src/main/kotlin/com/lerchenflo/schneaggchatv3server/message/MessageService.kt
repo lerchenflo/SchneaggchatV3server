@@ -249,6 +249,10 @@ class MessageService(
                     require(userCreatedCustomPollCount < poll.maxAllowedCustomAnswers) { "You already made the max amount of custom answers allowed" }
                 }
 
+                //If atleast one of the options has a limit set, the user can set a limit for voters on his custom entry
+                val newPollOptionMaxAnswers = if (poll.voteOptions.any { it.maxVoters != null }) {
+                    pollVoteRequest.maxAllowedAnswers
+                } else null
 
                 //User created a new option
                 poll = poll.copy(
@@ -257,6 +261,7 @@ class MessageService(
                         text = pollVoteRequest.text!!,
                         custom = true,
                         creatorId = requestingUserId,
+                        maxVoters = newPollOptionMaxAnswers,
 
                         //User automatically votes for his created item
                         voters = listOf(PollVoter(
