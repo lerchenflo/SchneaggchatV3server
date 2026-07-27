@@ -7,13 +7,12 @@ enum class Game(
     val higherScoreWins: Boolean,
     val lowerTimeWins: Boolean,
 ) {
-    SNAKE(higherScoreWins = true, lowerTimeWins = false),
-    TETRIS(higherScoreWins = true, lowerTimeWins = false),
-    TOWERSTACK(higherScoreWins = true, lowerTimeWins = false),
+    TETRIS(higherScoreWins = true, lowerTimeWins = true),
+    TOWERSTACK(higherScoreWins = true, lowerTimeWins = true),
     SCHNEAGGAHUS(higherScoreWins = true, lowerTimeWins = false),
     MORSE(higherScoreWins = true, lowerTimeWins = true),
     GRIDRUSH(higherScoreWins = true, lowerTimeWins = true),
-    ODDONEOUT(higherScoreWins = true, lowerTimeWins = false);
+    ODDONEOUT(higherScoreWins = true, lowerTimeWins = true);
 
     /** Best result first: score, then time as tiebreaker, earliest submission wins full ties. */
     fun leaderboardSort(): Sort = Sort.by(

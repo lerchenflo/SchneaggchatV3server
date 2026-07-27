@@ -276,6 +276,50 @@ class FirebaseService(
 
 
 
+    /**
+     * Send a wake notification and report how many devices it was dispatched to.
+     *
+     * Unlike [sendNotificationToUser] the token count is resolved synchronously before the
+     * coroutine is launched, because the sender is shown this number and fire-and-forget
+     * dispatch makes per-token success unobservable. The returned count is therefore
+     * "devices we sent to", not "devices that rang".
+     *
+     * Uses TTL 0: a wake that arrives after the phone comes back online is worse than useless.
+     */
+    fun sendWakeToUser(userId: ObjectId, notification: NotificationResponse.WakeNotificationResponse): Int {
+        val tokens = getTokensForUser(userId).filter { it.token.isNotEmpty() }
+        if (tokens.isEmpty()) return 0
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val dataMap = notificationResponseToDataMap(notification)
+
+                tokens.forEach { firebaseToken ->
+                    try {
+                        val message = constructMessage(
+                            firebaseToken = firebaseToken.token,
+                            data = dataMap,
+                            timeToLiveSeconds = 0
+                        )
+                        safeSend(message = message, token = firebaseToken.token)
+                    } catch (e: Exception) {
+                        AppLogger.error("Error sending wake to token ${firebaseToken.token}: ${e.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                AppLogger.error("Error in Firebase wake coroutine: ${e.message}")
+                loggingService.log(
+                    userId = userId,
+                    logType = LogType.EXCEPTION_THROWN,
+                    message = "Firebase wake notification error: ${e.message}"
+                )
+            }
+        }
+
+        return tokens.size
+    }
+
+
     private fun safeSend(message: Message, token: String): Boolean {
         try {
             val response = FirebaseMessaging.getInstance().send(message)
@@ -356,6 +400,7 @@ class FirebaseService(
             is NotificationResponse.FriendRequestNotificationResponse -> "friend_request"
             is NotificationResponse.SystemNotificationResponse -> "system"
             is NotificationResponse.BirthdayNotificationResponse -> "birthday"
+            is NotificationResponse.WakeNotificationResponse -> "wake"
         }
         result["type"] = typeName
 
@@ -363,13 +408,15 @@ class FirebaseService(
         return result.mapValues { it.value as String }
     }
 
-    private fun constructMessage(firebaseToken: String, data: Map<String, String>) : Message {
+    private fun constructMessage(firebaseToken: String, data: Map<String, String>, timeToLiveSeconds: Long? = null) : Message {
         return Message.builder()
             .setToken(firebaseToken)
             .putAllData(data)
             .setAndroidConfig(
                 AndroidConfig.builder()
                     .setPriority(AndroidConfig.Priority.HIGH) //for immediate delivery: https://firebase.google.com/docs/cloud-messaging/android-message-priority?hl=de
+                    //Only set when the caller cares - omitting it keeps FCM's default 4 week TTL.
+                    .apply { timeToLiveSeconds?.let { setTtl(it * 1000) } }
                     .build()
             )
             //APNS CONFIG IS UNUSED, REPLACED BY APNS IMPLEMENTATION

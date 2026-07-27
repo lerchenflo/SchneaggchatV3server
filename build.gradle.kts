@@ -1,9 +1,10 @@
 plugins {
-	kotlin("jvm") version "2.4.0"
-	kotlin("plugin.spring") version "2.3.0"
-	id("org.springframework.boot") version "4.1.0"
+    kotlin("jvm") version "2.4.0"
+    kotlin("plugin.spring") version "2.3.0"
+    id("org.springframework.boot") version "4.1.0"
     id("com.google.devtools.ksp") version "2.3.9"
     id("io.spring.dependency-management") version "1.1.7"
+    kotlin("plugin.lombok") version "2.4.0"
 }
 
 group = "com.lerchenflo"
@@ -11,13 +12,13 @@ version = "3.0.12"
 description = "SchneaggchatV3 server"
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(25)
-	}
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
 }
 
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
 dependencies {
@@ -77,16 +78,16 @@ dependencies {
     //testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.mockk:mockk:1.13.8")
-    testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation(kotlin("test"))
 }
 
 kotlin {
-	compilerOptions {
-		freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
-	}
+    compilerOptions {
+        freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
+    }
 }
 
 tasks.withType<Test> {
-	useJUnitPlatform()
+    useJUnitPlatform()
 }

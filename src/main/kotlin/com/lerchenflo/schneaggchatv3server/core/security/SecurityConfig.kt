@@ -37,7 +37,7 @@ class SecurityConfig(
                     .requestMatchers("/auth/**")
                     .permitAll()
                     //Public endpoint for common stuff (Ping etc)
-                    .requestMatchers("/public/**")
+                    .requestMatchers("/public/test")
                     .permitAll()
 
 

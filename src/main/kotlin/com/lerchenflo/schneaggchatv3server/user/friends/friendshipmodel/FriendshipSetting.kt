@@ -29,6 +29,7 @@ data class FriendshipSetting(
     var shareSnailTrail: Boolean = false, //Does this user share their snail trail (full 24h history) with the other user
     var nickName: String? = null, //Nickname from this user for the other user
     var muted: Boolean = false, //Did this user mute the other
+    var allowWake: Boolean = false, //May the other user wake this user (alarm ringtone). Opt-in.
 
 
     var createdAt: Instant = Clock.System.now(),

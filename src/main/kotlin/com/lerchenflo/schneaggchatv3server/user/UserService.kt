@@ -143,6 +143,7 @@ class UserService(
                 shareLocation = interactionMap[user.id]?.shareLocation ?: false,
                 shareSpeedHeading = interactionMap[user.id]?.shareSpeedHeading ?: false,
                 shareSnailTrail = interactionMap[user.id]?.shareSnailTrail ?: false,
+                allowWake = interactionMap[user.id]?.allowWake ?: false,
             )
         }
 
@@ -386,6 +387,26 @@ class UserService(
     }
 
     /**
+     * Master switch for the wake feature. While off, nobody can wake this user regardless of the
+     * per-friend permissions in FriendshipSetting.allowWake.
+     */
+    fun setWakeGlobal(userId: ObjectId, enabled: Boolean) {
+        val user = userLookupService.findById(userId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+
+        if (user.allowWakeGlobal == enabled) return
+
+        val updatedUser = user.copy(
+            allowWakeGlobal = enabled,
+            updatedAt = Clock.System.now(),
+        )
+        userLookupService.save(updatedUser)
+
+        //Bumping updatedAt is what gets this into the next /users/sync for the user's other devices.
+        notificationService.notifyUserUpdate(updatedUser, deleted = false)
+    }
+
+    /**
      * Reset password via email token (no old password required)
      */
     fun resetPassword(userId: ObjectId, newPassword: String) {
@@ -408,7 +429,7 @@ class UserService(
      * @param User the user to be serialized
      * @param requestingUserId the user which requested the serialisation
      */
-    private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null, nickName: String? = null, shareLocation: Boolean = false, shareSpeedHeading: Boolean = false, shareSnailTrail: Boolean = false): UserResponse {
+    private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null, nickName: String? = null, shareLocation: Boolean = false, shareSpeedHeading: Boolean = false, shareSnailTrail: Boolean = false, allowWake: Boolean = false): UserResponse {
         //User requests his own data
         if (requestingUserId == user.id) {
             return UserResponse.SelfUserResponse(
@@ -423,6 +444,7 @@ class UserService(
                 emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
                 profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
                 locationShared = friendsLookupService.hasActiveLocationSharing(user.id),
+                allowWakeGlobal = user.allowWakeGlobal,
             )
         }
 
@@ -441,6 +463,7 @@ class UserService(
                 shareLocation = shareLocation,
                 shareSpeedHeading = shareSpeedHeading,
                 shareSnailTrail = shareSnailTrail,
+                allowWake = allowWake,
                 lastSeen = user.lastSeen.toEpochMilliseconds(),
             )
         }
