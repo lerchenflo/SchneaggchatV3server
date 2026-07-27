@@ -147,6 +147,17 @@
                     <div class="stat-detail-number" th:text="${stats['EXCEPTION_THROWN']}">0</div>
                 </div>
             </div>
+
+            <!-- Wake Sent -->
+            <div class="stat-detail-card">
+                <div class="stat-detail-icon" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
+                    <i class="fa-solid fa-bell"></i>
+                </div>
+                <div class="stat-detail-content">
+                    <h3>Wecker gesendet</h3>
+                    <div class="stat-detail-number" th:text="${stats['WAKE_SENT']}">0</div>
+                </div>
+            </div>
         </div>
 
         <!-- Info Box -->

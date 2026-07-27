@@ -20,15 +20,15 @@ class DatabaseCleanupTask(
     @Scheduled(fixedDelay = 60_000)
     fun cleanDatabasePeriodically() {
         val deletedTokensCount = refreshTokenRepository.deleteByDeletedAtBefore(Clock.System.now())
-        if (deletedTokensCount > 0) {
+        /*if (deletedTokensCount > 0) {
             AppLogger.info("Deleted ${deletedTokensCount} refreshTokens")
-        }
+        }*/
 
 
         val deletedUserlocationsCount = userLocationRepository.deleteByExpiresAtBefore(Clock.System.now())
-        if (deletedUserlocationsCount > 0) {
+        /*if (deletedUserlocationsCount > 0) {
             AppLogger.info("Deleted ${deletedUserlocationsCount} user locations")
-        }
+        }*/
 
         //TODO: Delete groups which have expired
         // groupRepository.deleteExpiredGroups()
