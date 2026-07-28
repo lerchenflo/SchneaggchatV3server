@@ -1,4 +1,4 @@
-package com.lerchenflo.schneaggchatv3server.wake
+package com.lerchenflo.schneaggchatv3server.user.wake
 
 import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
