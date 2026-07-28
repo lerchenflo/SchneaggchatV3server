@@ -137,17 +137,6 @@
                 </div>
             </div>
 
-            <!-- Exceptions -->
-            <div class="stat-detail-card">
-                <div class="stat-detail-icon" style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                </div>
-                <div class="stat-detail-content">
-                    <h3>Serverfehler</h3>
-                    <div class="stat-detail-number" th:text="${stats['EXCEPTION_THROWN']}">0</div>
-                </div>
-            </div>
-
             <!-- Wake Sent -->
             <div class="stat-detail-card">
                 <div class="stat-detail-icon" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);">
@@ -156,6 +145,39 @@
                 <div class="stat-detail-content">
                     <h3>Wecker gesendet</h3>
                     <div class="stat-detail-number" th:text="${stats['WAKE_SENT']}">0</div>
+                </div>
+            </div>
+
+            <!-- Game Score Submitted -->
+            <div class="stat-detail-card">
+                <div class="stat-detail-icon" style="background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);">
+                    <i class="fa-solid fa-gamepad"></i>
+                </div>
+                <div class="stat-detail-content">
+                    <h3>Highscores eingereicht</h3>
+                    <div class="stat-detail-number" th:text="${stats['GAME_SCORE_SUBMITTED']}">0</div>
+                </div>
+            </div>
+
+            <!-- Map Entry Created -->
+            <div class="stat-detail-card">
+                <div class="stat-detail-icon" style="background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                </div>
+                <div class="stat-detail-content">
+                    <h3>Karteneinträge</h3>
+                    <div class="stat-detail-number" th:text="${stats['MAP_ENTRY_CREATED']}">0</div>
+                </div>
+            </div>
+
+            <!-- Exceptions -->
+            <div class="stat-detail-card">
+                <div class="stat-detail-icon" style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div class="stat-detail-content">
+                    <h3>Serverfehler</h3>
+                    <div class="stat-detail-number" th:text="${stats['EXCEPTION_THROWN']}">0</div>
                 </div>
             </div>
         </div>
