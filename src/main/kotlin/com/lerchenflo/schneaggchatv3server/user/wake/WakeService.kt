@@ -1,4 +1,4 @@
-package com.lerchenflo.schneaggchatv3server.wake
+package com.lerchenflo.schneaggchatv3server.user.wake
 
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
