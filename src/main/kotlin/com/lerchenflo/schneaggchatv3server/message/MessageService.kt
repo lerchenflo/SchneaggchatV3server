@@ -378,13 +378,13 @@ class MessageService(
 
             val isAdd = existing == null
 
+            val now = Clock.System.now()
+
             val newReactions = if (existing != null) {
                 message.reactions - existing
             } else {
-                message.reactions + Reaction(userId = reactingUserId, content = content.trim())
+                message.reactions + Reaction(userId = reactingUserId, content = content.trim(), reactedAt = now)
             }
-
-            val now = Clock.System.now()
 
             val query = Query(
                 Criteria.where("_id").`is`(message.id)

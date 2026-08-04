@@ -45,6 +45,7 @@ data class Reader(
 data class Reaction(
     val userId: ObjectId,
     val content: String,
+    val reactedAt: Instant,
 )
 
 enum class MessageType {
@@ -86,5 +87,6 @@ fun Reaction.toReactionResponse() : ReactionResponse {
     return ReactionResponse(
         userId = this.userId.toHexString(),
         content = this.content,
+        reactedAt = this.reactedAt.toEpochMilliseconds(),
     )
 }

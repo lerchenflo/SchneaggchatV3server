@@ -59,6 +59,8 @@ class MainController(
         migrateTypeAliases()
         migrateLastSeen()
 
+        migrateReactionTimestamps()
+
         val testaccount = userService.ensureTestaccount()
         schneaggmapService.importLegacyMapEntries(testaccount.id)
 
@@ -170,6 +172,57 @@ class MainController(
             AppLogger.success("Migration completed: Set lastSeen -> updatedAt for ${result.modifiedCount} users")
         } else {
             AppLogger.success("Migration check: All users already have a lastSeen field")
+        }
+    }
+
+    /**
+     * Backfills `reactedAt` on all embedded reaction subdocuments that were created before
+     * the field was introduced. Sets `reactedAt` to the parent message's `sendDate` so existing
+     * reactions get a sensible default timestamp.
+     *
+     * Uses `$map` + `$mergeObjects` + `$ifNull` inside an `AggregationExpression` because
+     * Spring Data's `SetOperation` DSL doesn't expose `$map` natively, but `toValueOf` accepts
+     * any `AggregationExpression`, keeping the query/update/result handling idiomatic.
+     */
+    fun migrateReactionTimestamps() {
+        AppLogger.info("Running reaction timestamp migration...")
+
+        val query = Query(
+            Criteria.where("reactions.reactedAt").exists(false)
+        )
+
+        val mapExpression = org.springframework.data.mongodb.core.aggregation.AggregationExpression { _ ->
+            org.bson.Document(
+                "\$map", org.bson.Document()
+                    .append("input", "\$reactions")
+                    .append("as", "r")
+                    .append(
+                        "in", org.bson.Document(
+                            "\$mergeObjects", listOf(
+                                "\$\$r",
+                                org.bson.Document(
+                                    "reactedAt",
+                                    org.bson.Document("\$ifNull", listOf("\$\$r.reactedAt", "\$sendDate"))
+                                )
+                            )
+                        )
+                    )
+            )
+        }
+
+        val update = AggregationUpdate.update()
+            .set(
+                SetOperation.builder()
+                    .set("reactions")
+                    .toValueOf(mapExpression)
+            )
+
+        val result = mongoTemplate.updateMulti(query, update, "messages")
+
+        if (result.modifiedCount > 0) {
+            AppLogger.success("Migration completed: Backfilled reactedAt on reactions in ${result.modifiedCount} messages")
+        } else {
+            AppLogger.success("Migration check: All reactions already have a reactedAt field")
         }
     }
 

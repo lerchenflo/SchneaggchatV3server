@@ -26,4 +26,5 @@ data class ReaderResponse(
 data class ReactionResponse(
     val userId: String,
     val content: String,
+    val reactedAt: Long,
 )
