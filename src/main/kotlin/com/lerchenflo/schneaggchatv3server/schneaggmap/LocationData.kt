@@ -43,10 +43,12 @@ import org.springframework.data.annotation.TypeAlias
     JsonSubTypes.Type(value = LocationData.Tennis::class,          name = "tennis"),
     JsonSubTypes.Type(value = LocationData.SightSeeing::class,     name = "sightseeing"),
     JsonSubTypes.Type(value = LocationData.PartyLocation::class,   name = "party"),
+    JsonSubTypes.Type(value = LocationData.Wifi::class,            name = "wifi"),
     JsonSubTypes.Type(value = LocationData.FoodKebab::class,       name = "food_kebab"),
     JsonSubTypes.Type(value = LocationData.FoodPizza::class,       name = "food_pizza"),
     JsonSubTypes.Type(value = LocationData.FoodBurger::class,      name = "food_burger"),
     JsonSubTypes.Type(value = LocationData.FoodBeer::class,        name = "food_beer"),
+    JsonSubTypes.Type(value = LocationData.FoodIce::class,         name = "food_ice"),
     JsonSubTypes.Type(value = LocationData.FoodAsian::class,       name = "food_asian"),
     JsonSubTypes.Type(value = LocationData.FoodGreek::class,       name = "food_greek"),
     JsonSubTypes.Type(value = LocationData.FoodOther::class,       name = "food_other"),
@@ -254,6 +256,17 @@ sealed class LocationData {
         )
     }
 
+    @TypeAlias("wifi")
+    data class Wifi(
+        val ssid: AttributeValue?,
+        val password: AttributeValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.StringDef(key = "ssid",     required = false),
+            AttributeDefinition.StringDef(key = "password", required = false),
+        )
+    }
+
 
     // Fast Food & Snacks
 
@@ -290,6 +303,15 @@ sealed class LocationData {
     ) : LocationData() {
         override fun schema() = listOf(
             AttributeDefinition.DoubleDef(key = "beerPrice", required = false, min = 0.0),
+        )
+    }
+
+    @TypeAlias("food_ice")
+    data class FoodIce(
+        val iceScoopPrice: AttributeValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.DoubleDef(key = "iceScoopPrice", required = false, min = 0.0),
         )
     }
 
