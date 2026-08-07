@@ -12,7 +12,8 @@ enum class Game(
     SCHNEAGGAHUS(higherScoreWins = true, lowerTimeWins = false),
     MORSE(higherScoreWins = true, lowerTimeWins = true),
     GRIDRUSH(higherScoreWins = true, lowerTimeWins = true),
-    ODDONEOUT(higherScoreWins = true, lowerTimeWins = true);
+    ODDONEOUT(higherScoreWins = true, lowerTimeWins = true),
+    FLAPPYBIRD(higherScoreWins = true, lowerTimeWins = true);
 
     /** Best result first: score, then time as tiebreaker, earliest submission wins full ties. */
     fun leaderboardSort(): Sort = Sort.by(
