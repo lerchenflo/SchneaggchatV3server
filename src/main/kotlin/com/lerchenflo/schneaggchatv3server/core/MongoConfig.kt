@@ -99,12 +99,14 @@ class LocationDataWriteConverter : Converter<LocationData, Document> {
             // Social & Entertainment
             is LocationData.SightSeeing    -> "sightseeing"
             is LocationData.PartyLocation  -> "party"
+            is LocationData.Wifi           -> "wifi"
 
             // Fast Food & Snacks
             is LocationData.FoodKebab      -> "food_kebab"
             is LocationData.FoodPizza      -> "food_pizza"
             is LocationData.FoodBurger     -> "food_burger"
             is LocationData.FoodBeer       -> "food_beer"
+            is LocationData.FoodIce        -> "food_ice"
             is LocationData.FoodCafeBakery -> "food_cafe_bakery"
 
             // Restaurant

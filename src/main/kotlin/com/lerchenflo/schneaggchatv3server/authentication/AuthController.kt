@@ -126,11 +126,29 @@ class AuthController(
         require(ValidationUtils.validateToken(token)) { "Invalid token" }
 
         return if (emailService.verifyEmailRequest(token)){
-            //Email verified
-            "Your email has been verified."
-        }else {
-            //Email not verified
-            "Your email could not be verified"
+            """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Email Verification</title>
+            </head>
+            <body>
+                <h1>Your email has been verified.</h1>
+            </body>
+            </html>
+            """.trimIndent()
+        } else {
+            """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Email Verification</title>
+            </head>
+            <body>
+                <h1>Your email could not be verified.</h1>
+            </body>
+            </html>
+            """.trimIndent()
         }
     }
 
