@@ -156,41 +156,32 @@ class UserService(
     fun getAvailableUsers(
         searchTerm: String?,
         requestingUserId: ObjectId
-    ) : List<NewFriendsUserResponse>{
-        //Is user searching?
+    ): List<NewFriendsUserResponse> {
         if (searchTerm.isNullOrBlank()) {
-            //User is not searching
             val allUserIds = userRepository.findAll().map { it.id }
 
-            // Check if requesting user has any friendships
-            val hasFriendships = friendsLookupService.getAllInteractions(requestingUserId).isNotEmpty()
-
-            // Get users with no interaction
+            // Get users with no interaction (excludes self and any existing interactions)
             val usersWithNoInteraction = friendsLookupService.getUsersWithNoInteraction(
                 userId = requestingUserId,
                 allUserIds = allUserIds
             )
 
-            val eligibleUsers = if (hasFriendships) {
-                // Return only users with common friends (at least 1)
-                userRepository.findAllById(usersWithNoInteraction)
-                    .filter { user ->
-                        friendsLookupService.getCommonFriendCount(requestingUserId, user.id) > 0
-                    }
-            } else {
-                // Return all users with no interaction
-                userRepository.findAllById(usersWithNoInteraction)
-            }
+            // Pre-fetch requesting user's friends once to avoid N+1 queries
+            val requestingUserFriends = friendsLookupService.getFriends(requestingUserId).toSet()
 
-            return eligibleUsers.map { user ->
-                NewFriendsUserResponse(
-                    id = user.id.toHexString(),
-                    username = user.username,
-                    commonFriendCount = friendsLookupService.getCommonFriendCount(requestingUserId, user.id),
-                )
-            }
+            return userRepository.findAllById(usersWithNoInteraction)
+                .map { user ->
+                    val otherUserFriends = friendsLookupService.getFriends(user.id).toSet()
+                    val commonCount = requestingUserFriends.intersect(otherUserFriends).size
+
+                    NewFriendsUserResponse(
+                        id = user.id.toHexString(),
+                        username = user.username,
+                        commonFriendCount = commonCount,
+                    )
+                }
+                .sortedByDescending { it.commonFriendCount }
         } else {
-            //return users searched by searchterm
             val searchResults = userRepository.findByUsernameContainingIgnoreCase(
                 searchTerm.trim().lowercase(getDefault())
             )
@@ -199,19 +190,20 @@ class UserService(
                 .map { it.userId }
                 .toSet()
 
+            val requestingUserFriends = friendsLookupService.getFriends(requestingUserId).toSet()
+
             return searchResults
                 .filter { user ->
-                    user.id != requestingUserId && // Exclude self
-                            user.id !in interactedUserIds // Exclude already interacted users
+                    user.id != requestingUserId && user.id !in interactedUserIds
                 }
                 .map { user ->
+                    val otherUserFriends = friendsLookupService.getFriends(user.id).toSet()
+                    val commonCount = requestingUserFriends.intersect(otherUserFriends).size
+
                     NewFriendsUserResponse(
                         id = user.id.toHexString(),
                         username = user.username,
-                        commonFriendCount = friendsLookupService.getCommonFriendCount(
-                            requestingUserId,
-                            user.id
-                        )
+                        commonFriendCount = commonCount
                     )
                 }
                 .sortedByDescending { it.commonFriendCount }
@@ -415,7 +407,8 @@ class UserService(
         }
 
         userRepository.save(user.copy(
-            hashedPassword = hashEncoder.encode(newPassword)
+            hashedPassword = hashEncoder.encode(newPassword),
+            updatedAt = Clock.System.now()
         ))
 
         //All tokens invalidated
