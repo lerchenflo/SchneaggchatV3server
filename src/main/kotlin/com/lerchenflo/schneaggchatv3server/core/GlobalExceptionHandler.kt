@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.core
 
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.ClientIpResolver
+import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
@@ -16,19 +17,46 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.servlet.resource.NoResourceFoundException
+import kotlin.jvm.optionals.getOrNull
 
 @RestControllerAdvice
 class GlobalExceptionHandler(
     private val loggingService: LoggingService,
     private val clientIpResolver: ClientIpResolver,
+    private val userRepository: UserRepository,
 ) {
     private val logger = LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
+
+    private fun logWithUserInfo(message: String, ip: String?) {
+        val requestingUserId = SecurityContextHolder.getContext().authentication?.principal as? String
+        val username = if (requestingUserId != null) {
+            try {
+                userRepository.findById(ObjectId(requestingUserId)).getOrNull()?.username
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+
+        val userInfo = buildString {
+            if (username != null) {
+                append("username=$username")
+            }
+            if (ip != null) {
+                if (isNotEmpty()) append(" | ")
+                append("ip=$ip")
+            }
+        }
+
+        AppLogger.error("$message${if (userInfo.isNotEmpty()) " | $userInfo" else ""}")
+    }
 
     //Exception handling for annotations (For example Registerrequest: Email)
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationError(e: MethodArgumentNotValidException, request: HttpServletRequest): ResponseEntity<Map<String, Any>> {
         val ip = clientIpResolver.resolve(request)
-        AppLogger.error("Validation Error happened: ${e.message} | ip=$ip")
+        logWithUserInfo("Validation Error happened: ${e.message}", ip)
         val errors = e.bindingResult.allErrors.map {
             it.defaultMessage ?: "Invalid value"
         }
@@ -41,7 +69,7 @@ class GlobalExceptionHandler(
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgumentException(e: IllegalArgumentException, request: HttpServletRequest): ResponseEntity<String> {
         val ip = clientIpResolver.resolve(request)
-        AppLogger.error("Illegal argument Error happened: ${e.message} | ip=$ip")
+        logWithUserInfo("Illegal argument Error happened: ${e.message}", ip)
         val error = e.message
         //logError(e, ip)
         return ResponseEntity
@@ -52,7 +80,7 @@ class GlobalExceptionHandler(
     @ExceptionHandler(ResponseStatusException::class)
     fun handleResponseStatusException(e: ResponseStatusException, request: HttpServletRequest): ResponseEntity<String> {
         val ip = clientIpResolver.resolve(request)
-        AppLogger.error("ResponseStatus Error happened: ${e.message} | ip=$ip")
+        logWithUserInfo("ResponseStatus Error happened: ${e.message}", ip)
         val error = e.message
 
         // Log 500 errors with full stack trace
@@ -69,7 +97,7 @@ class GlobalExceptionHandler(
     @ExceptionHandler(NoResourceFoundException::class)
     fun handleNoResourceFoundException(e: NoResourceFoundException, request: HttpServletRequest): ResponseEntity<String> {
         val ip = clientIpResolver.resolve(request)
-        AppLogger.error("NoResourceFound Error happened: ${e.message} | ip=$ip")
+        logWithUserInfo("NoResourceFound Error happened: ${e.message}", ip)
         val resourcePath = e.resourcePath
 
         //logError(e, ip)
@@ -82,7 +110,7 @@ class GlobalExceptionHandler(
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException, request: HttpServletRequest): ResponseEntity<Map<String, String>> {
         val ip = clientIpResolver.resolve(request)
-        AppLogger.error("HttpMessageNotReadableException Error happened: ${e.message} | ip=$ip")
+        logWithUserInfo("HttpMessageNotReadableException Error happened: ${e.message}", ip)
 
         e.printStackTrace()
 
@@ -99,7 +127,7 @@ class GlobalExceptionHandler(
         //No stack trace printing for badcredentials (Someone used a wrong username)
         if (e !is BadCredentialsException){
             logger.error("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", e)
-            AppLogger.error("Unhandled server error: ${e.javaClass.simpleName} - ${e.message} | ip=$ip")
+            logWithUserInfo("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", ip)
 
             logError(e, ip)
         }
