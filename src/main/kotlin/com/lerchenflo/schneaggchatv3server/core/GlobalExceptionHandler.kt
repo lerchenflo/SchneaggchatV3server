@@ -49,7 +49,7 @@ class GlobalExceptionHandler(
             }
         }
 
-        AppLogger.error("$message${if (userInfo.isNotEmpty()) " | $userInfo" else ""}")
+        AppLogger.error("${if (userInfo.isNotEmpty()) userInfo else ""} $message")
     }
 
     //Exception handling for annotations (For example Registerrequest: Email)

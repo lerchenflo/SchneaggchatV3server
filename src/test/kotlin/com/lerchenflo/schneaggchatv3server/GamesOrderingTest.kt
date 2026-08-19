@@ -67,6 +67,9 @@ class GamesOrderingTest {
             assertEquals(game, Game.fromId(game.name))
             assertEquals(game, Game.fromId(game.name.lowercase()))
         }
+        assertEquals(Game.GAME_2048, Game.fromId("2048"))
+        assertEquals(Game.GAME_2048, Game.fromId("game2048"))
+        assertEquals(Game.GAME_2048, Game.fromId("GAME-2048"))
         assertNull(Game.fromId("does_not_exist"))
         assertNull(Game.fromId(""))
     }
