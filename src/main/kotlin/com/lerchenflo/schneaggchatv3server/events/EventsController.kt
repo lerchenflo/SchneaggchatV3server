@@ -43,6 +43,10 @@ class EventsController(
     fun upsertEvent(
         @RequestBody requestBody: EventRequest,
     ): EventResponse {
+        requestBody.eventId?.let { eventId ->
+            require(ValidationUtils.validateObjectId(requestBody.eventId)) { "Invalid event id" }
+        }
+
         val requestingUserId = requireAuth()
 
         return eventService.upsertEvent(

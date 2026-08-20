@@ -123,7 +123,7 @@ class EventService(
             closeDate = eventRequest.closeDate?.let {Instant.fromEpochMilliseconds(it)},
             invitedUsers = eventRequest.invitedUsers.map { ObjectId(it) },
             public = eventRequest.public,
-            createdAt = now,
+            createdAt = existing?.createdAt ?: now,
             updatedAt = now,
             updatedBy = upsertingUser,
         )
@@ -132,7 +132,7 @@ class EventService(
 
         notificationService.notifyEventUpdate(
             eventResponse = response,
-            newEntry = true,
+            newEntry = existing == null,
             deleted = false
         )
 
