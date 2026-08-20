@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @Component
 class GroupService(
@@ -265,22 +266,11 @@ class GroupService(
             GroupMemberAction.ADD_USER -> {
                 require(groupLookupService.isAdmin(requestingUser, groupMembers)) {"You are not an admin"}
 
-                require(!groupLookupService.isUserInGroup(groupMember, groupId)) {"User is already in this group"}
-
-                val existingColors = groupMembers.map { it.color }.toSet()
-                val newColor = ColorGenerator.generateUniqueColorsForGroup(existingColors, 1).first()
-
-                try {
-                    groupMemberRepository.save(GroupMember(
-                        userid = groupMember,
-                        groupId = groupId,
-                        joinedAt = now,
-                        admin = false,
-                        color = newColor
-                    ))
-                } catch (e: DuplicateKeyException) {
-                    throw IllegalArgumentException("User is already in this group")
-                }
+                addUserToGroup(
+                    groupId = groupId,
+                    memberId = groupMember,
+                    timeStamp = now
+                )
             }
             GroupMemberAction.REMOVE_USER -> {
                 require(groupLookupService.isUserInGroup(groupMember, groupId)) {"User is not in this group"}
@@ -351,5 +341,28 @@ class GroupService(
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
 
     }
+
+    fun addUserToGroup(groupId: ObjectId, memberId: ObjectId, timeStamp: Instant = Clock.System.now()) {
+        require(!groupLookupService.isUserInGroup(memberId, groupId)) {"User is already in this group"}
+
+        val groupMembers = groupLookupService.getGroupMembers(groupId)
+
+        val existingColors = groupMembers.map { it.color }.toSet()
+        val newColor = ColorGenerator.generateUniqueColorsForGroup(existingColors, 1).first()
+
+        try {
+            groupMemberRepository.save(GroupMember(
+                userid = memberId,
+                groupId = groupId,
+                joinedAt = timeStamp,
+                admin = false,
+                color = newColor
+            ))
+        } catch (e: DuplicateKeyException) {
+            throw IllegalArgumentException("User is already in this group")
+        }
+    }
+
+
 
 }

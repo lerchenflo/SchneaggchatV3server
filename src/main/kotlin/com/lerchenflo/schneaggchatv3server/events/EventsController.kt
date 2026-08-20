@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.events
 
 import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
@@ -38,7 +39,7 @@ class EventsController(
         )
     }
 
-    @PostMapping
+    @PostMapping("/upsert")
     fun upsertEvent(
         @RequestBody requestBody: EventRequest,
     ): EventResponse {
@@ -47,6 +48,18 @@ class EventsController(
         return eventService.upsertEvent(
             upsertingUser = requestingUserId,
             eventRequest = requestBody
+        )
+    }
+
+    @PostMapping("/join")
+    fun joinEvent(
+        @RequestBody requestBody: EventJoinRequest,
+    ) {
+        val requestingUserId = requireAuth()
+
+        eventService.joinEvent(
+            joiningUser = requestingUserId,
+            eventJoinRequest = requestBody
         )
     }
 }

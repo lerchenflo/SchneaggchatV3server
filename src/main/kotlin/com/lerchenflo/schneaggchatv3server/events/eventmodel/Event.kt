@@ -25,7 +25,6 @@ data class Event(
     val closeDate: Instant?,
 
     val invitedUsers: List<ObjectId>,
-    val acceptedUsers: List<ObjectId>,
 
     val public: Boolean,
 

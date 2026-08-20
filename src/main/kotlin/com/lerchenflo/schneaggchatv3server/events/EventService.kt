@@ -2,10 +2,12 @@ package com.lerchenflo.schneaggchatv3server.events
 
 import com.google.protobuf.LazyStringArrayList.emptyList
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
+import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
@@ -24,6 +26,7 @@ class EventService(
     private val userLookupService: UserLookupService,
     private val friendsLookupService: FriendsLookupService,
     private val groupService: GroupService,
+    private val groupLookupService: GroupLookupService,
     private val notificationService: NotificationService,
 ) {
 
@@ -46,8 +49,7 @@ class EventService(
 
         //Filter for all events this user can sync
         val availableEvents = serverEvents.filter {
-            it.public  || //Public events all get synched
-                    it.creatorId in friends //Private events only from my friends
+            canAccessEvent(requesterId = requesterId, event = it, friends = friends)
         }
 
         //Remove all events the user has but are not available anymore
@@ -120,7 +122,6 @@ class EventService(
             startDate = Instant.fromEpochMilliseconds(eventRequest.startDate),
             closeDate = Instant.fromEpochMilliseconds(eventRequest.closeDate),
             invitedUsers = eventRequest.invitedUsers.map { ObjectId(it) },
-            acceptedUsers = eventRequest.acceptedUsers.map { ObjectId(it) },
             public = eventRequest.public,
             createdAt = now,
             updatedAt = now,
@@ -136,6 +137,40 @@ class EventService(
         )
 
         return response
+    }
+
+    fun joinEvent(joiningUser: ObjectId, eventJoinRequest: EventJoinRequest) {
+
+        val event = eventsLookupService.findById(eventJoinRequest.eventId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found")
+
+        //Check if can access event
+        require(canAccessEvent(requesterId = joiningUser, event = event))  {"You can not access this event"}
+
+        //Add to group
+        groupService.addUserToGroup(
+            groupId = event.groupId,
+            memberId = joiningUser
+        )
+        notificationService.notifyGroupUpdate(
+            groupResponse = groupLookupService.getGroupAsGroupResponse(event.groupId),
+            deleted = false
+        )
+
+
+    }
+
+
+
+    private fun canAccessEvent(requesterId: ObjectId, event: Event): Boolean {
+        //Get all this users friends for the privacy sync of the events
+        val friends = friendsLookupService.getFriends(requesterId)
+        return canAccessEvent(requesterId, event, friends)
+    }
+
+    private fun canAccessEvent(requesterId: ObjectId, event: Event, friends: List<ObjectId>): Boolean {
+        return event.public  || //Public events all get synched
+                event.creatorId in friends //Private events only from my friends
     }
 
 

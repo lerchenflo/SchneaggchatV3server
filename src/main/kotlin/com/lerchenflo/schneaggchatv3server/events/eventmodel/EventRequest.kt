@@ -12,6 +12,9 @@ data class EventRequest(
     val startDate: Long,
     val closeDate: Long,
     val invitedUsers: List<String>,
-    val acceptedUsers: List<String>,
     val public: Boolean,
+)
+
+data class EventJoinRequest(
+    val eventId: String,
 )

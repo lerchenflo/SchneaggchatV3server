@@ -313,7 +313,7 @@ class NotificationService(
 
     fun notifyEventUpdate(eventResponse: EventResponse, newEntry: Boolean, deleted: Boolean) {
 
-        val toNotify = (eventResponse.acceptedUsers + eventResponse.invitedUsers).toSet()
+        val toNotify = eventResponse.invitedUsers.toSet()
 
         toNotify.forEach { user ->
             socketConnectionHandler.sendMessage(

@@ -1,7 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.events.eventmodel
 
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
-import org.bson.types.ObjectId
 
 data class EventResponse(
     val id: String,
@@ -14,7 +13,6 @@ data class EventResponse(
     val startDate: Long?,
     val closeDate: Long?,
     val invitedUsers: List<String>,
-    val acceptedUsers: List<String>,
     val public: Boolean,
     val createdAt: Long = 0L,
     val updatedAt: Long = 0L,
@@ -42,7 +40,6 @@ fun Event.toResponse(creatorName: String): EventResponse {
         startDate = startDate?.toEpochMilliseconds(),
         closeDate = closeDate?.toEpochMilliseconds(),
         invitedUsers = invitedUsers.map { it.toHexString() },
-        acceptedUsers = acceptedUsers.map { it.toHexString() },
         public = public,
         createdAt = createdAt.toEpochMilliseconds(),
         updatedAt = updatedAt.toEpochMilliseconds(),
