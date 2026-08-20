@@ -169,6 +169,7 @@ class EventService(
     }
 
     private fun canAccessEvent(requesterId: ObjectId, event: Event, friends: List<ObjectId>): Boolean {
+        if (event.creatorId == requesterId) return true
         return event.public  || //Public events all get synched
                 event.creatorId in friends //Private events only from my friends
     }
