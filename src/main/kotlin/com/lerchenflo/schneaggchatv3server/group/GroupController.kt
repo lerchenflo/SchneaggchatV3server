@@ -36,7 +36,8 @@ class GroupController(
             members = memberIds.map { ObjectId(it) },
             creatorId = requestingUserId,
             profilePic = profilePic,
-            description = description
+            description = description,
+            createdFromEvent = false
         )
 
         return groupLookupService.getGroupAsGroupResponse(group.id)

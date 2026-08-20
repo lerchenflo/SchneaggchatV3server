@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.notifications
 
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
@@ -307,6 +308,23 @@ class NotificationService(
                 ),
                 receiverId = ObjectId(member.userid),
             )
+        }
+    }
+
+    fun notifyEventUpdate(eventResponse: EventResponse, newEntry: Boolean, deleted: Boolean) {
+
+        val toNotify = (eventResponse.acceptedUsers + eventResponse.invitedUsers).toSet()
+
+        toNotify.forEach { user ->
+            socketConnectionHandler.sendMessage(
+                SocketConnectionMessage.EventChange(
+                    event = eventResponse,
+                    newEntry = newEntry,
+                    deleted = deleted
+                ),
+                receiverId = ObjectId(user),
+            )
+            //TODO: firebase and apns notification
         }
     }
 

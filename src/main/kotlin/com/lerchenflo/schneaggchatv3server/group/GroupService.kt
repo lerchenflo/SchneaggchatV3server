@@ -42,18 +42,22 @@ class GroupService(
     private val loggingService: LoggingService,
 ) {
 
-    fun createGroup(groupName: String, members: List<ObjectId>, creatorId: ObjectId, description: String, profilePic: MultipartFile) : Group {
+    fun createGroup(groupName: String, members: List<ObjectId>, creatorId: ObjectId, description: String, profilePic: MultipartFile?, createdFromEvent: Boolean) : Group {
 
         //Try to add creator (Set prevents duplicate members)
         val membersInternal: Set<ObjectId> = members.toSet() + creatorId
 
-        require(membersInternal.size > 2) { "A group must have at least 3 members" }
-        require(ValidationUtils.validateUsername(groupName)) { "Group name invalid" }
-        require(ValidationUtils.validateDescription(description)) { "Description invalid" }
-        require(ValidationUtils.validatePicture(profilePic)) { "Profilepic invalid" }
+        if (!createdFromEvent) {
+            require(membersInternal.size > 2) { "A group must have at least 3 members" }
+            require(ValidationUtils.validateUsername(groupName)) { "Group name invalid" }
+            require(ValidationUtils.validateDescription(description)) { "Description invalid" }
+            profilePic?.let {
+                require(ValidationUtils.validatePicture(profilePic)) { "Profilepic invalid" }
+            }
+        }
 
         //Creator needs to be friends with everyone
-        members.forEach { member ->
+        membersInternal.forEach { member ->
             if (member == creatorId) return@forEach //Exclude self
             require(friendsLookupService.areFriends(creatorId, member)){ "You need to be friends with everyone in the group"}
         }
@@ -70,11 +74,13 @@ class GroupService(
             )
         )
 
-        imageManager.saveProfilePic(
-            image = profilePic,
-            userId = group.id.toHexString(),
-            group = true
-        )
+        profilePic?.let {
+            imageManager.saveProfilePic(
+                image = profilePic,
+                userId = group.id.toHexString(),
+                group = true
+            )
+        }
 
         // Generate unique colors for group members (per-group uniqueness)
         val existingColors = emptySet<Int>() // New group has no existing colors
