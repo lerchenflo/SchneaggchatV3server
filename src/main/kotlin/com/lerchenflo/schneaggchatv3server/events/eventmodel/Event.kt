@@ -21,7 +21,7 @@ data class Event(
 
     val groupId: ObjectId, //Group connected to this event
     val location: LatLong?, //Optional Location
-    val startDate: Instant?,
+    val startDate: Instant,
     val closeDate: Instant?,
 
     val invitedUsers: List<ObjectId>,
