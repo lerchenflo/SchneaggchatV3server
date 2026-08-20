@@ -120,7 +120,7 @@ class EventService(
             groupId = groupId,
             location = eventRequest.location,
             startDate = Instant.fromEpochMilliseconds(eventRequest.startDate),
-            closeDate = Instant.fromEpochMilliseconds(eventRequest.closeDate),
+            closeDate = eventRequest.closeDate?.let {Instant.fromEpochMilliseconds(it)},
             invitedUsers = eventRequest.invitedUsers.map { ObjectId(it) },
             public = eventRequest.public,
             createdAt = now,
