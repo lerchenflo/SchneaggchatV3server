@@ -34,12 +34,6 @@ enum class Game(
     }
 
     companion object {
-        fun fromId(id: String): Game? {
-            val normalized = id.trim().replace("-", "_")
-            if (normalized == "2048" || normalized.equals("game2048", ignoreCase = true)) {
-                return GAME_2048
-            }
-            return entries.find { it.name.equals(normalized, ignoreCase = true) }
-        }
+        fun fromId(id: String): Game? = entries.find { it.name.equals(id, ignoreCase = true) }
     }
 }
