@@ -401,6 +401,7 @@ class FirebaseService(
             is NotificationResponse.SystemNotificationResponse -> "system"
             is NotificationResponse.BirthdayNotificationResponse -> "birthday"
             is NotificationResponse.WakeNotificationResponse -> "wake"
+            is NotificationResponse.EventNotificationResponse -> "event"
         }
         result["type"] = typeName
 

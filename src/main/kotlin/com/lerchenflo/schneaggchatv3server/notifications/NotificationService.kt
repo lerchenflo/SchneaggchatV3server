@@ -324,7 +324,27 @@ class NotificationService(
                 ),
                 receiverId = ObjectId(user),
             )
-            //TODO: firebase and apns notification
+        }
+
+        // Firebase + APNs push for brand-new events (offline users only, creator excluded)
+        if (newEntry) {
+            val notification = NotificationResponse.EventNotificationResponse(
+                eventId = eventResponse.id,
+                eventTitle = eventResponse.title,
+                creatorId = eventResponse.creatorId,
+                creatorName = eventResponse.creatorName,
+            )
+
+            toNotify.forEach { userId ->
+                // Don't push the creator — they already know
+                if (userId == eventResponse.creatorId) return@forEach
+                val userOid = ObjectId(userId)
+                // Only push to users NOT connected via WebSocket (offline fallback)
+                if (!socketConnectionHandler.isConnected(userOid)) {
+                    firebaseMessagingService.sendNotificationToUser(userOid, notification)
+                    apnsService.sendNotificationToUser(userOid, notification)
+                }
+            }
         }
     }
 
