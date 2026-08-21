@@ -313,6 +313,7 @@ class NotificationService(
 
     fun notifyEventUpdate(eventResponse: EventResponse, newEntry: Boolean, deleted: Boolean) {
 
+        //TODO: If event is public, notify everyone?
         val toNotify = eventResponse.invitedUsers.toSet()
 
         toNotify.forEach { user ->

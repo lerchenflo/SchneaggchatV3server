@@ -15,6 +15,5 @@ data class EventRequest(
     val public: Boolean,
 )
 
-data class EventJoinRequest(
-    val eventId: String,
-)
+
+
