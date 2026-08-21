@@ -14,7 +14,8 @@ import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
     JsonSubTypes.Type(value = NotificationResponse.FriendRequestNotificationResponse::class, name = "friend_request"),
     JsonSubTypes.Type(value = NotificationResponse.SystemNotificationResponse::class, name = "system"),
     JsonSubTypes.Type(value = NotificationResponse.BirthdayNotificationResponse::class, name = "birthday"),
-    JsonSubTypes.Type(value = NotificationResponse.WakeNotificationResponse::class, name = "wake")
+    JsonSubTypes.Type(value = NotificationResponse.WakeNotificationResponse::class, name = "wake"),
+    JsonSubTypes.Type(value = NotificationResponse.EventNotificationResponse::class, name = "event")
 )
 
 sealed interface NotificationResponse {
@@ -63,5 +64,13 @@ sealed interface NotificationResponse {
         //that actually rang.
         val wokenUserCount: Int = 1,
         val wokenDeviceCount: Int = 1
+    ) : NotificationResponse
+
+    //Someone created a new event that this user is invited to.
+    data class EventNotificationResponse(
+        val eventId: String,
+        val eventTitle: String,
+        val creatorId: String,
+        val creatorName: String,
     ) : NotificationResponse
 }

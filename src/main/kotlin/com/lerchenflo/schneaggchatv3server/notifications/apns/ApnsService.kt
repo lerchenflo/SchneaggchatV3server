@@ -315,6 +315,7 @@ class ApnsService(
             //Wake is an Android-only feature, so this branch exists purely to keep the when
             //exhaustive. If one ever reaches APNs it degrades to an ordinary notification.
             is NotificationResponse.WakeNotificationResponse -> "wake"
+            is NotificationResponse.EventNotificationResponse -> "event"
         }
         data["type"] = typeName
 
@@ -329,6 +330,7 @@ class ApnsService(
             is NotificationResponse.BirthdayNotificationResponse ->
                 if (notification.ownBirthday) "Happy Birthday!" else "Schneaggchat"
             is NotificationResponse.WakeNotificationResponse -> notification.senderName
+            is NotificationResponse.EventNotificationResponse -> notification.creatorName
         }
         val fallbackBody = when (notification) {
             is NotificationResponse.MessageNotificationResponse ->
@@ -346,6 +348,7 @@ class ApnsService(
                 else "${notification.birthdayUserName} has birthday today"
             is NotificationResponse.WakeNotificationResponse ->
                 notification.reason.ifEmpty { "wants to wake you" }
+            is NotificationResponse.EventNotificationResponse -> notification.eventTitle
         }
 
         val payload: Map<String, Any> = mapOf(

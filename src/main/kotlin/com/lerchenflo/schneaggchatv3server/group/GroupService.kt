@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @Component
 class GroupService(
@@ -42,18 +43,22 @@ class GroupService(
     private val loggingService: LoggingService,
 ) {
 
-    fun createGroup(groupName: String, members: List<ObjectId>, creatorId: ObjectId, description: String, profilePic: MultipartFile) : Group {
+    fun createGroup(groupName: String, members: List<ObjectId>, creatorId: ObjectId, description: String, profilePic: MultipartFile?, createdFromEvent: Boolean) : Group {
 
         //Try to add creator (Set prevents duplicate members)
         val membersInternal: Set<ObjectId> = members.toSet() + creatorId
 
-        require(membersInternal.size > 2) { "A group must have at least 3 members" }
-        require(ValidationUtils.validateUsername(groupName)) { "Group name invalid" }
-        require(ValidationUtils.validateDescription(description)) { "Description invalid" }
-        require(ValidationUtils.validatePicture(profilePic)) { "Profilepic invalid" }
+        if (!createdFromEvent) {
+            require(membersInternal.size > 2) { "A group must have at least 3 members" }
+            require(ValidationUtils.validateUsername(groupName)) { "Group name invalid" }
+            require(ValidationUtils.validateDescription(description)) { "Description invalid" }
+            profilePic?.let {
+                require(ValidationUtils.validatePicture(profilePic)) { "Profilepic invalid" }
+            }
+        }
 
         //Creator needs to be friends with everyone
-        members.forEach { member ->
+        membersInternal.forEach { member ->
             if (member == creatorId) return@forEach //Exclude self
             require(friendsLookupService.areFriends(creatorId, member)){ "You need to be friends with everyone in the group"}
         }
@@ -70,11 +75,13 @@ class GroupService(
             )
         )
 
-        imageManager.saveProfilePic(
-            image = profilePic,
-            userId = group.id.toHexString(),
-            group = true
-        )
+        profilePic?.let {
+            imageManager.saveProfilePic(
+                image = profilePic,
+                userId = group.id.toHexString(),
+                group = true
+            )
+        }
 
         // Generate unique colors for group members (per-group uniqueness)
         val existingColors = emptySet<Int>() // New group has no existing colors
@@ -259,22 +266,11 @@ class GroupService(
             GroupMemberAction.ADD_USER -> {
                 require(groupLookupService.isAdmin(requestingUser, groupMembers)) {"You are not an admin"}
 
-                require(!groupLookupService.isUserInGroup(groupMember, groupId)) {"User is already in this group"}
-
-                val existingColors = groupMembers.map { it.color }.toSet()
-                val newColor = ColorGenerator.generateUniqueColorsForGroup(existingColors, 1).first()
-
-                try {
-                    groupMemberRepository.save(GroupMember(
-                        userid = groupMember,
-                        groupId = groupId,
-                        joinedAt = now,
-                        admin = false,
-                        color = newColor
-                    ))
-                } catch (e: DuplicateKeyException) {
-                    throw IllegalArgumentException("User is already in this group")
-                }
+                addUserToGroup(
+                    groupId = groupId,
+                    memberId = groupMember,
+                    timeStamp = now
+                )
             }
             GroupMemberAction.REMOVE_USER -> {
                 require(groupLookupService.isUserInGroup(groupMember, groupId)) {"User is not in this group"}
@@ -295,6 +291,7 @@ class GroupService(
                             val focusedMember = groupMembers.first { it.userid == groupMember }
                             groupMemberRepository.delete(focusedMember)
                             groupRepository.delete(group)
+                            loggingService.log(requestingUser, LogType.GROUP_DELETED)
                             return // Don't update group lastChanged
                         } else {
                             // Find user with earliest joinedAt timestamp and promote to admin
@@ -345,5 +342,28 @@ class GroupService(
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
 
     }
+
+    fun addUserToGroup(groupId: ObjectId, memberId: ObjectId, timeStamp: Instant = Clock.System.now()) {
+        require(!groupLookupService.isUserInGroup(memberId, groupId)) {"User is already in this group"}
+
+        val groupMembers = groupLookupService.getGroupMembers(groupId)
+
+        val existingColors = groupMembers.map { it.color }.toSet()
+        val newColor = ColorGenerator.generateUniqueColorsForGroup(existingColors, 1).first()
+
+        try {
+            groupMemberRepository.save(GroupMember(
+                userid = memberId,
+                groupId = groupId,
+                joinedAt = timeStamp,
+                admin = false,
+                color = newColor
+            ))
+        } catch (e: DuplicateKeyException) {
+            throw IllegalArgumentException("User is already in this group")
+        }
+    }
+
+
 
 }
