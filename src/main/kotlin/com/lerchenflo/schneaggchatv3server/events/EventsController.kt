@@ -2,6 +2,7 @@ package com.lerchenflo.schneaggchatv3server.events
 
 import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinRequest
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
@@ -58,10 +59,10 @@ class EventsController(
     @PostMapping("/join")
     fun joinEvent(
         @RequestBody requestBody: EventJoinRequest,
-    ) {
+    ): EventJoinResponse {
         val requestingUserId = requireAuth()
 
-        eventService.joinEvent(
+        return eventService.joinEvent(
             joiningUser = requestingUserId,
             eventJoinRequest = requestBody
         )

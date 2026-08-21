@@ -3,6 +3,7 @@ package com.lerchenflo.schneaggchatv3server.events
 import com.google.protobuf.LazyStringArrayList.emptyList
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinRequest
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
@@ -139,7 +140,7 @@ class EventService(
         return response
     }
 
-    fun joinEvent(joiningUser: ObjectId, eventJoinRequest: EventJoinRequest) {
+    fun joinEvent(joiningUser: ObjectId, eventJoinRequest: EventJoinRequest): EventJoinResponse {
 
         val event = eventsLookupService.findById(eventJoinRequest.eventId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found")
@@ -157,6 +158,9 @@ class EventService(
             deleted = false
         )
 
+        return EventJoinResponse(
+            groupResponse = groupLookupService.getGroupAsGroupResponse(event.groupId)
+        )
 
     }
 
