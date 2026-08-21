@@ -291,6 +291,7 @@ class GroupService(
                             val focusedMember = groupMembers.first { it.userid == groupMember }
                             groupMemberRepository.delete(focusedMember)
                             groupRepository.delete(group)
+                            loggingService.log(requestingUser, LogType.GROUP_DELETED)
                             return // Don't update group lastChanged
                         } else {
                             // Find user with earliest joinedAt timestamp and promote to admin
