@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.lerchenflo.schneaggchatv3server.group
 
 import com.lerchenflo.schneaggchatv3server.group.model.Group
@@ -9,8 +11,11 @@ import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import org.bson.types.ObjectId
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
-import kotlin.jvm.optionals.getOrNull
+import org.springframework.web.server.ResponseStatusException
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @Service
 class GroupLookupService(
@@ -19,16 +24,11 @@ class GroupLookupService(
     private val userLookupService: UserLookupService,
 ) {
     fun getUserGroupIds(userId: ObjectId): List<ObjectId> {
-        return groupMemberRepository.findByuserid(userId)
-            .map { it.groupId }
+        return getNonDeletedGroups(getMemberGroupIds(userId)).map { it.id }
     }
 
-    //TODO: CHECK EVERY QUERY FOR DELETED = FALSE
-
     fun getUserGroupIdsLastchanged(userId: ObjectId): List<UserService.IdTimeStamp> {
-        val usergroups = getUserGroupIds(userId)
-
-        return groupRepository.findAllById(usergroups).map { group ->
+        return getNonDeletedGroups(getMemberGroupIds(userId)).map { group ->
             UserService.IdTimeStamp(
                 id = group.id.toHexString(),
                 timeStamp = group.updatedAt.toEpochMilliseconds().toString()
@@ -38,7 +38,8 @@ class GroupLookupService(
 
     fun getGroupAsGroupResponse(groupId: ObjectId): GroupResponse {
 
-        val group = groupRepository.findById(groupId).get()
+        val group = getGroupById(groupId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
         val members = getGroupMembers(groupId)
 
         return GroupResponse(
@@ -69,13 +70,22 @@ class GroupLookupService(
     }
 
     fun getGroupById(groupId: ObjectId): Group? {
-        val group = groupRepository.findById(groupId)
-        return group.getOrNull()
+        return groupRepository.findByIdAndDeletedFalse(groupId)
+    }
+
+    fun saveGroup(group: Group): Group {
+        return groupRepository.save(group)
+    }
+
+    fun saveAllGroups(groups: List<Group>): List<Group> {
+        return groupRepository.saveAll(groups)
+    }
+
+    fun getExpiredGroups(before: Instant): List<Group> {
+        return groupRepository.findByDeletedFalseAndExpiresAtBefore(before)
     }
 
     fun removeGroupMember(groupId: ObjectId, userId: ObjectId) : Boolean {
-        //val group = groupRepository.findById(groupId).getOrNull() ?: return false
-
         val member = getGroupMembers(groupId).first { it.userid == userId }
         groupMemberRepository.delete(member)
         return true
@@ -85,5 +95,14 @@ class GroupLookupService(
         getUserGroupIds(userId).forEach { groupId ->
             removeGroupMember(groupId, userId)
         }
+    }
+
+    private fun getMemberGroupIds(userId: ObjectId): List<ObjectId> {
+        return groupMemberRepository.findByuserid(userId).map { it.groupId }
+    }
+
+    private fun getNonDeletedGroups(groupIds: List<ObjectId>): List<Group> {
+        if (groupIds.isEmpty()) return emptyList()
+        return groupRepository.findByIdInAndDeletedFalse(groupIds)
     }
 }

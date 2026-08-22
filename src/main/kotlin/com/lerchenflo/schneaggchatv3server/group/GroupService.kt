@@ -8,7 +8,6 @@ import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.group.model.toGroupMemberResponse
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.GroupMemberRepository
-import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
@@ -32,7 +31,6 @@ import kotlin.time.Instant
 
 @Component
 class GroupService(
-    private val groupRepository: GroupRepository,
     private val groupMemberRepository: GroupMemberRepository,
     private val groupLookupService: GroupLookupService,
     private val userLookupService: UserLookupService,
@@ -66,7 +64,7 @@ class GroupService(
         }
 
         val currentTime = Clock.System.now()
-        val group = groupRepository.save(
+        val group = groupLookupService.saveGroup(
             Group(
                 name = groupName.trim(),
                 description = description,
@@ -194,7 +192,7 @@ class GroupService(
         )
 
         val now = Clock.System.now()
-        groupRepository.save(group.copy(
+        groupLookupService.saveGroup(group.copy(
             updatedAt = now,
             profilePicUpdatedAt = now
         ))
@@ -211,7 +209,7 @@ class GroupService(
         val group = groupLookupService.getGroupById(groupId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
 
-        groupRepository.save(group.copy(
+        groupLookupService.saveGroup(group.copy(
             updatedAt = Clock.System.now(),
             description = newDescription
         ))
@@ -228,7 +226,7 @@ class GroupService(
         val group = groupLookupService.getGroupById(groupId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
 
-        groupRepository.save(group.copy(
+        groupLookupService.saveGroup(group.copy(
             updatedAt = Clock.System.now(),
             name = newName
         ))
@@ -293,7 +291,7 @@ class GroupService(
                             // Last person leaving - delete the group and all members
                             val focusedMember = groupMembers.first { it.userid == groupMember }
                             groupMemberRepository.delete(focusedMember)
-                            groupRepository.save(
+                            groupLookupService.saveGroup(
                                 group.copy(deleted = true)
                             )
                             loggingService.log(requestingUser, LogType.GROUP_DELETED)
@@ -342,7 +340,7 @@ class GroupService(
         }
 
         //No error, update group last changed
-        groupRepository.save(group.copy(updatedAt = now))
+        groupLookupService.saveGroup(group.copy(updatedAt = now))
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
 
@@ -376,9 +374,9 @@ class GroupService(
     fun deleteExpiredGroups() {
         val yesterday = Clock.System.now().minus(1.days)
 
-        val candidates = groupRepository.findByDeletedFalseAndExpiresAtBefore(yesterday)
+        val candidates = groupLookupService.getExpiredGroups(yesterday)
 
-        groupRepository.saveAll(candidates.map { it.copy(deleted = true) })
+        groupLookupService.saveAllGroups(candidates.map { it.copy(deleted = true) })
     }
 
 
