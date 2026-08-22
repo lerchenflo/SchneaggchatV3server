@@ -154,6 +154,25 @@ class EventService(
         return response
     }
 
+    fun deleteEvent(requestingUser: ObjectId, eventId: String, deleteConnectedGroup: Boolean) {
+        val event = eventsLookupService.findById(eventId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found")
+
+        require(requestingUser == event.creatorId) { "You can not delete this event, you are not the creator" }
+
+        eventsLookupService.deleteEvent(event)
+
+        notificationService.notifyEventUpdate(
+            eventResponse = event.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+            newEntry = false,
+            deleted = true
+        )
+
+        if (deleteConnectedGroup) {
+            groupService.deleteGroup(event.groupId, deletedBy = requestingUser)
+        }
+    }
+
     fun joinEvent(joiningUser: ObjectId, eventJoinRequest: EventJoinRequest): EventJoinResponse {
 
         val event = eventsLookupService.findById(eventJoinRequest.eventId)

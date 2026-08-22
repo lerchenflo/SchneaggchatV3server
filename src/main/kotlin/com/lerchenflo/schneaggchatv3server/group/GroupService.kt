@@ -305,23 +305,7 @@ class GroupService(
 
                         if (newGroupMembers.isEmpty()) {
                             // Last person leaving - delete the group and all members
-                            val focusedMember = groupMembers.first { it.userid == groupMember }
-                            groupMemberRepository.delete(focusedMember)
-                            groupLookupService.saveGroup(
-                                group.copy(deleted = true)
-                            )
-                            loggingService.log(requestingUser, LogType.GROUP_DELETED)
-
-                            // If this group belongs to an event, delete the event too
-                            eventsLookupService.findByGroupId(groupId)?.let { event ->
-                                eventsLookupService.deleteEvent(event)
-                                notificationService.notifyEventUpdate(
-                                    eventResponse = event.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
-                                    newEntry = false,
-                                    deleted = true
-                                )
-                            }
-
+                            deleteGroup(groupId, deletedBy = requestingUser)
                             return // Don't update group lastChanged
                         } else {
                             // Find user with earliest joinedAt timestamp and promote to admin
@@ -396,14 +380,44 @@ class GroupService(
 
 
     /**
+     * Soft-delete a group and all of its members. The single point every group deletion goes through,
+     * so members are always cleaned up, clients are always notified, and a connected event (if any) is
+     * always deleted along with it.
+     */
+    fun deleteGroup(groupId: ObjectId, deletedBy: ObjectId? = null) {
+        val group = groupLookupService.getGroupById(groupId) ?: return
+        val response = groupLookupService.getGroupAsGroupResponse(groupId)
+
+        groupLookupService.getGroupMembers(groupId).forEach { member ->
+            groupMemberRepository.delete(member)
+        }
+
+        groupLookupService.saveGroup(group.copy(deleted = true))
+
+        loggingService.log(deletedBy, LogType.GROUP_DELETED)
+
+        notificationService.notifyGroupUpdate(response, deleted = true)
+
+        // If this group belongs to an event, delete the event too
+        eventsLookupService.findByGroupId(groupId)?.let { event ->
+            eventsLookupService.deleteEvent(event)
+            notificationService.notifyEventUpdate(
+                eventResponse = event.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+                newEntry = false,
+                deleted = true
+            )
+        }
+    }
+
+    /**
      * Delete groups which have expired
      */
     fun deleteExpiredGroups() {
         val now = Clock.System.now()
 
-        val candidates = groupLookupService.getExpiredGroups(now)
-
-        groupLookupService.saveAllGroups(candidates.map { it.copy(deleted = true) })
+        groupLookupService.getExpiredGroups(now).forEach { group ->
+            deleteGroup(group.id)
+        }
     }
 
 

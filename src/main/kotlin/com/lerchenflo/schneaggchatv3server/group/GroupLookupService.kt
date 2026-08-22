@@ -77,10 +77,6 @@ class GroupLookupService(
         return groupRepository.save(group)
     }
 
-    fun saveAllGroups(groups: List<Group>): List<Group> {
-        return groupRepository.saveAll(groups)
-    }
-
     fun getExpiredGroups(before: Instant): List<Group> {
         return groupRepository.findByDeletedFalseAndExpiresAtBefore(before)
     }

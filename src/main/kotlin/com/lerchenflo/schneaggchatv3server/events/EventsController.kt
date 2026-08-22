@@ -8,6 +8,7 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -53,6 +54,22 @@ class EventsController(
         return eventService.upsertEvent(
             upsertingUser = requestingUserId,
             eventRequest = requestBody
+        )
+    }
+
+    @DeleteMapping("/delete")
+    fun deleteEvent(
+        @RequestParam(value = "eventid") eventId: String,
+        @RequestParam(value = "deleteconnectedgroup") deleteConnectedGroup: Boolean,
+    ) {
+        require(ValidationUtils.validateObjectId(eventId)) { "Invalid event id" }
+
+        val requestingUserId = requireAuth()
+
+        eventService.deleteEvent(
+            requestingUser = requestingUserId,
+            eventId = eventId,
+            deleteConnectedGroup = deleteConnectedGroup
         )
     }
 
