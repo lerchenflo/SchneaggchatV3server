@@ -10,6 +10,7 @@ data class GroupResponse(
 
     val createdAt: Long,
     val creatorId: String,
+    val expiresAt: Long?,
     val members: List<GroupMemberResponse>
 )
 

@@ -116,6 +116,7 @@ class GroupService(
                 profilePicUpdatedAt = group.profilePicUpdatedAt.toEpochMilliseconds(),
                 createdAt = group.createdAt.toEpochMilliseconds(),
                 creatorId = group.creatorId.toHexString(),
+                expiresAt = group.expiresAt?.toEpochMilliseconds(),
                 members = members.map { member ->
                     member.toGroupMemberResponse(
                         memberName = userLookupService.getUsername(member.userid)
