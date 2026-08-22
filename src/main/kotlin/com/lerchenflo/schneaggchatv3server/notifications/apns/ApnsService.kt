@@ -108,6 +108,7 @@ class ApnsService(
         groupMessage: Boolean,
         messageType: MessageType,
         groupName: String? = null,
+        groupId: ObjectId? = null,
     ) {
         val senderName = userLookupService.getUsername(senderId)
         val tokens = getTokensForUser(receiverId)
@@ -129,6 +130,7 @@ class ApnsService(
                     encodedContent = encodedContent,
                     senderId = senderId.toHexString(),
                     receiverId = receiverId.toHexString(),
+                    groupId = groupId?.toHexString() ?: "",
                 )
                 sendNotificationToUser(receiverId, notification)
             } catch (e: Exception) {
@@ -152,6 +154,7 @@ class ApnsService(
         groupMessage: Boolean,
         messageType: MessageType,
         groupName: String? = null,
+        groupId: ObjectId? = null,
     ) {
         val reactorName = userLookupService.getUsername(reactorId)
         val tokens = getTokensForUser(receiverId)
@@ -173,6 +176,7 @@ class ApnsService(
                     senderId = reactorId.toHexString(),
                     receiverId = receiverId.toHexString(),
                     reaction = true,
+                    groupId = groupId?.toHexString() ?: "",
                 )
                 sendNotificationToUser(receiverId, notification)
             } catch (e: Exception) {

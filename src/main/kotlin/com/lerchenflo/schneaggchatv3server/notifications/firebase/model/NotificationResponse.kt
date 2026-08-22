@@ -29,7 +29,10 @@ sealed interface NotificationResponse {
         val encodedContent: String,
         val senderId: String,
         val receiverId: String,
-        val reaction: Boolean = false
+        val reaction: Boolean = false,
+        //The chat this notification belongs to when it is a group message. Empty for 1:1
+        //messages, where the chat is identified by senderId instead.
+        val groupId: String = ""
     ) : NotificationResponse
 
     //Response for a friend request notification

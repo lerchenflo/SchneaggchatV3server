@@ -83,6 +83,7 @@ class NotificationService(
                             msgId = message.id.toHexString(),
                             groupMessage = true,
                             groupName = groupName,
+                            groupId = message.receiverId,
                         )
                         apnsService.sendNewMessageNotificationToUser(
                             senderId = message.senderId,
@@ -92,6 +93,7 @@ class NotificationService(
                             msgId = message.id.toHexString(),
                             groupMessage = true,
                             groupName = groupName,
+                            groupId = message.receiverId,
                         )
                     }
                 }
@@ -378,6 +380,8 @@ class NotificationService(
             groupLookupService.getGroupById(message.receiverId)?.name ?: "Unknown Group"
         } else null
 
+        val groupId = if (message.groupMessage) message.receiverId else null
+
         firebaseMessagingService.sendReactionNotificationToUser(
             reactorId = reactorId,
             receiverId = recipient,
@@ -386,6 +390,7 @@ class NotificationService(
             groupMessage = message.groupMessage,
             messageType = message.msgType,
             groupName = groupName,
+            groupId = groupId,
         )
         apnsService.sendReactionNotificationToUser(
             reactorId = reactorId,
@@ -395,6 +400,7 @@ class NotificationService(
             groupMessage = message.groupMessage,
             messageType = message.msgType,
             groupName = groupName,
+            groupId = groupId,
         )
     }
 

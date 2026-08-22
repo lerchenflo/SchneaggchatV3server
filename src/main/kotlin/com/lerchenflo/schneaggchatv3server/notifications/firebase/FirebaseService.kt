@@ -106,6 +106,7 @@ class FirebaseService(
         groupMessage: Boolean,
         messageType: MessageType,
         groupName: String? = null,
+        groupId: ObjectId? = null,
     ) {
         val senderName = userLookupService.getUsername(senderId)
 
@@ -129,7 +130,8 @@ class FirebaseService(
                     groupName = groupName ?: "",
                     encodedContent = encodedContent,
                     senderId = senderId.toHexString(),
-                    receiverId = receiverId.toHexString()
+                    receiverId = receiverId.toHexString(),
+                    groupId = groupId?.toHexString() ?: "",
                 )
 
                 // Reuse the generic sender
@@ -156,6 +158,7 @@ class FirebaseService(
         groupMessage: Boolean,
         messageType: MessageType,
         groupName: String? = null,
+        groupId: ObjectId? = null,
     ) {
         val reactorName = userLookupService.getUsername(reactorId)
 
@@ -179,6 +182,7 @@ class FirebaseService(
                     senderId = reactorId.toHexString(),
                     receiverId = receiverId.toHexString(),
                     reaction = true,
+                    groupId = groupId?.toHexString() ?: "",
                 )
 
                 sendNotificationToUser(receiverId, notification)
