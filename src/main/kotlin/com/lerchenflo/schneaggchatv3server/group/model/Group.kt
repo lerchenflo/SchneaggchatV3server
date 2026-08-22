@@ -19,6 +19,9 @@ data class Group(
     val updatedAt: Instant,
     val profilePicUpdatedAt: Instant = updatedAt,
 
+    val expiresAt: Instant? = null,
+    val deleted: Boolean = false,
+
     val createdAt: Instant,
     val creatorId: ObjectId
 

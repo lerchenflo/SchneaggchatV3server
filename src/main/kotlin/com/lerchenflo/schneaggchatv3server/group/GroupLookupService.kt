@@ -10,6 +10,7 @@ import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
+import kotlin.jvm.optionals.getOrNull
 
 @Service
 class GroupLookupService(
@@ -21,6 +22,8 @@ class GroupLookupService(
         return groupMemberRepository.findByuserid(userId)
             .map { it.groupId }
     }
+
+    //TODO: CHECK EVERY QUERY FOR DELETED = FALSE
 
     fun getUserGroupIdsLastchanged(userId: ObjectId): List<UserService.IdTimeStamp> {
         val usergroups = getUserGroupIds(userId)
@@ -66,9 +69,7 @@ class GroupLookupService(
 
     fun getGroupById(groupId: ObjectId): Group? {
         val group = groupRepository.findById(groupId)
-        return if (group.isPresent) {
-            group.get()
-        } else null
+        return group.getOrNull()
     }
 
     fun removeGroupMember(groupId: ObjectId, userId: ObjectId) : Boolean {

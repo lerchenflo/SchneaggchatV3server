@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.core
 
+import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserLocationRepository
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
@@ -11,6 +12,7 @@ import kotlin.time.Clock
 class DatabaseCleanupTask(
     private val refreshTokenRepository: RefreshTokenRepository,
     private val userLocationRepository: UserLocationRepository,
+    private val groupService: GroupService,
 ) {
 
     /**
@@ -30,7 +32,6 @@ class DatabaseCleanupTask(
             AppLogger.info("Deleted ${deletedUserlocationsCount} user locations")
         }*/
 
-        //TODO: Delete groups which have expired
-        // groupRepository.deleteExpiredGroups()
+        groupService.deleteExpiredGroups()
     }
 }

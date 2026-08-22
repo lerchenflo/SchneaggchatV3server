@@ -25,6 +25,8 @@ import org.springframework.stereotype.Component
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -290,7 +292,9 @@ class GroupService(
                             // Last person leaving - delete the group and all members
                             val focusedMember = groupMembers.first { it.userid == groupMember }
                             groupMemberRepository.delete(focusedMember)
-                            groupRepository.delete(group)
+                            groupRepository.save(
+                                group.copy(deleted = true)
+                            )
                             loggingService.log(requestingUser, LogType.GROUP_DELETED)
                             return // Don't update group lastChanged
                         } else {
@@ -364,6 +368,17 @@ class GroupService(
         }
     }
 
+
+    /**
+     * Delete groups which have expired 24h ago or more
+     */
+    fun deleteExpiredGroups() {
+        val yesterday = Clock.System.now().minus(1.days)
+
+        val candidates = groupRepository.findByDeletedFalseAndExpiresAtBefore(yesterday)
+
+        groupRepository.saveAll(candidates.map { it.copy(deleted = true) })
+    }
 
 
 }
