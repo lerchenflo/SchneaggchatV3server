@@ -2,7 +2,6 @@ package com.lerchenflo.schneaggchatv3server.message
 
 import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
-import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -136,21 +135,24 @@ class MessageController(
 
 
 
-    @PostMapping("/sync")
+    /**
+     * Version-based incremental sync: the client sends only the highest `version` it has already
+     * seen (0 on first sync), and gets back everything newer plus the ids of anything deleted since.
+     * Replaces the old id/timestamp-list based sync - see docs/CLIENT_SYNC_MIGRATION.md.
+     */
+    @GetMapping("/sync")
     fun messageSync(
-       @RequestParam(value = "page", defaultValue = "0") page: Int,
+       @RequestParam(value = "since", defaultValue = "0") since: Long,
        @RequestParam(value = "page_size", defaultValue = "400") pageSize: Int,
-       @RequestBody messageRequestList: List<UserService.IdTimeStamp>
     ): MessageService.MessageSyncResponse {
-        require(ValidationUtils.validatePaginationPage(page)) { "Invalid page number" }
+        require(ValidationUtils.validateSyncVersion(since)) { "Invalid since version" }
         require(ValidationUtils.validatePaginationPageSize(pageSize)) { "Invalid page size" }
 
         val requestingUserId = requireAuth()
 
         return messageService.messageSync(
-            clientMessages = messageRequestList,
+            since = since,
             requestingUser = requestingUserId,
-            page = page,
             pageSize = pageSize,
         )
 

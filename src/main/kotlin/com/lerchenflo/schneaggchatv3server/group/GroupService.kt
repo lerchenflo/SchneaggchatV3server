@@ -42,6 +42,7 @@ class GroupService(
     private val friendsService: FriendsService,
     private val friendsLookupService: FriendsLookupService,
     private val loggingService: LoggingService,
+    private val versionCounterService: VersionCounterService,
 ) {
 
     fun createGroup(groupName: String, members: List<ObjectId>, creatorId: ObjectId, description: String, profilePic: MultipartFile?, createdFromEvent: Boolean, expiresAt: Instant? = null) : Group {
@@ -90,6 +91,8 @@ class GroupService(
         val memberColors = ColorGenerator.generateUniqueColorsForGroup(existingColors, membersInternal.size)
         val memberColorMap = membersInternal.zip(memberColors).toMap()
 
+        val joinedAtVersion = versionCounterService.current(SyncCollection.MESSAGES)
+
         val members = groupMemberRepository.saveAll(
             membersInternal.mapIndexed { index, userId ->
                 GroupMember(
@@ -97,7 +100,8 @@ class GroupService(
                     groupId = group.id,
                     joinedAt = currentTime,
                     admin = (userId == creatorId),
-                    color = memberColorMap[userId]!!
+                    color = memberColorMap[userId]!!,
+                    joinedAtVersion = joinedAtVersion,
                 )
             }
         )
@@ -371,7 +375,8 @@ class GroupService(
                 groupId = groupId,
                 joinedAt = timeStamp,
                 admin = false,
-                color = newColor
+                color = newColor,
+                joinedAtVersion = versionCounterService.current(SyncCollection.MESSAGES),
             ))
         } catch (e: DuplicateKeyException) {
             throw IllegalArgumentException("User is already in this group")

@@ -6,15 +6,20 @@ import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.group.model.Group
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.SchneaggmapService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
+import com.lerchenflo.schneaggchatv3server.util.SyncCollection
+import com.lerchenflo.schneaggchatv3server.util.VersionCounterService
 import com.mongodb.MongoNamespace
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
+import org.springframework.data.domain.Sort
+import org.springframework.data.mongodb.core.BulkOperations
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.aggregation.AggregationUpdate
 import org.springframework.data.mongodb.core.aggregation.SetOperation
@@ -45,6 +50,8 @@ class MainController(
 
     private val schneaggmapService: SchneaggmapService,
 
+    private val versionCounterService: VersionCounterService,
+
     ){
 
     @GetMapping("/public/test")
@@ -60,6 +67,7 @@ class MainController(
         migrateLastSeen()
 
         migrateReactionTimestamps()
+        migrateMessageVersions()
 
         val testaccount = userService.ensureTestaccount()
         schneaggmapService.importLegacyMapEntries(testaccount.id)
@@ -224,6 +232,40 @@ class MainController(
         } else {
             AppLogger.success("Migration check: All reactions already have a reactedAt field")
         }
+    }
+
+    /**
+     * Backfills `Message.version` for documents written before version-based sync existed
+     * (see `MessageService.messageSync` / `docs/CLIENT_SYNC_MIGRATION.md`). Reserves one
+     * contiguous block of versions and assigns them in `sendDate` ascending order, so historical
+     * message order matches version order for a client's very first version-based sync. No-op
+     * once every message already has a `version`.
+     */
+    fun migrateMessageVersions() {
+        AppLogger.info("Running message version migration...")
+
+        val query = Query(Criteria.where("version").exists(false))
+            .with(Sort.by(Sort.Direction.ASC, "sendDate"))
+
+        val messagesMissingVersion = mongoTemplate.find(query, Message::class.java)
+
+        if (messagesMissingVersion.isEmpty()) {
+            AppLogger.success("Migration check: All messages already have a version field")
+            return
+        }
+
+        val versions = versionCounterService.reserve(SyncCollection.MESSAGES, messagesMissingVersion.size)
+
+        val bulkOps = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, Message::class.java)
+        messagesMissingVersion.forEachIndexed { index, message ->
+            bulkOps.updateOne(
+                Query(Criteria.where("_id").`is`(message.id)),
+                Update().set("version", versions.first + index),
+            )
+        }
+        val result = bulkOps.execute()
+
+        AppLogger.success("Migration completed: Assigned version to ${result.modifiedCount} messages")
     }
 
     /**

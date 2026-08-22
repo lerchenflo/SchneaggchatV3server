@@ -232,6 +232,14 @@ object ValidationUtils {
     }
 
     /**
+     * Validates a `since` version cursor for version-based sync endpoints
+     * - Must be non-negative (0 means "never synced")
+     */
+    fun validateSyncVersion(version: Long): Boolean {
+        return version >= 0
+    }
+
+    /**
      * Validates a timestamp (epoch millis)
      * - Must be positive
      * - Must not be more than 1 minute in the future

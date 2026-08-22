@@ -27,6 +27,16 @@ class GroupLookupService(
         return getNonDeletedGroups(getMemberGroupIds(userId)).map { it.id }
     }
 
+    /**
+     * Groups [userId] joined after message-sync version [version] was already reached, i.e. groups
+     * whose history is not yet covered by the client's `since` cursor. `/messages/sync` sends the
+     * full message history for these groups regardless of `since` - see `GroupMember.joinedAtVersion`.
+     */
+    fun getGroupIdsJoinedAfterVersion(userId: ObjectId, version: Long): List<ObjectId> {
+        return groupMemberRepository.findByUseridAndJoinedAtVersionGreaterThan(userId, version)
+            .map { it.groupId }
+    }
+
     fun getUserGroupIdsLastchanged(userId: ObjectId): List<UserService.IdTimeStamp> {
         return getNonDeletedGroups(getMemberGroupIds(userId)).map { group ->
             UserService.IdTimeStamp(
