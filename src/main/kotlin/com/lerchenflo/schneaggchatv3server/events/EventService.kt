@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.lerchenflo.schneaggchatv3server.events
 
 import com.google.protobuf.LazyStringArrayList.emptyList
@@ -19,6 +21,8 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @Service
@@ -102,6 +106,11 @@ class EventService(
 
         val now = Clock.System.now()
 
+        val startDate = Instant.fromEpochMilliseconds(eventRequest.startDate)
+        val closeDate = eventRequest.closeDate?.let { Instant.fromEpochMilliseconds(it) }
+        //Group expiry stays in sync with the event: closeDate (or startDate if there's no closeDate) plus one day
+        val groupExpiresAt = (closeDate ?: startDate) + 1.days
+
         val groupId = existing?.groupId
             ?: groupService.createGroup(
                 groupName = "event - " + eventRequest.title.trim().take(16),
@@ -109,8 +118,13 @@ class EventService(
                 creatorId = upsertingUser,
                 description = (eventRequest.description).take(200),
                 profilePic = null,
-                createdFromEvent = true
+                createdFromEvent = true,
+                expiresAt = groupExpiresAt
             ).id
+
+        if (existing != null) {
+            groupService.setGroupExpiresAt(groupId, groupExpiresAt)
+        }
 
         val event = Event(
             id = existing?.id ?: ObjectId.get(),
@@ -120,8 +134,8 @@ class EventService(
             description = eventRequest.description,
             groupId = groupId,
             location = eventRequest.location,
-            startDate = Instant.fromEpochMilliseconds(eventRequest.startDate),
-            closeDate = eventRequest.closeDate?.let {Instant.fromEpochMilliseconds(it)},
+            startDate = startDate,
+            closeDate = closeDate,
             invitedUsers = eventRequest.invitedUsers.map { ObjectId(it) },
             public = eventRequest.public,
             createdAt = existing?.createdAt ?: now,

@@ -2,6 +2,8 @@
 
 package com.lerchenflo.schneaggchatv3server.group
 
+import com.lerchenflo.schneaggchatv3server.events.EventsLookupService
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
@@ -24,8 +26,6 @@ import org.springframework.stereotype.Component
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Clock
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.days
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -33,6 +33,7 @@ import kotlin.time.Instant
 class GroupService(
     private val groupMemberRepository: GroupMemberRepository,
     private val groupLookupService: GroupLookupService,
+    private val eventsLookupService: EventsLookupService,
     private val userLookupService: UserLookupService,
 
     private val notificationService: NotificationService,
@@ -43,7 +44,7 @@ class GroupService(
     private val loggingService: LoggingService,
 ) {
 
-    fun createGroup(groupName: String, members: List<ObjectId>, creatorId: ObjectId, description: String, profilePic: MultipartFile?, createdFromEvent: Boolean) : Group {
+    fun createGroup(groupName: String, members: List<ObjectId>, creatorId: ObjectId, description: String, profilePic: MultipartFile?, createdFromEvent: Boolean, expiresAt: Instant? = null) : Group {
 
         //Try to add creator (Set prevents duplicate members)
         val membersInternal: Set<ObjectId> = members.toSet() + creatorId
@@ -71,7 +72,8 @@ class GroupService(
                 updatedAt = currentTime,
                 profilePicUpdatedAt = currentTime,
                 createdAt = currentTime,
-                creatorId = creatorId
+                creatorId = creatorId,
+                expiresAt = expiresAt
             )
         )
 
@@ -234,6 +236,20 @@ class GroupService(
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
     }
 
+    /**
+     * Keep a group's expiry in sync with the event it belongs to (event startDate, or closeDate if set, plus one day)
+     */
+    fun setGroupExpiresAt(groupId: ObjectId, expiresAt: Instant) {
+        val group = groupLookupService.getGroupById(groupId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
+
+        if (group.expiresAt == expiresAt) return
+
+        groupLookupService.saveGroup(group.copy(expiresAt = expiresAt, updatedAt = Clock.System.now()))
+
+        notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+    }
+
 
     enum class GroupMemberAction {
         ADD_USER,
@@ -295,6 +311,17 @@ class GroupService(
                                 group.copy(deleted = true)
                             )
                             loggingService.log(requestingUser, LogType.GROUP_DELETED)
+
+                            // If this group belongs to an event, delete the event too
+                            eventsLookupService.findByGroupId(groupId)?.let { event ->
+                                eventsLookupService.deleteEvent(event)
+                                notificationService.notifyEventUpdate(
+                                    eventResponse = event.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+                                    newEntry = false,
+                                    deleted = true
+                                )
+                            }
+
                             return // Don't update group lastChanged
                         } else {
                             // Find user with earliest joinedAt timestamp and promote to admin
@@ -369,12 +396,12 @@ class GroupService(
 
 
     /**
-     * Delete groups which have expired 24h ago or more
+     * Delete groups which have expired
      */
     fun deleteExpiredGroups() {
-        val yesterday = Clock.System.now().minus(1.days)
+        val now = Clock.System.now()
 
-        val candidates = groupLookupService.getExpiredGroups(yesterday)
+        val candidates = groupLookupService.getExpiredGroups(now)
 
         groupLookupService.saveAllGroups(candidates.map { it.copy(deleted = true) })
     }

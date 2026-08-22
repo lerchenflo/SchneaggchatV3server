@@ -27,8 +27,16 @@ class EventsLookupService(
         return findById(ObjectId(eventId))
     }
 
+    fun findByGroupId(groupId: ObjectId): Event? {
+        return eventRepository.findByGroupId(groupId)
+    }
+
     fun save(event: Event): Event {
         return eventRepository.save(event)
+    }
+
+    fun deleteEvent(event: Event) {
+        eventRepository.delete(event)
     }
 
 }
