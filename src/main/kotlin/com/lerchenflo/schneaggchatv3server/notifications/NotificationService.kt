@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.notifications
 
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
@@ -344,8 +345,13 @@ class NotificationService(
 
     fun notifyEventUpdate(eventResponse: EventResponse, newEntry: Boolean, deleted: Boolean) {
 
-        //TODO: If event is public, notify everyone?
-        val toNotify = eventResponse.invitedUsers.toSet()
+        val toNotify = when (eventResponse.visibility) {
+            // Only explicitly invited users can see this event
+            EventVisibility.INVITED_FRIENDS_ONLY -> eventResponse.invitedUsers.toSet()
+            // Everyone who can access the event (invited users + the creator's friends) gets notified
+            EventVisibility.FRIENDS_ONLY, EventVisibility.PUBLIC ->
+                (eventResponse.invitedUsers + friendsLookupService.getFriends(ObjectId(eventResponse.creatorId)).map { it.toHexString() }).toSet()
+        }
 
         toNotify.forEach { user ->
             socketConnectionHandler.sendMessage(

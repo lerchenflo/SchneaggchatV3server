@@ -26,7 +26,7 @@ data class Event(
 
     val invitedUsers: List<ObjectId>,
 
-    val public: Boolean,
+    val visibility: EventVisibility,
 
     val createdAt: Instant,
     val updatedAt: Instant,

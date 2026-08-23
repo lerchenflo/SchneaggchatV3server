@@ -9,6 +9,7 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
@@ -140,7 +141,7 @@ class EventService(
             startDate = startDate,
             closeDate = closeDate,
             invitedUsers = eventRequest.invitedUsers.map { ObjectId(it) },
-            public = eventRequest.public,
+            visibility = eventRequest.visibility,
             createdAt = existing?.createdAt ?: now,
             updatedAt = now,
             updatedBy = upsertingUser,
@@ -207,7 +208,7 @@ class EventService(
 
         systemMessageService.groupEvent(
             groupId = event.groupId,
-            eventType = SystemEventType.GROUP_MEMBER_ADDED,
+            eventType = SystemEventType.GROUP_MEMBER_JOINED_EVENT,
             actorId = joiningUser,
         )
 
@@ -227,8 +228,11 @@ class EventService(
 
     private fun canAccessEvent(requesterId: ObjectId, event: Event, friends: List<ObjectId>): Boolean {
         if (event.creatorId == requesterId) return true
-        return event.public  || //Public events all get synched
-                event.creatorId in friends //Private events only from my friends
+        return when (event.visibility) {
+            EventVisibility.PUBLIC -> true //Public events all get synched
+            EventVisibility.FRIENDS_ONLY -> event.creatorId in friends //Only the creator's friends can access
+            EventVisibility.INVITED_FRIENDS_ONLY -> requesterId in event.invitedUsers //Only explicitly invited users can access
+        }
     }
 
 

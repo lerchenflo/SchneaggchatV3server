@@ -12,7 +12,7 @@ data class EventRequest(
     val startDate: Long,
     val closeDate: Long?,
     val invitedUsers: List<String>,
-    val public: Boolean,
+    val visibility: EventVisibility,
 )
 
 
