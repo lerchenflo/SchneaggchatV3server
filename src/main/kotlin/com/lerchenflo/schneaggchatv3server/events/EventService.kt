@@ -154,6 +154,17 @@ class EventService(
             deleted = false
         )
 
+        // Only for an actual update - a brand-new event's group already gets its own
+        // GROUP_CREATED system message from groupService.createGroup above.
+        if (existing != null) {
+            systemMessageService.groupEvent(
+                groupId = groupId,
+                eventType = SystemEventType.EVENT_CHANGED,
+                actorId = upsertingUser,
+                text = event.title,
+            )
+        }
+
         return response
     }
 
