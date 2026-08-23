@@ -7,10 +7,6 @@ import java.io.File
 
 @Component
 class AudioManager {
-    companion object {
-        // todo maby change to be smaller for audio messages
-        private const val MAX_FILE_SIZE_BYTES = 700 * 1024 // 700KB
-    }
 
     fun loadMessageAudioFromFile(fileName: String): ByteArray {
         val audiosDir = File("/app/audio_messages")

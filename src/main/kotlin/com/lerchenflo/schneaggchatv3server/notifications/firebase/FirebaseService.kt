@@ -438,7 +438,6 @@ class FirebaseService(
                     .setAps(
                         Aps.builder()
                             .setContentAvailable(true) //Allow background work on ios
-                            //.setBadge(1) //TODO: Get correct unread message count
                         .build())
 
                     .build()

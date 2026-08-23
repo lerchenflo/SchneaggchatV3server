@@ -231,6 +231,15 @@ class UserService(
         notificationService.notifyUserUpdate(updatedUser, deleted = false)
     }
 
+    fun getProfilePic(requestingUserId: ObjectId, userId: ObjectId): ByteArray? {
+        return try {
+            val imageName = imageManager.getProfilePicFileName(userId.toHexString(), false)
+            imageManager.loadProfilePicFromFile(imageName)
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
     fun changeProfilepic(requestingUserId: ObjectId, newPic: MultipartFile){
         val user = userRepository.findById(requestingUserId).get()
 

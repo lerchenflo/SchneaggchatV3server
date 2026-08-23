@@ -9,9 +9,10 @@ import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseServic
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
-import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -26,7 +27,6 @@ class UserController(
     private val userService: UserService,
     private val friendshipsService: FriendsService,
     private val emailService: EmailService,
-    private val imageManager: ImageManager,
 
     private val firebaseService: FirebaseService,
     private val apnsService: ApnsService,
@@ -40,15 +40,16 @@ class UserController(
     }
 
 
-    //TODO: Input validation
     data class NotificationTokenRequest(
+        @field:NotBlank(message = "Token must not be blank")
+        @field:Size(max = 2000, message = "Token too long")
         val token: String,
         val isAndroid: Boolean
     )
 
     @PostMapping("/setnotificationtoken")
     fun setNotificationToken(
-        @RequestBody request: NotificationTokenRequest
+        @Valid @RequestBody request: NotificationTokenRequest
     ) {
         require(ValidationUtils.validateNotificationToken(request.token, request.isAndroid)) { "Invalid notification token" }
 
@@ -109,17 +110,12 @@ class UserController(
         require(ValidationUtils.validateObjectId(userId)) { "Invalid user ID" }
         val requestingUserId = requireAuth()
 
+        val imageBytes = userService.getProfilePic(requestingUserId, ObjectId(userId))
+            ?: return ResponseEntity.notFound().build()
 
-        //TODO: Move into userservice
-        return try {
-            val imageName = imageManager.getProfilePicFileName(userId, false)
-            val imageBytes = imageManager.loadProfilePicFromFile(imageName)
-            ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_JPEG)
-                .body(imageBytes)
-        } catch (e: IllegalArgumentException) {
-            ResponseEntity.notFound().build()
-        }
+        return ResponseEntity.ok()
+            .contentType(MediaType.IMAGE_JPEG)
+            .body(imageBytes)
     }
 
     @PostMapping("/setprofilepic")
@@ -234,23 +230,20 @@ class UserController(
     }
 
 
-    // TODO: These friendship mutation endpoints should use POST, not GET (REST correctness; safe currently since JWT is in header, not cookie)
-    @GetMapping("/addfriend/{id}")
+    @PostMapping("/addfriend/{id}")
     fun sendFriendRequest(
         @PathVariable("id") touserId: String
     ) {
         require(ValidationUtils.validateObjectId(touserId)) { "Invalid user ID" }
         val requestingUserId = requireAuth()
 
-        val friendship = friendshipsService.sendFriendRequest(
+        friendshipsService.sendFriendRequest(
             fromUserId = requestingUserId,
             toUserId = ObjectId(touserId)
         )
-
-        //println("Friend request: $friendship")
     }
 
-    @GetMapping("/denyfriend/{id}")
+    @PostMapping("/denyfriend/{id}")
     fun denyFriendRequest(
         @PathVariable("id") touserId: String
     ) {
@@ -264,7 +257,7 @@ class UserController(
         )
     }
 
-    @GetMapping("/removefriend/{id}")
+    @PostMapping("/removefriend/{id}")
     fun removeFriend(
         @PathVariable("id") removedfriend: String
     ) {

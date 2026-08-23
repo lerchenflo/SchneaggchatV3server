@@ -81,7 +81,25 @@ class MessageService(
             POLL -> {
                 require(content is MessageContent.Poll) { "Pollmessage with empty poll" }
 
-                //TODO: Add poll field validation (title, description, maxAnswers, maxAllowedCustomAnswers, voteOptions count)
+                require(ValidationUtils.validatePollTitle(content.poll.title)) { "Invalid poll title" }
+                require(ValidationUtils.validatePollDescription(content.poll.description)) { "Invalid poll description" }
+                require(content.poll.voteOptions.size <= 20) { "Poll can have at most 20 vote options" }
+                //A poll needs predefined options unless it's custom-answers-only
+                if (!content.poll.customAnswersEnabled) {
+                    require(content.poll.voteOptions.isNotEmpty()) { "Poll must have at least 1 vote option unless custom answers are enabled" }
+                }
+                content.poll.maxAnswers?.let {
+                    require(it in 1..20) { "Invalid maxAnswers" }
+                    //Without custom answers, users can't select more distinct answers than exist
+                    if (!content.poll.customAnswersEnabled) {
+                        require(it <= content.poll.voteOptions.size) { "maxAnswers can't exceed the number of vote options" }
+                    }
+                }
+                content.poll.maxAllowedCustomAnswers?.let {
+                    require(content.poll.customAnswersEnabled) { "maxAllowedCustomAnswers set but custom answers disabled" }
+                    require(it in 1..20) { "Invalid maxAllowedCustomAnswers" }
+                }
+
                 if (content.poll.closeDate != null) {
                     require(content.poll.closeDate > Clock.System.now()) { "Poll closedate is in the past" }
                 }
@@ -94,14 +112,7 @@ class MessageService(
 
                 require(content is MessageContent.Audio) { "Audio message type must be Audio" }
 
-                /*
-                if (content.text.isNotEmpty()) {
-                    require(ValidationUtils.validateStringMessage(content.text)) { "Invalid text message" }
-                }
-
-                 */
-
-                //TODO Audio validation
+                require(ValidationUtils.validateAudio(content.audio)) { "Invalid audio" }
             }
 
             SYSTEM -> {
@@ -356,7 +367,7 @@ class MessageService(
 
         val message = canUserAccessMessage(messageId, editingUserId)
 
-        require(message.msgType == MessageType.TEXT || message.msgType == MessageType.IMAGE) { "You can not edit a ${message.msgType} message" }
+        require(message.msgType == MessageType.TEXT || message.msgType == IMAGE) { "You can not edit a ${message.msgType} message" }
 
         //User can access message, change content
         val now = Clock.System.now()
