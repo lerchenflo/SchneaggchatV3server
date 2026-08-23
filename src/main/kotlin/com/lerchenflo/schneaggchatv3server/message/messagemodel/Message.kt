@@ -21,6 +21,14 @@ import kotlin.time.Instant
 data class Message(
     val id: ObjectId = ObjectId.get(),
 
+    /**
+     * For `msgType == SYSTEM && groupMessage`, this is the **group id**, not a user id - the group
+     * "speaks for itself" so sync visibility, delete permission and
+     * [com.lerchenflo.schneaggchatv3server.recap.RecapService] sent-message stats aren't affected
+     * by who performed the action (see [com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService]).
+     * The actor is recorded in `systemEvent.actorId` instead. Every other message (including
+     * direct SYSTEM messages) has a real user id here.
+     */
     @Indexed
     val senderId: ObjectId,
     @Indexed
@@ -31,6 +39,7 @@ data class Message(
 
     val content: String,
     val poll: PollMessage? = null,
+    val systemEvent: SystemEvent? = null,
 
     val sendDate: Instant,
     val lastChanged: Instant,
@@ -69,7 +78,8 @@ enum class MessageType {
     TEXT,
     IMAGE,
     POLL,
-    AUDIO
+    AUDIO,
+    SYSTEM
 }
 
 fun Message.toMessageResponse(requestingUserId: ObjectId) : MessageResponse {
@@ -83,6 +93,7 @@ fun Message.toMessageResponse(requestingUserId: ObjectId) : MessageResponse {
         content = this.content,
 
         pollResponse = this.poll?.toPollMessageResponse(requestingUserId),
+        systemEventResponse = this.systemEvent?.toSystemEventResponse(),
 
         answerId = this.answerId?.toHexString(),
         sendDate = this.sendDate.toEpochMilliseconds(),

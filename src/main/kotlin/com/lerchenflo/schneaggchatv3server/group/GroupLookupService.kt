@@ -28,12 +28,18 @@ class GroupLookupService(
     }
 
     /**
-     * Groups [userId] joined after message-sync version [version] was already reached, i.e. groups
-     * whose history is not yet covered by the client's `since` cursor. `/messages/sync` sends the
-     * full message history for these groups regardless of `since` - see `GroupMember.joinedAtVersion`.
+     * Groups [userId] joined at-or-after message-sync version [version] was already reached, i.e.
+     * groups whose history is not yet covered by the client's `since` cursor. `/messages/sync`
+     * sends the full message history for these groups regardless of `since` -
+     * see `GroupMember.joinedAtVersion`.
+     *
+     * `>=`, not `>`: a client whose cursor is exactly caught up (`since == joinedAtVersion`, e.g.
+     * it was already fully synced right when it got added) must still get full-history replay for
+     * the group, or it would only ever see messages versioned strictly after its own join and miss
+     * everything up to and including it - including the "you were added" system message itself.
      */
     fun getGroupIdsJoinedAfterVersion(userId: ObjectId, version: Long): List<ObjectId> {
-        return groupMemberRepository.findByUseridAndJoinedAtVersionGreaterThan(userId, version)
+        return groupMemberRepository.findByUseridAndJoinedAtVersionGreaterThanEqual(userId, version)
             .map { it.groupId }
     }
 

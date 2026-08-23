@@ -8,6 +8,8 @@ import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.group.model.toGroupMemberResponse
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.SystemEventType
+import com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.GroupMemberRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
@@ -37,6 +39,7 @@ class GroupService(
     private val userLookupService: UserLookupService,
 
     private val notificationService: NotificationService,
+    private val systemMessageService: SystemMessageService,
 
     private val imageManager: ImageManager,
     private val friendsService: FriendsService,
@@ -130,6 +133,13 @@ class GroupService(
             deleted = false
         )
 
+        systemMessageService.groupEvent(
+            groupId = group.id,
+            eventType = SystemEventType.GROUP_CREATED,
+            actorId = creatorId,
+            text = group.name,
+        )
+
         return group
     }
 
@@ -205,6 +215,12 @@ class GroupService(
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
 
+        systemMessageService.groupEvent(
+            groupId = groupId,
+            eventType = SystemEventType.GROUP_PICTURE_CHANGED,
+            actorId = userId,
+        )
+
     }
 
     fun changeGroupDescription(userId: ObjectId, groupId: ObjectId, newDescription: String) {
@@ -222,6 +238,12 @@ class GroupService(
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
 
+        systemMessageService.groupEvent(
+            groupId = groupId,
+            eventType = SystemEventType.GROUP_DESCRIPTION_CHANGED,
+            actorId = userId,
+        )
+
     }
 
     fun changeGroupName(userId: ObjectId, groupId: ObjectId, newName: String) {
@@ -238,6 +260,14 @@ class GroupService(
         ))
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+
+        systemMessageService.groupEvent(
+            groupId = groupId,
+            eventType = SystemEventType.GROUP_NAME_CHANGED,
+            actorId = userId,
+            text = newName,
+            previousText = group.name,
+        )
     }
 
     /**
@@ -283,6 +313,11 @@ class GroupService(
 
         val now = Clock.System.now()
 
+        // Captured while running the mutation below, then emitted once at the very end - after
+        // the group has been notified, so a client (e.g. one just ADD_USER'd) always learns the
+        // group exists before it receives a system message addressed to it.
+        var pendingEvent: SystemEventType? = null
+
         when (userAction) {
             GroupMemberAction.ADD_USER -> {
                 require(groupLookupService.isAdmin(requestingUser, groupMembers)) {"You are not an admin"}
@@ -292,6 +327,8 @@ class GroupService(
                     memberId = groupMember,
                     timeStamp = now
                 )
+
+                pendingEvent = SystemEventType.GROUP_MEMBER_ADDED
             }
             GroupMemberAction.REMOVE_USER -> {
                 require(groupLookupService.isUserInGroup(groupMember, groupId)) {"User is not in this group"}
@@ -310,7 +347,7 @@ class GroupService(
                         if (newGroupMembers.isEmpty()) {
                             // Last person leaving - delete the group and all members
                             deleteGroup(groupId, deletedBy = requestingUser)
-                            return // Don't update group lastChanged
+                            return // Don't update group lastChanged, no system message - no chat left
                         } else {
                             // Find user with earliest joinedAt timestamp and promote to admin
                             val longestMember = newGroupMembers.minBy { it.joinedAt }
@@ -322,6 +359,12 @@ class GroupService(
                 // Remove the member
                 val focusedMember = groupMembers.first { it.userid == groupMember }
                 groupMemberRepository.delete(focusedMember)
+
+                pendingEvent = if (requestingUser == groupMember) {
+                    SystemEventType.GROUP_MEMBER_LEFT
+                } else {
+                    SystemEventType.GROUP_MEMBER_REMOVED
+                }
             }
 
             GroupMemberAction.MAKE_ADMIN -> {
@@ -335,6 +378,8 @@ class GroupService(
                 groupMemberRepository.save(focusedMember.copy(
                     admin = true
                 ))
+
+                pendingEvent = SystemEventType.GROUP_ADMIN_GRANTED
             }
             GroupMemberAction.REMOVE_ADMIN -> {
                 require(groupLookupService.isAdmin(requestingUser, groupMembers)) {"You are not an admin"}
@@ -351,6 +396,8 @@ class GroupService(
                 groupMemberRepository.save(focusedMember.copy(
                     admin = false
                 ))
+
+                pendingEvent = SystemEventType.GROUP_ADMIN_REVOKED
             }
         }
 
@@ -358,6 +405,17 @@ class GroupService(
         groupLookupService.saveGroup(group.copy(updatedAt = now))
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+
+        pendingEvent.let { eventType ->
+            // GROUP_MEMBER_LEFT has no separate target - the actor is the subject of their own event.
+            val targets = if (eventType == SystemEventType.GROUP_MEMBER_LEFT) emptyList() else listOf(groupMember)
+            systemMessageService.groupEvent(
+                groupId = groupId,
+                eventType = eventType,
+                actorId = requestingUser,
+                targets = targets,
+            )
+        }
 
     }
 

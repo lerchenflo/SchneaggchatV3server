@@ -142,6 +142,35 @@ class NotificationService(
     }
 
 
+    /**
+     * Push a server-authored `MessageType.SYSTEM` message (group change, friend accepted, wake -
+     * see [com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService]) live over the
+     * socket. Socket-only, no FCM/APNs fallback - offline clients pick it up on their next
+     * `/messages/sync`, exactly like [notifyGroupUpdate] and [notifyMapUpdate].
+     *
+     * Unlike [notifyMessageUpdate], this fans out to **every** participant including the actor:
+     * a system message has no HTTP response body to carry it back to whoever performed the
+     * action, so their own devices only learn about it here.
+     */
+    fun notifySystemMessage(message: Message) {
+        val recipients = if (message.groupMessage) {
+            groupLookupService.getGroupMembers(message.receiverId).map { it.userid }
+        } else {
+            listOf(message.senderId, message.receiverId)
+        }
+
+        recipients.distinct().forEach { recipientId ->
+            socketConnectionHandler.sendMessage(
+                message = SocketConnectionMessage.MessageChange(
+                    message = message.toMessageResponse(recipientId),
+                    newMessage = true,
+                    deleted = false,
+                ),
+                receiverId = recipientId,
+            )
+        }
+    }
+
     @OptIn(ExperimentalTime::class)
     fun notifyUserUpdate(user: User, deleted: Boolean) {
         // Notify the user themselves

@@ -73,7 +73,10 @@ class RecapService(
         val yearEnd = ZonedDateTime.of(year + 1, 1, 1, 0, 0, 0, 0, RECAP_ZONE).toEpochSecond()
 
         val self = requireNotNull(userLookupService.findById(requesterId)) { "Requesting user not found" }
+        // System messages (group changes, friend accepted, wakes) are server-authored, not
+        // something the user actually sent or received - exclude them from every statistic below.
         val allMessages = messageLookupService.getAllUserMessages(requesterId)
+            .filter { it.msgType != MessageType.SYSTEM }
         val yearMessages = allMessages.filter { it.sendDate.epochSeconds in yearStart until yearEnd }
 
         // Collect every user/group id referenced anywhere so we can resolve names in one batch call each -

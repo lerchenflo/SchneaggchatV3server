@@ -12,6 +12,8 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.SystemEventType
+import com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService.IdTimeStamp
@@ -33,6 +35,7 @@ class EventService(
     private val groupService: GroupService,
     private val groupLookupService: GroupLookupService,
     private val notificationService: NotificationService,
+    private val systemMessageService: SystemMessageService,
 ) {
 
     fun eventIdSync(
@@ -189,6 +192,12 @@ class EventService(
         notificationService.notifyGroupUpdate(
             groupResponse = groupLookupService.getGroupAsGroupResponse(event.groupId),
             deleted = false
+        )
+
+        systemMessageService.groupEvent(
+            groupId = event.groupId,
+            eventType = SystemEventType.GROUP_MEMBER_ADDED,
+            actorId = joiningUser,
         )
 
         return EventJoinResponse(

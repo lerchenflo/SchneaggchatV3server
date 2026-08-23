@@ -6,6 +6,7 @@ import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent.Image
 import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent.Text
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType.*
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
@@ -62,12 +63,12 @@ class MessageService(
 
 
         when (messageType) {
-            MessageType.TEXT -> {
+            TEXT -> {
                 require(content is Text) { "Message type must be Text" }
 
                 require(ValidationUtils.validateStringMessage(content.message)) { "Invalid text message" }
             }
-            MessageType.IMAGE -> {
+            IMAGE -> {
 
                 require(content is Image) { "Image message type must be Image" }
 
@@ -77,7 +78,7 @@ class MessageService(
 
                 require(ValidationUtils.validatePicture(content.image)) { "Invalid image" }
             }
-            MessageType.POLL -> {
+            POLL -> {
                 require(content is MessageContent.Poll) { "Pollmessage with empty poll" }
 
                 //TODO: Add poll field validation (title, description, maxAnswers, maxAllowedCustomAnswers, voteOptions count)
@@ -89,7 +90,7 @@ class MessageService(
                     require(ValidationUtils.validatePollVoteText(voteOption.text)) {"Pollvote option text in wrong format"}
                 }
             }
-            MessageType.AUDIO -> {
+            AUDIO -> {
 
                 require(content is MessageContent.Audio) { "Audio message type must be Audio" }
 
@@ -101,6 +102,11 @@ class MessageService(
                  */
 
                 //TODO Audio validation
+            }
+
+            SYSTEM -> {
+                //User can not send system messages
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "A user can not send a SYSTEM message!")
             }
         }
 
@@ -381,6 +387,7 @@ class MessageService(
 
             val message = canUserAccessMessage(messageId, reactingUserId)
             require(!message.deleted) { "Cannot react to deleted message" }
+            require(message.msgType != MessageType.SYSTEM) { "Cannot react to a system message" }
 
             val existing = message.reactions.firstOrNull {
                 it.userId == reactingUserId && it.content == content
@@ -461,6 +468,7 @@ class MessageService(
     fun deleteMessage(messageId: ObjectId, deletingUserId: ObjectId) {
         val message = canUserAccessMessage(messageId, deletingUserId)
 
+        require(message.msgType != MessageType.SYSTEM) { "Cannot delete a system message" }
         require(message.senderId == deletingUserId) { "Only the sender can delete a message" }
 
         loggingService.log(

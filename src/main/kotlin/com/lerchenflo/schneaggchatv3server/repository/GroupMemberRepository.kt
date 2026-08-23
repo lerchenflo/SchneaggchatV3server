@@ -10,5 +10,5 @@ interface GroupMemberRepository : MongoRepository<GroupMember, ObjectId> {
 
     fun findAllByGroupId(groupId: ObjectId): MutableList<GroupMember>
 
-    fun findByUseridAndJoinedAtVersionGreaterThan(userid: ObjectId, joinedAtVersion: Long): List<GroupMember>
+    fun findByUseridAndJoinedAtVersionGreaterThanEqual(userid: ObjectId, joinedAtVersion: Long): List<GroupMember>
 }

@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.user.friends
 
+import com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.Friendship
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipSetting
@@ -18,7 +19,8 @@ class FriendsService(
     private val friendsLookupService: FriendsLookupService,
     private val loggingService: LoggingService,
     private val notificationService: NotificationService,
-    private val friendsSettingsService: FriendsSettingsService
+    private val friendsSettingsService: FriendsSettingsService,
+    private val systemMessageService: SystemMessageService,
 ) {
 
     /**
@@ -106,7 +108,14 @@ class FriendsService(
             accepted = true,
         )
 
-        return friendsLookupService.saveFriendship(friendship)
+        val saved = friendsLookupService.saveFriendship(friendship)
+
+        systemMessageService.friendshipAccepted(
+            acceptingUserId = acceptingUserId,
+            requesterId = requesterId,
+        )
+
+        return saved
     }
 
     /**
