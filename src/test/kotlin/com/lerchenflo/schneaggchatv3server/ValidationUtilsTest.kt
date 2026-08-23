@@ -260,6 +260,27 @@ class ValidationUtilsTest {
         assertFalse(ValidationUtils.validateAudio(invalidExt))
     }
 
+    // ===== EVENT TITLE VALIDATION TESTS =====
+
+    @Test
+    @DisplayName("Valid event title should pass validation")
+    fun `validateEventTitle should return true for valid titles`() {
+        assertTrue(ValidationUtils.validateEventTitle("Birthday party"))
+    }
+
+    @Test
+    @DisplayName("Blank event title should fail validation")
+    fun `validateEventTitle should return false for blank titles`() {
+        assertFalse(ValidationUtils.validateEventTitle(""))
+        assertFalse(ValidationUtils.validateEventTitle("   "))
+    }
+
+    @Test
+    @DisplayName("Event title exceeding max length should fail")
+    fun `validateEventTitle should return false for titles longer than 200 characters`() {
+        assertFalse(ValidationUtils.validateEventTitle("a".repeat(201)))
+    }
+
     // ===== POLL TITLE VALIDATION TESTS =====
 
     @Test

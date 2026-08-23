@@ -48,6 +48,7 @@ class EventsController(
         requestBody.eventId?.let { eventId ->
             require(ValidationUtils.validateObjectId(requestBody.eventId)) { "Invalid event id" }
         }
+        require(ValidationUtils.validateEventTitle(requestBody.title)) { "Invalid event title" }
 
         val requestingUserId = requireAuth()
 

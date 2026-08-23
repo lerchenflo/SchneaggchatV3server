@@ -146,6 +146,13 @@ object ValidationUtils {
         return true
     }
 
+    fun validateEventTitle(title: String): Boolean {
+        if (title.isBlank()) return false
+        if (title.length > 200) return false
+
+        return true
+    }
+
     fun validateStringMessage(string: String) : Boolean {
         if (string.length > 10000 || string.isEmpty()) return false
 
