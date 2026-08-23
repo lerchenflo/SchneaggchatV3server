@@ -273,7 +273,7 @@ class GroupService(
     /**
      * Keep a group's expiry in sync with the event it belongs to (event startDate, or closeDate if set, plus one day)
      */
-    fun setGroupExpiresAt(groupId: ObjectId, expiresAt: Instant) {
+    fun setGroupExpiresAt(groupId: ObjectId, expiresAt: Instant?) {
         val group = groupLookupService.getGroupById(groupId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
 
@@ -283,6 +283,27 @@ class GroupService(
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
     }
+
+    /**
+     * User-facing: change a group's expiry, or clear it entirely (null = never auto-expires).
+     * Note: for a group backed by an event, the next event create/edit re-syncs this to
+     * (event closeDate ?: startDate) + 1 day, overwriting whatever is set here.
+     */
+    fun changeGroupExpiresAt(userId: ObjectId, groupId: ObjectId, expiresAt: Instant?) {
+        require(groupLookupService.isUserInGroup(userId, groupId))
+        expiresAt?.let {
+            require(it > Clock.System.now()) { "Expiry date must be in the future" }
+        }
+
+        setGroupExpiresAt(groupId, expiresAt)
+    }
+
+    data class SetGroupExpiryRequest(
+        @field:NotBlank(message = "Group ID must not be blank")
+        @field:Size(max = 24, message = "Group ID too long")
+        val groupId: String,
+        val expiresAt: Long?
+    )
 
 
     enum class GroupMemberAction {
