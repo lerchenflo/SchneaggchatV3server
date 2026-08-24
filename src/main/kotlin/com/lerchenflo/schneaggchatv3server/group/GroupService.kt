@@ -494,13 +494,14 @@ class GroupService(
     }
 
     /**
-     * Delete groups which have expired
+     * Groups whose timer has run out don't get deleted - just clear the timer itself,
+     * leaving the group (and any connected event) untouched
      */
-    fun deleteExpiredGroups() {
+    fun clearExpiredGroupTimers() {
         val now = Clock.System.now()
 
         groupLookupService.getExpiredGroups(now).forEach { group ->
-            deleteGroup(group.id)
+            setGroupExpiresAt(group.id, null)
         }
     }
 

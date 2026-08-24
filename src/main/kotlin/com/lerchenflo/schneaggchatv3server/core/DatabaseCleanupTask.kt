@@ -17,7 +17,7 @@ class DatabaseCleanupTask(
 
     /**
      * Runs every minute and clears old database entries for user locations,
-     * refresh tokens and expired groups.
+     * refresh tokens, and expired group timers.
      */
     @Scheduled(fixedDelay = 60_000)
     fun cleanDatabasePeriodically() {
@@ -32,6 +32,6 @@ class DatabaseCleanupTask(
             AppLogger.info("Deleted ${deletedUserlocationsCount} user locations")
         }*/
 
-        groupService.deleteExpiredGroups()
+        groupService.clearExpiredGroupTimers()
     }
 }

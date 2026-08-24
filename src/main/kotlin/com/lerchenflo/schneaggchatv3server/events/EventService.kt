@@ -127,7 +127,11 @@ class EventService(
             ).id
 
         if (existing != null) {
-            groupService.setGroupExpiresAt(groupId, groupExpiresAt)
+            // Only re-sync the group timer if one is currently set - if the user removed it, an edit must not bring it back
+            val currentGroupExpiresAt = groupLookupService.getGroupById(groupId)?.expiresAt
+            if (currentGroupExpiresAt != null) {
+                groupService.setGroupExpiresAt(groupId, groupExpiresAt)
+            }
         }
 
         val event = Event(
