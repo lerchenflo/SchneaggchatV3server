@@ -112,6 +112,24 @@ object ValidationUtils {
         return true
     }
 
+    /**
+     * Validates a phone number, loosely.
+     * - Blank is allowed (used to clear the stored number)
+     * - Allows digits, spaces, +, -, /, (, ), .
+     * - At most one leading +
+     * - Stripped of separators, must be 6-20 digits
+     */
+    private val PHONE_ALLOWED_CHARS_REGEX = "^\\+?[0-9 \\-/().]*$".toRegex()
+    fun validatePhoneNumber(phoneNumber: String): Boolean {
+        if (phoneNumber.isBlank()) return true
+
+        if (phoneNumber.length > 25) return false
+        if (!PHONE_ALLOWED_CHARS_REGEX.matches(phoneNumber)) return false
+
+        val digitsOnly = phoneNumber.filter { it.isDigit() }
+        return digitsOnly.length in 6..20
+    }
+
 
     /**
      * Validates uploaded profile picture

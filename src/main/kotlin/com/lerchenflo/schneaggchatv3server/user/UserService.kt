@@ -280,7 +280,7 @@ class UserService(
             val emailvalid = /* user.emailVerifiedAt != null && */ userRequest.newEmail != null
 
             //TODO: Send email to the old verified email address
-            val somethingChanged = userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null
+            val somethingChanged = userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null || userRequest.newPhoneNumber != null
 
             if (userRequest.newStatus != null) {
                 require(ValidationUtils.validateDescription(userRequest.newStatus)) { "New description is invalid" }
@@ -295,11 +295,17 @@ class UserService(
                 require(ValidationUtils.validateBirthdate(userRequest.newBirthDate)) { "New birthdate is invalid" }
             }
 
+            if (userRequest.newPhoneNumber != null) {
+                require(ValidationUtils.validatePhoneNumber(userRequest.newPhoneNumber)) { "New phone number is invalid" }
+            }
+
             val updatedSelf = requestingUser.copy(
                 updatedAt = if (somethingChanged) timeStamp else requestingUser.updatedAt,
                 userStatus = userRequest.newStatus ?: requestingUser.userStatus,
                 birthDate = userRequest.newBirthDate ?: requestingUser.birthDate,
                 email = userRequest.newEmail?.lowercase(getDefault())?.trim() ?: requestingUser.email,
+                //Blank string clears the stored number, null leaves it unchanged
+                phoneNumber = userRequest.newPhoneNumber?.ifBlank { null } ?: requestingUser.phoneNumber,
             )
             userLookupService.save(updatedSelf)
 
@@ -441,6 +447,7 @@ class UserService(
                 userStatus = user.userStatus,
                 updatedAt = lastChangedAt ?: user.updatedAt.toEpochMilliseconds(),
                 birthDate = user.birthDate,
+                phoneNumber = user.phoneNumber,
                 email = user.email,
                 createdAt = user.createdAt.toEpochMilliseconds(),
                 emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
@@ -459,6 +466,7 @@ class UserService(
                 userStatus = user.userStatus,
                 updatedAt = lastChangedAt ?: user.updatedAt.toEpochMilliseconds(),
                 birthDate = user.birthDate,
+                phoneNumber = user.phoneNumber,
                 requesterId = requesterId?.toHexString(),
                 profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
                 nickName = nickName,

@@ -27,6 +27,9 @@ data class User(
     val userStatus: String,
     val birthDate: String,
 
+    // Optional phone number, shared with accepted friends. Null if the user never set one.
+    val phoneNumber: String? = null,
+
     val createdAt: Instant,
     val updatedAt: Instant,
 

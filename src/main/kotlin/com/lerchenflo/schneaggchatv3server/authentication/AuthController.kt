@@ -55,6 +55,8 @@ class AuthController(
         @field:NotBlank(message = "Birth date must not be blank")
         @field:Size(max = 10, message = "Birth date too long")
         val birthDate: String,
+        @field:Size(max = 25, message = "Phone number too long")
+        val phoneNumber: String? = null,
     )
 
     data class RefreshRequest(
@@ -70,14 +72,16 @@ class AuthController(
         @RequestParam("password") password: String,
         @RequestParam("email") email: String,
         @RequestParam("birthDate") birthDate: String,
-        @RequestParam("profilepic") profilePic: MultipartFile
+        @RequestParam("profilepic") profilePic: MultipartFile,
+        @RequestParam("phoneNumber", required = false) phoneNumber: String?
     ) {
         val user = authService.register(
             username = username.trim().lowercase(getDefault()),
             password = password,
             email = email.trim().lowercase(getDefault()),
             birthdate = birthDate,
-            profilePic = profilePic
+            profilePic = profilePic,
+            phoneNumber = phoneNumber
         )
 
         emailService.sendVerificationEmail(

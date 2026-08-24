@@ -18,7 +18,6 @@ import org.springframework.data.mongodb.core.query.Update
 import org.springframework.http.HttpStatusCode
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.stereotype.Service
-import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import java.security.MessageDigest
@@ -48,13 +47,16 @@ class AuthService(
         val encryptionKey: String? = null
     )
 
-    fun register(username: String, password: String, email: String, birthdate: String, profilePic: MultipartFile) : User {
+    fun register(username: String, password: String, email: String, birthdate: String, profilePic: MultipartFile, phoneNumber: String? = null) : User {
 
         require(ValidationUtils.validateUsername(username)) { "Username invalid" }
         require(ValidationUtils.validatePassword(password)) { "Password invalid" }
         require(ValidationUtils.validateEmail(email)) { "Email invalid" }
         require(ValidationUtils.validateBirthdate(birthdate)) { "Birthdate invalid" }
         require(ValidationUtils.validatePicture(profilePic)) { "Picture invalid" }
+        phoneNumber?.let {
+            require(ValidationUtils.validatePhoneNumber(phoneNumber)) { "Phone number invalid" }
+        }
 
         userLookupService.checkExistingUser(username, email)
 
@@ -67,6 +69,7 @@ class AuthService(
             userDescription = "",
             userStatus = "",
             birthDate = birthdate,
+            phoneNumber = phoneNumber?.ifBlank { null },
             createdAt = now,
             updatedAt = now
         )

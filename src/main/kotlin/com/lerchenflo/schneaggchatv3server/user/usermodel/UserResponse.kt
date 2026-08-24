@@ -58,6 +58,9 @@ sealed interface UserResponse {
 
         val nickName: String?,
 
+        //Optional phone number, shared with accepted friends
+        val phoneNumber: String? = null,
+
         //What the recipient of this response shares with this friend on the map
         val shareLocation: Boolean = false,
         val shareSpeedHeading: Boolean = false,
@@ -83,6 +86,9 @@ sealed interface UserResponse {
         val birthDate: String,
         val userDescription: String,
         val userStatus: String,
+
+        //Optional phone number, only visible to yourself and accepted friends
+        val phoneNumber: String? = null,
 
         //Custom to own user response:
         val email: String,
