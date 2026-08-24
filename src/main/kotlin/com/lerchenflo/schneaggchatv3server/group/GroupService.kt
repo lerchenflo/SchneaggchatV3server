@@ -162,8 +162,10 @@ class GroupService(
         }
 
         // Find groups that need to be added (client doesn't have) or updated (server is newer)
-        val groupsToSyncIds = serverGroups.filter { (groupId, serverTs) ->
-            val clientTs = clientGroups[groupId]
+        // Timestamps are transported as strings, so they must be compared as longs - not lexicographically
+        val groupsToSyncIds = serverGroups.filter { (groupId, serverTsString) ->
+            val serverTs = serverTsString.toLongOrNull() ?: return@filter true
+            val clientTs = clientGroups[groupId]?.toLongOrNull()
             clientTs == null || serverTs > clientTs
         }.keys
 
