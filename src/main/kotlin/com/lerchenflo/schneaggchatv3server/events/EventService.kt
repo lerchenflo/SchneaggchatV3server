@@ -22,6 +22,7 @@ import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -98,7 +99,7 @@ class EventService(
     }
 
 
-    fun upsertEvent(upsertingUser: ObjectId, eventRequest: EventRequest): EventResponse {
+    fun upsertEvent(upsertingUser: ObjectId, eventRequest: EventRequest, profilePic: MultipartFile? = null): EventResponse {
         val existing = eventRequest.eventId?.let { eventId ->
             eventsLookupService.findById(eventId)
                 ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Existing event not found")
@@ -121,7 +122,7 @@ class EventService(
                 members = emptyList<ObjectId>(), //only creator
                 creatorId = upsertingUser,
                 description = (eventRequest.description).take(200),
-                profilePic = null,
+                profilePic = profilePic,
                 createdFromEvent = true,
                 expiresAt = groupExpiresAt
             ).id
