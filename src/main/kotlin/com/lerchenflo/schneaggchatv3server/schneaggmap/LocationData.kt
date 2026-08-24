@@ -3,6 +3,7 @@ package com.lerchenflo.schneaggchatv3server.schneaggmap
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeDefinition
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeKey
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeValue
 import org.springframework.data.annotation.TypeAlias
 
@@ -14,15 +15,21 @@ import org.springframework.data.annotation.TypeAlias
  * 1. Add the new type to @JsonSubTypes annotation with name in snake_case
  * 2. Add the data class in LocationData sealed class with:
  *    - @TypeAlias annotation with snake_case name (must match JsonSubTypes name)
- *    - Properties with AttributeValue types (nullable if optional)
- *    - Override fun schema() returning list of AttributeDefinitions
+ *    - Properties with AttributeValue types (nullable if optional), named
+ *      lowerCamelCase(<TYPE>_<ATTRIBUTE>) to match their AttributeKey 1:1
+ *    - Override fun schema() returning list of AttributeDefinitions, keyed by AttributeKey
  * 3. Add the new type to LocationDataWriteConverter in MongoConfig.kt
- * 4. Update any service files that instantiate LocationData (e.g., SchneaggmapService.kt)
+ * 4. Add an AttributeKey entry per attribute in model/AttributeKey.kt
+ * 5. Wire the new type + its keys into getValueByKey() in GetValueForKey.kt - the compiler will
+ *    force this via the exhaustive `when` over LocationData
+ * 6. Update any service files that instantiate LocationData (e.g., SchneaggmapService.kt)
  *
  * CLIENT SIDE (SchneaggchatV3):
  * See client LocationData.kt for detailed client-side instructions
  *
- * IMPORTANT: Keep the serial/type alias names consistent between client and server (snake_case)
+ * IMPORTANT: Keep the serial/type alias names ("radar", ...) consistent between client and server
+ * (snake_case). Keep property names consistent with AttributeKey entries (lowerCamelCase) - they are
+ * also the Mongo field names and the wire JSON keys, so client and server must match exactly.
  */
 
 
@@ -65,24 +72,24 @@ sealed class LocationData {
 
     @TypeAlias("radar")
     data class Radar(
-        val speedLimit: AttributeValue,
-        val mobile: AttributeValue?,
-        val redLight: AttributeValue,
+        val radarSpeedLimit: AttributeValue,
+        val radarMobile: AttributeValue?,
+        val radarRedLight: AttributeValue,
     ) : LocationData() {
 
         override fun schema() = listOf(
-            AttributeDefinition.IntDef(key = "speedLimit", required = true, min = 0),
-            AttributeDefinition.BoolDef(key = "mobile",    required = false),
-            AttributeDefinition.BoolDef(key = "redLight",  required = true),
+            AttributeDefinition.IntDef(key = AttributeKey.RADAR_SPEED_LIMIT, required = true, min = 0),
+            AttributeDefinition.BoolDef(key = AttributeKey.RADAR_MOBILE,    required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.RADAR_RED_LIGHT,  required = true),
         )
     }
 
     @TypeAlias("police")
     data class Police(
-        val lastSeen: AttributeValue?,
+        val policeLastSeen: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.LongDef(key = "lastSeen", required = false),
+            AttributeDefinition.LongDef(key = AttributeKey.POLICE_LAST_SEEN, required = false),
         )
     }
 
@@ -91,45 +98,45 @@ sealed class LocationData {
 
     @TypeAlias("mountain_street")
     data class MountainStreet(
-        val mautFee: AttributeValue?,
-        val heightLimit: AttributeValue?,
-        val closedInWinter: AttributeValue?,
+        val mountainStreetMautFee: AttributeValue?,
+        val mountainStreetHeightLimit: AttributeValue?,
+        val mountainStreetClosedInWinter: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.DoubleDef(key = "mautFee",        required = false, min = 0.0),
-            AttributeDefinition.DoubleDef(key = "heightLimit",    required = false, min = 0.0),
-            AttributeDefinition.BoolDef  (key = "closedInWinter", required = false),
+            AttributeDefinition.DoubleDef(key = AttributeKey.MOUNTAIN_STREET_MAUT_FEE,        required = false, min = 0.0),
+            AttributeDefinition.DoubleDef(key = AttributeKey.MOUNTAIN_STREET_HEIGHT_LIMIT,    required = false, min = 0.0),
+            AttributeDefinition.BoolDef  (key = AttributeKey.MOUNTAIN_STREET_CLOSED_IN_WINTER, required = false),
         )
     }
 
     @TypeAlias("wheeliespot")
     data class Wheeliespot(
-        val onlyOnWeekends: AttributeValue?,
+        val wheeliespotOnlyOnWeekends: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "onlyOnWeekends", required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.WHEELIESPOT_ONLY_ON_WEEKENDS, required = false),
         )
     }
 
     @TypeAlias("offroad_motorcycle")
     data class OffroadMotorcycle(
-        val legal: AttributeValue,
-        val motocross: AttributeValue?,
-        val enduro: AttributeValue?,
+        val offroadMotorcycleLegal: AttributeValue,
+        val offroadMotorcycleMotocross: AttributeValue?,
+        val offroadMotorcycleEnduro: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "legal",     required = true),
-            AttributeDefinition.BoolDef(key = "motocross", required = false),
-            AttributeDefinition.BoolDef(key = "enduro",    required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.OFFROAD_MOTORCYCLE_LEGAL,     required = true),
+            AttributeDefinition.BoolDef(key = AttributeKey.OFFROAD_MOTORCYCLE_MOTOCROSS, required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.OFFROAD_MOTORCYCLE_ENDURO,    required = false),
         )
     }
 
     @TypeAlias("viewpoint")
     data class Viewpoint(
-        val lieDownFriendly: AttributeValue?,
+        val viewpointLieDownFriendly: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "lieDownFriendly", required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.VIEWPOINT_LIE_DOWN_FRIENDLY, required = false),
         )
     }
 
@@ -138,44 +145,44 @@ sealed class LocationData {
 
     @TypeAlias("camping")
     data class Camping(
-        val official: AttributeValue,
-        val waterDistance: AttributeValue?,
-        val sittingPossibility: AttributeValue?,
-        val grillPossibility: AttributeValue?,
+        val campingOfficial: AttributeValue,
+        val campingWaterDistance: AttributeValue?,
+        val campingSittingPossibility: AttributeValue?,
+        val campingGrillPossibility: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "official",           required = true),
-            AttributeDefinition.IntDef (key = "waterDistance",      required = false, min = 0),
-            AttributeDefinition.BoolDef(key = "sittingPossibility", required = false),
-            AttributeDefinition.BoolDef(key = "grillPossibility",   required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.CAMPING_OFFICIAL,           required = true),
+            AttributeDefinition.IntDef (key = AttributeKey.CAMPING_WATER_DISTANCE,      required = false, min = 0),
+            AttributeDefinition.BoolDef(key = AttributeKey.CAMPING_SITTING_POSSIBILITY, required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.CAMPING_GRILL_POSSIBILITY,   required = false),
         )
     }
 
     @TypeAlias("swimming")
     data class SwimmingLocation(
-        val indoor: AttributeValue?,
-        val jumpSpot: AttributeValue?,
-        val lieDownFriendly: AttributeValue?,
-        val price: AttributeValue?,
+        val swimmingIndoor: AttributeValue?,
+        val swimmingJumpSpot: AttributeValue?,
+        val swimmingLieDownFriendly: AttributeValue?,
+        val swimmingPrice: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "indoor",          required = false),
-            AttributeDefinition.BoolDef(key = "jumpSpot",        required = false),
-            AttributeDefinition.BoolDef(key = "lieDownFriendly", required = false),
-            AttributeDefinition.IntDef (key = "price",          required = false, min = 0),
+            AttributeDefinition.BoolDef(key = AttributeKey.SWIMMING_INDOOR,          required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.SWIMMING_JUMP_SPOT,       required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.SWIMMING_LIE_DOWN_FRIENDLY, required = false),
+            AttributeDefinition.IntDef (key = AttributeKey.SWIMMING_PRICE,           required = false, min = 0),
         )
     }
 
     @TypeAlias("climbingspot")
     data class Climbingspot(
-        val viaFerrata: AttributeValue?,
-        val outdoor: AttributeValue?,
-        val price: AttributeValue?,
+        val climbingspotViaFerrata: AttributeValue?,
+        val climbingspotOutdoor: AttributeValue?,
+        val climbingspotPrice: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "viaFerrata", required = false),
-            AttributeDefinition.BoolDef(key = "outdoor",    required = false),
-            AttributeDefinition.IntDef (key = "price",      required = false, min = 0),
+            AttributeDefinition.BoolDef(key = AttributeKey.CLIMBINGSPOT_VIA_FERRATA, required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.CLIMBINGSPOT_OUTDOOR,     required = false),
+            AttributeDefinition.IntDef (key = AttributeKey.CLIMBINGSPOT_PRICE,       required = false, min = 0),
         )
     }
 
@@ -184,54 +191,54 @@ sealed class LocationData {
 
     @TypeAlias("volleyball")
     data class Volleyball(
-        val goodNet: AttributeValue?,
-        val goodField: AttributeValue?,
-        val outdoor: AttributeValue?,
+        val volleyballGoodNet: AttributeValue?,
+        val volleyballGoodField: AttributeValue?,
+        val volleyballOutdoor: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "goodNet",   required = false),
-            AttributeDefinition.BoolDef(key = "goodField", required = false),
-            AttributeDefinition.BoolDef(key = "outdoor",   required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.VOLLEYBALL_GOOD_NET,   required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.VOLLEYBALL_GOOD_FIELD, required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.VOLLEYBALL_OUTDOOR,    required = false),
         )
     }
 
     @TypeAlias("bicycle")
     data class Bicycle(
-        val legal: AttributeValue,
-        val difficulty: AttributeValue,
-        val undergroundType: AttributeValue?,
+        val bicycleLegal: AttributeValue,
+        val bicycleDifficulty: AttributeValue,
+        val bicycleUndergroundType: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef  (key = "legal",           required = true),
-            AttributeDefinition.IntDef   (key = "difficulty",      required = true, min = 1, max = 10),
-            AttributeDefinition.StringDef(key = "undergroundType", required = false),
+            AttributeDefinition.BoolDef  (key = AttributeKey.BICYCLE_LEGAL,            required = true),
+            AttributeDefinition.IntDef   (key = AttributeKey.BICYCLE_DIFFICULTY,       required = true, min = 1, max = 10),
+            AttributeDefinition.StringDef(key = AttributeKey.BICYCLE_UNDERGROUND_TYPE, required = false),
         )
     }
 
     @TypeAlias("outdoor_fitness")
     data class OutdoorFitness(
-        val shadow: AttributeValue?,
+        val outdoorFitnessShadow: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "shadow", required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.OUTDOOR_FITNESS_SHADOW, required = false),
         )
     }
 
     @TypeAlias("table_tennis")
     data class TableTennis(
-        val `private`: AttributeValue?,
+        val tableTennisPrivate: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "private", required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.TABLE_TENNIS_PRIVATE, required = false),
         )
     }
 
     @TypeAlias("tennis")
     data class Tennis(
-        val paddle: AttributeValue?,
+        val tennisPaddle: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "paddle", required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.TENNIS_PADDLE, required = false),
         )
     }
 
@@ -240,30 +247,30 @@ sealed class LocationData {
 
     @TypeAlias("sightseeing")
     data class SightSeeing(
-        val entryFee: AttributeValue?,
+        val sightseeingEntryFee: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.DoubleDef(key = "entryFee", required = false, min = 0.0),
+            AttributeDefinition.DoubleDef(key = AttributeKey.SIGHTSEEING_ENTRY_FEE, required = false, min = 0.0),
         )
     }
 
     @TypeAlias("party")
     data class PartyLocation(
-        val entryFee: AttributeValue?,
+        val partyEntryFee: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.DoubleDef(key = "entryFee", required = false, min = 0.0),
+            AttributeDefinition.DoubleDef(key = AttributeKey.PARTY_ENTRY_FEE, required = false, min = 0.0),
         )
     }
 
     @TypeAlias("wifi")
     data class Wifi(
-        val ssid: AttributeValue?,
-        val password: AttributeValue?,
+        val wifiSsid: AttributeValue?,
+        val wifiPassword: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.StringDef(key = "ssid",     required = false),
-            AttributeDefinition.StringDef(key = "password", required = false),
+            AttributeDefinition.StringDef(key = AttributeKey.WIFI_SSID,     required = false),
+            AttributeDefinition.StringDef(key = AttributeKey.WIFI_PASSWORD, required = false),
         )
     }
 
@@ -272,61 +279,61 @@ sealed class LocationData {
 
     @TypeAlias("food_kebab")
     data class FoodKebab(
-        val kebabPrice: AttributeValue?,
+        val foodKebabPrice: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.DoubleDef(key = "kebabPrice", required = false, min = 0.0),
+            AttributeDefinition.DoubleDef(key = AttributeKey.FOOD_KEBAB_PRICE, required = false, min = 0.0),
         )
     }
 
     @TypeAlias("food_pizza")
     data class FoodPizza(
-        val margaritaPrice: AttributeValue?,
+        val foodPizzaMargaritaPrice: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.DoubleDef(key = "margaritaPrice", required = false, min = 0.0),
+            AttributeDefinition.DoubleDef(key = AttributeKey.FOOD_PIZZA_MARGARITA_PRICE, required = false, min = 0.0),
         )
     }
 
     @TypeAlias("food_burger")
     data class FoodBurger(
-        val cheeseburgerPrice: AttributeValue?,
+        val foodBurgerCheeseburgerPrice: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.DoubleDef(key = "cheeseburgerPrice", required = false, min = 0.0),
+            AttributeDefinition.DoubleDef(key = AttributeKey.FOOD_BURGER_CHEESEBURGER_PRICE, required = false, min = 0.0),
         )
     }
 
     @TypeAlias("food_beer")
     data class FoodBeer(
-        val beerPrice: AttributeValue?,
+        val foodBeerPrice: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.DoubleDef(key = "beerPrice", required = false, min = 0.0),
+            AttributeDefinition.DoubleDef(key = AttributeKey.FOOD_BEER_PRICE, required = false, min = 0.0),
         )
     }
 
     @TypeAlias("food_ice")
     data class FoodIce(
-        val iceScoopPrice: AttributeValue?,
+        val foodIceScoopPrice: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.DoubleDef(key = "iceScoopPrice", required = false, min = 0.0),
+            AttributeDefinition.DoubleDef(key = AttributeKey.FOOD_ICE_SCOOP_PRICE, required = false, min = 0.0),
         )
     }
 
     @TypeAlias("food_cafe_bakery")
     data class FoodCafeBakery(
-        val outdoorSeating: AttributeValue?,
-        val alcohol: AttributeValue?,
-        val coffee: AttributeValue?,
-        val breakfast: AttributeValue?,
+        val foodCafeBakeryOutdoorSeating: AttributeValue?,
+        val foodCafeBakeryAlcohol: AttributeValue?,
+        val foodCafeBakeryCoffee: AttributeValue?,
+        val foodCafeBakeryBreakfast: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "outdoorSeating", required = false),
-            AttributeDefinition.BoolDef(key = "alcohol",       required = false),
-            AttributeDefinition.BoolDef(key = "coffee",        required = false),
-            AttributeDefinition.BoolDef(key = "breakfast",     required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.FOOD_CAFE_BAKERY_OUTDOOR_SEATING, required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.FOOD_CAFE_BAKERY_ALCOHOL,        required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.FOOD_CAFE_BAKERY_COFFEE,          required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.FOOD_CAFE_BAKERY_BREAKFAST,       required = false),
         )
     }
 
@@ -335,10 +342,10 @@ sealed class LocationData {
 
     @TypeAlias("food_asian")
     data class FoodAsian(
-        val allYouCanEat: AttributeValue?,
+        val foodAsianAllYouCanEat: AttributeValue?,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.BoolDef(key = "allYouCanEat", required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.FOOD_ASIAN_ALL_YOU_CAN_EAT, required = false),
         )
     }
 
@@ -350,10 +357,10 @@ sealed class LocationData {
 
     @TypeAlias("food_other")
     data class FoodOther(
-        val cuisine: AttributeValue,
+        val foodOtherCuisine: AttributeValue,
     ) : LocationData() {
         override fun schema() = listOf(
-            AttributeDefinition.StringDef(key = "cuisine", required = true),
+            AttributeDefinition.StringDef(key = AttributeKey.FOOD_OTHER_CUISINE, required = true),
         )
     }
 }

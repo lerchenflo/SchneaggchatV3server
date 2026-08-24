@@ -68,6 +68,7 @@ class MainController(
 
         migrateReactionTimestamps()
         migrateMessageVersions()
+        migrateMapAttributeKeys()
 
         val testaccount = userService.ensureTestaccount()
         schneaggmapService.importLegacyMapEntries(testaccount.id)
@@ -337,6 +338,105 @@ class MainController(
         }
 
         AppLogger.success("Type alias migration check complete")
+    }
+
+    /**
+     * Renames map entry attribute fields inside `map_entries.locationData[]` so the Kotlin property,
+     * the AttributeKey enum constant, the JSON wire key and the Mongo field name are all the same
+     * string (e.g. "speedLimit" -> "radarSpeedLimit"). Must run before
+     * [SchneaggmapService.importLegacyMapEntries] / any typed [MapEntry] read - the new
+     * `LocationData` subtypes no longer have the old field names, so deserializing an un-migrated
+     * document would fail on a missing required property.
+     *
+     * `$rename` cannot address fields inside array elements, so this walks each document as a raw
+     * BSON `Document` by hand instead of an aggregation update. Idempotent per-field (not just
+     * per-document), so an interrupted previous run is finished correctly on the next startup.
+     */
+    fun migrateMapAttributeKeys() {
+        AppLogger.info("Running map attribute key migration...")
+
+        data class Rename(val typeAlias: String, val old: String, val new: String)
+
+        val renames = listOf(
+            Rename("radar", "speedLimit", "radarSpeedLimit"),
+            Rename("radar", "mobile", "radarMobile"),
+            Rename("radar", "redLight", "radarRedLight"),
+            Rename("police", "lastSeen", "policeLastSeen"),
+            Rename("mountain_street", "mautFee", "mountainStreetMautFee"),
+            Rename("mountain_street", "heightLimit", "mountainStreetHeightLimit"),
+            Rename("mountain_street", "closedInWinter", "mountainStreetClosedInWinter"),
+            Rename("wheeliespot", "onlyOnWeekends", "wheeliespotOnlyOnWeekends"),
+            Rename("offroad_motorcycle", "legal", "offroadMotorcycleLegal"),
+            Rename("offroad_motorcycle", "motocross", "offroadMotorcycleMotocross"),
+            Rename("offroad_motorcycle", "enduro", "offroadMotorcycleEnduro"),
+            Rename("viewpoint", "lieDownFriendly", "viewpointLieDownFriendly"),
+            Rename("camping", "official", "campingOfficial"),
+            Rename("camping", "waterDistance", "campingWaterDistance"),
+            Rename("camping", "sittingPossibility", "campingSittingPossibility"),
+            Rename("camping", "grillPossibility", "campingGrillPossibility"),
+            Rename("swimming", "indoor", "swimmingIndoor"),
+            Rename("swimming", "jumpSpot", "swimmingJumpSpot"),
+            Rename("swimming", "lieDownFriendly", "swimmingLieDownFriendly"),
+            Rename("swimming", "price", "swimmingPrice"),
+            Rename("climbingspot", "viaFerrata", "climbingspotViaFerrata"),
+            Rename("climbingspot", "outdoor", "climbingspotOutdoor"),
+            Rename("climbingspot", "price", "climbingspotPrice"),
+            Rename("volleyball", "goodNet", "volleyballGoodNet"),
+            Rename("volleyball", "goodField", "volleyballGoodField"),
+            Rename("volleyball", "outdoor", "volleyballOutdoor"),
+            Rename("bicycle", "legal", "bicycleLegal"),
+            Rename("bicycle", "difficulty", "bicycleDifficulty"),
+            Rename("bicycle", "undergroundType", "bicycleUndergroundType"),
+            Rename("outdoor_fitness", "shadow", "outdoorFitnessShadow"),
+            Rename("table_tennis", "private", "tableTennisPrivate"),
+            Rename("tennis", "paddle", "tennisPaddle"),
+            Rename("sightseeing", "entryFee", "sightseeingEntryFee"),
+            Rename("party", "entryFee", "partyEntryFee"),
+            Rename("wifi", "ssid", "wifiSsid"),
+            Rename("wifi", "password", "wifiPassword"),
+            Rename("food_kebab", "kebabPrice", "foodKebabPrice"),
+            Rename("food_pizza", "margaritaPrice", "foodPizzaMargaritaPrice"),
+            Rename("food_burger", "cheeseburgerPrice", "foodBurgerCheeseburgerPrice"),
+            Rename("food_beer", "beerPrice", "foodBeerPrice"),
+            Rename("food_ice", "iceScoopPrice", "foodIceScoopPrice"),
+            Rename("food_cafe_bakery", "outdoorSeating", "foodCafeBakeryOutdoorSeating"),
+            Rename("food_cafe_bakery", "alcohol", "foodCafeBakeryAlcohol"),
+            Rename("food_cafe_bakery", "coffee", "foodCafeBakeryCoffee"),
+            Rename("food_cafe_bakery", "breakfast", "foodCafeBakeryBreakfast"),
+            Rename("food_asian", "allYouCanEat", "foodAsianAllYouCanEat"),
+            Rename("food_other", "cuisine", "foodOtherCuisine"),
+        )
+        val renamesByTypeAlias = renames.groupBy { it.typeAlias }
+
+        val collection = mongoTemplate.getCollection("map_entries")
+        var modifiedDocuments = 0
+
+        collection.find().forEach { doc ->
+            val locationDataList = doc.getList("locationData", org.bson.Document::class.java) ?: return@forEach
+            var changed = false
+
+            locationDataList.forEach { element ->
+                val typeAlias = element.getString("_class") ?: return@forEach
+                val fieldRenames = renamesByTypeAlias[typeAlias] ?: return@forEach
+                for ((_, old, new) in fieldRenames) {
+                    if (element.containsKey(old) && !element.containsKey(new)) {
+                        element[new] = element.remove(old)
+                        changed = true
+                    }
+                }
+            }
+
+            if (changed) {
+                collection.replaceOne(org.bson.Document("_id", doc.getObjectId("_id")), doc)
+                modifiedDocuments++
+            }
+        }
+
+        if (modifiedDocuments > 0) {
+            AppLogger.success("Migration completed: Renamed map attribute keys in $modifiedDocuments map entries")
+        } else {
+            AppLogger.success("Migration check: All map attribute keys already migrated")
+        }
     }
 
 

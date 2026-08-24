@@ -49,7 +49,7 @@ class SchneaggmapService(
         for (def in data.schema()) {
             if (!def.required) continue
 
-            val value = resolveValue(data, def.key)
+            val value = data.getValueByKey(def.key)
             if (value == null) {
                 errors += "${def.key}: required field is missing"
                 continue
@@ -94,14 +94,6 @@ class SchneaggmapService(
             )
         }
     }
-
-    // Resolves a field by key using reflection — keeps the validator generic
-    private fun resolveValue(data: LocationData, key: String): AttributeValue? {
-        return data::class.members
-            .firstOrNull { it.name == key }
-            ?.call(data) as? AttributeValue
-    }
-
 
     // ─── CRUD ─────────────────────────────────────────────────────────────────
 
@@ -263,15 +255,15 @@ class SchneaggmapService(
                     val speed = speedRegex.find(beschreibung)?.groupValues?.get(1)?.toIntOrNull()
                     locationData = if (beschreibung == "Ampelblitzer") {
                         LocationData.Radar(
-                            speedLimit = AttributeValue.IntValue(0),
-                            mobile     = AttributeValue.BoolValue(false),
-                            redLight   = AttributeValue.BoolValue(true),
+                            radarSpeedLimit = AttributeValue.IntValue(0),
+                            radarMobile     = AttributeValue.BoolValue(false),
+                            radarRedLight   = AttributeValue.BoolValue(true),
                         )
                     } else {
                         LocationData.Radar(
-                            speedLimit = AttributeValue.IntValue(speed ?: 0),
-                            mobile     = AttributeValue.BoolValue(false),
-                            redLight   = AttributeValue.BoolValue(false),
+                            radarSpeedLimit = AttributeValue.IntValue(speed ?: 0),
+                            radarMobile     = AttributeValue.BoolValue(false),
+                            radarRedLight   = AttributeValue.BoolValue(false),
                         )
                     }
                     name        = if (speed != null) "$speed km/h Radar" else "Radar"
@@ -280,9 +272,9 @@ class SchneaggmapService(
 
                 "Motorradstrecke" -> {
                     locationData = LocationData.MountainStreet(
-                        mautFee        = null,
-                        heightLimit    = null,
-                        closedInWinter = null,
+                        mountainStreetMautFee        = null,
+                        mountainStreetHeightLimit    = null,
+                        mountainStreetClosedInWinter = null,
                     )
                     name        = beschreibung.ifBlank { "Motorradstrecke" }
                     description = ""
@@ -290,39 +282,39 @@ class SchneaggmapService(
 
                 "Wheeliespot" -> {
                     locationData = LocationData.Wheeliespot(
-                        onlyOnWeekends = null,
+                        wheeliespotOnlyOnWeekends = null,
                     )
                     name        = beschreibung.ifBlank { "Wheeliespot" }
                     description = ""
                 }
 
                 "Sehenswuerdigkeit" -> {
-                    locationData = LocationData.SightSeeing(entryFee = null)
+                    locationData = LocationData.SightSeeing(sightseeingEntryFee = null)
                     name        = beschreibung.ifBlank { "Sehenswürdigkeit" }
                     description = ""
                 }
 
                 "Badespot" -> {
-                    locationData = LocationData.SwimmingLocation(indoor = null, jumpSpot = null, lieDownFriendly = null, price = null)
+                    locationData = LocationData.SwimmingLocation(swimmingIndoor = null, swimmingJumpSpot = null, swimmingLieDownFriendly = null, swimmingPrice = null)
                     name        = beschreibung.ifBlank { "Badespot" }
                     description = ""
                 }
 
                 "Partylocation" -> {
-                    locationData = LocationData.PartyLocation(entryFee = null)
+                    locationData = LocationData.PartyLocation(partyEntryFee = null)
                     name        = beschreibung.ifBlank { "Partylocation" }
                     description = ""
                 }
 
                 "Kebab" -> {
-                    locationData = LocationData.FoodKebab(kebabPrice = null)
+                    locationData = LocationData.FoodKebab(foodKebabPrice = null)
                     name        = beschreibung.ifBlank { "Kebab" }
                     description = ""
                 }
 
                 "Essen" -> {
                     locationData = LocationData.FoodOther(
-                        cuisine = AttributeValue.StringValue(beschreibung.ifBlank { "Essen" }),
+                        foodOtherCuisine = AttributeValue.StringValue(beschreibung.ifBlank { "Essen" }),
                     )
                     name        = beschreibung.ifBlank { "Essen" }
                     description = ""
