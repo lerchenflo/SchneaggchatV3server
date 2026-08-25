@@ -17,6 +17,7 @@ import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.SyncCollection
 import com.lerchenflo.schneaggchatv3server.util.VersionCounterService
 import com.mongodb.MongoNamespace
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.data.domain.Sort
@@ -54,6 +55,8 @@ class MainController(
 
     private val versionCounterService: VersionCounterService,
 
+    @Value("\${apns.debug}") private val debug: Boolean,
+
     ){
 
     @GetMapping("/public/test")
@@ -73,8 +76,10 @@ class MainController(
         migrateMessageVersions()
         migrateMapAttributeKeys()
 
-        val testaccount = userService.ensureTestaccount()
-        schneaggmapService.importLegacyMapEntries(testaccount.id)
+        if (debug) {
+            //Create test account for google play & Apple
+            val testaccount = userService.ensureTestaccount()
+        }
 
         //listMongoIndexes()
         //printAllGroups()

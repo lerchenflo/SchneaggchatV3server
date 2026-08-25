@@ -273,7 +273,8 @@ class GroupService(
     }
 
     /**
-     * Keep a group's expiry in sync with the event it belongs to (event startDate, or closeDate if set, plus one day)
+     * Keep a group's expiry in sync with the event it belongs to (event startDate, or closeDate
+     * if set, plus the event's creator-chosen [com.lerchenflo.schneaggchatv3server.events.eventmodel.GroupDeleteDelay])
      */
     fun setGroupExpiresAt(groupId: ObjectId, expiresAt: Instant?) {
         val group = groupLookupService.getGroupById(groupId)
@@ -288,8 +289,8 @@ class GroupService(
 
     /**
      * User-facing: change a group's expiry, or clear it entirely (null = never auto-expires).
-     * Note: for a group backed by an event, the next event create/edit re-syncs this to
-     * (event closeDate ?: startDate) + 1 day, overwriting whatever is set here.
+     * Note: for a group backed by an event, the next event create/edit re-syncs this to the
+     * event's own group-delete-delay setting, overwriting whatever is set here.
      */
     fun changeGroupExpiresAt(userId: ObjectId, groupId: ObjectId, expiresAt: Instant?) {
         require(groupLookupService.isUserInGroup(userId, groupId))
@@ -501,11 +502,15 @@ class GroupService(
      * Groups whose timer has run out don't get deleted - just clear the timer itself,
      * leaving the group (and any connected event) untouched
      */
-    fun clearExpiredGroupTimers() {
+    /**
+     * Permanently deletes every group whose [Group.expiresAt] has passed (and, via
+     * [deleteGroup], the event connected to it, if any).
+     */
+    fun deleteExpiredGroups() {
         val now = Clock.System.now()
 
         groupLookupService.getExpiredGroups(now).forEach { group ->
-            setGroupExpiresAt(group.id, null)
+            deleteGroup(group.id, deletedBy = null)
         }
     }
 

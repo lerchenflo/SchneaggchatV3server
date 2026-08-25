@@ -10,6 +10,7 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.toDurationOrNull
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
@@ -25,7 +26,6 @@ import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.days
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -113,8 +113,9 @@ class EventService(
 
         val startDate = Instant.fromEpochMilliseconds(eventRequest.startDate)
         val closeDate = eventRequest.closeDate?.let { Instant.fromEpochMilliseconds(it) }
-        //Group expiry stays in sync with the event: closeDate (or startDate if there's no closeDate) plus one day
-        val groupExpiresAt = (closeDate ?: startDate) + 1.days
+        //Group expiry stays in sync with the event: closeDate (or startDate if there's no closeDate) plus the
+        //creator-chosen delay. NEVER means the group must not auto-expire.
+        val groupExpiresAt = eventRequest.groupDeleteDelay.toDurationOrNull()?.let { (closeDate ?: startDate) + it }
 
         val groupId = existing?.groupId
             ?: groupService.createGroup(
@@ -128,7 +129,6 @@ class EventService(
             ).id
 
         if (existing != null) {
-            // Only re-sync the group timer if one is currently set - if the user removed it, an edit must not bring it back
             val currentGroupExpiresAt = groupLookupService.getGroupById(groupId)?.expiresAt
             if (currentGroupExpiresAt != null) {
                 groupService.setGroupExpiresAt(groupId, groupExpiresAt)
@@ -147,6 +147,7 @@ class EventService(
             closeDate = closeDate,
             invitedUsers = eventRequest.invitedUsers.map { ObjectId(it) },
             visibility = eventRequest.visibility,
+            groupDeleteDelay = eventRequest.groupDeleteDelay,
             createdAt = existing?.createdAt ?: now,
             updatedAt = now,
             updatedBy = upsertingUser,

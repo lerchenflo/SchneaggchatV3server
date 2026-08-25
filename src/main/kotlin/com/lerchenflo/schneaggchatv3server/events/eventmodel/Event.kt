@@ -28,6 +28,8 @@ data class Event(
 
     val visibility: EventVisibility,
 
+    val groupDeleteDelay: GroupDeleteDelay = GroupDeleteDelay.ONE_DAY, // default matches the previous hardcoded behavior, for events persisted before this field existed
+
     val createdAt: Instant,
     val updatedAt: Instant,
     val updatedBy: ObjectId,

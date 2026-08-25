@@ -13,6 +13,7 @@ data class EventRequest(
     val closeDate: Long?,
     val invitedUsers: List<String>,
     val visibility: EventVisibility,
+    val groupDeleteDelay: GroupDeleteDelay,
 )
 
 
