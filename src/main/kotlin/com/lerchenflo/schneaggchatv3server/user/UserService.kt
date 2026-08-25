@@ -519,6 +519,9 @@ class UserService(
         //delete all user messages
         messageLookupService.deleteAllUserMessages(userId)
 
+        //delete profile pic
+        imageManager.deleteProfilePic(userId.toHexString(), group = false)
+
         //delete user
         userLookupService.deleteUser(userId)
     }

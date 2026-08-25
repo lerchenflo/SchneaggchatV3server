@@ -2,7 +2,10 @@ package com.lerchenflo.schneaggchatv3server.message
 
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 import com.lerchenflo.schneaggchatv3server.repository.MessageRepository
+import com.lerchenflo.schneaggchatv3server.util.AudioManager
+import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import org.bson.types.ObjectId
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
@@ -16,7 +19,9 @@ class MessageLookupService(
     private val messageRepository: MessageRepository,
 
     private val mongoTemplate: MongoTemplate,
-    private val groupLookupService: GroupLookupService
+    private val groupLookupService: GroupLookupService,
+    private val imageManager: ImageManager,
+    private val audioManager: AudioManager,
 ) {
     fun saveMessage(message: Message) : Message {
         return messageRepository.save(message)
@@ -110,6 +115,14 @@ class MessageLookupService(
             userId = userId,
             includeDeleted = true
         )
+
+        messages.forEach { message ->
+            when (message.msgType) {
+                MessageType.IMAGE -> imageManager.deleteMessageImage(message.id, message.groupMessage)
+                MessageType.AUDIO -> audioManager.deleteMessageAudio(message.id, message.groupMessage)
+                else -> {}
+            }
+        }
 
         messageRepository.deleteAll(messages)
     }

@@ -482,6 +482,12 @@ class MessageService(
         require(message.msgType != MessageType.SYSTEM) { "Cannot delete a system message" }
         require(message.senderId == deletingUserId) { "Only the sender can delete a message" }
 
+        when (message.msgType) {
+            MessageType.IMAGE -> imageManager.deleteMessageImage(messageId, message.groupMessage)
+            MessageType.AUDIO -> audioManager.deleteMessageAudio(messageId, message.groupMessage)
+            else -> {}
+        }
+
         loggingService.log(
             userId = deletingUserId,
             logType = LogType.MESSAGE_DELETED

@@ -480,6 +480,8 @@ class GroupService(
 
         groupLookupService.saveGroup(group.copy(deleted = true))
 
+        imageManager.deleteProfilePic(groupId.toHexString(), group = true)
+
         loggingService.log(deletedBy, LogType.GROUP_DELETED)
 
         notificationService.notifyGroupUpdate(response, deleted = true)

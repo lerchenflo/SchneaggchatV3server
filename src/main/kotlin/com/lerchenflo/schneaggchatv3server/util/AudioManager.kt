@@ -43,4 +43,8 @@ class AudioManager {
         val prefix = if (group) "group" else "user"
         return "${prefix}_audio_${messageId.toHexString()}_message.m4a"
     }
+
+    fun deleteMessageAudio(messageId: ObjectId, group: Boolean) {
+        File("/app/audio_messages", getAudioMessageFileName(messageId, group)).delete()
+    }
 }
