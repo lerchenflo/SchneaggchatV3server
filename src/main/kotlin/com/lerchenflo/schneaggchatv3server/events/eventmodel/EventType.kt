@@ -2,12 +2,13 @@ package com.lerchenflo.schneaggchatv3server.events.eventmodel
 
 
 enum class EventType {
-    // Existing
     SPORT,
     FOOD,
-    COOKING,
-    SHOPPING,
+
+    BEER,
     DRIVING,
+
+    HORSE_RIDING,
 
     // New
     PARTY,       // birthdays, get-togethers, celebrations
