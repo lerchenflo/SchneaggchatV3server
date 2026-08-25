@@ -30,6 +30,7 @@ import org.springframework.data.mongodb.core.query.Query
 import org.springframework.data.mongodb.core.query.Update
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
+import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
@@ -199,7 +200,7 @@ class MainController(
 
         val update = Update()
             .set("settings", PersonalUserSettings())
-            .currentDate("updatedAt")
+            .set("updatedAt", Clock.System.now())
 
         val result = mongoTemplate.updateMulti(query, update, User::class.java)
 
