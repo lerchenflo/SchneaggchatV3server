@@ -50,6 +50,10 @@ class UserLookupService(
         return userRepository.findAllById(ids).toList()
     }
 
+    fun findAll() : List<User> {
+        return userRepository.findAll()
+    }
+
     fun findByUsername(username: String): User? {
         val optuser = userRepository.findByUsername(username)
 

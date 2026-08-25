@@ -192,6 +192,12 @@ class MainController(
      * Documents written before it existed get the default settings object here. Also bumps
      * `updatedAt` so every existing client picks this up on its next `/users/sync` and overwrites
      * its local (device-only, pre-sync) preferences with the server's defaults exactly once.
+     *
+     * `updatedAt` must be set to an actual `kotlin.time.Instant` value (as below), never via the
+     * MongoDB-native `$currentDate` operator/`Update.currentDate(...)` - that writes a raw BSON
+     * Date, bypassing Spring's conversion entirely, whereas every Instant field in this app is
+     * stored as a `{epochSeconds, nanosecondsOfSecond}` subdocument. A raw Date is unreadable back
+     * into `User.updatedAt` (ConverterNotFoundException) - see [repairCorruptedUpdatedAt].
      */
     fun migratePersonalUserSettings() {
         AppLogger.info("Running personal user settings migration...")
