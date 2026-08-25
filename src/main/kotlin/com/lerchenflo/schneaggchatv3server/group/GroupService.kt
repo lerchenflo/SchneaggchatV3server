@@ -499,10 +499,6 @@ class GroupService(
     }
 
     /**
-     * Groups whose timer has run out don't get deleted - just clear the timer itself,
-     * leaving the group (and any connected event) untouched
-     */
-    /**
      * Permanently deletes every group whose [Group.expiresAt] has passed (and, via
      * [deleteGroup], the event connected to it, if any).
      */
