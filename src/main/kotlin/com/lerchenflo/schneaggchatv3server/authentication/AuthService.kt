@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
+import com.lerchenflo.schneaggchatv3server.user.usermodel.PersonalUserSettings
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.*
 import org.bson.types.ObjectId
@@ -47,7 +48,7 @@ class AuthService(
         val encryptionKey: String? = null
     )
 
-    fun register(username: String, password: String, email: String, birthdate: String, profilePic: MultipartFile, phoneNumber: String? = null) : User {
+    fun register(username: String, password: String, email: String, birthdate: String, profilePic: MultipartFile, phoneNumber: String? = null, language: String? = null) : User {
 
         require(ValidationUtils.validateUsername(username)) { "Username invalid" }
         require(ValidationUtils.validatePassword(password)) { "Password invalid" }
@@ -57,6 +58,7 @@ class AuthService(
         phoneNumber?.let {
             require(ValidationUtils.validatePhoneNumber(phoneNumber)) { "Phone number invalid" }
         }
+        require(language == null || language.length <= 40) { "Language invalid" }
 
         userLookupService.checkExistingUser(username, email)
 
@@ -71,7 +73,9 @@ class AuthService(
             birthDate = birthdate,
             phoneNumber = phoneNumber?.ifBlank { null },
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
+            settings = language?.ifBlank { null }?.let { PersonalUserSettings(language = it) }
+                ?: PersonalUserSettings()
         )
 
         //Save users profilepicture

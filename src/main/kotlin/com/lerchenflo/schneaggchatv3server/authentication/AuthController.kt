@@ -73,7 +73,8 @@ class AuthController(
         @RequestParam("email") email: String,
         @RequestParam("birthDate") birthDate: String,
         @RequestParam("profilepic") profilePic: MultipartFile,
-        @RequestParam("phoneNumber", required = false) phoneNumber: String?
+        @RequestParam("phoneNumber", required = false) phoneNumber: String?,
+        @RequestParam("language", required = false) language: String?
     ) {
         val user = authService.register(
             username = username.trim().lowercase(getDefault()),
@@ -81,7 +82,8 @@ class AuthController(
             email = email.trim().lowercase(getDefault()),
             birthdate = birthDate,
             profilePic = profilePic,
-            phoneNumber = phoneNumber
+            phoneNumber = phoneNumber,
+            language = language
         )
 
         emailService.sendVerificationEmail(
