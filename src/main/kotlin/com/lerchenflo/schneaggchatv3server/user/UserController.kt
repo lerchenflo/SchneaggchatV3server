@@ -8,6 +8,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.PinnedChat
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
@@ -162,9 +163,9 @@ class UserController(
         friendshipsService.setLocationSharing(
             userId = requestingUserId,
             friendId = ObjectId(request.friendId),
-            share = request.share ?: false,
-            shareSpeedHeading = request.shareSpeedHeading ?: false,
-            shareSnailTrail = request.shareSnailTrail ?: false,
+            share = request.share,
+            shareSpeedHeading = request.shareSpeedHeading,
+            shareSnailTrail = request.shareSnailTrail,
         )
     }
 
@@ -208,6 +209,47 @@ class UserController(
     ) {
         val requestingUserId = requireAuth()
         userService.setWakeGlobal(requestingUserId, request.enabled)
+    }
+
+
+    /**
+     * Partial update of the caller's own [com.lerchenflo.schneaggchatv3server.user.usermodel.PersonalUserSettings].
+     * All fields nullable - a null field means "leave unchanged", so a client only ever sends the
+     * settings it actually changed. The user id always comes from [requireAuth], never the body.
+     */
+    data class UserSettingsRequest(
+        val mdFormat: Boolean? = null,
+        val highlightTodaysMessageTimestamp: Boolean? = null,
+        @field:Size(max = 40, message = "Theme too long")
+        val theme: String? = null,
+        @field:Size(max = 40, message = "Language too long")
+        val language: String? = null,
+        val mergeMapLocations: Boolean? = null,
+        val mergeMapUsers: Boolean? = null,
+        @field:Size(max = 40, message = "Map style too long")
+        val mapStyle: String? = null,
+        val pinnedChats: List<PinnedChat>? = null,
+        val developerSettings: Boolean? = null,
+    )
+
+    @PostMapping("/settings")
+    fun updateSettings(
+        @Valid @RequestBody request: UserSettingsRequest
+    ) {
+        val requestingUserId = requireAuth()
+
+        userService.updateSettings(
+            userId = requestingUserId,
+            mdFormat = request.mdFormat,
+            highlightTodaysMessageTimestamp = request.highlightTodaysMessageTimestamp,
+            theme = request.theme,
+            language = request.language,
+            mergeMapLocations = request.mergeMapLocations,
+            mergeMapUsers = request.mergeMapUsers,
+            mapStyle = request.mapStyle,
+            pinnedChats = request.pinnedChats,
+            developerSettings = request.developerSettings,
+        )
     }
 
 

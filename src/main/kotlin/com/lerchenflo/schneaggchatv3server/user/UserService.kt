@@ -12,9 +12,11 @@ import com.lerchenflo.schneaggchatv3server.user.friends.FriendsSettingsService
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipSetting
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.PinnedChat
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.toSelfUserResponse
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
@@ -414,6 +416,54 @@ class UserService(
     }
 
     /**
+     * Partial update of the caller's own [PersonalUserSettings]. Every parameter is nullable and
+     * a null means "leave this field unchanged" - mirrors [changeUserProfile]'s [UserRequest]
+     * convention, so a client only ever sends the fields it actually changed.
+     */
+    fun updateSettings(
+        userId: ObjectId,
+        mdFormat: Boolean?,
+        highlightTodaysMessageTimestamp: Boolean?,
+        theme: String?,
+        language: String?,
+        mergeMapLocations: Boolean?,
+        mergeMapUsers: Boolean?,
+        mapStyle: String?,
+        pinnedChats: List<PinnedChat>?,
+        developerSettings: Boolean?,
+    ) {
+        val user = userLookupService.findById(userId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+
+        require(pinnedChats == null || pinnedChats.size <= 200) { "Too many pinned chats" }
+        pinnedChats?.forEach {
+            require(ValidationUtils.validateObjectId(it.chatId)) { "Invalid pinned chat ID" }
+        }
+
+        val current = user.settings
+        val newSettings = current.copy(
+            mdFormat = mdFormat ?: current.mdFormat,
+            highlightTodaysMessageTimestamp = highlightTodaysMessageTimestamp
+                ?: current.highlightTodaysMessageTimestamp,
+            theme = theme ?: current.theme,
+            language = language ?: current.language,
+            mergeMapLocations = mergeMapLocations ?: current.mergeMapLocations,
+            mergeMapUsers = mergeMapUsers ?: current.mergeMapUsers,
+            mapStyle = mapStyle ?: current.mapStyle,
+            pinnedChats = pinnedChats ?: current.pinnedChats,
+            developerSettings = developerSettings ?: current.developerSettings,
+        )
+
+        if (newSettings == current) return
+
+        val updatedUser = user.copy(settings = newSettings, updatedAt = Clock.System.now())
+        userLookupService.save(updatedUser)
+
+        //Bumping updatedAt is what gets this into the next /users/sync for the user's other devices.
+        notificationService.notifyUserUpdate(updatedUser, deleted = false)
+    }
+
+    /**
      * Reset password via email token (no old password required)
      */
     fun resetPassword(userId: ObjectId, newPassword: String) {
@@ -440,20 +490,9 @@ class UserService(
     private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null, nickName: String? = null, shareLocation: Boolean = false, shareSpeedHeading: Boolean = false, shareSnailTrail: Boolean = false, allowWake: Boolean = false): UserResponse {
         //User requests his own data
         if (requestingUserId == user.id) {
-            return UserResponse.SelfUserResponse(
-                id = user.id.toString(),
-                username = user.username,
-                userDescription = user.userDescription,
-                userStatus = user.userStatus,
-                updatedAt = lastChangedAt ?: user.updatedAt.toEpochMilliseconds(),
-                birthDate = user.birthDate,
-                phoneNumber = user.phoneNumber,
-                email = user.email,
-                createdAt = user.createdAt.toEpochMilliseconds(),
-                emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
-                profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
+            return user.toSelfUserResponse(
                 locationShared = friendsLookupService.hasActiveLocationSharing(user.id),
-                allowWakeGlobal = user.allowWakeGlobal,
+                updatedAt = lastChangedAt,
             )
         }
 

@@ -39,5 +39,9 @@ data class User(
 
     // Master switch for the wake feature. Opt-in: nobody can wake this user until they turn it on
     // AND enable the specific friend via FriendshipSetting.allowWake.
-    val allowWakeGlobal: Boolean = false
+    val allowWakeGlobal: Boolean = false,
+
+    // Per-user app settings (theme, language, pinned chats, ...), synced across all of this
+    // user's devices. See PersonalUserSettings.
+    val settings: PersonalUserSettings = PersonalUserSettings()
 )

@@ -21,6 +21,7 @@ import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsSettingsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.toSelfUserResponse
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
 import kotlin.time.ExperimentalTime
@@ -177,18 +178,7 @@ class NotificationService(
         // Notify the user themselves
         socketConnectionHandler.sendMessage(
             SocketConnectionMessage.UserChange(
-                user = UserResponse.SelfUserResponse(
-                    id = user.id.toHexString(),
-                    username = user.username,
-                    updatedAt = user.updatedAt.toEpochMilliseconds(),
-                    profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
-                    birthDate = user.birthDate,
-                    phoneNumber = user.phoneNumber,
-                    userDescription = user.userDescription,
-                    userStatus = user.userStatus,
-                    email = user.email,
-                    emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
-                    createdAt = user.createdAt.toEpochMilliseconds(),
+                user = user.toSelfUserResponse(
                     locationShared = friendsLookupService.hasActiveLocationSharing(user.id),
                 ),
                 deleted = deleted

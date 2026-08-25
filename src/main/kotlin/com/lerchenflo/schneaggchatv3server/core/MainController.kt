@@ -11,6 +11,7 @@ import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.SchneaggmapService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
+import com.lerchenflo.schneaggchatv3server.user.usermodel.PersonalUserSettings
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.SyncCollection
@@ -65,6 +66,7 @@ class MainController(
         renameTypoCollections()
         migrateTypeAliases()
         migrateLastSeen()
+        migratePersonalUserSettings()
 
         migrateReactionTimestamps()
         migrateMessageVersions()
@@ -181,6 +183,30 @@ class MainController(
             AppLogger.success("Migration completed: Set lastSeen -> updatedAt for ${result.modifiedCount} users")
         } else {
             AppLogger.success("Migration check: All users already have a lastSeen field")
+        }
+    }
+
+    /**
+     * `User.settings` (PersonalUserSettings - theme, language, pinned chats, ...) is a new field.
+     * Documents written before it existed get the default settings object here. Also bumps
+     * `updatedAt` so every existing client picks this up on its next `/users/sync` and overwrites
+     * its local (device-only, pre-sync) preferences with the server's defaults exactly once.
+     */
+    fun migratePersonalUserSettings() {
+        AppLogger.info("Running personal user settings migration...")
+
+        val query = Query(Criteria.where("settings").exists(false))
+
+        val update = Update()
+            .set("settings", PersonalUserSettings())
+            .currentDate("updatedAt")
+
+        val result = mongoTemplate.updateMulti(query, update, User::class.java)
+
+        if (result.modifiedCount > 0) {
+            AppLogger.success("Migration completed: Added default settings to ${result.modifiedCount} users")
+        } else {
+            AppLogger.success("Migration check: All users already have a settings field")
         }
     }
 
