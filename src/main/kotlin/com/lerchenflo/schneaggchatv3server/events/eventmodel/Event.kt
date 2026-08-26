@@ -28,6 +28,8 @@ data class Event(
 
     val visibility: EventVisibility,
 
+    val maxUsers: Int? = null, // Optional cap on how many people can join, null = unlimited
+
     val groupDeleteDelay: GroupDeleteDelay = GroupDeleteDelay.ONE_DAY, // default matches the previous hardcoded behavior, for events persisted before this field existed
 
     val createdAt: Instant,

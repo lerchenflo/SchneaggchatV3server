@@ -17,5 +17,6 @@ enum class EventType {
     TRIP,        // day trips, weekend trips, vacations
     MEETUP,      // casual hangout with no specific activity
     OUTDOOR,     // hiking, camping, swimming, nature stuff
+    WORK,        // work-related meetups, shifts, business events
     OTHER        // fallback / catch-all
 }

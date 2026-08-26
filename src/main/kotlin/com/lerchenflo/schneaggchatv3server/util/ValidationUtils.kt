@@ -171,6 +171,13 @@ object ValidationUtils {
         return true
     }
 
+    fun validateEventMaxUsers(maxUsers: Int?): Boolean {
+        if (maxUsers == null) return true
+        if (maxUsers < 1 || maxUsers > 1000) return false
+
+        return true
+    }
+
     fun validateStringMessage(string: String) : Boolean {
         if (string.length > 10000 || string.isEmpty()) return false
 

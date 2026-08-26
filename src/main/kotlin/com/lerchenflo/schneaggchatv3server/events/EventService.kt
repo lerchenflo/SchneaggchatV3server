@@ -147,6 +147,7 @@ class EventService(
             closeDate = closeDate,
             invitedUsers = eventRequest.invitedUsers.map { ObjectId(it) },
             visibility = eventRequest.visibility,
+            maxUsers = eventRequest.maxUsers,
             groupDeleteDelay = eventRequest.groupDeleteDelay,
             createdAt = existing?.createdAt ?: now,
             updatedAt = now,
@@ -201,6 +202,12 @@ class EventService(
 
         //Check if can access event
         require(canAccessEvent(requesterId = joiningUser, event = event))  {"You can not access this event"}
+
+        //Enforce the optional participant cap - re-joining an existing member must stay a no-op
+        event.maxUsers?.let { max ->
+            val members = groupLookupService.getGroupMembers(event.groupId)
+            require(members.any { it.userid == joiningUser } || members.size < max) { "Event is full" }
+        }
 
         //Add to group
         groupService.addUserToGroup(

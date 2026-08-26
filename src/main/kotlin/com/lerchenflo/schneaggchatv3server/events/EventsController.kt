@@ -53,6 +53,7 @@ class EventsController(
             require(ValidationUtils.validateObjectId(requestBody.eventId)) { "Invalid event id" }
         }
         require(ValidationUtils.validateEventTitle(requestBody.title)) { "Invalid event title" }
+        require(ValidationUtils.validateEventMaxUsers(requestBody.maxUsers)) { "Invalid max users" }
         // createGroup() skips picture validation when createdFromEvent = true, so it must happen here
         profilePic?.let { require(ValidationUtils.validatePicture(it)) { "Profilepic invalid" } }
 
