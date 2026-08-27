@@ -224,6 +224,7 @@ class EventService(
             groupId = event.groupId,
             memberId = joiningUser
         )
+        groupService.touchGroup(event.groupId)
         notificationService.notifyGroupUpdate(
             groupResponse = groupLookupService.getGroupAsGroupResponse(event.groupId),
             deleted = false
