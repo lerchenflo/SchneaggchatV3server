@@ -12,9 +12,11 @@ import com.lerchenflo.schneaggchatv3server.user.friends.FriendsSettingsService
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipSetting
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.PinnedChat
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.toSelfUserResponse
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
@@ -231,6 +233,15 @@ class UserService(
         notificationService.notifyUserUpdate(updatedUser, deleted = false)
     }
 
+    fun getProfilePic(requestingUserId: ObjectId, userId: ObjectId): ByteArray? {
+        return try {
+            val imageName = imageManager.getProfilePicFileName(userId.toHexString(), false)
+            imageManager.loadProfilePicFromFile(imageName)
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
     fun changeProfilepic(requestingUserId: ObjectId, newPic: MultipartFile){
         val user = userRepository.findById(requestingUserId).get()
 
@@ -271,7 +282,7 @@ class UserService(
             val emailvalid = /* user.emailVerifiedAt != null && */ userRequest.newEmail != null
 
             //TODO: Send email to the old verified email address
-            val somethingChanged = userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null
+            val somethingChanged = userRequest.newStatus != null || emailvalid || userRequest.newBirthDate != null || userRequest.newPhoneNumber != null
 
             if (userRequest.newStatus != null) {
                 require(ValidationUtils.validateDescription(userRequest.newStatus)) { "New description is invalid" }
@@ -286,11 +297,17 @@ class UserService(
                 require(ValidationUtils.validateBirthdate(userRequest.newBirthDate)) { "New birthdate is invalid" }
             }
 
+            if (userRequest.newPhoneNumber != null) {
+                require(ValidationUtils.validatePhoneNumber(userRequest.newPhoneNumber)) { "New phone number is invalid" }
+            }
+
             val updatedSelf = requestingUser.copy(
                 updatedAt = if (somethingChanged) timeStamp else requestingUser.updatedAt,
                 userStatus = userRequest.newStatus ?: requestingUser.userStatus,
                 birthDate = userRequest.newBirthDate ?: requestingUser.birthDate,
                 email = userRequest.newEmail?.lowercase(getDefault())?.trim() ?: requestingUser.email,
+                //Blank string clears the stored number, null leaves it unchanged
+                phoneNumber = userRequest.newPhoneNumber?.ifBlank { null } ?: requestingUser.phoneNumber,
             )
             userLookupService.save(updatedSelf)
 
@@ -399,6 +416,54 @@ class UserService(
     }
 
     /**
+     * Partial update of the caller's own [PersonalUserSettings]. Every parameter is nullable and
+     * a null means "leave this field unchanged" - mirrors [changeUserProfile]'s [UserRequest]
+     * convention, so a client only ever sends the fields it actually changed.
+     */
+    fun updateSettings(
+        userId: ObjectId,
+        mdFormat: Boolean?,
+        highlightTodaysMessageTimestamp: Boolean?,
+        theme: String?,
+        language: String?,
+        mergeMapLocations: Boolean?,
+        mergeMapUsers: Boolean?,
+        mapStyle: String?,
+        pinnedChats: List<PinnedChat>?,
+        developerSettings: Boolean?,
+    ) {
+        val user = userLookupService.findById(userId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+
+        require(pinnedChats == null || pinnedChats.size <= 200) { "Too many pinned chats" }
+        pinnedChats?.forEach {
+            require(ValidationUtils.validateObjectId(it.chatId)) { "Invalid pinned chat ID" }
+        }
+
+        val current = user.settings
+        val newSettings = current.copy(
+            mdFormat = mdFormat ?: current.mdFormat,
+            highlightTodaysMessageTimestamp = highlightTodaysMessageTimestamp
+                ?: current.highlightTodaysMessageTimestamp,
+            theme = theme ?: current.theme,
+            language = language ?: current.language,
+            mergeMapLocations = mergeMapLocations ?: current.mergeMapLocations,
+            mergeMapUsers = mergeMapUsers ?: current.mergeMapUsers,
+            mapStyle = mapStyle ?: current.mapStyle,
+            pinnedChats = pinnedChats ?: current.pinnedChats,
+            developerSettings = developerSettings ?: current.developerSettings,
+        )
+
+        if (newSettings == current) return
+
+        val updatedUser = user.copy(settings = newSettings, updatedAt = Clock.System.now())
+        userLookupService.save(updatedUser)
+
+        //Bumping updatedAt is what gets this into the next /users/sync for the user's other devices.
+        notificationService.notifyUserUpdate(updatedUser, deleted = false)
+    }
+
+    /**
      * Reset password via email token (no old password required)
      */
     fun resetPassword(userId: ObjectId, newPassword: String) {
@@ -425,19 +490,9 @@ class UserService(
     private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null, nickName: String? = null, shareLocation: Boolean = false, shareSpeedHeading: Boolean = false, shareSnailTrail: Boolean = false, allowWake: Boolean = false): UserResponse {
         //User requests his own data
         if (requestingUserId == user.id) {
-            return UserResponse.SelfUserResponse(
-                id = user.id.toString(),
-                username = user.username,
-                userDescription = user.userDescription,
-                userStatus = user.userStatus,
-                updatedAt = lastChangedAt ?: user.updatedAt.toEpochMilliseconds(),
-                birthDate = user.birthDate,
-                email = user.email,
-                createdAt = user.createdAt.toEpochMilliseconds(),
-                emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
-                profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
+            return user.toSelfUserResponse(
                 locationShared = friendsLookupService.hasActiveLocationSharing(user.id),
-                allowWakeGlobal = user.allowWakeGlobal,
+                updatedAt = lastChangedAt,
             )
         }
 
@@ -450,6 +505,7 @@ class UserService(
                 userStatus = user.userStatus,
                 updatedAt = lastChangedAt ?: user.updatedAt.toEpochMilliseconds(),
                 birthDate = user.birthDate,
+                phoneNumber = user.phoneNumber,
                 requesterId = requesterId?.toHexString(),
                 profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
                 nickName = nickName,
@@ -501,6 +557,9 @@ class UserService(
 
         //delete all user messages
         messageLookupService.deleteAllUserMessages(userId)
+
+        //delete profile pic
+        imageManager.deleteProfilePic(userId.toHexString(), group = false)
 
         //delete user
         userLookupService.deleteUser(userId)

@@ -27,6 +27,9 @@ data class User(
     val userStatus: String,
     val birthDate: String,
 
+    // Optional phone number, shared with accepted friends. Null if the user never set one.
+    val phoneNumber: String? = null,
+
     val createdAt: Instant,
     val updatedAt: Instant,
 
@@ -36,5 +39,9 @@ data class User(
 
     // Master switch for the wake feature. Opt-in: nobody can wake this user until they turn it on
     // AND enable the specific friend via FriendshipSetting.allowWake.
-    val allowWakeGlobal: Boolean = false
+    val allowWakeGlobal: Boolean = false,
+
+    // Per-user app settings (theme, language, pinned chats, ...), synced across all of this
+    // user's devices. See PersonalUserSettings.
+    val settings: PersonalUserSettings = PersonalUserSettings()
 )

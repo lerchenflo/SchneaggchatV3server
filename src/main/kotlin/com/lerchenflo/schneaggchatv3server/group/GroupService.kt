@@ -2,13 +2,16 @@
 
 package com.lerchenflo.schneaggchatv3server.group
 
+import com.lerchenflo.schneaggchatv3server.events.EventsLookupService
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.group.model.toGroupMemberResponse
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.SystemEventType
+import com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.GroupMemberRepository
-import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
@@ -30,20 +33,22 @@ import kotlin.time.Instant
 
 @Component
 class GroupService(
-    private val groupRepository: GroupRepository,
     private val groupMemberRepository: GroupMemberRepository,
     private val groupLookupService: GroupLookupService,
+    private val eventsLookupService: EventsLookupService,
     private val userLookupService: UserLookupService,
 
     private val notificationService: NotificationService,
+    private val systemMessageService: SystemMessageService,
 
     private val imageManager: ImageManager,
     private val friendsService: FriendsService,
     private val friendsLookupService: FriendsLookupService,
     private val loggingService: LoggingService,
+    private val versionCounterService: VersionCounterService,
 ) {
 
-    fun createGroup(groupName: String, members: List<ObjectId>, creatorId: ObjectId, description: String, profilePic: MultipartFile?, createdFromEvent: Boolean) : Group {
+    fun createGroup(groupName: String, members: List<ObjectId>, creatorId: ObjectId, description: String, profilePic: MultipartFile?, createdFromEvent: Boolean, expiresAt: Instant? = null) : Group {
 
         //Try to add creator (Set prevents duplicate members)
         val membersInternal: Set<ObjectId> = members.toSet() + creatorId
@@ -64,14 +69,15 @@ class GroupService(
         }
 
         val currentTime = Clock.System.now()
-        val group = groupRepository.save(
+        val group = groupLookupService.saveGroup(
             Group(
                 name = groupName.trim(),
                 description = description,
                 updatedAt = currentTime,
                 profilePicUpdatedAt = currentTime,
                 createdAt = currentTime,
-                creatorId = creatorId
+                creatorId = creatorId,
+                expiresAt = expiresAt
             )
         )
 
@@ -88,6 +94,8 @@ class GroupService(
         val memberColors = ColorGenerator.generateUniqueColorsForGroup(existingColors, membersInternal.size)
         val memberColorMap = membersInternal.zip(memberColors).toMap()
 
+        val joinedAtVersion = versionCounterService.current(SyncCollection.MESSAGES)
+
         val members = groupMemberRepository.saveAll(
             membersInternal.mapIndexed { index, userId ->
                 GroupMember(
@@ -95,7 +103,8 @@ class GroupService(
                     groupId = group.id,
                     joinedAt = currentTime,
                     admin = (userId == creatorId),
-                    color = memberColorMap[userId]!!
+                    color = memberColorMap[userId]!!,
+                    joinedAtVersion = joinedAtVersion,
                 )
             }
         )
@@ -114,6 +123,7 @@ class GroupService(
                 profilePicUpdatedAt = group.profilePicUpdatedAt.toEpochMilliseconds(),
                 createdAt = group.createdAt.toEpochMilliseconds(),
                 creatorId = group.creatorId.toHexString(),
+                expiresAt = group.expiresAt?.toEpochMilliseconds(),
                 members = members.map { member ->
                     member.toGroupMemberResponse(
                         memberName = userLookupService.getUsername(member.userid)
@@ -121,6 +131,13 @@ class GroupService(
                 }
             ),
             deleted = false
+        )
+
+        systemMessageService.groupEvent(
+            groupId = group.id,
+            eventType = SystemEventType.GROUP_CREATED,
+            actorId = creatorId,
+            text = group.name,
         )
 
         return group
@@ -145,8 +162,10 @@ class GroupService(
         }
 
         // Find groups that need to be added (client doesn't have) or updated (server is newer)
-        val groupsToSyncIds = serverGroups.filter { (groupId, serverTs) ->
-            val clientTs = clientGroups[groupId]
+        // Timestamps are transported as strings, so they must be compared as longs - not lexicographically
+        val groupsToSyncIds = serverGroups.filter { (groupId, serverTsString) ->
+            val serverTs = serverTsString.toLongOrNull() ?: return@filter true
+            val clientTs = clientGroups[groupId]?.toLongOrNull()
             clientTs == null || serverTs > clientTs
         }.keys
 
@@ -191,12 +210,18 @@ class GroupService(
         )
 
         val now = Clock.System.now()
-        groupRepository.save(group.copy(
+        groupLookupService.saveGroup(group.copy(
             updatedAt = now,
             profilePicUpdatedAt = now
         ))
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+
+        systemMessageService.groupEvent(
+            groupId = groupId,
+            eventType = SystemEventType.GROUP_PICTURE_CHANGED,
+            actorId = userId,
+        )
 
     }
 
@@ -208,12 +233,18 @@ class GroupService(
         val group = groupLookupService.getGroupById(groupId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
 
-        groupRepository.save(group.copy(
+        groupLookupService.saveGroup(group.copy(
             updatedAt = Clock.System.now(),
             description = newDescription
         ))
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+
+        systemMessageService.groupEvent(
+            groupId = groupId,
+            eventType = SystemEventType.GROUP_DESCRIPTION_CHANGED,
+            actorId = userId,
+        )
 
     }
 
@@ -225,13 +256,57 @@ class GroupService(
         val group = groupLookupService.getGroupById(groupId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
 
-        groupRepository.save(group.copy(
+        groupLookupService.saveGroup(group.copy(
             updatedAt = Clock.System.now(),
             name = newName
         ))
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+
+        systemMessageService.groupEvent(
+            groupId = groupId,
+            eventType = SystemEventType.GROUP_NAME_CHANGED,
+            actorId = userId,
+            text = newName,
+            previousText = group.name,
+        )
     }
+
+    /**
+     * Keep a group's expiry in sync with the event it belongs to (event startDate, or closeDate
+     * if set, plus the event's creator-chosen [com.lerchenflo.schneaggchatv3server.events.eventmodel.GroupDeleteDelay])
+     */
+    fun setGroupExpiresAt(groupId: ObjectId, expiresAt: Instant?) {
+        val group = groupLookupService.getGroupById(groupId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
+
+        if (group.expiresAt == expiresAt) return
+
+        groupLookupService.saveGroup(group.copy(expiresAt = expiresAt, updatedAt = Clock.System.now()))
+
+        notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+    }
+
+    /**
+     * User-facing: change a group's expiry, or clear it entirely (null = never auto-expires).
+     * Note: for a group backed by an event, the next event create/edit re-syncs this to the
+     * event's own group-delete-delay setting, overwriting whatever is set here.
+     */
+    fun changeGroupExpiresAt(userId: ObjectId, groupId: ObjectId, expiresAt: Instant?) {
+        require(groupLookupService.isUserInGroup(userId, groupId))
+        expiresAt?.let {
+            require(it > Clock.System.now()) { "Expiry date must be in the future" }
+        }
+
+        setGroupExpiresAt(groupId, expiresAt)
+    }
+
+    data class SetGroupExpiryRequest(
+        @field:NotBlank(message = "Group ID must not be blank")
+        @field:Size(max = 24, message = "Group ID too long")
+        val groupId: String,
+        val expiresAt: Long?
+    )
 
 
     enum class GroupMemberAction {
@@ -262,6 +337,11 @@ class GroupService(
 
         val now = Clock.System.now()
 
+        // Captured while running the mutation below, then emitted once at the very end - after
+        // the group has been notified, so a client (e.g. one just ADD_USER'd) always learns the
+        // group exists before it receives a system message addressed to it.
+        var pendingEvent: SystemEventType? = null
+
         when (userAction) {
             GroupMemberAction.ADD_USER -> {
                 require(groupLookupService.isAdmin(requestingUser, groupMembers)) {"You are not an admin"}
@@ -271,6 +351,8 @@ class GroupService(
                     memberId = groupMember,
                     timeStamp = now
                 )
+
+                pendingEvent = SystemEventType.GROUP_MEMBER_ADDED
             }
             GroupMemberAction.REMOVE_USER -> {
                 require(groupLookupService.isUserInGroup(groupMember, groupId)) {"User is not in this group"}
@@ -288,11 +370,8 @@ class GroupService(
 
                         if (newGroupMembers.isEmpty()) {
                             // Last person leaving - delete the group and all members
-                            val focusedMember = groupMembers.first { it.userid == groupMember }
-                            groupMemberRepository.delete(focusedMember)
-                            groupRepository.delete(group)
-                            loggingService.log(requestingUser, LogType.GROUP_DELETED)
-                            return // Don't update group lastChanged
+                            deleteGroup(groupId, deletedBy = requestingUser)
+                            return // Don't update group lastChanged, no system message - no chat left
                         } else {
                             // Find user with earliest joinedAt timestamp and promote to admin
                             val longestMember = newGroupMembers.minBy { it.joinedAt }
@@ -304,6 +383,12 @@ class GroupService(
                 // Remove the member
                 val focusedMember = groupMembers.first { it.userid == groupMember }
                 groupMemberRepository.delete(focusedMember)
+
+                pendingEvent = if (requestingUser == groupMember) {
+                    SystemEventType.GROUP_MEMBER_LEFT
+                } else {
+                    SystemEventType.GROUP_MEMBER_REMOVED
+                }
             }
 
             GroupMemberAction.MAKE_ADMIN -> {
@@ -317,6 +402,8 @@ class GroupService(
                 groupMemberRepository.save(focusedMember.copy(
                     admin = true
                 ))
+
+                pendingEvent = SystemEventType.GROUP_ADMIN_GRANTED
             }
             GroupMemberAction.REMOVE_ADMIN -> {
                 require(groupLookupService.isAdmin(requestingUser, groupMembers)) {"You are not an admin"}
@@ -333,13 +420,26 @@ class GroupService(
                 groupMemberRepository.save(focusedMember.copy(
                     admin = false
                 ))
+
+                pendingEvent = SystemEventType.GROUP_ADMIN_REVOKED
             }
         }
 
         //No error, update group last changed
-        groupRepository.save(group.copy(updatedAt = now))
+        groupLookupService.saveGroup(group.copy(updatedAt = now))
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+
+        pendingEvent.let { eventType ->
+            // GROUP_MEMBER_LEFT has no separate target - the actor is the subject of their own event.
+            val targets = if (eventType == SystemEventType.GROUP_MEMBER_LEFT) emptyList() else listOf(groupMember)
+            systemMessageService.groupEvent(
+                groupId = groupId,
+                eventType = eventType,
+                actorId = requestingUser,
+                targets = targets,
+            )
+        }
 
     }
 
@@ -357,13 +457,58 @@ class GroupService(
                 groupId = groupId,
                 joinedAt = timeStamp,
                 admin = false,
-                color = newColor
+                color = newColor,
+                joinedAtVersion = versionCounterService.current(SyncCollection.MESSAGES),
             ))
         } catch (e: DuplicateKeyException) {
             throw IllegalArgumentException("User is already in this group")
         }
     }
 
+
+    /**
+     * Soft-delete a group and all of its members. The single point every group deletion goes through,
+     * so members are always cleaned up, clients are always notified, and a connected event (if any) is
+     * always deleted along with it.
+     */
+    fun deleteGroup(groupId: ObjectId, deletedBy: ObjectId? = null) {
+        val group = groupLookupService.getGroupById(groupId) ?: return
+        val response = groupLookupService.getGroupAsGroupResponse(groupId)
+
+        groupLookupService.getGroupMembers(groupId).forEach { member ->
+            groupMemberRepository.delete(member)
+        }
+
+        groupLookupService.saveGroup(group.copy(deleted = true))
+
+        imageManager.deleteProfilePic(groupId.toHexString(), group = true)
+
+        loggingService.log(deletedBy, LogType.GROUP_DELETED)
+
+        notificationService.notifyGroupUpdate(response, deleted = true)
+
+        // If this group belongs to an event, delete the event too
+        eventsLookupService.findByGroupId(groupId)?.let { event ->
+            eventsLookupService.deleteEvent(event)
+            notificationService.notifyEventUpdate(
+                eventResponse = event.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+                newEntry = false,
+                deleted = true
+            )
+        }
+    }
+
+    /**
+     * Permanently deletes every group whose [Group.expiresAt] has passed (and, via
+     * [deleteGroup], the event connected to it, if any).
+     */
+    fun deleteExpiredGroups() {
+        val now = Clock.System.now()
+
+        groupLookupService.getExpiredGroups(now).forEach { group ->
+            deleteGroup(group.id, deletedBy = null)
+        }
+    }
 
 
 }

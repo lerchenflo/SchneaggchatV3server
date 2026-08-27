@@ -9,4 +9,6 @@ interface EventRepository : MongoRepository<Event, ObjectId> {
 
     fun findEventsByStartDateAfter(startDate: Instant): List<Event>
 
+    fun findByGroupId(groupId: ObjectId): Event?
+
 }

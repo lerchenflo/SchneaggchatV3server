@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.notifications
 
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
@@ -20,6 +21,7 @@ import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsSettingsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.toSelfUserResponse
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
 import kotlin.time.ExperimentalTime
@@ -83,6 +85,7 @@ class NotificationService(
                             msgId = message.id.toHexString(),
                             groupMessage = true,
                             groupName = groupName,
+                            groupId = message.receiverId,
                         )
                         apnsService.sendNewMessageNotificationToUser(
                             senderId = message.senderId,
@@ -92,6 +95,7 @@ class NotificationService(
                             msgId = message.id.toHexString(),
                             groupMessage = true,
                             groupName = groupName,
+                            groupId = message.receiverId,
                         )
                     }
                 }
@@ -140,22 +144,41 @@ class NotificationService(
     }
 
 
+    /**
+     * Push a server-authored `MessageType.SYSTEM` message (group change, friend accepted, wake -
+     * see [com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService]) live over the
+     * socket. Socket-only, no FCM/APNs fallback - offline clients pick it up on their next
+     * `/messages/sync`, exactly like [notifyGroupUpdate] and [notifyMapUpdate].
+     *
+     * Unlike [notifyMessageUpdate], this fans out to **every** participant including the actor:
+     * a system message has no HTTP response body to carry it back to whoever performed the
+     * action, so their own devices only learn about it here.
+     */
+    fun notifySystemMessage(message: Message) {
+        val recipients = if (message.groupMessage) {
+            groupLookupService.getGroupMembers(message.receiverId).map { it.userid }
+        } else {
+            listOf(message.senderId, message.receiverId)
+        }
+
+        recipients.distinct().forEach { recipientId ->
+            socketConnectionHandler.sendMessage(
+                message = SocketConnectionMessage.MessageChange(
+                    message = message.toMessageResponse(recipientId),
+                    newMessage = true,
+                    deleted = false,
+                ),
+                receiverId = recipientId,
+            )
+        }
+    }
+
     @OptIn(ExperimentalTime::class)
     fun notifyUserUpdate(user: User, deleted: Boolean) {
         // Notify the user themselves
         socketConnectionHandler.sendMessage(
             SocketConnectionMessage.UserChange(
-                user = UserResponse.SelfUserResponse(
-                    id = user.id.toHexString(),
-                    username = user.username,
-                    updatedAt = user.updatedAt.toEpochMilliseconds(),
-                    profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
-                    birthDate = user.birthDate,
-                    userDescription = user.userDescription,
-                    userStatus = user.userStatus,
-                    email = user.email,
-                    emailVerifiedAt = user.emailVerifiedAt?.toEpochMilliseconds(),
-                    createdAt = user.createdAt.toEpochMilliseconds(),
+                user = user.toSelfUserResponse(
                     locationShared = friendsLookupService.hasActiveLocationSharing(user.id),
                 ),
                 deleted = deleted
@@ -174,6 +197,7 @@ class NotificationService(
                         profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
                         requesterId = requesterId.toHexString(),
                         birthDate = user.birthDate,
+                        phoneNumber = user.phoneNumber,
                         userDescription = user.userDescription,
                         userStatus = user.userStatus,
                         nickName = nickName,
@@ -211,6 +235,7 @@ class NotificationService(
                     profilePicUpdatedAt = friend.profilePicUpdatedAt.toEpochMilliseconds(),
                     requesterId = friendship.requesterId.toHexString(),
                     birthDate = friend.birthDate,
+                    phoneNumber = friend.phoneNumber,
                     userDescription = friend.userDescription,
                     userStatus = friend.userStatus,
                     nickName = nickName,
@@ -248,6 +273,7 @@ class NotificationService(
                     profilePicUpdatedAt = friend.profilePicUpdatedAt.toEpochMilliseconds(),
                     requesterId = friendship.requesterId.toHexString(),
                     birthDate = friend.birthDate,
+                    phoneNumber = friend.phoneNumber,
                     userDescription = friend.userDescription,
                     userStatus = friend.userStatus,
                     nickName = setting?.nickName,
@@ -313,8 +339,13 @@ class NotificationService(
 
     fun notifyEventUpdate(eventResponse: EventResponse, newEntry: Boolean, deleted: Boolean) {
 
-        //TODO: If event is public, notify everyone?
-        val toNotify = eventResponse.invitedUsers.toSet()
+        val toNotify = when (eventResponse.visibility) {
+            // Only explicitly invited users can see this event
+            EventVisibility.INVITED_FRIENDS_ONLY -> eventResponse.invitedUsers.toSet()
+            // Everyone who can access the event (invited users + the creator's friends) gets notified
+            EventVisibility.FRIENDS_ONLY, EventVisibility.PUBLIC ->
+                (eventResponse.invitedUsers + friendsLookupService.getFriends(ObjectId(eventResponse.creatorId)).map { it.toHexString() }).toSet()
+        }
 
         toNotify.forEach { user ->
             socketConnectionHandler.sendMessage(
@@ -378,6 +409,8 @@ class NotificationService(
             groupLookupService.getGroupById(message.receiverId)?.name ?: "Unknown Group"
         } else null
 
+        val groupId = if (message.groupMessage) message.receiverId else null
+
         firebaseMessagingService.sendReactionNotificationToUser(
             reactorId = reactorId,
             receiverId = recipient,
@@ -386,6 +419,7 @@ class NotificationService(
             groupMessage = message.groupMessage,
             messageType = message.msgType,
             groupName = groupName,
+            groupId = groupId,
         )
         apnsService.sendReactionNotificationToUser(
             reactorId = reactorId,
@@ -395,6 +429,7 @@ class NotificationService(
             groupMessage = message.groupMessage,
             messageType = message.msgType,
             groupName = groupName,
+            groupId = groupId,
         )
     }
 

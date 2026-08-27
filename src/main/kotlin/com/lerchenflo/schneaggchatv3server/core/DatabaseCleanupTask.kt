@@ -1,8 +1,8 @@
 package com.lerchenflo.schneaggchatv3server.core
 
+import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserLocationRepository
-import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import kotlin.time.Clock
@@ -11,11 +11,13 @@ import kotlin.time.Clock
 class DatabaseCleanupTask(
     private val refreshTokenRepository: RefreshTokenRepository,
     private val userLocationRepository: UserLocationRepository,
+    private val groupService: GroupService,
 ) {
 
     /**
      * Runs every minute and clears old database entries for user locations,
-     * refresh tokens and expired groups.
+     * refresh tokens, and deletes groups (and their connected event, if any)
+     * whose expiry timer has passed.
      */
     @Scheduled(fixedDelay = 60_000)
     fun cleanDatabasePeriodically() {
@@ -30,7 +32,6 @@ class DatabaseCleanupTask(
             AppLogger.info("Deleted ${deletedUserlocationsCount} user locations")
         }*/
 
-        //TODO: Delete groups which have expired
-        // groupRepository.deleteExpiredGroups()
+        groupService.deleteExpiredGroups()
     }
 }

@@ -8,11 +8,13 @@ data class MessageResponse(
     val msgType: MessageType,
     val content: String,
     val pollResponse: PollResponse?,
+    val systemEventResponse: SystemEventResponse?,
     val answerId: String?,
 
     val sendDate: Long,
     val lastChanged: Long,
     val deleted: Boolean,
+    val version: Long,
     val readers: List<ReaderResponse>,
     val reactions: List<ReactionResponse>,
 )

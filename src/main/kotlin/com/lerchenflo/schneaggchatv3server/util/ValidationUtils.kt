@@ -12,6 +12,9 @@ object ValidationUtils {
     private val ALLOWED_IMAGE_TYPES = setOf("image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp")
     private const val MAX_IMAGE_SIZE = 3 * 1024 * 1024 // 3MB
 
+    private val ALLOWED_AUDIO_TYPES = setOf("audio/mp4", "audio/m4a", "audio/x-m4a", "audio/aac")
+    private const val MAX_AUDIO_SIZE = 2 * 1024 * 1024 // 2MB, roughly 2 minutes of m4a
+
     private val RESERVED_USERNAMES = setOf(
         "admin", "administrator", "root", "system", "api",
         "www", "mail", "ftp", "localhost", "test", "demo"
@@ -109,6 +112,24 @@ object ValidationUtils {
         return true
     }
 
+    /**
+     * Validates a phone number, loosely.
+     * - Blank is allowed (used to clear the stored number)
+     * - Allows digits, spaces, +, -, /, (, ), .
+     * - At most one leading +
+     * - Stripped of separators, must be 6-20 digits
+     */
+    private val PHONE_ALLOWED_CHARS_REGEX = "^\\+?[0-9 \\-/().]*$".toRegex()
+    fun validatePhoneNumber(phoneNumber: String): Boolean {
+        if (phoneNumber.isBlank()) return true
+
+        if (phoneNumber.length > 25) return false
+        if (!PHONE_ALLOWED_CHARS_REGEX.matches(phoneNumber)) return false
+
+        val digitsOnly = phoneNumber.filter { it.isDigit() }
+        return digitsOnly.length in 6..20
+    }
+
 
     /**
      * Validates uploaded profile picture
@@ -143,6 +164,20 @@ object ValidationUtils {
         return true
     }
 
+    fun validateEventTitle(title: String): Boolean {
+        if (title.isBlank()) return false
+        if (title.length > 200) return false
+
+        return true
+    }
+
+    fun validateEventMaxUsers(maxUsers: Int?): Boolean {
+        if (maxUsers == null) return true
+        if (maxUsers < 1 || maxUsers > 1000) return false
+
+        return true
+    }
+
     fun validateStringMessage(string: String) : Boolean {
         if (string.length > 10000 || string.isEmpty()) return false
 
@@ -157,6 +192,43 @@ object ValidationUtils {
     fun validatePollVoteText(text: String): Boolean {
         if (text.isBlank()) return false
         if (text.length > 250) return false
+
+        return true
+    }
+
+    fun validatePollTitle(title: String): Boolean {
+        if (title.isBlank()) return false
+        if (title.length > 200) return false
+
+        return true
+    }
+
+    fun validatePollDescription(description: String?): Boolean {
+        if (description == null) return true
+        if (description.length > 500) return false
+
+        return true
+    }
+
+    /**
+     * Validates an uploaded audio message file
+     * - File must not be empty
+     * - Must be an accepted audio type (m4a/aac)
+     * - Maximum size: 2MB
+     * - Must have valid content type and extension
+     */
+    fun validateAudio(audio: MultipartFile): Boolean {
+        if (audio.isEmpty) return false
+
+        if (audio.size > MAX_AUDIO_SIZE) return false
+
+        val contentType = audio.contentType?.lowercase() ?: return false
+        if (contentType !in ALLOWED_AUDIO_TYPES) return false
+
+        val filename = audio.originalFilename ?: return false
+        val extension = filename.substringAfterLast('.', "").lowercase()
+        val validExtensions = setOf("m4a", "mp4", "aac")
+        if (extension !in validExtensions) return false
 
         return true
     }
@@ -229,6 +301,14 @@ object ValidationUtils {
      */
     fun validatePaginationPageSize(pageSize: Int): Boolean {
         return pageSize in 1..1000
+    }
+
+    /**
+     * Validates a `since` version cursor for version-based sync endpoints
+     * - Must be non-negative (0 means "never synced")
+     */
+    fun validateSyncVersion(version: Long): Boolean {
+        return version >= 0
     }
 
     /**

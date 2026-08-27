@@ -6,13 +6,14 @@ import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent.Image
 import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent.Text
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType.*
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
-import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.util.*
 import org.bson.types.ObjectId
 import org.springframework.dao.OptimisticLockingFailureException
+import org.springframework.data.mongodb.core.BulkOperations
 import org.springframework.data.mongodb.core.FindAndModifyOptions
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.find
@@ -40,7 +41,8 @@ class MessageService(
     private val imageManager: ImageManager,
     private val audioManager: AudioManager,
     private val notificationService: NotificationService,
-    private val loggingService: LoggingService
+    private val loggingService: LoggingService,
+    private val versionCounterService: VersionCounterService,
 ) {
 
     sealed class MessageContent {
@@ -61,12 +63,12 @@ class MessageService(
 
 
         when (messageType) {
-            MessageType.TEXT -> {
+            TEXT -> {
                 require(content is Text) { "Message type must be Text" }
 
                 require(ValidationUtils.validateStringMessage(content.message)) { "Invalid text message" }
             }
-            MessageType.IMAGE -> {
+            IMAGE -> {
 
                 require(content is Image) { "Image message type must be Image" }
 
@@ -76,10 +78,28 @@ class MessageService(
 
                 require(ValidationUtils.validatePicture(content.image)) { "Invalid image" }
             }
-            MessageType.POLL -> {
+            POLL -> {
                 require(content is MessageContent.Poll) { "Pollmessage with empty poll" }
 
-                //TODO: Add poll field validation (title, description, maxAnswers, maxAllowedCustomAnswers, voteOptions count)
+                require(ValidationUtils.validatePollTitle(content.poll.title)) { "Invalid poll title" }
+                require(ValidationUtils.validatePollDescription(content.poll.description)) { "Invalid poll description" }
+                require(content.poll.voteOptions.size <= 20) { "Poll can have at most 20 vote options" }
+                //A poll needs predefined options unless it's custom-answers-only
+                if (!content.poll.customAnswersEnabled) {
+                    require(content.poll.voteOptions.isNotEmpty()) { "Poll must have at least 1 vote option unless custom answers are enabled" }
+                }
+                content.poll.maxAnswers?.let {
+                    require(it in 1..20) { "Invalid maxAnswers" }
+                    //Without custom answers, users can't select more distinct answers than exist
+                    if (!content.poll.customAnswersEnabled) {
+                        require(it <= content.poll.voteOptions.size) { "maxAnswers can't exceed the number of vote options" }
+                    }
+                }
+                content.poll.maxAllowedCustomAnswers?.let {
+                    require(content.poll.customAnswersEnabled) { "maxAllowedCustomAnswers set but custom answers disabled" }
+                    require(it in 1..20) { "Invalid maxAllowedCustomAnswers" }
+                }
+
                 if (content.poll.closeDate != null) {
                     require(content.poll.closeDate > Clock.System.now()) { "Poll closedate is in the past" }
                 }
@@ -88,18 +108,16 @@ class MessageService(
                     require(ValidationUtils.validatePollVoteText(voteOption.text)) {"Pollvote option text in wrong format"}
                 }
             }
-            MessageType.AUDIO -> {
+            AUDIO -> {
 
                 require(content is MessageContent.Audio) { "Audio message type must be Audio" }
 
-                /*
-                if (content.text.isNotEmpty()) {
-                    require(ValidationUtils.validateStringMessage(content.text)) { "Invalid text message" }
-                }
+                require(ValidationUtils.validateAudio(content.audio)) { "Invalid audio" }
+            }
 
-                 */
-
-                //TODO Audio validation
+            SYSTEM -> {
+                //User can not send system messages
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "A user can not send a SYSTEM message!")
             }
         }
 
@@ -142,23 +160,26 @@ class MessageService(
 
         val sendDate = Clock.System.now()
 
-        val message = messageLookupService.saveMessage(Message(
-            id = savedObjectId,
-            senderId = sender,
-            receiverId = receiver,
-            groupMessage = groupMessage,
-            msgType = messageType,
-            content = storedContent,
-            poll = if (content is MessageContent.Poll) content.poll else null,
-            answerId = answerId,
-            sendDate = sendDate,
-            lastChanged = sendDate,
-            deleted = false,
-            readers = listOf(Reader(
-                userId = sender,
-                readAt = sendDate
-            )),
-        ))
+        val message = versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
+            messageLookupService.saveMessage(Message(
+                id = savedObjectId,
+                senderId = sender,
+                receiverId = receiver,
+                groupMessage = groupMessage,
+                msgType = messageType,
+                content = storedContent,
+                poll = if (content is MessageContent.Poll) content.poll else null,
+                answerId = answerId,
+                sendDate = sendDate,
+                lastChanged = sendDate,
+                deleted = false,
+                version = version,
+                readers = listOf(Reader(
+                    userId = sender,
+                    readAt = sendDate
+                )),
+            ))
+        }
 
 
         notificationService.notifyMessageUpdate(
@@ -310,16 +331,19 @@ class MessageService(
                     .and("lastChanged.nanosecondsOfSecond").`is`(message.lastChanged.nanosecondsOfSecond)
             )
 
-            val update = Update()
-                .set("lastChanged", timeStamp)
-                .set("poll", poll)
+            val savedMessage = versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
+                val update = Update()
+                    .set("lastChanged", timeStamp)
+                    .set("poll", poll)
+                    .set("version", version)
 
-            val savedMessage = mongoTemplate.findAndModify(
-                query,
-                update,
-                FindAndModifyOptions.options().returnNew(true),
-                Message::class.java
-            ) ?: throw OptimisticLockingFailureException("Message was modified by another request")
+                mongoTemplate.findAndModify(
+                    query,
+                    update,
+                    FindAndModifyOptions.options().returnNew(true),
+                    Message::class.java
+                )
+            } ?: throw OptimisticLockingFailureException("Message was modified by another request")
 
 
             notificationService.notifyMessageUpdate(
@@ -343,16 +367,19 @@ class MessageService(
 
         val message = canUserAccessMessage(messageId, editingUserId)
 
-        require(message.msgType == MessageType.TEXT || message.msgType == MessageType.IMAGE) { "You can not edit a ${message.msgType} message" }
+        require(message.msgType == MessageType.TEXT || message.msgType == IMAGE) { "You can not edit a ${message.msgType} message" }
 
         //User can access message, change content
         val now = Clock.System.now()
 
-        val newmessage = messageLookupService.saveMessage(message.copy(
-            lastChanged = now,
-            content = newContent,
-            edited = true
-        ))
+        val newmessage = versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
+            messageLookupService.saveMessage(message.copy(
+                lastChanged = now,
+                content = newContent,
+                edited = true,
+                version = version,
+            ))
+        }
 
         notificationService.notifyMessageUpdate(
             message = newmessage,
@@ -371,6 +398,7 @@ class MessageService(
 
             val message = canUserAccessMessage(messageId, reactingUserId)
             require(!message.deleted) { "Cannot react to deleted message" }
+            require(message.msgType != MessageType.SYSTEM) { "Cannot react to a system message" }
 
             val existing = message.reactions.firstOrNull {
                 it.userId == reactingUserId && it.content == content
@@ -391,16 +419,20 @@ class MessageService(
                     .and("lastChanged.epochSeconds").`is`(message.lastChanged.epochSeconds)
                     .and("lastChanged.nanosecondsOfSecond").`is`(message.lastChanged.nanosecondsOfSecond)
             )
-            val update = Update()
-                .set("lastChanged", now)
-                .set("reactions", newReactions)
 
-            val savedMessage = mongoTemplate.findAndModify(
-                query,
-                update,
-                FindAndModifyOptions.options().returnNew(true),
-                Message::class.java
-            ) ?: throw OptimisticLockingFailureException("Message was modified by another request")
+            val savedMessage = versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
+                val update = Update()
+                    .set("lastChanged", now)
+                    .set("reactions", newReactions)
+                    .set("version", version)
+
+                mongoTemplate.findAndModify(
+                    query,
+                    update,
+                    FindAndModifyOptions.options().returnNew(true),
+                    Message::class.java
+                )
+            } ?: throw OptimisticLockingFailureException("Message was modified by another request")
 
             notificationService.notifyMessageUpdate(
                 message = savedMessage,
@@ -447,14 +479,27 @@ class MessageService(
     fun deleteMessage(messageId: ObjectId, deletingUserId: ObjectId) {
         val message = canUserAccessMessage(messageId, deletingUserId)
 
+        require(message.msgType != MessageType.SYSTEM) { "Cannot delete a system message" }
         require(message.senderId == deletingUserId) { "Only the sender can delete a message" }
+
+        when (message.msgType) {
+            MessageType.IMAGE -> imageManager.deleteMessageImage(messageId, message.groupMessage)
+            MessageType.AUDIO -> audioManager.deleteMessageAudio(messageId, message.groupMessage)
+            else -> {}
+        }
 
         loggingService.log(
             userId = deletingUserId,
             logType = LogType.MESSAGE_DELETED
         )
 
-        val updatedMessage = messageLookupService.saveMessage(message.copy(deleted = true))
+        val updatedMessage = versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
+            messageLookupService.saveMessage(message.copy(
+                deleted = true,
+                lastChanged = Clock.System.now(),
+                version = version,
+            ))
+        }
 
         notificationService.notifyMessageUpdate(
             message = updatedMessage,
@@ -513,43 +558,54 @@ class MessageService(
 
         val messagesToUpdate = mongoTemplate.find<Message>(query, "messages")
 
+        if (messagesToUpdate.isEmpty()) {
+            return
+        }
+
         // Build reader object to push into the readers array
         val readerDoc = mapOf(
             "userId" to readingUser,
             "readAt" to usedInstant
         )
 
-        val update = Update()
-            .addToSet("readers", readerDoc)
-            .max("lastChanged", usedInstant)
+        // A plain `updateMulti` can't hand out a distinct version per document, so this needs a
+        // bulk write - one `version` per message, reserved as a contiguous block up front. Read
+        // receipts always advance `lastChanged`/`version` now ($set, not the old $max): a stale
+        // client-supplied timestamp must still bump the sync cursor.
+        val updatedMessages = versionCounterService.withVersions(SyncCollection.MESSAGES, messagesToUpdate.size) { versions ->
+            val bulkOps = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, Message::class.java)
 
-        val result = mongoTemplate.updateMulti(query, update, "messages")
+            messagesToUpdate.forEachIndexed { index, message ->
+                val update = Update()
+                    .addToSet("readers", readerDoc)
+                    .set("lastChanged", usedInstant)
+                    .set("version", versions.first + index)
 
+                bulkOps.updateOne(Query(Criteria.where("_id").`is`(message.id)), update)
+            }
 
-        if (result.modifiedCount > 0) {
-            // Fetch the updated messages with the new reader info
+            bulkOps.execute()
+
             val updatedQuery = Query().addCriteria(
                 Criteria.where("_id").`in`(messagesToUpdate.map { it.id })
             )
-            val updatedMessages = mongoTemplate.find<Message>(updatedQuery, "messages")
+            mongoTemplate.find<Message>(updatedQuery, "messages")
+        }
 
-            updatedMessages.forEach { message ->
-                try {
-                    notificationService.notifyMessageUpdate(
-                        message = message,
-                        newMessage = false,
-                        deleted = false,
-                        changingUserId = readingUser,
-                    )
-                } catch (e: Exception) {
-                    AppLogger.error("Failed to notify message update for ${message.id}: ${e.message}")
-                }
+        updatedMessages.forEach { message ->
+            try {
+                notificationService.notifyMessageUpdate(
+                    message = message,
+                    newMessage = false,
+                    deleted = false,
+                    changingUserId = readingUser,
+                )
+            } catch (e: Exception) {
+                AppLogger.error("Failed to notify message update for ${message.id}: ${e.message}")
             }
         }
 
-
-
-        //println("Marked read — modifiedCount = ${result.modifiedCount}")
+        //println("Marked read — updated ${updatedMessages.size} messages")
     }
 
 
@@ -557,49 +613,39 @@ class MessageService(
     data class MessageSyncResponse(
         val updatedMessages: List<MessageResponse>,
         val deletedMessages: List<String>,
-        val moreMessages: Boolean
+        val newVersion: Long,
+        val moreMessages: Boolean,
     )
 
-    fun messageSync(clientMessages: List<UserService.IdTimeStamp>, requestingUser: ObjectId, page: Int, pageSize: Int) : MessageSyncResponse {
+    /**
+     * Version-based incremental sync. The client sends the highest `version` it has already seen
+     * (`since`); this returns every message visible to [requestingUser] with a higher version, up
+     * to [pageSize] at a time, oldest-first, plus the ids of anything soft-deleted in that range.
+     * The client loops, passing back `newVersion` as the next `since`, until `moreMessages` is false.
+     *
+     * Bounded by [VersionCounterService.safeWatermark] rather than the live counter so an in-flight
+     * write (version already allocated, document not yet persisted) can never be skipped.
+     */
+    fun messageSync(since: Long, requestingUser: ObjectId, pageSize: Int): MessageSyncResponse {
+        val watermark = versionCounterService.safeWatermark(SyncCollection.MESSAGES)
 
-        val clientMessagesMap = clientMessages.associate {
-            it.id to it.timeStamp
-        }
+        val fetched = messageLookupService.getMessagesSince(
+            userId = requestingUser,
+            since = since,
+            watermark = watermark,
+            limit = pageSize,
+        )
 
-        val allMessages = messageLookupService.getAllUserMessages(requestingUser)
+        val page = fetched.take(pageSize)
+        val moreMessages = fetched.size > pageSize
 
-        val messagesToAdd = allMessages
-            .filter { it.id.toHexString() !in clientMessagesMap.keys }
-
-        val messagesToUpdate = allMessages
-            .filter { message ->
-                clientMessagesMap[message.id.toHexString()]?.toLong()?.let { clientTimestamp ->
-                    message.lastChanged.toEpochMilliseconds() > clientTimestamp
-                } ?: false
-            }
-
-        val currentMessageIdStrings = allMessages.map { it.id.toHexString() }.toSet()
-        val messagesToRemove = clientMessagesMap.keys.filter { it !in currentMessageIdStrings }
-
-        // Combine and sort by sendDate descending (most recent first)
-        val allMessagesToUpdate = (messagesToAdd + messagesToUpdate)
-            .sortedByDescending { it.sendDate.toEpochMilliseconds() }
-
-        // Apply pagination
-        val startIndex = page * pageSize
-        val endIndex = startIndex + pageSize
-
-        val paginatedMessages = allMessagesToUpdate
-            .drop(startIndex)
-            .take(pageSize)
-            .map { it.toMessageResponse(requestingUser) }
-
-        val moreMessages = endIndex < allMessagesToUpdate.size
+        val (deleted, updated) = page.partition { it.deleted }
 
         return MessageSyncResponse(
-            updatedMessages = paginatedMessages,
-            deletedMessages = if (page == 0) messagesToRemove else emptyList(), // Only send deletes on first page
-            moreMessages = moreMessages
+            updatedMessages = updated.map { it.toMessageResponse(requestingUser) },
+            deletedMessages = deleted.map { it.id.toHexString() },
+            newVersion = page.maxOfOrNull { it.version } ?: since,
+            moreMessages = moreMessages,
         )
     }
 

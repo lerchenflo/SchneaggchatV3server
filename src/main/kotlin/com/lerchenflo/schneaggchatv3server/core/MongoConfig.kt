@@ -7,9 +7,11 @@ import org.bson.Document
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.convert.converter.Converter
+import org.springframework.data.annotation.TypeAlias
 import org.springframework.data.convert.ReadingConverter
 import org.springframework.data.convert.WritingConverter
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions
+import kotlin.reflect.full.findAnnotation
 
 
 @Configuration
@@ -71,49 +73,12 @@ class LocationDataWriteConverter : Converter<LocationData, Document> {
         val json = Json.mapper.writeValueAsString(source)
         val doc = Document.parse(json)
 
-        // Add the discriminator field for sealed class
-        val typeName = when (source) {
-
-            // Traffic & Hazards
-            is LocationData.Radar          -> "radar"
-            is LocationData.Police         -> "police"
-
-            // Rider Spots
-            is LocationData.MountainStreet -> "mountain_street"
-            is LocationData.Wheeliespot    -> "wheeliespot"
-            is LocationData.OffroadMotorcycle -> "offroad_motorcycle"
-            is LocationData.Viewpoint      -> "viewpoint"
-
-            // Nature & Activities
-            is LocationData.Camping        -> "camping"
-            is LocationData.SwimmingLocation -> "swimming"
-            is LocationData.Climbingspot   -> "climbingspot"
-
-            // Sport
-            is LocationData.Volleyball     -> "volleyball"
-            is LocationData.Bicycle        -> "bicycle"
-            is LocationData.OutdoorFitness -> "outdoor_fitness"
-            is LocationData.TableTennis    -> "table_tennis"
-            is LocationData.Tennis         -> "tennis"
-
-            // Social & Entertainment
-            is LocationData.SightSeeing    -> "sightseeing"
-            is LocationData.PartyLocation  -> "party"
-            is LocationData.Wifi           -> "wifi"
-
-            // Fast Food & Snacks
-            is LocationData.FoodKebab      -> "food_kebab"
-            is LocationData.FoodPizza      -> "food_pizza"
-            is LocationData.FoodBurger     -> "food_burger"
-            is LocationData.FoodBeer       -> "food_beer"
-            is LocationData.FoodIce        -> "food_ice"
-            is LocationData.FoodCafeBakery -> "food_cafe_bakery"
-
-            // Restaurant
-            is LocationData.FoodAsian      -> "food_asian"
-            is LocationData.FoodGreek      -> "food_greek"
-            is LocationData.FoodOther      -> "food_other"
-        }
+        // Add the discriminator field for the sealed class - derived from the same @TypeAlias
+        // annotation each subtype already carries, instead of a hand-maintained string table that
+        // can drift from it (Jackson's own @JsonTypeInfo on LocationData already writes the same
+        // value into `json` above; this just guarantees it explicitly from a single source).
+        val typeName = source::class.findAnnotation<TypeAlias>()?.value
+            ?: error("Missing @TypeAlias on ${source::class.simpleName}")
         doc["_class"] = typeName
 
         return doc

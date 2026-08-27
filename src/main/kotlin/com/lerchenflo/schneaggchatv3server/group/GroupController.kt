@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.lerchenflo.schneaggchatv3server.group
 
 import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
@@ -10,6 +12,8 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @RestController
 @RequestMapping("/groups")
@@ -112,6 +116,21 @@ class GroupController(
             userId = requestingUserId,
             groupId = ObjectId(groupid),
             newName = newName
+        )
+    }
+
+
+    @PostMapping("/setexpiry")
+    fun setGroupExpiry(
+        @Valid @RequestBody request: GroupService.SetGroupExpiryRequest
+    ) {
+        require(ValidationUtils.validateObjectId(request.groupId)) { "Invalid group ID" }
+        val requestingUserId = requireAuth()
+
+        groupService.changeGroupExpiresAt(
+            userId = requestingUserId,
+            groupId = ObjectId(request.groupId),
+            expiresAt = request.expiresAt?.let { Instant.fromEpochMilliseconds(it) }
         )
     }
 

@@ -222,4 +222,103 @@ class ValidationUtilsTest {
         val nullContentType = MockMultipartFile("file", "image.jpg", null, ByteArray(1024))
         assertFalse(ValidationUtils.validatePicture(nullContentType))
     }
+
+    // ===== AUDIO VALIDATION TESTS =====
+
+    @Test
+    @DisplayName("Valid audio should pass validation")
+    fun `validateAudio should return true for valid audio files`() {
+        val m4aFile = MockMultipartFile("file", "message_audio.m4a", "audio/mp4", ByteArray(1024))
+        assertTrue(ValidationUtils.validateAudio(m4aFile))
+    }
+
+    @Test
+    @DisplayName("Empty audio file should fail validation")
+    fun `validateAudio should return false for empty files`() {
+        val emptyFile = MockMultipartFile("file", "audio.m4a", "audio/mp4", ByteArray(0))
+        assertFalse(ValidationUtils.validateAudio(emptyFile))
+    }
+
+    @Test
+    @DisplayName("Audio file exceeding size limit should fail")
+    fun `validateAudio should return false for files larger than 2MB`() {
+        val largeFile = MockMultipartFile("file", "audio.m4a", "audio/mp4", ByteArray(3 * 1024 * 1024))
+        assertFalse(ValidationUtils.validateAudio(largeFile))
+    }
+
+    @Test
+    @DisplayName("Invalid audio content type should fail")
+    fun `validateAudio should return false for invalid content types`() {
+        val textFile = MockMultipartFile("file", "audio.m4a", "text/plain", ByteArray(1024))
+        assertFalse(ValidationUtils.validateAudio(textFile))
+    }
+
+    @Test
+    @DisplayName("Invalid audio file extension should fail")
+    fun `validateAudio should return false for invalid extensions`() {
+        val invalidExt = MockMultipartFile("file", "audio.mp3", "audio/mp4", ByteArray(1024))
+        assertFalse(ValidationUtils.validateAudio(invalidExt))
+    }
+
+    // ===== EVENT TITLE VALIDATION TESTS =====
+
+    @Test
+    @DisplayName("Valid event title should pass validation")
+    fun `validateEventTitle should return true for valid titles`() {
+        assertTrue(ValidationUtils.validateEventTitle("Birthday party"))
+    }
+
+    @Test
+    @DisplayName("Blank event title should fail validation")
+    fun `validateEventTitle should return false for blank titles`() {
+        assertFalse(ValidationUtils.validateEventTitle(""))
+        assertFalse(ValidationUtils.validateEventTitle("   "))
+    }
+
+    @Test
+    @DisplayName("Event title exceeding max length should fail")
+    fun `validateEventTitle should return false for titles longer than 200 characters`() {
+        assertFalse(ValidationUtils.validateEventTitle("a".repeat(201)))
+    }
+
+    // ===== POLL TITLE VALIDATION TESTS =====
+
+    @Test
+    @DisplayName("Valid poll title should pass validation")
+    fun `validatePollTitle should return true for valid titles`() {
+        assertTrue(ValidationUtils.validatePollTitle("What should we eat?"))
+    }
+
+    @Test
+    @DisplayName("Blank poll title should fail validation")
+    fun `validatePollTitle should return false for blank titles`() {
+        assertFalse(ValidationUtils.validatePollTitle(""))
+        assertFalse(ValidationUtils.validatePollTitle("   "))
+    }
+
+    @Test
+    @DisplayName("Poll title exceeding max length should fail")
+    fun `validatePollTitle should return false for titles longer than 200 characters`() {
+        assertFalse(ValidationUtils.validatePollTitle("a".repeat(201)))
+    }
+
+    // ===== POLL DESCRIPTION VALIDATION TESTS =====
+
+    @Test
+    @DisplayName("Null poll description should pass validation")
+    fun `validatePollDescription should return true for null description`() {
+        assertTrue(ValidationUtils.validatePollDescription(null))
+    }
+
+    @Test
+    @DisplayName("Valid poll description should pass validation")
+    fun `validatePollDescription should return true for valid description`() {
+        assertTrue(ValidationUtils.validatePollDescription("Pick your favorite option"))
+    }
+
+    @Test
+    @DisplayName("Poll description exceeding max length should fail")
+    fun `validatePollDescription should return false for descriptions longer than 500 characters`() {
+        assertFalse(ValidationUtils.validatePollDescription("a".repeat(501)))
+    }
 }

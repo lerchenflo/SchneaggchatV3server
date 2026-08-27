@@ -58,6 +58,9 @@ sealed interface UserResponse {
 
         val nickName: String?,
 
+        //Optional phone number, shared with accepted friends
+        val phoneNumber: String? = null,
+
         //What the recipient of this response shares with this friend on the map
         val shareLocation: Boolean = false,
         val shareSpeedHeading: Boolean = false,
@@ -84,6 +87,9 @@ sealed interface UserResponse {
         val userDescription: String,
         val userStatus: String,
 
+        //Optional phone number, only visible to yourself and accepted friends
+        val phoneNumber: String? = null,
+
         //Custom to own user response:
         val email: String,
         val emailVerifiedAt: Long?,
@@ -97,6 +103,8 @@ sealed interface UserResponse {
 
         //TODO: User profile pic privacy settings??
 
+        //Per-user app settings (theme, language, pinned chats, ...), synced across devices
+        val settings: PersonalUserSettings = PersonalUserSettings(),
 
     ) : UserResponse
 }
@@ -109,6 +117,32 @@ data class NewFriendsUserResponse(
     val username: String,
     val commonFriendCount: Int,
 )
+
+/**
+ * Builds this user's [UserResponse.SelfUserResponse]. The single construction site for the
+ * self-user DTO, used by both /users/sync ([com.lerchenflo.schneaggchatv3server.user.UserService.serializeSyncUser])
+ * and the realtime push ([com.lerchenflo.schneaggchatv3server.notifications.NotificationService.notifyUserUpdate]) -
+ * building it twice by hand previously let fields (e.g. allowWakeGlobal) silently drop out of the
+ * socket push.
+ */
+fun User.toSelfUserResponse(locationShared: Boolean, updatedAt: Long? = null): UserResponse.SelfUserResponse {
+    return UserResponse.SelfUserResponse(
+        id = id.toHexString(),
+        username = username,
+        updatedAt = updatedAt ?: this.updatedAt.toEpochMilliseconds(),
+        profilePicUpdatedAt = profilePicUpdatedAt.toEpochMilliseconds(),
+        birthDate = birthDate,
+        userDescription = userDescription,
+        userStatus = userStatus,
+        phoneNumber = phoneNumber,
+        email = email,
+        emailVerifiedAt = emailVerifiedAt?.toEpochMilliseconds(),
+        createdAt = createdAt.toEpochMilliseconds(),
+        locationShared = locationShared,
+        allowWakeGlobal = allowWakeGlobal,
+        settings = settings,
+    )
+}
 
 
 

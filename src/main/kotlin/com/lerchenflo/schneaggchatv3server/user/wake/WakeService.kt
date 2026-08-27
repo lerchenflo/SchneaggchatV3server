@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.user.wake
 
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
+import com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
@@ -44,6 +45,7 @@ class WakeService(
     private val friendsSettingsService: FriendsSettingsService,
     private val firebaseService: FirebaseService,
     private val loggingService: LoggingService,
+    private val systemMessageService: SystemMessageService,
 ) {
 
     companion object {
@@ -106,6 +108,7 @@ class WakeService(
         )
 
         logWake(senderId, targetId, isGroup = false, reason = reason, deviceCount = deviceCount)
+        systemMessageService.wakeSentToUser(senderId = senderId, targetId = targetId, reason = reason)
         return WakeResponse(WakeOutcome.WOKEN, userCount = 1, deviceCount = deviceCount, skippedCount = 0)
     }
 
@@ -170,6 +173,7 @@ class WakeService(
         return when {
             userCount > 0 -> {
                 logWake(senderId, groupId, isGroup = true, reason = reason, deviceCount = deviceCount)
+                systemMessageService.wakeSentToGroup(groupId = groupId, actorId = senderId, reason = reason)
                 WakeResponse(WakeOutcome.WOKEN, userCount, deviceCount, skippedCount)
             }
             skippedCount > 0 -> WakeResponse(WakeOutcome.NOT_ALLOWED, 0, 0, skippedCount)

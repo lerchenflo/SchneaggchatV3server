@@ -2,12 +2,13 @@ package com.lerchenflo.schneaggchatv3server.events.eventmodel
 
 
 enum class EventType {
-    // Existing
     SPORT,
     FOOD,
-    COOKING,
-    SHOPPING,
+
+    BEER,
     DRIVING,
+
+    HORSE_RIDING,
 
     // New
     PARTY,       // birthdays, get-togethers, celebrations
@@ -16,5 +17,6 @@ enum class EventType {
     TRIP,        // day trips, weekend trips, vacations
     MEETUP,      // casual hangout with no specific activity
     OUTDOOR,     // hiking, camping, swimming, nature stuff
+    WORK,        // work-related meetups, shifts, business events
     OTHER        // fallback / catch-all
 }

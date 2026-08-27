@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.lerchenflo.schneaggchatv3server.events
 
 import com.google.protobuf.LazyStringArrayList.emptyList
@@ -7,9 +9,13 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.toDurationOrNull
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.SystemEventType
+import com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService.IdTimeStamp
@@ -17,8 +23,10 @@ import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @Service
@@ -29,6 +37,7 @@ class EventService(
     private val groupService: GroupService,
     private val groupLookupService: GroupLookupService,
     private val notificationService: NotificationService,
+    private val systemMessageService: SystemMessageService,
 ) {
 
     fun eventIdSync(
@@ -90,7 +99,7 @@ class EventService(
     }
 
 
-    fun upsertEvent(upsertingUser: ObjectId, eventRequest: EventRequest): EventResponse {
+    fun upsertEvent(upsertingUser: ObjectId, eventRequest: EventRequest, profilePic: MultipartFile? = null): EventResponse {
         val existing = eventRequest.eventId?.let { eventId ->
             eventsLookupService.findById(eventId)
                 ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Existing event not found")
@@ -102,15 +111,29 @@ class EventService(
 
         val now = Clock.System.now()
 
+        val startDate = Instant.fromEpochMilliseconds(eventRequest.startDate)
+        val closeDate = eventRequest.closeDate?.let { Instant.fromEpochMilliseconds(it) }
+        //Group expiry stays in sync with the event: closeDate (or startDate if there's no closeDate) plus the
+        //creator-chosen delay. NEVER means the group must not auto-expire.
+        val groupExpiresAt = eventRequest.groupDeleteDelay.toDurationOrNull()?.let { (closeDate ?: startDate) + it }
+
         val groupId = existing?.groupId
             ?: groupService.createGroup(
                 groupName = "event - " + eventRequest.title.trim().take(16),
                 members = emptyList<ObjectId>(), //only creator
                 creatorId = upsertingUser,
                 description = (eventRequest.description).take(200),
-                profilePic = null,
-                createdFromEvent = true
+                profilePic = profilePic,
+                createdFromEvent = true,
+                expiresAt = groupExpiresAt
             ).id
+
+        if (existing != null) {
+            val currentGroupExpiresAt = groupLookupService.getGroupById(groupId)?.expiresAt
+            if (currentGroupExpiresAt != null) {
+                groupService.setGroupExpiresAt(groupId, groupExpiresAt)
+            }
+        }
 
         val event = Event(
             id = existing?.id ?: ObjectId.get(),
@@ -120,10 +143,12 @@ class EventService(
             description = eventRequest.description,
             groupId = groupId,
             location = eventRequest.location,
-            startDate = Instant.fromEpochMilliseconds(eventRequest.startDate),
-            closeDate = eventRequest.closeDate?.let {Instant.fromEpochMilliseconds(it)},
+            startDate = startDate,
+            closeDate = closeDate,
             invitedUsers = eventRequest.invitedUsers.map { ObjectId(it) },
-            public = eventRequest.public,
+            visibility = eventRequest.visibility,
+            maxUsers = eventRequest.maxUsers,
+            groupDeleteDelay = eventRequest.groupDeleteDelay,
             createdAt = existing?.createdAt ?: now,
             updatedAt = now,
             updatedBy = upsertingUser,
@@ -137,7 +162,37 @@ class EventService(
             deleted = false
         )
 
+        // Only for an actual update - a brand-new event's group already gets its own
+        // GROUP_CREATED system message from groupService.createGroup above.
+        if (existing != null) {
+            systemMessageService.groupEvent(
+                groupId = groupId,
+                eventType = SystemEventType.EVENT_CHANGED,
+                actorId = upsertingUser,
+                text = event.title,
+            )
+        }
+
         return response
+    }
+
+    fun deleteEvent(requestingUser: ObjectId, eventId: String, deleteConnectedGroup: Boolean) {
+        val event = eventsLookupService.findById(eventId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found")
+
+        require(requestingUser == event.creatorId) { "You can not delete this event, you are not the creator" }
+
+        eventsLookupService.deleteEvent(event)
+
+        notificationService.notifyEventUpdate(
+            eventResponse = event.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+            newEntry = false,
+            deleted = true
+        )
+
+        if (deleteConnectedGroup) {
+            groupService.deleteGroup(event.groupId, deletedBy = requestingUser)
+        }
     }
 
     fun joinEvent(joiningUser: ObjectId, eventJoinRequest: EventJoinRequest): EventJoinResponse {
@@ -148,6 +203,12 @@ class EventService(
         //Check if can access event
         require(canAccessEvent(requesterId = joiningUser, event = event))  {"You can not access this event"}
 
+        //Enforce the optional participant cap - re-joining an existing member must stay a no-op
+        event.maxUsers?.let { max ->
+            val members = groupLookupService.getGroupMembers(event.groupId)
+            require(members.any { it.userid == joiningUser } || members.size < max) { "Event is full" }
+        }
+
         //Add to group
         groupService.addUserToGroup(
             groupId = event.groupId,
@@ -156,6 +217,12 @@ class EventService(
         notificationService.notifyGroupUpdate(
             groupResponse = groupLookupService.getGroupAsGroupResponse(event.groupId),
             deleted = false
+        )
+
+        systemMessageService.groupEvent(
+            groupId = event.groupId,
+            eventType = SystemEventType.GROUP_MEMBER_JOINED_EVENT,
+            actorId = joiningUser,
         )
 
         return EventJoinResponse(
@@ -174,8 +241,11 @@ class EventService(
 
     private fun canAccessEvent(requesterId: ObjectId, event: Event, friends: List<ObjectId>): Boolean {
         if (event.creatorId == requesterId) return true
-        return event.public  || //Public events all get synched
-                event.creatorId in friends //Private events only from my friends
+        return when (event.visibility) {
+            EventVisibility.PUBLIC -> true //Public events all get synched
+            EventVisibility.FRIENDS_ONLY -> event.creatorId in friends //Only the creator's friends can access
+            EventVisibility.INVITED_FRIENDS_ONLY -> requesterId in event.invitedUsers //Only explicitly invited users can access
+        }
     }
 
 

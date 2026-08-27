@@ -52,6 +52,10 @@ class ImageManager {
         return "${if (group) "group" else "user"}_${userId}_profilepic.jpg"
     }
 
+    fun deleteProfilePic(id: String, group: Boolean) {
+        File("/app/images", getProfilePicFileName(id, group)).delete()
+    }
+
 
     fun loadMessageImageFromFile(fileName: String): ByteArray {
         val imagesDir = File("/app/images_messages")
@@ -82,6 +86,10 @@ class ImageManager {
 
     fun getImageMessageFileName(messageId: ObjectId, group: Boolean): String {
         return "${if (group) "group" else "user"}_image_${messageId.toHexString()}_message.png"
+    }
+
+    fun deleteMessageImage(messageId: ObjectId, group: Boolean) {
+        File("/app/images_messages", getImageMessageFileName(messageId, group)).delete()
     }
 
 
