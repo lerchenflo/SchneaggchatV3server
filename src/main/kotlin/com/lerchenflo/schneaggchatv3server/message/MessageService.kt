@@ -8,6 +8,7 @@ import com.lerchenflo.schneaggchatv3server.message.MessageService.MessageContent
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType.*
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
+import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.util.*
@@ -38,6 +39,7 @@ class MessageService(
     private val friendsLookupService: FriendsLookupService,
 
     private val groupLookupService: GroupLookupService,
+    private val userLookupService: UserLookupService,
     private val imageManager: ImageManager,
     private val audioManager: AudioManager,
     private val notificationService: NotificationService,
@@ -480,7 +482,10 @@ class MessageService(
         val message = canUserAccessMessage(messageId, deletingUserId)
 
         require(message.msgType != MessageType.SYSTEM) { "Cannot delete a system message" }
-        require(message.senderId == deletingUserId) { "Only the sender can delete a message" }
+        requireOrLog(
+            message.senderId == deletingUserId,
+            { "Message deletion denied - user: ${userLookupService.getUsername(deletingUserId)}, messageId: ${messageId.toHexString()}, sender: ${userLookupService.getUsername(message.senderId)}" }
+        ) { "Only the sender can delete a message" }
 
         when (message.msgType) {
             MessageType.IMAGE -> imageManager.deleteMessageImage(messageId, message.groupMessage)
@@ -664,9 +669,10 @@ class MessageService(
             canUserAccessMessage(userId, message.receiverId, true)
         } else {
             // For direct messages, user must be either sender or receiver
-            require(message.senderId == userId || message.receiverId == userId) {
-                "You do not have access to this message"
-            }
+            requireOrLog(
+                message.senderId == userId || message.receiverId == userId,
+                { "Message access denied - user: ${userLookupService.getUsername(userId)}, messageId: ${messageId.toHexString()}, sender: ${userLookupService.getUsername(message.senderId)}, receiver: ${userLookupService.getUsername(message.receiverId)}" }
+            ) { "You do not have access to this message" }
         }
 
         return message
@@ -678,17 +684,19 @@ class MessageService(
      */
     private fun canUserAccessMessage(sender: ObjectId, receiver: ObjectId, groupMessage: Boolean) {
         if (groupMessage) {
-            require(groupLookupService.isUserInGroup(sender, receiver)) {
-                "You are not a member of this group"
-            }
+            requireOrLog(
+                groupLookupService.isUserInGroup(sender, receiver),
+                { "Unauthorized message access - user: ${userLookupService.getUsername(sender)}, group: ${groupLookupService.getGroupName(receiver)}: Not in group" }
+            ) { "You are not a member of this group" }
         } else {
             //Single message
             require(sender != receiver) {
                 "You can not send messages to yourself"
             }
-            require(friendsLookupService.areFriends(sender, receiver)) {
-                "You can not send messages to users who are not your friends"
-            }
+            requireOrLog(
+                friendsLookupService.areFriends(sender, receiver),
+                { "Unauthorized message access - user: ${userLookupService.getUsername(sender)} is not friends with: ${userLookupService.getUsername(receiver)}" }
+            ) { "You can not send messages to users who are not your friends" }
         }
     }
 

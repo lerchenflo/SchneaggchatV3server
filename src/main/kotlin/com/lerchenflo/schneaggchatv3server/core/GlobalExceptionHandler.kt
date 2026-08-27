@@ -8,10 +8,12 @@ import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import jakarta.servlet.http.HttpServletRequest
 import org.bson.types.ObjectId
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -106,6 +108,16 @@ class GlobalExceptionHandler(
             .body("Resource not found: $resourcePath")
     }
 
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
+    fun handleMethodNotSupported(e: HttpRequestMethodNotSupportedException, request: HttpServletRequest): ResponseEntity<String> {
+        val ip = clientIpResolver.resolve(request)
+        logWithUserInfo("Wrong request method: ${e.method} not supported for endpoint ${request.requestURI}", ip)
+
+        return ResponseEntity
+            .status(HttpStatus.METHOD_NOT_ALLOWED)
+            .body("Request method '${e.method}' is not supported for this endpoint")
+    }
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException, request: HttpServletRequest): ResponseEntity<Map<String, String>> {

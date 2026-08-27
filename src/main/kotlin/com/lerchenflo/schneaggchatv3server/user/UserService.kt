@@ -20,6 +20,7 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.toSelfUserResponse
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
+import com.lerchenflo.schneaggchatv3server.util.requireOrLog
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
@@ -317,7 +318,10 @@ class UserService(
         } else {
             //Change something about another user
 
-            require(friendsLookupService.areFriends(requestingUser.id, user.id))
+            requireOrLog(
+                friendsLookupService.areFriends(requestingUser.id, user.id),
+                { "Unauthorized user action - user: ${userLookupService.getUsername(requestingUser.id)} is not friends with: ${userLookupService.getUsername(user.id)}" }
+            ) { "You are not friends with this user" }
 
             //Retrieve friendship from db
             val friendshipEntry = friendsLookupService.findFriendship(requestingUser.id, user.id)!!

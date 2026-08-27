@@ -20,6 +20,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService.IdTimeStamp
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
+import com.lerchenflo.schneaggchatv3server.util.requireOrLog
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -106,7 +107,10 @@ class EventService(
         }
 
         if (existing != null) {
-            require(upsertingUser == existing.creatorId) {"You can not edit this event, you are not the creator"}
+            requireOrLog(
+                upsertingUser == existing.creatorId,
+                { "Unauthorized event action - user: ${userLookupService.getUsername(upsertingUser)}, eventId: ${existing.id.toHexString()}, creator: ${userLookupService.getUsername(existing.creatorId)}" }
+            ) { "You can not edit this event, you are not the creator" }
         }
 
         val now = Clock.System.now()
@@ -180,7 +184,10 @@ class EventService(
         val event = eventsLookupService.findById(eventId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found")
 
-        require(requestingUser == event.creatorId) { "You can not delete this event, you are not the creator" }
+        requireOrLog(
+            requestingUser == event.creatorId,
+            { "Unauthorized event action - user: ${userLookupService.getUsername(requestingUser)}, eventId: ${event.id.toHexString()}, creator: ${userLookupService.getUsername(event.creatorId)}" }
+        ) { "You can not delete this event, you are not the creator" }
 
         eventsLookupService.deleteEvent(event)
 
@@ -201,7 +208,10 @@ class EventService(
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found")
 
         //Check if can access event
-        require(canAccessEvent(requesterId = joiningUser, event = event))  {"You can not access this event"}
+        requireOrLog(
+            canAccessEvent(requesterId = joiningUser, event = event),
+            { "Unauthorized event action - user: ${userLookupService.getUsername(joiningUser)}, eventId: ${event.id.toHexString()}: Cannot access event" }
+        ) { "You can not access this event" }
 
         //Enforce the optional participant cap - re-joining an existing member must stay a no-op
         event.maxUsers?.let { max ->
