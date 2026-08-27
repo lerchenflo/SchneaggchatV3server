@@ -6,6 +6,7 @@ import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
+import kotlin.jvm.optionals.getOrNull
 
 /**
  * Simple service for looking up users. Only dependency is the repository, which is always available
@@ -71,6 +72,6 @@ class UserLookupService(
     }
 
     fun getUsername(userId: ObjectId): String {
-        return userRepository.findById(userId).get().username
+        return userRepository.findById(userId).getOrNull()?.username ?: "Unresolved username"
     }
 }

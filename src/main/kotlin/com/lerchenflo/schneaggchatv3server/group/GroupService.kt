@@ -333,7 +333,11 @@ class GroupService(
 
         val groupMembers = groupLookupService.getGroupMembers(groupId)
 
-        require(groupLookupService.isUserInGroup(requestingUser, groupId)) { "You are not a member of this group"}
+        if (!groupLookupService.isUserInGroup(requestingUser, groupId)) {
+            AppLogger.debug("Unauthorized group action attempt - userId: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not in group",)
+            throw IllegalArgumentException("You are not a member of this group")
+        }
+
 
         val now = Clock.System.now()
 

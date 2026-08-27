@@ -14,6 +14,7 @@ import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
+import kotlin.jvm.optionals.getOrNull
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -50,6 +51,10 @@ class GroupLookupService(
                 timeStamp = group.updatedAt.toEpochMilliseconds().toString()
             )
         }
+    }
+
+    fun getGroupName(userId: ObjectId): String {
+        return groupRepository.findById(userId).getOrNull()?.name ?: "Unresolved group name"
     }
 
     fun getGroupAsGroupResponse(groupId: ObjectId): GroupResponse {
