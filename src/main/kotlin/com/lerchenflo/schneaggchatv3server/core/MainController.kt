@@ -75,6 +75,7 @@ class MainController(
         migrateReactionTimestamps()
         migrateMessageVersions()
         migrateMapAttributeKeys()
+        migrateGroupDeletedFlag()
 
         if (debug) {
             //Create test account for google play & Apple
@@ -305,6 +306,30 @@ class MainController(
         val result = bulkOps.execute()
 
         AppLogger.success("Migration completed: Assigned version to ${result.modifiedCount} messages")
+    }
+
+    /**
+     * `Group.deleted` was added with the expiring-groups feature. Documents written before that
+     * have no `deleted` field at all, and Mongo does not match a missing field against `false`,
+     * so `findByIdInAndDeletedFalse` silently hid every legacy group from /groups/sync - which
+     * additionally made the sync report them as deleted to clients. Backfilled here once.
+     */
+    fun migrateGroupDeletedFlag() {
+        AppLogger.info("Running group deleted-flag migration...")
+
+        val query = Query(Criteria.where("deleted").exists(false))
+
+        val result = mongoTemplate.updateMulti(
+            query,
+            Update().set("deleted", false),
+            Group::class.java
+        )
+
+        if (result.modifiedCount > 0) {
+            AppLogger.success("Migration completed: Set deleted=false on ${result.modifiedCount} groups")
+        } else {
+            AppLogger.success("Migration check: All groups already have a deleted field")
+        }
     }
 
     /**
