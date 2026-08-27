@@ -505,6 +505,17 @@ class GroupService(
         }
     }
 
+    /**
+     * Bump a group's updatedAt so its sync entry moves to the top for members,
+     * for callers that mutate group membership outside [performUserAction] (e.g. event join).
+     */
+    fun touchGroup(groupId: ObjectId, timeStamp: Instant = Clock.System.now()) {
+        val group = groupLookupService.getGroupById(groupId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
+
+        groupLookupService.saveGroup(group.copy(updatedAt = timeStamp))
+    }
+
 
     /**
      * Soft-delete a group and all of its members. The single point every group deletion goes through,
