@@ -30,15 +30,15 @@
                     <i class="fas fa-user-times"></i>
                 </div>
 
-                <h1>Account löschen</h1>
-                <p class="subtitle">Gib deine E-Mail-Adresse ein und wir senden dir einen Link zum Löschen deines
+                <h1 data-i18n="delete_title">Account löschen</h1>
+                <p class="subtitle" data-i18n="delete_subtitle">Gib deine E-Mail-Adresse ein und wir senden dir einen Link zum Löschen deines
                     Accounts.</p>
 
                 <form id="delete-form" class="delete-form">
                     <div class="form-group">
                         <label for="email">
                             <i class="fas fa-envelope"></i>
-                            E-Mail-Adresse
+                            <span data-i18n="common_email_label">E-Mail-Adresse</span>
                         </label>
                         <input type="email" id="email" name="email" required placeholder="deine.email@beispiel.com"
                             autocomplete="email">
@@ -46,18 +46,18 @@
 
                     <button type="submit" class="delete-button">
                         <i class="fas fa-paper-plane"></i>
-                        Lösch-Link anfordern
+                        <span data-i18n="delete_button">Lösch-Link anfordern</span>
                     </button>
                 </form>
 
                 <div class="info-box">
                     <i class="fas fa-info-circle"></i>
                     <div class="info-content">
-                        <h3>Was passiert als nächstes?</h3>
+                        <h3 data-i18n="common_whats_next">Was passiert als nächstes?</h3>
                         <ul>
-                            <li>Du erhältst eine E-Mail mit einem Bestätigungslink</li>
-                            <li>Klicke auf den Link, um deinen Account zu löschen</li>
-                            <li>Alle deine Daten werden unwiderruflich gelöscht</li>
+                            <li data-i18n="delete_info_1">Du erhältst eine E-Mail mit einem Bestätigungslink</li>
+                            <li data-i18n="delete_info_2">Klicke auf den Link, um deinen Account zu löschen</li>
+                            <li data-i18n="delete_info_3">Alle deine Daten werden unwiderruflich gelöscht</li>
                         </ul>
                     </div>
                 </div>
@@ -66,7 +66,7 @@
                 <div class="back-link">
                     <a href="/">
                         <i class="fas fa-arrow-left"></i>
-                        Zurück zur Startseite
+                        <span data-i18n="common_back_to_home">Zurück zur Startseite</span>
                     </a>
                 </div>
             </div>
@@ -77,8 +77,8 @@
                     <i class="fas fa-check-circle"></i>
                 </div>
 
-                <h1>Anfrage erhalten</h1>
-                <p class="success-text">
+                <h1 data-i18n="common_request_received">Anfrage erhalten</h1>
+                <p class="success-text" data-i18n="delete_success_text">
                     Falls ein Account mit dieser E-Mail-Adresse existiert, haben wir einen Lösch-Link versendet.
                     Bitte überprüfe dein Postfach.
                 </p>
@@ -86,11 +86,11 @@
                 <div class="success-info-box">
                     <i class="fas fa-info-circle"></i>
                     <div class="info-content">
-                        <h3>Hinweise:</h3>
+                        <h3 data-i18n="common_hints_title">Hinweise:</h3>
                         <ul>
-                            <li>Der Link ist 24 Stunden gültig</li>
-                            <li>Überprüfe auch deinen Spam-Ordner</li>
-                            <li>Keine E-Mail erhalten? Versuche es erneut</li>
+                            <li data-i18n="delete_success_hint_1">Der Link ist 24 Stunden gültig</li>
+                            <li data-i18n="common_check_spam">Überprüfe auch deinen Spam-Ordner</li>
+                            <li data-i18n="common_no_email_retry">Keine E-Mail erhalten? Versuche es erneut</li>
                         </ul>
                     </div>
                 </div>
@@ -98,11 +98,11 @@
                 <div class="action-buttons">
                     <button id="new-request-btn" class="secondary-button">
                         <i class="fas fa-redo"></i>
-                        Neue Anfrage
+                        <span data-i18n="common_new_request">Neue Anfrage</span>
                     </button>
                     <a href="/" class="primary-button">
                         <i class="fas fa-home"></i>
-                        Zur Startseite
+                        <span data-i18n="common_to_home">Zur Startseite</span>
                     </a>
                 </div>
             </div>
@@ -178,7 +178,7 @@
 
                 if (email) {
                     try {
-                        const response = await fetch('/auth/send_delete_email?email=' + email, {
+                        const response = await fetch('/auth/send_delete_email?email=' + encodeURIComponent(email), {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
@@ -187,7 +187,8 @@
 
                         if (response.status === 429) {
                             // Show small box if the server throws "Too many requests"
-                            errorMessage.textContent = 'Zu viele Anfragen. Bitte warte einen Moment, bevor du es erneut versuchst.';
+                            errorMessage.textContent = window.__schneaggchatI18n?.common_error_ratelimit
+                                || 'Zu viele Anfragen. Bitte warte einen Moment, bevor du es erneut versuchst.';
                             errorMessage.classList.remove('hidden');
                             return;
                         }
@@ -211,7 +212,8 @@
 
                     } catch (error) {
                         console.error('Error:', error);
-                        errorMessage.textContent = 'Ein Fehler ist aufgetreten. Bitte versuche es später erneut.';
+                        errorMessage.textContent = window.__schneaggchatI18n?.common_error_generic
+                            || 'Ein Fehler ist aufgetreten. Bitte versuche es später erneut.';
                         errorMessage.classList.remove('hidden');
                     }
                 }

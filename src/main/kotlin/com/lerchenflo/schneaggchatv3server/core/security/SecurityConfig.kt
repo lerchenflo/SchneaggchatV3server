@@ -81,6 +81,10 @@ class SecurityConfig(
                     .requestMatchers("/web_images/**")
                     .permitAll()
 
+                    //Translation strings (xml)
+                    .requestMatchers("/i18n/**")
+                    .permitAll()
+
                     .requestMatchers("/actuator/**")
                     .permitAll()
 

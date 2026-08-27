@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TODO: translate to Vorarlbergerisch. Currently a copy of the German text. -->
+<resources>
+    <string name="common_back_to_home">Zruck zur Startsitta</string>
+    <string name="common_check_spam">Prüf o din Spam ordner</string>
+    <string name="common_email_label">E-Mail-Adress</string>
+    <string name="common_error_generic">An Fehler isch uftreata. Bitte versuachs später nomml</string>
+    <string name="common_error_ratelimit">Z viele Anfragen. Bitte wart an moment bevors nomml versuachsch</string>
+    <string name="common_hints_title">Hinweise:</string>
+    <string name="common_new_request">Neue Anfrage</string>
+    <string name="common_no_email_retry">Kua Email kriagt? Probiers nomml</string>
+    <string name="common_request_received">Anfrage erhalta</string>
+    <string name="common_to_home">Zur Startsitta</string>
+    <string name="common_whats_next">Was passiert als nächstes?</string>
+    <string name="delete_button">Lösch-Link afordra</string>
+    <string name="delete_info_1">Du kriagsch a E-Mail mit nam Bestätigungslink</string>
+    <string name="delete_info_2">Klick uf an Link um din Account zum löscha</string>
+    <string name="delete_info_3">Alle dine Daten ufam Server werrand unwiederruflich glöscht</string>
+    <string name="delete_subtitle">Gib dine E-Mail-Adresse i und mir senden dir an Link zum Löscha vo dinam Account</string>
+    <string name="delete_success_hint_1">Da Link isch 24 Stunda gültig</string>
+    <string name="delete_success_text">Falls an Account mit der E-Mail-Adress existiert, homma an Lösch - Link verschickt. Bitte luag in dine E-Mails</string>
+    <string name="delete_title">Account löscha</string>
+    <string name="donations_paypal_cta">Jetzt via PayPal spenda</string>
+    <string name="donations_paypal_secure">Sicher und einfach über PayPal</string>
+    <string name="donations_recent_heading">Aktuelle Spenden</string>
+    <string name="donations_subtitle">Schneaggchat isch a Leidenschaftsprojekt! Allua da Server und Appstore-Gebühren kostan rund
+                <strong>125 € im Joar</strong> (ohne Programmiera, denn wärs unbezahlbar). Dine Spende hilft, das zum decka
+                und neue Features zum entwickela. Jeder Beitrag zählt!</string>
+    <string name="donations_title">Unterstütz Schneaggchat</string>
+    <string name="donations_total_heading">Gesamte Spenda</string>
+    <string name="donations_total_thanks">Vielen Dank an alle Unterstützer!</string>
+    <string name="donations_update_info">Die Spendenliste wird regelmäßig aktualisiert. Alle Spenda gond zu 100% in die Entwicklung und da
+                Betrieb vo Schneaggchat.</string>
+    <string name="download_android_name">Android</string>
+    <string name="download_android_sub">Google Play Store</string>
+    <string name="download_desktop_name">Desktop</string>
+    <string name="download_desktop_sub">Windows, macOS &amp; Linux · GitHub Releases</string>
+    <string name="download_ios_name">iOS</string>
+    <string name="download_ios_sub">App Store</string>
+    <string name="download_recommended">Empfohla für dich</string>
+    <string name="download_title">Abalada</string>
+    <string name="feature_alarm_text">Spiele an Weckton bei Freunden ab, ou wenn ihr Gerät uf lautlos isch! (Android Only aktuell)</string>
+    <string name="feature_alarm_title">Weckerfeature</string>
+    <string name="feature_dialect_text">Wähl Vorarlbergerisch als Sprachoption für dia App.</string>
+    <string name="feature_dialect_title">Vorarlbergerisch</string>
+    <string name="feature_events_text">Plan Treffa, lad Freunde i und begrenze die Teilnehmerzahl – da Gruppenchat dazua entstoht automatisch.</string>
+    <string name="feature_events_title">Events</string>
+    <string name="feature_games_text">Tetris, Schneaggahus und mehr, mit Highscores, Gesamtranking und täglicha Spiele.</string>
+    <string name="feature_games_title">Minispiele</string>
+    <string name="feature_map_text">Find dine Freunde in Echtzit auf da Karta, teil Standorte und füg eigene Orte dazua!</string>
+    <string name="feature_map_title">Schneaggmap</string>
+    <string name="feature_platform_text">Verwendbar uf jedam Gerät: Android, iOS und Desktop!</string>
+    <string name="feature_platform_title">Multiplattform &amp; Open Source</string>
+    <string name="feature_polls_text">Füg eigene Antwortmöglichkeita dazua und verwend d Stimmenbegrenzung pro Option.</string>
+    <string name="feature_polls_title">Umfrogan</string>
+    <string name="feature_security_text">Nochrichta sind bald Ende zu Ende verschlüsselt.</string>
+    <string name="feature_security_badge">Bald verfügbar</string>
+    <string name="feature_security_title">Sicherheit</string>
+    <string name="features_title">Was macht Schneaggchat bsundrig</string>
+    <string name="footer_delete_account">Account löscha</string>
+    <string name="footer_legal_heading">Rechtliches</string>
+    <string name="footer_nav_heading">Navigation</string>
+    <string name="footer_reset_password">Passwort zrucksetza</string>
+    <string name="footer_support_heading">Support</string>
+    <string name="hero_cta_download">Jetzt abalada</string>
+    <string name="hero_cta_features">Alle Features</string>
+    <string name="hero_subtitle">Schneaggchat ist ein kostenloser Messenger für Android, iOS und Desktop – mit Live-Karte, Events, Umfragen, Minispielen und Vorarlbergerisch als Sprache.</string>
+    <string name="hero_title">Der Messenger für dich und deine Freunde</string>
+    <string name="hero_trust">Kostenlos · Open Source · Keine Werbung</string>
+    <string name="how_step1_text">Play Store, App Store oder Desktop</string>
+    <string name="how_step1_title">App laden</string>
+    <string name="how_step2_text">Nur Benutzername und Passwort</string>
+    <string name="how_step2_title">Account erstellen</string>
+    <string name="how_step3_text">Chatten, Karte teilen, zocken</string>
+    <string name="how_step3_title">Freunde hinzufügen</string>
+    <string name="how_title">So funktioniert's</string>
+    <string name="nav_donate">Spenden</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_privacy">Datenschutz</string>
+    <string name="nav_stats">Stats</string>
+    <string name="reset_button">Reset-Link anfordern</string>
+    <string name="reset_hint_1h">Der Link ist 1 Stunde gültig</string>
+    <string name="reset_info_1">Du erhältst eine E-Mail mit einem Reset-Link</string>
+    <string name="reset_info_2">Klicke auf den Link, um ein neues Passwort zu setzen</string>
+    <string name="reset_subtitle">Gib deine E-Mail-Adresse ein und wir senden dir einen Link zum Zurücksetzen deines
+                    Passworts.</string>
+    <string name="reset_success_text">Falls ein Account mit einer verifizierten E-Mail-Adresse existiert, haben wir einen Reset-Link
+                    versendet.
+                    Bitte überprüfe dein Postfach.</string>
+    <string name="reset_title">Passwort zurücksetzen</string>
+    <string name="resetform_confirm_label">Passwort bestätigen</string>
+    <string name="resetform_err_invalid_token">Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.</string>
+    <string name="resetform_err_mismatch">Die Passwörter stimmen nicht überein.</string>
+    <string name="resetform_err_requirements">Das Passwort erfüllt nicht alle Anforderungen.</string>
+    <string name="resetform_invalid_retry">Neuen Link anfordern</string>
+    <string name="resetform_invalid_text">Der Link ist ungültig oder es fehlt ein Token. Bitte fordere einen neuen Reset-Link an.</string>
+    <string name="resetform_invalid_title">Ungültiger Link</string>
+    <string name="resetform_new_password_label">Neues Passwort</string>
+    <string name="resetform_req_digit">Mindestens eine Zahl</string>
+    <string name="resetform_req_length">Mindestens 8 Zeichen</string>
+    <string name="resetform_req_lower">Mindestens ein Kleinbuchstabe</string>
+    <string name="resetform_req_special">Mindestens ein Sonderzeichen</string>
+    <string name="resetform_req_upper">Mindestens ein Großbuchstabe</string>
+    <string name="resetform_submit">Passwort ändern</string>
+    <string name="resetform_subtitle">Gib dein neues Passwort ein.</string>
+    <string name="resetform_success_text">Dein Passwort wurde erfolgreich zurückgesetzt. Du kannst dich jetzt mit deinem neuen Passwort
+                    anmelden.</string>
+    <string name="resetform_success_title">Passwort geändert</string>
+    <string name="stat_accounts_created">Accounts erstellt</string>
+    <string name="stat_friend_requests">Freundschaftsanfragen gesendet</string>
+    <string name="stat_groups_created">Gruppen erstellt</string>
+    <string name="stat_groups_deleted">Gruppen gelöscht</string>
+    <string name="stat_highscores">Highscores eingereicht</string>
+    <string name="stat_map_entries">Karteneinträge erstellt</string>
+    <string name="stat_messages_deleted">Nachrichten gelöscht</string>
+    <string name="stat_messages_sent">Nachrichten gesendet</string>
+    <string name="stat_server_errors">Serverfehler</string>
+    <string name="stat_server_starts">Serverstarts</string>
+    <string name="stat_wakes_sent">Wecker gesendet</string>
+    <string name="stats_info_text">Die Stats werden in Echtzeit vom Server geholt und zeigen alle vom Server geloggten Events.</string>
+    <string name="stats_info_title">Über die Stats</string>
+    <string name="stats_total_heading">Gesamtevents</string>
+</resources>

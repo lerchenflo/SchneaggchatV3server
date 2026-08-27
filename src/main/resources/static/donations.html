@@ -18,37 +18,38 @@
     <!-- Donations Section -->
     <section class="donations">
         <div class="donations-container">
-            <h1 class="section-title">Unterstütze Schneaggchat</h1>
-            <p class="section-subtitle">
-                Schneaggchat ist ein Leidenschaftsprojekt! Deine Spende hilft uns, den Server am Laufen zu halten,
-                neue Features zu entwickeln, und die Appstore-Kosten zu decken. Jeder Beitrag zählt!
+            <h1 class="section-title" data-i18n="donations_title">Unterstütze Schneaggchat</h1>
+            <p class="section-subtitle" data-i18n="donations_subtitle">
+                Schneaggchat ist ein Leidenschaftsprojekt! Allein Server und Appstore-Gebühren kosten uns rund
+                <strong>125 € im Jahr</strong> (ohne den Programmieraufwand). Deine Spende hilft uns, das zu decken
+                und neue Features zu entwickeln. Jeder Beitrag zählt!
             </p>
 
             <!-- PayPal Donation Button -->
             <div style="text-align: center; margin: 3rem 0;">
-                <a href="https://paypal.me/florianlerchenmuelle" target="_blank" class="paypal-button" id="paypal-link">
+                <a href="https://paypal.me/florianlerchenmuelle" target="_blank" rel="noopener" class="paypal-button" id="paypal-link">
                     <i class="fab fa-paypal"></i>
-                    Jetzt via PayPal spenden
+                    <span data-i18n="donations_paypal_cta">Jetzt via PayPal spenden</span>
                 </a>
-                <p style="color: #94a3b8; margin-top: 1rem; font-size: 0.9rem;">
+                <p style="color: #94a3b8; margin-top: 1rem; font-size: 0.9rem;" data-i18n="donations_paypal_secure">
                     Sicher und einfach über PayPal
                 </p>
             </div>
 
             <!-- Total Donations -->
             <div class="total-donations">
-                <h3>Gesamte Spenden</h3>
+                <h3 data-i18n="donations_total_heading">Gesamte Spenden</h3>
                 <div class="total-amount">€0.00</div>
-                <p style="color: #94a3b8;">Vielen Dank an alle Unterstützer!</p>
+                <p style="color: #94a3b8;" data-i18n="donations_total_thanks">Vielen Dank an alle Unterstützer!</p>
             </div>
 
             <!-- Recent Donations -->
-            <h2 class="section-title" style="margin-top: 4rem; font-size: 2rem;">Aktuelle Spenden</h2>
+            <h2 class="section-title" style="margin-top: 4rem; font-size: 2rem;" data-i18n="donations_recent_heading">Aktuelle Spenden</h2>
             <!-- Donations will be dynamically loaded here -->
             <div class="donations-grid"></div>
 
             <!-- Update Info -->
-            <p class="update-info">
+            <p class="update-info" data-i18n="donations_update_info">
                 Die Spendenliste wird regelmäßig aktualisiert. Alle Spenden gehen zu 100% in die Entwicklung und den
                 Betrieb von Schneaggchat.
             </p>

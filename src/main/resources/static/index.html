@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Schneaggchat V3</title>
+    <meta name="description" content="Schneaggchat ist ein kostenloser Messenger für Android, iOS und Desktop – mit Live-Karte, Events, Umfragen und Minispielen.">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
@@ -16,95 +17,148 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <h1>Die beste Chatting-App, jetzt in der V3</h1>
-            <p>Schneaggchat ist jetzt in der V3 verfügbar - Mit Multiplatform, altbekannten Features und neuer UI!</p>
+            <div class="hero-eyebrow">
+                <img src="/web_images/Icon.png" alt="">
+                <span>Schneaggchat V3</span>
+            </div>
 
-            <h2>Download</h2>
+            <h1 data-i18n="hero_title">Der Messenger für dich und deine Freunde</h1>
+            <p data-i18n="hero_subtitle">Schneaggchat ist ein kostenloser Messenger für Android, iOS und Desktop – mit Live-Karte, Events, Umfragen, Minispielen und Vorarlbergerisch als Sprache.</p>
+
+            <p class="trust-strip" data-i18n="hero_trust">Kostenlos · Open Source · Keine Werbung</p>
+
             <div class="download-buttons">
-                <a href="https://play.google.com/store/apps/details?id=org.lerchenflo.schneaggchatv3mp" class="cta-button">
-                    <i class="fab fa-google-play"></i> Android
+                <a href="#download" class="cta-button">
+                    <i class="fa-solid fa-download"></i> <span data-i18n="hero_cta_download">Jetzt herunterladen</span>
                 </a>
-
-                <a href="https://apps.apple.com/de/app/schneaggchat-v3/id6757244104" class="cta-button">
-                    <i class="fab fa-apple"></i> iOS
-                </a>
-
-                <a href="https://github.com/lerchenflo/SchneaggchatV3/releases" class="cta-button">
-                    <i class="fab fa-github"></i> Desktop
+                <a href="#features" class="cta-button cta-button--ghost">
+                    <span data-i18n="hero_cta_features">Alle Features</span>
                 </a>
             </div>
         </div>
         <div class="hero-image">
-            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MDAiIGhlaWdodD0iOTAwIiB2aWV3Qm94PSIwIDAgNjAwIDkwMCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzFlMjkzYiIvPjxwYXRoIGQ9Ik0zMDAgMTUwYzExMCAwIDIwMCA5MCAyMDAgMjAwcy05MCAyMDAtMjAwIDIwMFMxMDAgNDYwIDEwMCAzNTAgMTkwIDE1MCAzMDAgMTUweiIgZmlsbD0iIzQzNjFlZSIgb3BhY2l0eT0iMC4zIi8+PHBhdGggZD0iTTMwMCA1NTBjODMgMCAxNTAgNjcgMTUwIDE1MHMtNjcgMTUwLTE1MCAxNTAtMTUwLTY3LTE1MC0xNTAgNjctMTUwIDE1MC0xNTB6IiBmaWxsPSIjNDg5NWVmIiBvcGFjaXR5PSIwLjMiLz48cmVjdCB4PSIxNTAiIHk9IjMwMCIgd2lkdGg9IjMwMCIgaGVpZ2h0PSI1MDAiIHJ4PSIyMCIgcnk9IjIwIiBmaWxsPSIjMWUxZTFjIi8+PHJlY3QgeD0iMTcwIiB5PSIzMjAiIHdpZHRoPSIyNjAiIGhlaWdodD0iNDYwIiByeD0iMTAiIHJ5PSIxMCIgZmlsbD0iIzI2MjYzMCIvPjxjaXJjbGUgY3g9IjMwMCIgY3k9IjQ0MCIgcj0iNjAiIGZpbGw9IiM0MzYxZWUiLz48Y2lyY2xlIGN4PSIzMDAiIGN5PSI0NDAiIHI9IjQwIiBmaWxsPSIjNDg5NWVmIi8+PHJlY3QgeD0iMTkwIiB5PSIzNTAiIHdpZHRoPSIyMjAiIGhlaWdodD0iNDAiIHJ4PSI1IiByeT0iNSIgZmlsbD0iIzQ4OTVlZiIvPjxyZWN0IHg9IjE5MCIgeT0iNDEwIiB3aWR0aD0iMTYwIiBoZWlnaHQ9IjIwIiByeD0iMyIgcnk9IjMiIGZpbGw9IiM2YzczODAiLz48cmVjdCB4PSIxOTAiIHk9IjQ0MCIgd2lkdGg9IjE2MCIgaGVpZ2h0PSIyMCIgcng9IjMiIHJ5PSIzIiBmaWxsPSIjNmM3MzgwIi8+PHJlY3QgeD0iMTkwIiB5PSI0NzAiIHdpZHRoPSIyMjAiIGhlaWdodD0iMjAiIHJ4PSIzIiByeT0iMyIgZmlsbD0iIzZjNzM4MCIvPjwvc3ZnPg==" alt="Schneaggchat App Preview">
+            <div class="phone-frame">
+                <img src="/web_images/screenshot_karte.webp" alt="Schneaggmap: Freunde und Orte live auf der Karte" width="700" height="1445" loading="eager">
+            </div>
+        </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="how-it-works">
+        <h2 class="section-title" data-i18n="how_title">So funktioniert's</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="step-number">1</div>
+                <h3 data-i18n="how_step1_title">App laden</h3>
+                <p data-i18n="how_step1_text">Play Store, App Store oder Desktop</p>
+            </div>
+            <div class="feature-card">
+                <div class="step-number">2</div>
+                <h3 data-i18n="how_step2_title">Account erstellen</h3>
+                <p data-i18n="how_step2_text">Nur Benutzername und Passwort</p>
+            </div>
+            <div class="feature-card">
+                <div class="step-number">3</div>
+                <h3 data-i18n="how_step3_title">Freunde hinzufügen</h3>
+                <p data-i18n="how_step3_text">Chatten, Karte teilen, zocken</p>
+            </div>
         </div>
     </section>
 
     <!-- Features Section -->
-    <!-- Features Section -->
-    <section class="features">
-        <h2 class="section-title">Was macht Schneaggchat besonders</h2>
+    <section class="features" id="features">
+        <h2 class="section-title" data-i18n="features_title">Was macht Schneaggchat besonders</h2>
         <div class="features-grid">
 
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fa-solid fa-map-location-dot"></i>
                 </div>
-                <h3>Schneaggmap</h3>
-                <p>Finde deine Freunde in Echtzeit auf der Karte, teile Standorte und füge eigene Orte hinzu!</p>
+                <h3 data-i18n="feature_map_title">Schneaggmap</h3>
+                <p data-i18n="feature_map_text">Finde deine Freunde in Echtzeit auf der Karte, teile Standorte und füge eigene Orte hinzu!</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fa-solid fa-display"></i>
                 </div>
-                <h3>Multiplattform & Open Source</h3>
-                <p>Verwendbar von jedem Gerät: Android, iOS und Desktop!</p>
+                <h3 data-i18n="feature_platform_title">Multiplattform & Open Source</h3>
+                <p data-i18n="feature_platform_text">Verwendbar von jedem Gerät: Android, iOS und Desktop!</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </div>
+                <h3 data-i18n="feature_events_title">Events</h3>
+                <p data-i18n="feature_events_text">Plane Treffen, lade Freunde ein und begrenze die Teilnehmerzahl – der Gruppenchat dazu entsteht automatisch.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fa-solid fa-square-poll-vertical"></i>
                 </div>
-                <h3>Umfragen</h3>
-                <p>Füge eigene Antwortmöglichkeiten hinzu und verwende die Stimmenbegrenzung pro Option.</p>
+                <h3 data-i18n="feature_polls_title">Umfragen</h3>
+                <p data-i18n="feature_polls_text">Füge eigene Antwortmöglichkeiten hinzu und verwende die Stimmenbegrenzung pro Option.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fa-solid fa-bell"></i>
                 </div>
-                <h3>Weckerfeature</h3>
-                <p>Spiele einen Weckton bei Freunden ab, auch wenn deren Gerät auf lautlos ist! (Android Only)</p>
+                <h3 data-i18n="feature_alarm_title">Weckerfeature</h3>
+                <p data-i18n="feature_alarm_text">Spiele einen Weckton bei Freunden ab, auch wenn deren Gerät auf lautlos ist! (Android Only)</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fa-solid fa-gamepad"></i>
                 </div>
-                <h3>Minispiele</h3>
-                <p>Tetris, Schneaggahus und mehr, mit Highscores, Gesamtranking und täglichen Spielen.</p>
+                <h3 data-i18n="feature_games_title">Minispiele</h3>
+                <p data-i18n="feature_games_text">Tetris, Schneaggahus und mehr, mit Highscores, Gesamtranking und täglichen Spielen.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fa-solid fa-language"></i>
                 </div>
-                <h3>Vorarlbergerisch</h3>
-                <p>Wähl Vorarlbergerisch als Sprachoption für die App.</p>
+                <h3 data-i18n="feature_dialect_title">Vorarlbergerisch</h3>
+                <p data-i18n="feature_dialect_text">Wähl Vorarlbergerisch als Sprachoption für die App.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">
                     <i class="fa-solid fa-lock"></i>
                 </div>
-                <h3>Sicherheit (Comming soon)</h3>
-                <p>Deine Nachrichten sind E2E-verschlüsselt.</p>
+                <h3 data-i18n="feature_security_title">Sicherheit</h3>
+                <span class="badge-outline" data-i18n="feature_security_badge">Bald verfügbar</span>
+                <p data-i18n="feature_security_text">Nachrichten sollen bald Ende-zu-Ende-verschlüsselt werden.</p>
             </div>
         </div>
     </section>
 
-    <!-- 
-    <section class="download">
-        <h2>Download</h2>
-        <a href="https://play.google.com/store/apps/details?id=org.lerchenflo.schneaggchatv3mp" class="cta-button">
-            <i class="fab fa-google-play"></i> Download von Google Play
-        </a>
+    <!-- Download Section -->
+    <section class="download-section" id="download">
+        <h2 class="section-title" data-i18n="download_title">Download</h2>
+        <div class="download-grid">
+            <a href="https://play.google.com/store/apps/details?id=org.lerchenflo.schneaggchatv3mp"
+               class="download-card" data-platform="android" target="_blank" rel="noopener">
+                <i class="fab fa-google-play download-icon"></i>
+                <span class="download-name" data-i18n="download_android_name">Android</span>
+                <span class="download-sub" data-i18n="download_android_sub">Google Play Store</span>
+                <span class="download-badge" data-i18n="download_recommended">Empfohlen für dich</span>
+            </a>
+
+            <a href="https://apps.apple.com/de/app/schneaggchat-v3/id6757244104"
+               class="download-card" data-platform="ios" target="_blank" rel="noopener">
+                <i class="fab fa-apple download-icon"></i>
+                <span class="download-name" data-i18n="download_ios_name">iOS</span>
+                <span class="download-sub" data-i18n="download_ios_sub">App Store</span>
+                <span class="download-badge" data-i18n="download_recommended">Empfohlen für dich</span>
+            </a>
+
+            <a href="https://github.com/lerchenflo/SchneaggchatV3/releases"
+               class="download-card" data-platform="desktop" target="_blank" rel="noopener">
+                <i class="fab fa-github download-icon"></i>
+                <span class="download-name" data-i18n="download_desktop_name">Desktop</span>
+                <span class="download-sub" data-i18n="download_desktop_sub">Windows, macOS & Linux · GitHub Releases</span>
+                <span class="download-badge" data-i18n="download_recommended">Empfohlen für dich</span>
+            </a>
+        </div>
     </section>
-    -->
 
     <!-- Footer -->
     <div id="footer-container"></div>
@@ -113,23 +167,21 @@
     <script src="/js/header_footer.js"></script>
 
     <script>
-        // Simple mobile menu toggle
-        document.querySelector('.mobile-toggle').addEventListener('click', function() {
-            const navLinks = document.querySelector('.nav-links');
-            navLinks.style.display = navLinks.style.display === 'flex' ? 'none' : 'flex';
-        });
+        // Highlight the download card matching the visitor's platform and
+        // move it to the front, so mobile visitors don't have to think
+        // about which of the three buttons is theirs.
+        (function () {
+            const ua = navigator.userAgent || '';
+            let platform = null;
+            if (/android/i.test(ua)) platform = 'android';
+            else if (/iphone|ipad|ipod/i.test(ua)) platform = 'ios';
+            else if (/win|mac|linux/i.test(ua) && !/mobile/i.test(ua)) platform = 'desktop';
 
-        // Header scroll effect
-        window.addEventListener('scroll', function() {
-            const header = document.querySelector('header');
-            if (window.scrollY > 50) {
-                header.style.background = 'rgba(15, 23, 42, 0.95)';
-                header.style.boxShadow = '0 5px 20px rgba(0, 0, 0, 0.2)';
-            } else {
-                header.style.background = 'rgba(30, 30, 44, 0.8)';
-                header.style.boxShadow = '0 5px 20px rgba(0, 0, 0, 0.1)';
-            }
-        });
+            if (!platform) return;
+
+            const card = document.querySelector(`.download-card[data-platform="${platform}"]`);
+            card?.classList.add('is-primary');
+        })();
     </script>
 </body>
 </html>
