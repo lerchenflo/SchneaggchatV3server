@@ -358,26 +358,6 @@ header {
     border-radius: 22px;
 }
 
-/* How it works */
-.how-it-works {
-    padding: 6rem 5%;
-}
-
-.step-number {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: rgba(30, 216, 96, 0.12);
-    color: var(--primary);
-    border: 1px solid rgba(30, 216, 96, 0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 1.2rem;
-    margin: 0 auto 1.25rem;
-}
-
 /* Download section */
 .download-section {
     padding: 6rem 5% 8rem;
@@ -654,8 +634,7 @@ footer {
         border-radius: 12px;
     }
 
-    .feature-icon,
-    .step-number {
+    .feature-icon {
         width: 52px;
         height: 52px;
         font-size: 1.3rem;
@@ -695,27 +674,38 @@ footer {
         font-size: 2rem;
     }
 
-    .features-grid {
+    .features-grid,
+    .download-grid {
         gap: 0.7rem;
     }
 
-    .feature-card {
+    .feature-card,
+    .download-card {
         padding: 1rem 0.7rem;
     }
 
-    .feature-icon,
-    .step-number {
+    .feature-icon {
         width: 44px;
         height: 44px;
         font-size: 1.1rem;
     }
 
-    .feature-card h3 {
+    .download-card i.download-icon {
+        font-size: 1.4rem;
+    }
+
+    .feature-card h3,
+    .download-card .download-name {
         font-size: 0.9rem;
     }
 
-    .feature-card p {
+    .feature-card p,
+    .download-card .download-sub {
         font-size: 0.75rem;
+    }
+
+    .download-card .download-badge {
+        font-size: 0.6rem;
     }
 
     .hero-image,
