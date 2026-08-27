@@ -65,7 +65,10 @@ class GroupService(
         //Creator needs to be friends with everyone
         membersInternal.forEach { member ->
             if (member == creatorId) return@forEach //Exclude self
-            require(friendsLookupService.areFriends(creatorId, member)){ "You need to be friends with everyone in the group"}
+            requireOrLog(
+                friendsLookupService.areFriends(creatorId, member),
+                { "Group creation denied - user: ${userLookupService.getUsername(creatorId)} is not friends with: ${userLookupService.getUsername(member)}" }
+            ) { "You need to be friends with everyone in the group" }
         }
 
         val currentTime = Clock.System.now()
@@ -197,7 +200,10 @@ class GroupService(
 
     fun changeGroupProfilePic(userId: ObjectId, groupId: ObjectId, image: MultipartFile) {
 
-        require(groupLookupService.isUserInGroup(userId, groupId))
+        requireOrLog(
+            groupLookupService.isUserInGroup(userId, groupId),
+            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_PROFILE_PIC, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
+        ) { "You are not a member of this group" }
         require(ValidationUtils.validatePicture(image)) { "Image invalid" }
 
         val group = groupLookupService.getGroupById(groupId)
@@ -227,7 +233,10 @@ class GroupService(
 
     fun changeGroupDescription(userId: ObjectId, groupId: ObjectId, newDescription: String) {
 
-        require(groupLookupService.isUserInGroup(userId, groupId))
+        requireOrLog(
+            groupLookupService.isUserInGroup(userId, groupId),
+            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_DESCRIPTION, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
+        ) { "You are not a member of this group" }
         require(ValidationUtils.validateDescription(newDescription)) { "Invalid string" }
 
         val group = groupLookupService.getGroupById(groupId)
@@ -250,7 +259,10 @@ class GroupService(
 
     fun changeGroupName(userId: ObjectId, groupId: ObjectId, newName: String) {
 
-        require(groupLookupService.isUserInGroup(userId, groupId))
+        requireOrLog(
+            groupLookupService.isUserInGroup(userId, groupId),
+            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_NAME, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
+        ) { "You are not a member of this group" }
         require(ValidationUtils.validateUsername(newName)) { "Group name invalid" }
 
         val group = groupLookupService.getGroupById(groupId)
@@ -293,7 +305,10 @@ class GroupService(
      * event's own group-delete-delay setting, overwriting whatever is set here.
      */
     fun changeGroupExpiresAt(userId: ObjectId, groupId: ObjectId, expiresAt: Instant?) {
-        require(groupLookupService.isUserInGroup(userId, groupId))
+        requireOrLog(
+            groupLookupService.isUserInGroup(userId, groupId),
+            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_EXPIRES_AT, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
+        ) { "You are not a member of this group" }
         expiresAt?.let {
             require(it > Clock.System.now()) { "Expiry date must be in the future" }
         }
@@ -333,10 +348,10 @@ class GroupService(
 
         val groupMembers = groupLookupService.getGroupMembers(groupId)
 
-        if (!groupLookupService.isUserInGroup(requestingUser, groupId)) {
-            AppLogger.debug("Unauthorized group action attempt - userId: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not in group",)
-            throw IllegalArgumentException("You are not a member of this group")
-        }
+        requireOrLog(
+            groupLookupService.isUserInGroup(requestingUser, groupId),
+            { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
+        ) { "You are not a member of this group" }
 
 
         val now = Clock.System.now()
@@ -348,7 +363,10 @@ class GroupService(
 
         when (userAction) {
             GroupMemberAction.ADD_USER -> {
-                require(groupLookupService.isAdmin(requestingUser, groupMembers)) {"You are not an admin"}
+                requireOrLog(
+                    groupLookupService.isAdmin(requestingUser, groupMembers),
+                    { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
+                ) { "You are not an admin" }
 
                 addUserToGroup(
                     groupId = groupId,
@@ -359,11 +377,17 @@ class GroupService(
                 pendingEvent = SystemEventType.GROUP_MEMBER_ADDED
             }
             GroupMemberAction.REMOVE_USER -> {
-                require(groupLookupService.isUserInGroup(groupMember, groupId)) {"User is not in this group"}
+                requireOrLog(
+                    groupLookupService.isUserInGroup(groupMember, groupId),
+                    { "Group action denied - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}, target: ${userLookupService.getUsername(groupMember)}: Target not in group" }
+                ) { "User is not in this group" }
 
                 // If someone else is removing the user, they must be admin
                 if (requestingUser != groupMember) {
-                    require(groupLookupService.isAdmin(requestingUser, groupMembers)) {"You are not an admin"}
+                    requireOrLog(
+                        groupLookupService.isAdmin(requestingUser, groupMembers),
+                        { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
+                    ) { "You are not an admin" }
                 }
 
                 // If user is leaving and is the last admin, promote someone
@@ -396,9 +420,15 @@ class GroupService(
             }
 
             GroupMemberAction.MAKE_ADMIN -> {
-                require(groupLookupService.isAdmin(requestingUser, groupMembers)) {"You are not an admin"}
+                requireOrLog(
+                    groupLookupService.isAdmin(requestingUser, groupMembers),
+                    { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
+                ) { "You are not an admin" }
 
-                require(groupLookupService.isUserInGroup(groupMember, groupId)) {"User is not in this group"}
+                requireOrLog(
+                    groupLookupService.isUserInGroup(groupMember, groupId),
+                    { "Group action denied - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}, target: ${userLookupService.getUsername(groupMember)}: Target not in group" }
+                ) { "User is not in this group" }
 
                 val focusedMember = groupMembers.first { it.userid == groupMember }
                 require(!focusedMember.admin) {"User is already admin"}
@@ -410,9 +440,15 @@ class GroupService(
                 pendingEvent = SystemEventType.GROUP_ADMIN_GRANTED
             }
             GroupMemberAction.REMOVE_ADMIN -> {
-                require(groupLookupService.isAdmin(requestingUser, groupMembers)) {"You are not an admin"}
+                requireOrLog(
+                    groupLookupService.isAdmin(requestingUser, groupMembers),
+                    { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
+                ) { "You are not an admin" }
 
-                require(groupLookupService.isUserInGroup(groupMember, groupId)) {"User is not in this group"}
+                requireOrLog(
+                    groupLookupService.isUserInGroup(groupMember, groupId),
+                    { "Group action denied - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}, target: ${userLookupService.getUsername(groupMember)}: Target not in group" }
+                ) { "User is not in this group" }
 
                 val focusedMember = groupMembers.first { it.userid == groupMember }
                 require(focusedMember.admin) {"User is not an admin"}

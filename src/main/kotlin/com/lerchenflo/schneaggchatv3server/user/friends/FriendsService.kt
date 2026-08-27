@@ -2,12 +2,14 @@ package com.lerchenflo.schneaggchatv3server.user.friends
 
 import com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
+import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.Friendship
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipSetting
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
+import com.lerchenflo.schneaggchatv3server.util.requireOrLog
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
@@ -17,6 +19,7 @@ import kotlin.time.Clock
 @Component
 class FriendsService(
     private val friendsLookupService: FriendsLookupService,
+    private val userLookupService: UserLookupService,
     private val loggingService: LoggingService,
     private val notificationService: NotificationService,
     private val friendsSettingsService: FriendsSettingsService,
@@ -93,9 +96,10 @@ class FriendsService(
             "Cannot accept - friendship status is ${friendship.status}"
         }
 
-        require(friendship.requesterId == requesterId) {
-            "Only the recipient can accept a friend request"
-        }
+        requireOrLog(
+            friendship.requesterId == requesterId,
+            { "Unauthorized friend request action - user: ${userLookupService.getUsername(acceptingUserId)}, action: ACCEPT, requester: ${userLookupService.getUsername(requesterId)}: Not the recipient" }
+        ) { "Only the recipient can accept a friend request" }
 
         friendship.status = FriendshipStatus.ACCEPTED
         friendship.updatedAt = Clock.System.now()
@@ -133,10 +137,11 @@ class FriendsService(
         }
 
         //You can only deny friend requests from the other user, or cancel your own
-        require(friendship.requesterId == requesterId /* Decline request from others*/
-                || friendship.requesterId == decliningUserId /* Decline your own request (you requested and you decline)*/) {
-            "Only the recipient can decline a friend request"
-        }
+        requireOrLog(
+            friendship.requesterId == requesterId /* Decline request from others*/
+                || friendship.requesterId == decliningUserId /* Decline your own request (you requested and you decline)*/,
+            { "Unauthorized friend request action - user: ${userLookupService.getUsername(decliningUserId)}, action: DECLINE, requester: ${userLookupService.getUsername(requesterId)}: Not the recipient" }
+        ) { "Only the recipient can decline a friend request" }
 
         //Delete friendship (there is none)
         removeFriend(decliningUserId, requesterId)

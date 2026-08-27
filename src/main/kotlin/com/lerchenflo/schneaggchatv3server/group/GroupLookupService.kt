@@ -53,8 +53,8 @@ class GroupLookupService(
         }
     }
 
-    fun getGroupName(userId: ObjectId): String {
-        return groupRepository.findById(userId).getOrNull()?.name ?: "Unresolved group name"
+    fun getGroupName(groupId: ObjectId): String {
+        return groupRepository.findById(groupId).getOrNull()?.name ?: "Unresolved group name"
     }
 
     fun getGroupAsGroupResponse(groupId: ObjectId): GroupResponse {

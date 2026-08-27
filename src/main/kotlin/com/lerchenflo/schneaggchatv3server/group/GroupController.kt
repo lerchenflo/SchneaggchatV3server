@@ -4,8 +4,10 @@ package com.lerchenflo.schneaggchatv3server.group
 
 import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
+import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
+import com.lerchenflo.schneaggchatv3server.util.requireOrLog
 import jakarta.validation.Valid
 import org.bson.types.ObjectId
 import org.springframework.http.MediaType
@@ -20,6 +22,7 @@ import kotlin.time.Instant
 class GroupController(
     private val groupService: GroupService,
     private val groupLookupService: GroupLookupService,
+    private val userLookupService: UserLookupService,
 ) {
 
     @PostMapping("/create", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
@@ -66,7 +69,10 @@ class GroupController(
         val requestingUserId = requireAuth()
 
 
-        require(groupLookupService.isUserInGroup(requestingUserId, ObjectId(groupId)))
+        requireOrLog(
+            groupLookupService.isUserInGroup(requestingUserId, ObjectId(groupId)),
+            { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUserId)}, action: GET_PROFILE_PIC, group: ${groupLookupService.getGroupName(ObjectId(groupId))}: Not in group" }
+        ) { "You are not a member of this group" }
 
         return groupService.getGroupProfilePic(ObjectId(groupId))
     }
