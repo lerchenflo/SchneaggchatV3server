@@ -16,6 +16,17 @@
     box-sizing: border-box;
 }
 
+html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 90px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}
+
 body {
     font-family: 'Poppins', sans-serif;
     background: linear-gradient(135deg, #080c08 0%, #0d150d 100%);
