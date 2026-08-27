@@ -30,7 +30,7 @@
             <div class="total-icon">
                 <i class="fa-solid fa-database"></i>
             </div>
-            <h2>Gesamtevents</h2>
+            <h2 data-i18n="stats_total_heading">Gesamtevents</h2>
             <div class="total-number" th:text="${total}">0</div>
         </div>
 
@@ -43,7 +43,7 @@
                     <i class="fa-solid fa-user-plus"></i>
                 </div>
                 <div class="stat-detail-content">
-                    <h3>Accounts erstellt</h3>
+                    <h3 data-i18n="stat_accounts_created">Accounts erstellt</h3>
                     <div class="stat-detail-number" th:text="${stats['ACCOUNT_CREATED']}">0</div>
                 </div>
             </div>
@@ -54,7 +54,7 @@
                     <i class="fa-solid fa-envelope"></i>
                 </div>
                 <div class="stat-detail-content">
-                    <h3>Nachrichten gesendet</h3>
+                    <h3 data-i18n="stat_messages_sent">Nachrichten gesendet</h3>
                     <div class="stat-detail-number" th:text="${stats['MESSAGE_SENT']}">0</div>
                 </div>
             </div>
@@ -65,7 +65,7 @@
                     <i class="fa-solid fa-trash"></i>
                 </div>
                 <div class="stat-detail-content">
-                    <h3>Nachrichten gelöscht</h3>
+                    <h3 data-i18n="stat_messages_deleted">Nachrichten gelöscht</h3>
                     <div class="stat-detail-number" th:text="${stats['MESSAGE_DELETED']}">0</div>
                 </div>
             </div>
@@ -76,7 +76,7 @@
                     <i class="fa-solid fa-power-off"></i>
                 </div>
                 <div class="stat-detail-content">
-                    <h3>Serverstarts</h3>
+                    <h3 data-i18n="stat_server_starts">Serverstarts</h3>
                     <div class="stat-detail-number" th:text="${stats['SERVER_START']}">0</div>
                 </div>
             </div>
@@ -87,7 +87,7 @@
                     <i class="fa-solid fa-user-plus"></i>
                 </div>
                 <div class="stat-detail-content">
-                    <h3>Freundschaftsanfragen gesendet</h3>
+                    <h3 data-i18n="stat_friend_requests">Freundschaftsanfragen gesendet</h3>
                     <div class="stat-detail-number" th:text="${stats['FRIEND_REQUEST_SENT']}">0</div>
                 </div>
             </div>
@@ -98,7 +98,7 @@
                     <i class="fa-solid fa-users-rectangle"></i>
                 </div>
                 <div class="stat-detail-content">
-                    <h3>Gruppen erstellt</h3>
+                    <h3 data-i18n="stat_groups_created">Gruppen erstellt</h3>
                     <div class="stat-detail-number" th:text="${stats['GROUP_CREATED']}">0</div>
                 </div>
             </div>
@@ -109,7 +109,7 @@
                     <i class="fa-solid fa-users-slash"></i>
                 </div>
                 <div class="stat-detail-content">
-                    <h3>Gruppen gelöscht</h3>
+                    <h3 data-i18n="stat_groups_deleted">Gruppen gelöscht</h3>
                     <div class="stat-detail-number" th:text="${stats['GROUP_DELETED']}">0</div>
                 </div>
             </div>
@@ -120,7 +120,7 @@
                     <i class="fa-solid fa-bell"></i>
                 </div>
                 <div class="stat-detail-content">
-                    <h3>Wecker gesendet</h3>
+                    <h3 data-i18n="stat_wakes_sent">Wecker gesendet</h3>
                     <div class="stat-detail-number" th:text="${stats['WAKE_SENT']}">0</div>
                 </div>
             </div>
@@ -131,7 +131,7 @@
                     <i class="fa-solid fa-gamepad"></i>
                 </div>
                 <div class="stat-detail-content">
-                    <h3>Highscores eingereicht</h3>
+                    <h3 data-i18n="stat_highscores">Highscores eingereicht</h3>
                     <div class="stat-detail-number" th:text="${stats['GAME_SCORE_SUBMITTED']}">0</div>
                 </div>
             </div>
@@ -142,7 +142,7 @@
                     <i class="fa-solid fa-map-location-dot"></i>
                 </div>
                 <div class="stat-detail-content">
-                    <h3>Karteneinträge erstellt</h3>
+                    <h3 data-i18n="stat_map_entries">Karteneinträge erstellt</h3>
                     <div class="stat-detail-number" th:text="${stats['MAP_ENTRY_CREATED']}">0</div>
                 </div>
             </div>
@@ -153,7 +153,7 @@
                     <i class="fa-solid fa-triangle-exclamation"></i>
                 </div>
                 <div class="stat-detail-content">
-                    <h3>Serverfehler</h3>
+                    <h3 data-i18n="stat_server_errors">Serverfehler</h3>
                     <div class="stat-detail-number" th:text="${stats['EXCEPTION_THROWN']}">0</div>
                 </div>
             </div>
@@ -163,8 +163,8 @@
         <div class="stats-info-box">
             <i class="fa-solid fa-circle-info"></i>
             <div class="info-content">
-                <h3>Über die Stats</h3>
-                <p>Die Stats werden in Echtzeit vom Server geholt und zeigen alle vom Server geloggten Events.</p>
+                <h3 data-i18n="stats_info_title">Über die Stats</h3>
+                <p data-i18n="stats_info_text">Die Stats werden in Echtzeit vom Server geholt und zeigen alle vom Server geloggten Events.</p>
             </div>
         </div>
 
@@ -172,7 +172,7 @@
         <div class="back-link">
             <a href="/">
                 <i class="fa-solid fa-arrow-left"></i>
-                Zur Startseite
+                <span data-i18n="common_to_home">Zur Startseite</span>
             </a>
         </div>
     </div>

@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <string name="common_back_to_home">Zurück zur Startseite</string>
+    <string name="common_check_spam">Überprüfe auch deinen Spam-Ordner</string>
+    <string name="common_email_label">E-Mail-Adresse</string>
+    <string name="common_error_generic">Ein Fehler ist aufgetreten. Bitte versuche es später erneut.</string>
+    <string name="common_error_ratelimit">Zu viele Anfragen. Bitte warte einen Moment, bevor du es erneut versuchst.</string>
+    <string name="common_hints_title">Hinweise:</string>
+    <string name="common_new_request">Neue Anfrage</string>
+    <string name="common_no_email_retry">Keine E-Mail erhalten? Versuche es erneut</string>
+    <string name="common_request_received">Anfrage erhalten</string>
+    <string name="common_to_home">Zur Startseite</string>
+    <string name="common_whats_next">Was passiert als nächstes?</string>
+    <string name="delete_button">Lösch-Link anfordern</string>
+    <string name="delete_info_1">Du erhältst eine E-Mail mit einem Bestätigungslink</string>
+    <string name="delete_info_2">Klicke auf den Link, um deinen Account zu löschen</string>
+    <string name="delete_info_3">Alle deine Daten werden unwiderruflich gelöscht</string>
+    <string name="delete_subtitle">Gib deine E-Mail-Adresse ein und wir senden dir einen Link zum Löschen deines
+                    Accounts.</string>
+    <string name="delete_success_hint_1">Der Link ist 24 Stunden gültig</string>
+    <string name="delete_success_text">Falls ein Account mit dieser E-Mail-Adresse existiert, haben wir einen Lösch-Link versendet.
+                    Bitte überprüfe dein Postfach.</string>
+    <string name="delete_title">Account löschen</string>
+    <string name="donations_paypal_cta">Jetzt via PayPal spenden</string>
+    <string name="donations_paypal_secure">Sicher und einfach über PayPal</string>
+    <string name="donations_recent_heading">Aktuelle Spenden</string>
+    <string name="donations_subtitle">Schneaggchat ist ein Leidenschaftsprojekt! Allein Server und Appstore-Gebühren kosten uns rund
+                <strong>125 € im Jahr</strong> (ohne den Programmieraufwand). Deine Spende hilft uns, das zu decken
+                und neue Features zu entwickeln. Jeder Beitrag zählt!</string>
+    <string name="donations_title">Unterstütze Schneaggchat</string>
+    <string name="donations_total_heading">Gesamte Spenden</string>
+    <string name="donations_total_thanks">Vielen Dank an alle Unterstützer!</string>
+    <string name="donations_update_info">Die Spendenliste wird regelmäßig aktualisiert. Alle Spenden gehen zu 100% in die Entwicklung und den
+                Betrieb von Schneaggchat.</string>
+    <string name="download_android_name">Android</string>
+    <string name="download_android_sub">Google Play Store</string>
+    <string name="download_desktop_name">Desktop</string>
+    <string name="download_desktop_sub">Windows, macOS &amp; Linux · GitHub Releases</string>
+    <string name="download_ios_name">iOS</string>
+    <string name="download_ios_sub">App Store</string>
+    <string name="download_recommended">Empfohlen für dich</string>
+    <string name="download_title">Download</string>
+    <string name="feature_alarm_text">Spiele einen Weckton bei Freunden ab, auch wenn deren Gerät auf lautlos ist! (Android Only)</string>
+    <string name="feature_alarm_title">Weckerfeature</string>
+    <string name="feature_dialect_text">Wähl Vorarlbergerisch als Sprachoption für die App.</string>
+    <string name="feature_dialect_title">Vorarlbergerisch</string>
+    <string name="feature_events_text">Plane Treffen, lade Freunde ein und begrenze die Teilnehmerzahl – der Gruppenchat dazu entsteht automatisch.</string>
+    <string name="feature_events_title">Events</string>
+    <string name="feature_games_text">Tetris, Schneaggahus und mehr, mit Highscores, Gesamtranking und täglichen Spielen.</string>
+    <string name="feature_games_title">Minispiele</string>
+    <string name="feature_map_text">Finde deine Freunde in Echtzeit auf der Karte, teile Standorte und füge eigene Orte hinzu!</string>
+    <string name="feature_map_title">Schneaggmap</string>
+    <string name="feature_platform_text">Verwendbar von jedem Gerät: Android, iOS und Desktop!</string>
+    <string name="feature_platform_title">Multiplattform &amp; Open Source</string>
+    <string name="feature_polls_text">Füge eigene Antwortmöglichkeiten hinzu und verwende die Stimmenbegrenzung pro Option.</string>
+    <string name="feature_polls_title">Umfragen</string>
+    <string name="feature_security_text">Nachrichten sollen bald Ende-zu-Ende-verschlüsselt werden.</string>
+    <string name="feature_security_badge">Bald verfügbar</string>
+    <string name="feature_security_title">Sicherheit</string>
+    <string name="features_title">Was macht Schneaggchat besonders</string>
+    <string name="footer_delete_account">Account löschen</string>
+    <string name="footer_legal_heading">Rechtliches</string>
+    <string name="footer_nav_heading">Navigation</string>
+    <string name="footer_reset_password">Passwort zurücksetzen</string>
+    <string name="footer_support_heading">Support</string>
+    <string name="hero_cta_download">Jetzt herunterladen</string>
+    <string name="hero_cta_features">Alle Features</string>
+    <string name="hero_subtitle">Schneaggchat ist eine kostenlose Chat-App ohne Werbung für Android, iOS und Desktop – mit Live-Karte, Events, Umfragen, Minispielen und Vorarlbergerisch als Sprache.</string>
+    <string name="hero_title">Die Chat-App für dich und deine Freunde</string>
+    <string name="hero_trust">Kostenlos · Open Source · Keine Werbung · Guter Support</string>
+    <string name="nav_donate">Spenden</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_privacy">Datenschutz</string>
+    <string name="nav_stats">Stats</string>
+    <string name="privacy_header_intro">Wir nehmen den Schutz Ihrer persönlichen Daten sehr ernst. Hier erfahren Sie, welche Daten wir verarbeiten, warum, und welche Rechte Sie haben.</string>
+    <string name="privacy_header_title">Datenschutzerklärung</string>
+    <string name="privacy_last_updated">Zuletzt aktualisiert: 26.08.2026</string>
+    <string name="privacy_s10_intro">Wenn Sie Fragen zu dieser Datenschutzrichtlinie haben, können Sie uns wie folgt kontaktieren:</string>
+    <string name="privacy_s10_title">Kontakt</string>
+    <string name="privacy_s1_text">Verantwortlicher im Sinne der DSGVO für die Verarbeitung Ihrer Daten in Schneaggchat ist Florian Lerchenmüller
+                (Kontakt: <a href="mailto:schneaggchat@gmail.com">schneaggchat@gmail.com</a>).
+                Schneaggchat ist ein privates Projekt ohne kommerzielle Verwertung Ihrer Daten; die Benennung eines Datenschutzbeauftragten
+                ist gemäß Art. 37 DSGVO nicht erforderlich.</string>
+    <string name="privacy_s1_title">Verantwortlicher</string>
+    <string name="privacy_s2_footer">Es werden keine Daten zu Werbe- oder Analysezwecken verarbeitet und keine Daten verkauft.</string>
+    <string name="privacy_s2_item1"><strong>Kontodaten</strong><br/>
+                    Benutzername, E-Mail-Adresse (samt Verifizierungsstatus), Passwort (nur als Hash gespeichert, nie im Klartext),
+                    Profilbeschreibung, Status, Geburtsdatum, optional Telefonnummer, Profilbild, sowie Erstellungs- und letzte
+                    Online-Zeit. Rechtsgrundlage: Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO). Speicherdauer: bis zur Kontolöschung.</string>
+    <string name="privacy_s2_item10"><strong>App-Einstellungen</strong><br/>
+                    Von Ihnen gewählte Einstellungen wie Theme, Sprache und Kartenstil, geräteübergreifend synchronisiert.</string>
+    <string name="privacy_s2_item11"><strong>IP-Adresse</strong><br/>
+                    Wird zur Missbrauchsabwehr (Rate-Limiting) kurzzeitig herangezogen, aber <strong>nicht dauerhaft in der
+                    Datenbank gespeichert</strong>.</string>
+    <string name="privacy_s2_item2"><strong>Nachrichten und Medien</strong><br/>
+                    Text-, Bild- und Sprachnachrichten, Umfragen, Reaktionen und Lesebestätigungen. Übertragung per TLS verschlüsselt,
+                    Speicherung auf dem Server erfolgt unverschlüsselt. Rechtsgrundlage: Vertragserfüllung.</string>
+    <string name="privacy_s2_item3"><strong>Standortdaten</strong><br/>
+                    Nur wenn Sie die Standortfreigabe für einzelne Freunde aktivieren (Opt-in), zusätzlich optional Geschwindigkeit,
+                    Richtung, Höhe und Akkustand, sofern Ihr Gerät dies liefert. Rechtsgrundlage: Einwilligung (Art. 6 Abs. 1 lit. a DSGVO),
+                    jederzeit widerrufbar. Standortpunkte werden automatisch nach <strong>24 Stunden</strong> gelöscht.</string>
+    <string name="privacy_s2_item4"><strong>Schneaggmap-Einträge</strong><br/>
+                    Von Ihnen angelegte oder bearbeitete Kartenpunkte samt Änderungsverlauf (inkl. Ihres Benutzernamens zum
+                    Zeitpunkt der Änderung). Für alle Nutzer sichtbar. Rechtsgrundlage: berechtigtes Interesse an einer
+                    gemeinschaftlich gepflegten Karte (Art. 6 Abs. 1 lit. f DSGVO).</string>
+    <string name="privacy_s2_item5"><strong>Gruppen und Events</strong><br/>
+                    Gruppenmitgliedschaft, sowie bei Events Titel, Beschreibung, Ort, Zeitraum und eingeladene Nutzer. Als
+                    "öffentlich" markierte Events sind für alle Freunde des Erstellers sichtbar, auch ohne Einladung.</string>
+    <string name="privacy_s2_item6"><strong>Spiele</strong><br/>
+                    Erzielte Punktestände inklusive Spielmodus und Zeit. Ranglisten zeigen Ihren Benutzernamen öffentlich für
+                    andere Nutzer an.</string>
+    <string name="privacy_s2_item7"><strong>Push-Benachrichtigungen</strong><br/>
+                    Geräte-Tokens für Firebase Cloud Messaging (Android) bzw. Apple Push Notification Service (iOS), siehe
+                    Abschnitt „Empfänger" unten.</string>
+    <string name="privacy_s2_item8"><strong>Protokolldaten</strong><br/>
+                    Technische Ereignisprotokolle (z. B. Login, Nachricht gesendet, Passwort-Reset angefordert) sowie Zeitpunkt
+                    und Dauer von Verbindungen zum Server. Rechtsgrundlage: berechtigtes Interesse an Betrieb und
+                    Fehleranalyse (Art. 6 Abs. 1 lit. f DSGVO).</string>
+    <string name="privacy_s2_item9"><strong>Anmeldesitzungen</strong><br/>
+                    Refresh-Tokens zur Aufrechterhaltung Ihrer Anmeldung, gültig für 30 Tage und danach automatisch gelöscht.</string>
+    <string name="privacy_s2_title">Welche Daten wir verarbeiten</string>
+    <string name="privacy_s3_footer">Darüber hinaus werden keine Daten an Dritte weitergegeben.</string>
+    <string name="privacy_s3_intro">Für den Betrieb von Schneaggchat setzen wir folgende externe Dienste (Auftragsverarbeiter bzw. eigenverantwortliche Dritte) ein:</string>
+    <string name="privacy_s3_item1"><strong>Google Firebase Cloud Messaging</strong> und <strong>Apple Push Notification Service</strong><br/>
+                    Erhalten Ihren Geräte-Token, den Benutzernamen des Absenders sowie Nachrichten-Metadaten, um Push-Benachrichtigungen
+                    zuzustellen. Der eigentliche Nachrichteninhalt wird vor der Übertragung verschlüsselt; Anbieter und Ihr
+                    Gerätehersteller erhalten ihn nicht im Klartext.</string>
+    <string name="privacy_s3_item2"><strong>Google Mail (Gmail SMTP)</strong><br/>
+                    Wird zum Versand von Verifizierungs-, Passwort-Reset- und Kontolöschungs-E-Mails genutzt und erhält dazu
+                    Ihre E-Mail-Adresse und den Mailinhalt.</string>
+    <string name="privacy_s3_item3"><strong>Cloudflare (cdnjs) und Google Fonts</strong><br/>
+                    Beim Aufruf dieser Website werden Schriftarten und Icons von diesen Anbietern nachgeladen, wobei Ihre
+                    IP-Adresse an deren Server (teils außerhalb der EU, insbesondere USA) übertragen wird.</string>
+    <string name="privacy_s3_title">Empfänger Ihrer Daten</string>
+    <string name="privacy_s4_text">Die Daten werden auf einem Server in 6850 Dornbirn, Österreich gespeichert. Die oben genannten externen
+                Dienstleister verarbeiten Daten teilweise außerhalb der EU/des EWR.</string>
+    <string name="privacy_s4_title">Speicherort</string>
+    <string name="privacy_s5_footer">Sie können Ihren Account jederzeit selbst über die App oder über
+                <a href="/delete_account.html">diese Seite</a> löschen. Für alle anderen Anliegen kontaktieren Sie uns
+                unter <a href="mailto:schneaggchat@gmail.com">schneaggchat@gmail.com</a>.</string>
+    <string name="privacy_s5_intro">Ihnen stehen bezüglich Ihrer personenbezogenen Daten insbesondere folgende Rechte zu:</string>
+    <string name="privacy_s5_item1">Auskunft über die von uns verarbeiteten Daten (Art. 15 DSGVO)</string>
+    <string name="privacy_s5_item2">Berichtigung unrichtiger Daten (Art. 16 DSGVO)</string>
+    <string name="privacy_s5_item3">Löschung Ihrer Daten (Art. 17 DSGVO) — z. B. durch Löschung Ihres Accounts</string>
+    <string name="privacy_s5_item4">Einschränkung der Verarbeitung (Art. 18 DSGVO)</string>
+    <string name="privacy_s5_item5">Datenübertragbarkeit (Art. 20 DSGVO)</string>
+    <string name="privacy_s5_item6">Widerspruch gegen Verarbeitungen, die auf berechtigtem Interesse beruhen (Art. 21 DSGVO)</string>
+    <string name="privacy_s5_item7">Widerruf einer erteilten Einwilligung (z. B. Standortfreigabe, Wake-Funktion) mit Wirkung für die Zukunft</string>
+    <string name="privacy_s5_item8">Beschwerde bei einer Aufsichtsbehörde, in Österreich der Datenschutzbehörde (Art. 77 DSGVO)</string>
+    <string name="privacy_s5_title">Ihre Rechte</string>
+    <string name="privacy_s6_footer">Wir arbeiten daran, auch diese verbleibenden Daten künftig automatisch bei Kontolöschung zu entfernen bzw. zu anonymisieren.</string>
+    <string name="privacy_s6_intro">Bei Löschung Ihres Accounts entfernen wir umgehend:</string>
+    <string name="privacy_s6_notremoved1">Ihre Beiträge zur Schneaggmap und deren Änderungsverlauf (bleiben unter Ihrem damaligen Benutzernamen sichtbar)</string>
+    <string name="privacy_s6_notremoved2">Bereits erzielte Spiel-Punktestände</string>
+    <string name="privacy_s6_notremoved3">Technische Protokolldaten (z. B. Login-Historie)</string>
+    <string name="privacy_s6_notremoved4">Regelmäßige Datenbank-Backups, bis diese im normalen Zyklus überschrieben werden</string>
+    <string name="privacy_s6_notremoved_intro"><strong>Nicht gelöscht</strong> werden derzeit aus technischen Gründen:</string>
+    <string name="privacy_s6_removed1">Ihr Nutzerkonto samt Zugangsdaten und Anmeldesitzungen</string>
+    <string name="privacy_s6_removed2">Alle Ihre Freundschaften und Gruppenmitgliedschaften</string>
+    <string name="privacy_s6_removed3">Alle von Ihnen gesendeten oder empfangenen Nachrichten samt Bild- und Sprachdateien</string>
+    <string name="privacy_s6_removed4">Ihr Profilbild</string>
+    <string name="privacy_s6_title">Was bei einer Kontolöschung passiert</string>
+    <string name="privacy_s7_footer">Trotz dieser Maßnahmen kann keine Datenübertragung oder -speicherung als absolut sicher garantiert werden.</string>
+    <string name="privacy_s7_intro">Wir setzen unter anderem folgende technische Schutzmaßnahmen ein:</string>
+    <string name="privacy_s7_item1">Verschlüsselung der Datenübertragung (TLS)</string>
+    <string name="privacy_s7_item2">Passwörter werden ausschließlich gehasht gespeichert, nie im Klartext</string>
+    <string name="privacy_s7_item3">Kurzlebige Zugriffs-Tokens (15 Minuten) mit separatem, längerfristigem Refresh-Token</string>
+    <string name="privacy_s7_item4">Rate-Limiting gegen automatisierte Angriffe</string>
+    <string name="privacy_s7_item5">Verschlüsselung von Push-Benachrichtigungsinhalten</string>
+    <string name="privacy_s7_item6">Zugriffsbeschränkungen auf den Server</string>
+    <string name="privacy_s7_title">Unsere Sicherheitsmaßnahmen</string>
+    <string name="privacy_s8_text">Schneaggchat richtet sich nicht gezielt an Kinder. Nutzer sollten das nach anwendbarem Recht erforderliche
+                Mindestalter zur Zustimmung zu Datenverarbeitungen erreicht haben bzw. die Zustimmung eines
+                Erziehungsberechtigten einholen.</string>
+    <string name="privacy_s8_title">Minderjährige</string>
+    <string name="privacy_s9_text">Wir behalten uns vor, die Datenschutzrichtlinie in Zukunft zu ändern.
+                Wir werden Sie über alle Änderungen informieren, indem wir die neue Datenschutzrichtlinie auf dieser Seite veröffentlichen.
+                Wir empfehlen Ihnen, diese Datenschutzrichtlinie regelmäßig auf Änderungen zu überprüfen.
+                Änderungen dieser Datenschutzrichtlinie werden wirksam, wenn sie auf dieser Seite veröffentlicht werden.</string>
+    <string name="privacy_s9_title">Vorbehalt zur Änderung der Datenschutzerklärung</string>
+    <string name="privacy_warning_item1">Nachrichten sind <strong>nicht Ende-zu-Ende-verschlüsselt</strong> — sie sind während der Übertragung per TLS geschützt, liegen auf dem Server aber unverschlüsselt.</string>
+    <string name="privacy_warning_item2">Beiträge zur Schneaggmap (Kartenpunkte und deren Änderungsverlauf) bleiben auch nach einer Kontolöschung unter Ihrem damaligen Benutzernamen sichtbar.</string>
+    <string name="privacy_warning_title">Zwei Dinge, die Sie kennen sollten</string>
+    <string name="reset_button">Reset-Link anfordern</string>
+    <string name="reset_hint_1h">Der Link ist 1 Stunde gültig</string>
+    <string name="reset_info_1">Du erhältst eine E-Mail mit einem Reset-Link</string>
+    <string name="reset_info_2">Klicke auf den Link, um ein neues Passwort zu setzen</string>
+    <string name="reset_subtitle">Gib deine E-Mail-Adresse ein und wir senden dir einen Link zum Zurücksetzen deines
+                    Passworts.</string>
+    <string name="reset_success_text">Falls ein Account mit einer verifizierten E-Mail-Adresse existiert, haben wir einen Reset-Link
+                    versendet.
+                    Bitte überprüfe dein Postfach.</string>
+    <string name="reset_title">Passwort zurücksetzen</string>
+    <string name="resetform_confirm_label">Passwort bestätigen</string>
+    <string name="resetform_err_invalid_token">Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.</string>
+    <string name="resetform_err_mismatch">Die Passwörter stimmen nicht überein.</string>
+    <string name="resetform_err_requirements">Das Passwort erfüllt nicht alle Anforderungen.</string>
+    <string name="resetform_invalid_retry">Neuen Link anfordern</string>
+    <string name="resetform_invalid_text">Der Link ist ungültig oder es fehlt ein Token. Bitte fordere einen neuen Reset-Link an.</string>
+    <string name="resetform_invalid_title">Ungültiger Link</string>
+    <string name="resetform_new_password_label">Neues Passwort</string>
+    <string name="resetform_req_digit">Mindestens eine Zahl</string>
+    <string name="resetform_req_length">Mindestens 8 Zeichen</string>
+    <string name="resetform_req_lower">Mindestens ein Kleinbuchstabe</string>
+    <string name="resetform_req_special">Mindestens ein Sonderzeichen</string>
+    <string name="resetform_req_upper">Mindestens ein Großbuchstabe</string>
+    <string name="resetform_submit">Passwort ändern</string>
+    <string name="resetform_subtitle">Gib dein neues Passwort ein.</string>
+    <string name="resetform_success_text">Dein Passwort wurde erfolgreich zurückgesetzt. Du kannst dich jetzt mit deinem neuen Passwort
+                    anmelden.</string>
+    <string name="resetform_success_title">Passwort geändert</string>
+    <string name="stat_accounts_created">Accounts erstellt</string>
+    <string name="stat_friend_requests">Freundschaftsanfragen gesendet</string>
+    <string name="stat_groups_created">Gruppen erstellt</string>
+    <string name="stat_groups_deleted">Gruppen gelöscht</string>
+    <string name="stat_highscores">Highscores eingereicht</string>
+    <string name="stat_map_entries">Karteneinträge erstellt</string>
+    <string name="stat_messages_deleted">Nachrichten gelöscht</string>
+    <string name="stat_messages_sent">Nachrichten gesendet</string>
+    <string name="stat_server_errors">Serverfehler</string>
+    <string name="stat_server_starts">Serverstarts</string>
+    <string name="stat_wakes_sent">Wecker gesendet</string>
+    <string name="stats_info_text">Die Stats werden in Echtzeit vom Server geholt und zeigen alle vom Server geloggten Events.</string>
+    <string name="stats_info_title">Über die Stats</string>
+    <string name="stats_total_heading">Gesamtevents</string>
+</resources>

@@ -19,8 +19,8 @@ class RateLimitFilter(
 
     private val log = LoggerFactory.getLogger(RateLimitFilter::class.java)
 
-    private val staticPrefixes = listOf("/css/", "/js/", "/web_images/")
-    private val staticSuffixes = listOf(".html", ".ico", ".png", ".js", ".css")
+    private val staticPrefixes = listOf("/css/", "/js/", "/web_images/", "/i18n/")
+    private val staticSuffixes = listOf(".html", ".ico", ".png", ".js", ".css", ".xml", ".webp")
 
     override fun doFilterInternal(
         request: HttpServletRequest,
