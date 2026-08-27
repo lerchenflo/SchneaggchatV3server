@@ -36,8 +36,11 @@
                 </a>
             </div>
         </div>
-        <div class="hero-image">
-            <div class="phone-frame">
+        <div class="hero-image" id="hero-stack">
+            <div class="phone-frame slot-front">
+                <img src="/web_images/screenshot_chats.webp" alt="Schneaggchat Chats" width="700" height="1436" loading="eager">
+            </div>
+            <div class="phone-frame slot-back">
                 <img src="/web_images/screenshot_karte.webp" alt="Schneaggmap: Freunde und Orte live auf der Karte" width="700" height="1445" loading="eager">
             </div>
         </div>
@@ -159,6 +162,23 @@
 
             const card = document.querySelector(`.download-card[data-platform="${platform}"]`);
             card?.classList.add('is-primary');
+        })();
+
+        // Hero screenshot stack (Chats in front, Karte behind) - click either
+        // phone to swap which one is in front.
+        (function () {
+            const stack = document.getElementById('hero-stack');
+            if (!stack) return;
+
+            const frames = stack.querySelectorAll('.phone-frame');
+            if (frames.length !== 2) return;
+
+            stack.addEventListener('click', () => {
+                frames.forEach((frame) => {
+                    frame.classList.toggle('slot-front');
+                    frame.classList.toggle('slot-back');
+                });
+            });
         })();
     </script>
 </body>

@@ -221,6 +221,7 @@ header {
     width: 24%;
     max-width: 300px;
     max-height: 78vh;
+    aspect-ratio: 0.485;
 }
 
 /* Features Section */
@@ -339,23 +340,49 @@ header {
     background: rgba(46, 119, 204, 0.08);
 }
 
+/* Interactive hero screenshot stack - click either phone to bring the
+   other to the front. Both frames keep a fixed aspect-ratio so animating
+   `width` also animates height smoothly, without transitioning `height`. */
 .phone-frame {
-    position: relative;
-    max-height: 78vh;
+    position: absolute;
+    aspect-ratio: 0.485;
     border-radius: 32px;
     padding: 12px;
     background: linear-gradient(160deg, #223822 0%, #0a120a 100%);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(30, 216, 96, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1), left 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+        bottom 0.45s cubic-bezier(0.4, 0, 0.2, 1), transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow 0.45s ease;
 }
 
 .phone-frame img {
     display: block;
     width: 100%;
-    height: auto;
-    max-height: calc(78vh - 24px);
+    height: 100%;
     object-fit: cover;
     object-position: top;
     border-radius: 22px;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.phone-frame.slot-front {
+    width: 100%;
+    left: 0;
+    bottom: 0;
+    z-index: 2;
+    transform: rotate(0deg);
+}
+
+.phone-frame.slot-back {
+    width: 58%;
+    left: -32%;
+    bottom: -6%;
+    z-index: 1;
+    transform: rotate(-8deg);
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(30, 216, 96, 0.12);
 }
 
 /* Download section */
@@ -584,8 +611,7 @@ footer {
         justify-content: center;
     }
 
-    .hero-image,
-    .phone-frame {
+    .hero-image {
         position: relative;
         width: 65%;
         max-width: 340px;
@@ -708,8 +734,7 @@ footer {
         font-size: 0.6rem;
     }
 
-    .hero-image,
-    .phone-frame {
+    .hero-image {
         width: 80%;
     }
 
