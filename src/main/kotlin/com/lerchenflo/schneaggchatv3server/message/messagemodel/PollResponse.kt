@@ -19,10 +19,14 @@ fun PollMessage.toPollMessageResponse(requestingUserId: ObjectId): PollResponse 
                 maxAllowedCustomAnswers = poll.maxAllowedCustomAnswers,
                 visibility = poll.visibility,
                 closeDate = poll.closeDate?.toEpochMilliseconds(),
+                allowDeleteOptions = poll.allowDeleteOptions,
+                showCheckboxes = poll.showCheckboxes,
                 voteOptions = poll.voteOptions.map { option ->
                     AnonymousPollVoteOptionResponse(
                         id = option.id,
                         text = option.text,
+                        custom = option.custom,
+                        createdByMe = option.creatorId == requestingUserId,
                         maxVoters = option.maxVoters,
                         voters = option.voters.map { voter ->
                             AnonymousPollVoterResponse(
@@ -44,6 +48,8 @@ fun PollMessage.toPollMessageResponse(requestingUserId: ObjectId): PollResponse 
                 maxAllowedCustomAnswers = poll.maxAllowedCustomAnswers,
                 visibility = poll.visibility,
                 closeDate = poll.closeDate?.toEpochMilliseconds(),
+                allowDeleteOptions = poll.allowDeleteOptions,
+                showCheckboxes = poll.showCheckboxes,
                 voteOptions = poll.voteOptions.map { option ->
                     PublicPollVoteOptionResponse(
                         id = option.id,
@@ -91,6 +97,9 @@ interface PollResponse {
 
     val closeDate: Long?
 
+    val allowDeleteOptions: Boolean
+    val showCheckboxes: Boolean
+
 
 
     data class PublicPollResponse (
@@ -102,6 +111,8 @@ interface PollResponse {
         override val maxAllowedCustomAnswers: Int?,
         override val visibility: PollVisibility,
         override val closeDate: Long?,
+        override val allowDeleteOptions: Boolean,
+        override val showCheckboxes: Boolean,
 
         val voteOptions: List<PublicPollVoteOptionResponse>,
 
@@ -116,6 +127,8 @@ interface PollResponse {
         override val maxAllowedCustomAnswers: Int?,
         override val visibility: PollVisibility,
         override val closeDate: Long?,
+        override val allowDeleteOptions: Boolean,
+        override val showCheckboxes: Boolean,
 
         val voteOptions: List<AnonymousPollVoteOptionResponse>,
 
@@ -127,6 +140,8 @@ interface PollResponse {
 data class AnonymousPollVoteOptionResponse(
     val id: String,
     val text: String,
+    val custom: Boolean,
+    val createdByMe: Boolean,
     val maxVoters: Int? = null, // null = unlimited
     val voters : List<AnonymousPollVoterResponse>
 )

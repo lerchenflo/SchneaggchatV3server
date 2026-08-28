@@ -132,6 +132,20 @@ class MessageController(
 
     }
 
+    @PostMapping("/polloption/delete")
+    fun deletePollOption(
+        @Valid @RequestBody request: PollOptionDeleteRequest
+    ): MessageResponse {
+        require(ValidationUtils.validateObjectId(request.messageId)) { "Invalid message ID" }
+        require(ValidationUtils.validateObjectId(request.optionId)) { "Invalid option ID" }
+        val requestingUserId = requireAuth()
+
+        return messageService.deletePollOption(
+            requestingUserId = requestingUserId,
+            request = request
+        ).toMessageResponse(requestingUserId = requestingUserId)
+    }
+
 
 
 

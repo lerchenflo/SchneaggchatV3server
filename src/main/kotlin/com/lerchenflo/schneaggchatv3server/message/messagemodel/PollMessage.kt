@@ -25,6 +25,12 @@ data class PollMessage(
     val closeDate: Instant?,
 
     val voteOptions: List<PollVoteOption> = emptyList(),
+
+    //If true, the creator may delete any option, and users may delete options they created
+    val allowDeleteOptions: Boolean = false,
+
+    //If false, the poll renders as a plain read-only list - no voting, no checkboxes
+    val showCheckboxes: Boolean = true,
 ) {
 
     fun toJson(): String = Json.mapper.writeValueAsString(this)
@@ -52,6 +58,9 @@ data class PollMessage(
     fun getCustomVoteCountForUser(userId: ObjectId): Int {
         return voteOptions.count { it.custom && it.creatorId == userId }
     }
+
+    fun canUserDeleteOption(userId: ObjectId, option: PollVoteOption): Boolean =
+        allowDeleteOptions && (creatorId == userId || option.creatorId == userId)
 }
 
 data class PollVoteOption(
