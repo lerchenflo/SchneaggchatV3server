@@ -187,7 +187,7 @@ class EmailService(
         val mail = SimpleMailMessage()
         mail.setTo(email)
         mail.subject = "Schneaggchat password reset"
-        mail.text = "Someone requested to reset your password. If this was not you, please ignore this email.\nTo reset your password, click the link below:\n$resetUrl\n\nThis link is valid for 1 hour."
+        mail.text = "Someone requested to reset your password. If this was not you, please ignore this email.\n\nYour Username: ${userLookupService.getUsername(userId)}\n\nTo reset your password, click the link below:\n$resetUrl\n\nThis link is valid for 1 hour."
         try {
             mailSender.send(mail)
             loggingService.log(userId, LogType.PASSWORD_RESET_EMAIL_SENT)
