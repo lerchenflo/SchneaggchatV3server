@@ -107,6 +107,8 @@ class FirebaseService(
         messageType: MessageType,
         groupName: String? = null,
         groupId: ObjectId? = null,
+        sendDate: Long = 0L,
+        answerId: String? = null,
     ) {
         val senderName = userLookupService.getUsername(senderId)
 
@@ -132,6 +134,8 @@ class FirebaseService(
                     senderId = senderId.toHexString(),
                     receiverId = receiverId.toHexString(),
                     groupId = groupId?.toHexString() ?: "",
+                    sendDate = sendDate,
+                    answerId = answerId ?: "",
                 )
 
                 // Reuse the generic sender

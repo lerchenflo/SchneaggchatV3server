@@ -109,6 +109,8 @@ class ApnsService(
         messageType: MessageType,
         groupName: String? = null,
         groupId: ObjectId? = null,
+        sendDate: Long = 0L,
+        answerId: String? = null,
     ) {
         val senderName = userLookupService.getUsername(senderId)
         val tokens = getTokensForUser(receiverId)
@@ -131,6 +133,8 @@ class ApnsService(
                     senderId = senderId.toHexString(),
                     receiverId = receiverId.toHexString(),
                     groupId = groupId?.toHexString() ?: "",
+                    sendDate = sendDate,
+                    answerId = answerId ?: "",
                 )
                 sendNotificationToUser(receiverId, notification)
             } catch (e: Exception) {
