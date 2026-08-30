@@ -242,6 +242,16 @@ object ValidationUtils {
         return OBJECT_ID_REGEX.matches(id)
     }
 
+    private val CLIENT_MESSAGE_ID_REGEX = "^[A-Za-z0-9-]{8,36}$".toRegex()
+
+    /**
+     * Validates a client-generated message send idempotency key (UUID-shaped, but not required
+     * to be a strict UUID - any client-unique opaque token in this shape is accepted).
+     */
+    fun validateClientMessageId(clientMessageId: String): Boolean {
+        return CLIENT_MESSAGE_ID_REGEX.matches(clientMessageId)
+    }
+
     /**
      * Validates a latitude/longitude pair
      * - Latitude must be between -90 and 90

@@ -26,6 +26,7 @@ class MessageController(
         require(ValidationUtils.validateObjectId(messageRequest.receiverId)) { "Invalid receiver ID" }
         if (messageRequest.messageId != null) require(ValidationUtils.validateObjectId(messageRequest.messageId)) { "Invalid message ID" }
         if (messageRequest.answerId != null) require(ValidationUtils.validateObjectId(messageRequest.answerId)) { "Invalid answer ID" }
+        require(ValidationUtils.validateClientMessageId(messageRequest.clientMessageId)) { "Invalid client message ID" }
 
         val requestingUserId = requireAuth()
 
@@ -40,7 +41,8 @@ class MessageController(
             groupMessage = messageRequest.groupMessage,
             messageType = MessageType.TEXT,
             content = MessageService.MessageContent.Text(messageRequest.content),
-            answerId = if (messageRequest.answerId != null) ObjectId(messageRequest.answerId) else null
+            answerId = if (messageRequest.answerId != null) ObjectId(messageRequest.answerId) else null,
+            clientMessageId = messageRequest.clientMessageId,
         )
 
         return message.toMessageResponse(requestingUserId)
@@ -56,6 +58,7 @@ class MessageController(
         require(ValidationUtils.validateObjectId(messageRequest.receiverId)) { "Invalid receiver ID" }
         if (messageRequest.messageId != null) require(ValidationUtils.validateObjectId(messageRequest.messageId)) { "Invalid message ID" }
         if (messageRequest.answerId != null) require(ValidationUtils.validateObjectId(messageRequest.answerId)) { "Invalid answer ID" }
+        require(ValidationUtils.validateClientMessageId(messageRequest.clientMessageId)) { "Invalid client message ID" }
 
         val requestingUserId = requireAuth()
 
@@ -65,7 +68,8 @@ class MessageController(
             groupMessage = messageRequest.groupMessage,
             messageType = MessageType.IMAGE,
             content = MessageService.MessageContent.Image(image, messageRequest.content),
-            answerId = if (messageRequest.answerId != null) ObjectId(messageRequest.answerId) else null
+            answerId = if (messageRequest.answerId != null) ObjectId(messageRequest.answerId) else null,
+            clientMessageId = messageRequest.clientMessageId,
         )
 
         return message.toMessageResponse(requestingUserId)
@@ -75,8 +79,13 @@ class MessageController(
     @PostMapping("/send/audio", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun sendAudioMessage(
         @RequestPart("audio") audio: MultipartFile,
-        @RequestPart("request") messageRequest: AudioMessageRequest
+        @Valid @RequestPart("request") messageRequest: AudioMessageRequest
     ): MessageResponse {
+        require(ValidationUtils.validateObjectId(messageRequest.receiverId)) { "Invalid receiver ID" }
+        if (messageRequest.messageId != null) require(ValidationUtils.validateObjectId(messageRequest.messageId)) { "Invalid message ID" }
+        if (messageRequest.answerId != null) require(ValidationUtils.validateObjectId(messageRequest.answerId)) { "Invalid answer ID" }
+        require(ValidationUtils.validateClientMessageId(messageRequest.clientMessageId)) { "Invalid client message ID" }
+
         val requestingUserId = requireAuth()
 
         val message = messageService.sendMessage(
@@ -85,7 +94,8 @@ class MessageController(
             groupMessage = messageRequest.groupMessage,
             messageType = MessageType.AUDIO,
             content = MessageService.MessageContent.Audio(audio),
-            answerId = if (messageRequest.answerId != null) ObjectId(messageRequest.answerId) else null
+            answerId = if (messageRequest.answerId != null) ObjectId(messageRequest.answerId) else null,
+            clientMessageId = messageRequest.clientMessageId,
         )
 
         return message.toMessageResponse(requestingUserId)
@@ -98,6 +108,7 @@ class MessageController(
     ): MessageResponse {
         require(ValidationUtils.validateObjectId(pollMessageRequest.receiverId)) { "Invalid receiver ID" }
         if (pollMessageRequest.answerId != null) require(ValidationUtils.validateObjectId(pollMessageRequest.answerId)) { "Invalid answer ID" }
+        require(ValidationUtils.validateClientMessageId(pollMessageRequest.clientMessageId)) { "Invalid client message ID" }
 
         val requestingUserId = requireAuth()
 
@@ -110,7 +121,8 @@ class MessageController(
             content = MessageService.MessageContent.Poll(
                 poll = pollMessageRequest.poll.toPoll(creatorId = requestingUserId)
             ),
-            answerId = if (pollMessageRequest.answerId != null) ObjectId(pollMessageRequest.answerId) else null
+            answerId = if (pollMessageRequest.answerId != null) ObjectId(pollMessageRequest.answerId) else null,
+            clientMessageId = pollMessageRequest.clientMessageId,
         )
 
         return message.toMessageResponse(requestingUserId)

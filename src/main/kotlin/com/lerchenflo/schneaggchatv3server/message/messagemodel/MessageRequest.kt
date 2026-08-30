@@ -16,7 +16,9 @@ data class MessageRequest(
     @field:Size(max = 10000, message = "Content too long (max 10000)")
     val content: String,
     @field:Size(max = 24, message = "Answer ID too long")
-    val answerId: String?
+    val answerId: String?,
+    @field:Size(max = 36, message = "Client message ID too long")
+    val clientMessageId: String,
 )
 
 data class PollMessageRequest(
@@ -27,7 +29,9 @@ data class PollMessageRequest(
     val msgType: MessageType,
     @field:Size(max = 24, message = "Answer ID too long")
     val answerId: String?,
-    val poll: PollCreateRequest
+    val poll: PollCreateRequest,
+    @field:Size(max = 36, message = "Client message ID too long")
+    val clientMessageId: String,
 )
 
 data class ImageMessageRequest(
@@ -42,7 +46,9 @@ data class ImageMessageRequest(
     @field:Size(max = 10000, message = "Content too long (max 10000)")
     val content: String,
     @field:Size(max = 24, message = "Answer ID too long")
-    val answerId: String?
+    val answerId: String?,
+    @field:Size(max = 36, message = "Client message ID too long")
+    val clientMessageId: String,
 )
 
 data class ReactionRequest(
@@ -56,11 +62,17 @@ data class ReactionRequest(
 )
 
 data class AudioMessageRequest(
+    @field:Size(max = 24, message = "Message ID too long")
     val messageId: String?, //Objectid
 
+    @field:NotBlank(message = "Receiver ID must not be blank")
+    @field:Size(max = 24, message = "Receiver ID too long")
     val receiverId: String,
     val groupMessage: Boolean,
     val msgType: MessageType,
     //val content: String,
-    val answerId: String?
+    @field:Size(max = 24, message = "Answer ID too long")
+    val answerId: String?,
+    @field:Size(max = 36, message = "Client message ID too long")
+    val clientMessageId: String,
 )

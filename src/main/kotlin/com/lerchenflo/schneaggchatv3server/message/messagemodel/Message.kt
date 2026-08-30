@@ -17,6 +17,17 @@ import kotlin.time.Instant
     // Backs the version-sync range scan: sender/receiver visibility filter + `version > since`.
     CompoundIndex(name = "senderId_version_idx", def = "{'senderId': 1, 'version': 1}"),
     CompoundIndex(name = "receiverId_version_idx", def = "{'receiverId': 1, 'version': 1}"),
+    // Send idempotency: a retried send (offline queue, lost response, replayed auth-refresh
+    // request) reuses the client's original `clientMessageId` and must resolve to the SAME
+    // document instead of creating a duplicate. Partial on {'$type': 'string'} so SYSTEM
+    // messages (never keyed, and `senderId` there is a group id, not a user id - see below)
+    // and plain nulls don't collide with each other.
+    CompoundIndex(
+        name = "sender_client_message_idx",
+        def = "{'senderId': 1, 'clientMessageId': 1}",
+        unique = true,
+        partialFilter = "{'clientMessageId': {'\$type': 'string'}}"
+    ),
 )
 data class Message(
     val id: ObjectId = ObjectId.get(),
@@ -61,6 +72,14 @@ data class Message(
     val readers: List<Reader>,
 
     val reactions: List<Reaction> = emptyList(),
+
+    /**
+     * Client-generated idempotency key for a send (not for edit/react/vote/delete). Stable
+     * across retries of the same logical message - enforced unique per sender by the
+     * `sender_client_message_idx` partial index above. Never echoed back in [MessageResponse];
+     * inbound-only.
+     */
+    val clientMessageId: String? = null,
 )
 
 data class Reader(

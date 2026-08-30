@@ -13,6 +13,7 @@ import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.util.*
 import org.bson.types.ObjectId
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.data.mongodb.core.BulkOperations
 import org.springframework.data.mongodb.core.FindAndModifyOptions
@@ -60,13 +61,20 @@ class MessageService(
         data class Poll(val poll: PollMessage) : MessageContent()
     }
 
-    fun sendMessage(sender: ObjectId, receiver: ObjectId, groupMessage: Boolean, messageType: MessageType, content: MessageContent, answerId: ObjectId?) : Message {
+    fun sendMessage(sender: ObjectId, receiver: ObjectId, groupMessage: Boolean, messageType: MessageType, content: MessageContent, answerId: ObjectId?, clientMessageId: String) : Message {
 
         canUserAccessMessage(
             sender = sender,
             receiver = receiver,
             groupMessage = groupMessage,
         )
+
+        // Idempotency: a retried send (offline queue, lost response, replayed auth-refresh
+        // request) carries the same clientMessageId as the original attempt. Resolve it to the
+        // already-created message before doing any validation or writing any media to disk -
+        // an orphaned image/audio file keyed on a discarded ObjectId is otherwise unrecoverable.
+        messageLookupService.findByClientMessageId(sender, clientMessageId)?.let { return it }
+
 
 
         when (messageType) {
@@ -173,35 +181,47 @@ class MessageService(
 
         val sendDate = Clock.System.now()
 
-        val message = versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
-            messageLookupService.saveMessage(Message(
-                id = savedObjectId,
-                senderId = sender,
-                receiverId = receiver,
-                groupMessage = groupMessage,
-                msgType = messageType,
-                content = storedContent,
-                poll = if (content is MessageContent.Poll) content.poll else null,
-                answerId = answerId,
-                sendDate = sendDate,
-                lastChanged = sendDate,
-                deleted = false,
-                version = version,
-                readers = listOf(Reader(
-                    userId = sender,
-                    readAt = sendDate
-                )),
-            ))
+        // Two retries of the same send can both pass the pre-check above concurrently; the
+        // unique index is the actual race guard, this just resolves the loser back to the
+        // winner's document instead of surfacing a 500.
+        val (message, deduped) = try {
+            versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
+                messageLookupService.saveMessage(Message(
+                    id = savedObjectId,
+                    senderId = sender,
+                    receiverId = receiver,
+                    groupMessage = groupMessage,
+                    msgType = messageType,
+                    content = storedContent,
+                    poll = if (content is MessageContent.Poll) content.poll else null,
+                    answerId = answerId,
+                    sendDate = sendDate,
+                    lastChanged = sendDate,
+                    deleted = false,
+                    version = version,
+                    readers = listOf(Reader(
+                        userId = sender,
+                        readAt = sendDate
+                    )),
+                    clientMessageId = clientMessageId,
+                ))
+            } to false
+        } catch (e: DuplicateKeyException) {
+            val existing = clientMessageId?.let { messageLookupService.findByClientMessageId(sender, it) }
+                ?: throw e
+            existing to true
         }
 
-
-        notificationService.notifyMessageUpdate(
-            message = message,
-            newMessage = true,
-            deleted = false,
-            changingUserId = sender
-        )
-
+        // A dedup hit is not a new message: no version was allocated for it, so re-notifying
+        // would fire a socket/push frame with no corresponding sync-cursor advance.
+        if (!deduped) {
+            notificationService.notifyMessageUpdate(
+                message = message,
+                newMessage = true,
+                deleted = false,
+                changingUserId = sender
+            )
+        }
 
         return message
     }
