@@ -44,7 +44,7 @@
     <string name="feature_alarm_title">Weckerfeature</string>
     <string name="feature_dialect_text">Wähl Vorarlbergerisch als Sprachoption für die App.</string>
     <string name="feature_dialect_title">Vorarlbergerisch</string>
-    <string name="feature_events_text">Plane Treffen, lade Freunde ein und begrenze die Teilnehmerzahl – der Gruppenchat dazu entsteht automatisch.</string>
+    <string name="feature_events_text">Plane Treffen, lade Freunde ein und begrenze die Teilnehmerzahl – ein Gruppenchat dazu ist optional und nur einen Klick entfernt.</string>
     <string name="feature_events_title">Events</string>
     <string name="feature_games_text">Tetris, Schneaggahus und mehr, mit Highscores, Gesamtranking und täglichen Spielen.</string>
     <string name="feature_games_title">Minispiele</string>

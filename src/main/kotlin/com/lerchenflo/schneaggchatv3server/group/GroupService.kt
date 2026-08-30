@@ -519,10 +519,10 @@ class GroupService(
 
     /**
      * Soft-delete a group and all of its members. The single point every group deletion goes through,
-     * so members are always cleaned up, clients are always notified, and a connected event (if any) is
-     * always deleted along with it.
+     * so members are always cleaned up and clients are always notified. A connected event (if any) is
+     * detached (groupId set to null) unless [deleteConnectedEvent] is set, in which case it is deleted too.
      */
-    fun deleteGroup(groupId: ObjectId, deletedBy: ObjectId? = null) {
+    fun deleteGroup(groupId: ObjectId, deletedBy: ObjectId? = null, deleteConnectedEvent: Boolean = false) {
         val group = groupLookupService.getGroupById(groupId) ?: return
         val response = groupLookupService.getGroupAsGroupResponse(groupId)
 
@@ -538,26 +538,37 @@ class GroupService(
 
         notificationService.notifyGroupUpdate(response, deleted = true)
 
-        // If this group belongs to an event, delete the event too
         eventsLookupService.findByGroupId(groupId)?.let { event ->
-            eventsLookupService.deleteEvent(event)
-            notificationService.notifyEventUpdate(
-                eventResponse = event.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
-                newEntry = false,
-                deleted = true
-            )
+            val creatorName = userLookupService.getUsername(event.creatorId)
+            if (deleteConnectedEvent) {
+                eventsLookupService.deleteEvent(event)
+                notificationService.notifyEventUpdate(
+                    eventResponse = event.toResponse(creatorName = creatorName),
+                    newEntry = false,
+                    deleted = true
+                )
+            } else {
+                val detached = eventsLookupService.save(
+                    event.copy(groupId = null, updatedAt = Clock.System.now(), updatedBy = deletedBy ?: event.updatedBy)
+                )
+                notificationService.notifyEventUpdate(
+                    eventResponse = detached.toResponse(creatorName = creatorName),
+                    newEntry = false,
+                    deleted = false
+                )
+            }
         }
     }
 
     /**
-     * Permanently deletes every group whose [Group.expiresAt] has passed (and, via
-     * [deleteGroup], the event connected to it, if any).
+     * Permanently deletes every group whose [Group.expiresAt] has passed. A connected event only
+     * expires this way after its own date has passed, so it is deleted along with the group.
      */
     fun deleteExpiredGroups() {
         val now = Clock.System.now()
 
         groupLookupService.getExpiredGroups(now).forEach { group ->
-            deleteGroup(group.id, deletedBy = null)
+            deleteGroup(group.id, deletedBy = null, deleteConnectedEvent = true)
         }
     }
 

@@ -3,6 +3,7 @@
 package com.lerchenflo.schneaggchatv3server.core
 
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.group.model.Group
@@ -17,6 +18,7 @@ import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.SyncCollection
 import com.lerchenflo.schneaggchatv3server.util.VersionCounterService
 import com.mongodb.MongoNamespace
+import org.bson.types.ObjectId
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -76,6 +78,7 @@ class MainController(
         migrateMessageVersions()
         migrateMapAttributeKeys()
         migrateGroupDeletedFlag()
+        migrateDetachEventsFromDeletedGroups()
 
         if (debug) {
             //Create test account for google play & Apple
@@ -329,6 +332,34 @@ class MainController(
             AppLogger.success("Migration completed: Set deleted=false on ${result.modifiedCount} groups")
         } else {
             AppLogger.success("Migration check: All groups already have a deleted field")
+        }
+    }
+
+    /**
+     * Events used to be hard-deleted the moment their group was deleted, so no dangling groupId
+     * could ever exist. Now that events can survive a deleted group, backfill any pre-existing
+     * event still pointing at a soft-deleted (or missing) group by detaching it. No-op once clean.
+     */
+    fun migrateDetachEventsFromDeletedGroups() {
+        AppLogger.info("Running event group-detach migration...")
+
+        val liveGroupIds = mongoTemplate.findDistinct(
+            Query(Criteria.where("deleted").ne(true)),
+            "_id",
+            Group::class.java,
+            ObjectId::class.java
+        )
+
+        val query = Query(
+            Criteria.where("groupId").exists(true).ne(null).nin(liveGroupIds)
+        )
+
+        val result = mongoTemplate.updateMulti(query, Update().set("groupId", null), Event::class.java)
+
+        if (result.modifiedCount > 0) {
+            AppLogger.success("Migration completed: Detached ${result.modifiedCount} events from deleted groups")
+        } else {
+            AppLogger.success("Migration check: No events pointed at a deleted group")
         }
     }
 

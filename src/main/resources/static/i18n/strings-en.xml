@@ -39,7 +39,7 @@
     <string name="feature_alarm_title">Alarm feature</string>
     <string name="feature_dialect_text">Choose the Vorarlberg dialect as the app's language.</string>
     <string name="feature_dialect_title">Vorarlberg Dialect</string>
-    <string name="feature_events_text">Plan meetups, invite friends and cap the number of attendees – the group chat is created for you automatically.</string>
+    <string name="feature_events_text">Plan meetups, invite friends and cap the number of attendees – a group chat for the event is optional and just one tap away.</string>
     <string name="feature_events_title">Events</string>
     <string name="feature_games_text">Tetris, Schneaggahus and more, with highscores, an overall ranking and daily challenges.</string>
     <string name="feature_games_title">Mini-games</string>

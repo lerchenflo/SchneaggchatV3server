@@ -67,18 +67,20 @@ class EventsController(
     }
 
     @DeleteMapping("/delete")
-    fun deleteEvent(
+    fun detachEvent(
         @RequestParam(value = "eventid") eventId: String,
-        @RequestParam(value = "deleteconnectedgroup") deleteConnectedGroup: Boolean,
+        @RequestParam(value = "deletegroup", defaultValue = "false") deleteGroup: Boolean,
+        @RequestParam(value = "deleteevent", defaultValue = "false") deleteEvent: Boolean,
     ) {
         require(ValidationUtils.validateObjectId(eventId)) { "Invalid event id" }
 
         val requestingUserId = requireAuth()
 
-        eventService.deleteEvent(
+        eventService.detachEvent(
             requestingUser = requestingUserId,
             eventId = eventId,
-            deleteConnectedGroup = deleteConnectedGroup
+            deleteGroup = deleteGroup,
+            deleteEvent = deleteEvent,
         )
     }
 
