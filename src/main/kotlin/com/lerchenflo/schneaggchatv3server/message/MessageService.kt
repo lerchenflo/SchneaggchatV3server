@@ -207,8 +207,7 @@ class MessageService(
                 ))
             } to false
         } catch (e: DuplicateKeyException) {
-            val existing = clientMessageId?.let { messageLookupService.findByClientMessageId(sender, it) }
-                ?: throw e
+            val existing = messageLookupService.findByClientMessageId(sender, clientMessageId) ?: throw e
             existing to true
         }
 

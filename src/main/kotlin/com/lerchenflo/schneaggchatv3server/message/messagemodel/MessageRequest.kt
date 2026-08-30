@@ -17,6 +17,7 @@ data class MessageRequest(
     val content: String,
     @field:Size(max = 24, message = "Answer ID too long")
     val answerId: String?,
+    @field:NotBlank(message = "Client message ID must not be blank")
     @field:Size(max = 36, message = "Client message ID too long")
     val clientMessageId: String,
 )
@@ -30,6 +31,7 @@ data class PollMessageRequest(
     @field:Size(max = 24, message = "Answer ID too long")
     val answerId: String?,
     val poll: PollCreateRequest,
+    @field:NotBlank(message = "Client message ID must not be blank")
     @field:Size(max = 36, message = "Client message ID too long")
     val clientMessageId: String,
 )
@@ -47,6 +49,7 @@ data class ImageMessageRequest(
     val content: String,
     @field:Size(max = 24, message = "Answer ID too long")
     val answerId: String?,
+    @field:NotBlank(message = "Client message ID must not be blank")
     @field:Size(max = 36, message = "Client message ID too long")
     val clientMessageId: String,
 )
@@ -73,6 +76,7 @@ data class AudioMessageRequest(
     //val content: String,
     @field:Size(max = 24, message = "Answer ID too long")
     val answerId: String?,
+    @field:NotBlank(message = "Client message ID must not be blank")
     @field:Size(max = 36, message = "Client message ID too long")
     val clientMessageId: String,
 )
