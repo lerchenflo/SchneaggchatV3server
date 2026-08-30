@@ -28,13 +28,22 @@ class AuthController(
     private val clientIpResolver: ClientIpResolver,
 ) {
 
+    enum class DEVICETYPE {
+        ANDROID,
+        IOS,
+        DESKTOP;
+    }
+
     data class LoginRequest(
         @field:NotBlank(message = "Username must not be blank")
         @field:Size(max = 500, message = "Username too long")
         val username: String,
         @field:NotBlank(message = "Password must not be blank")
         @field:Size(max = 500, message = "Password too long")
-        val password: String
+        val password: String,
+        @field:Size(max = 200, message = "Device name too long")
+        val deviceName: String,
+        val deviceType: DEVICETYPE
     )
 
     data class RegisterRequest(
@@ -62,7 +71,10 @@ class AuthController(
     data class RefreshRequest(
         @field:NotBlank(message = "Refresh token must not be blank")
         @field:Size(max = 2000, message = "Refresh token too long")
-        val refreshToken: String
+        val refreshToken: String,
+        @field:Size(max = 200, message = "Device name too long")
+        val deviceName: String,
+        val deviceType: DEVICETYPE
     )
 
     //https://schneaggchat.eu/auth/register
@@ -106,6 +118,8 @@ class AuthController(
         return authService.login(
             username = loginRequest.username.trim().lowercase(getDefault()),
             password = loginRequest.password,
+            deviceName = loginRequest.deviceName,
+            devicetype = loginRequest.deviceType,
         )
     }
 
@@ -113,17 +127,14 @@ class AuthController(
     @PostMapping("/refresh")
     fun refresh(
         @Valid @RequestBody refreshRequest: RefreshRequest,
-        @RequestHeader headers: Map<String, String>
     ): AuthService.TokenPair {
-
-        headers.forEach { (key, value) ->
-            println("headers :$key: $value")
-        }
 
         require(ValidationUtils.validateToken(refreshRequest.refreshToken)) { "Invalid refresh token" }
 
         val tokenPair = authService.refresh(
-            refreshRequest.refreshToken,
+            refreshToken = refreshRequest.refreshToken,
+            deviceName = refreshRequest.deviceName,
+            devicetype = refreshRequest.deviceType,
         )
 
         return tokenPair

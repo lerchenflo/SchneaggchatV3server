@@ -2,6 +2,7 @@
 
 package com.lerchenflo.schneaggchatv3server.authentication.model
 
+import com.lerchenflo.schneaggchatv3server.authentication.AuthController
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
 import org.springframework.data.annotation.TypeAlias
@@ -34,5 +35,9 @@ data class RefreshToken(
     val createdAt: Instant = Clock.System.now(),
 
     val deletedAt: Instant? = null,
-    val replacedByToken: ObjectId? = null
+    val replacedByToken: ObjectId? = null,
+
+    //Nullable since tokens issued before this field was added won't have it set
+    val deviceName: String? = null,
+    val deviceType: AuthController.DEVICETYPE? = null
 )

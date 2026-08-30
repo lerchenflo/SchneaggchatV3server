@@ -88,7 +88,7 @@ class AuthService(
         return userLookupService.save(user)
     }
 
-    fun login(username: String, password: String) : TokenPair {
+    fun login(username: String, password: String, deviceName: String, devicetype: AuthController.DEVICETYPE) : TokenPair {
 
         //Does this user exist
         val user = userLookupService.findByUsername(username) ?: run {
@@ -113,6 +113,8 @@ class AuthService(
         storeRefreshToken(
             userId = user.id,
             rawRefreshToken = newRefreshToken,
+            deviceName = deviceName,
+            devicetype = devicetype,
         )
 
         return TokenPair(
@@ -123,7 +125,7 @@ class AuthService(
     }
 
 
-    fun refresh(refreshToken: String) : TokenPair {
+    fun refresh(refreshToken: String, deviceName: String, devicetype: AuthController.DEVICETYPE) : TokenPair {
         val now = Clock.System.now()
 
         //Check if the token is in a correct format and issued by this server
@@ -182,7 +184,7 @@ class AuthService(
         val newRefreshToken = jwtService.generateRefreshToken(userId)
 
         //Store the new refresh token
-        val newTokenEntry = storeRefreshToken(user.id, newRefreshToken)
+        val newTokenEntry = storeRefreshToken(user.id, newRefreshToken, deviceName, devicetype)
 
 
         val query = Query().addCriteria(
@@ -237,7 +239,7 @@ class AuthService(
     }
 
 
-    private fun storeRefreshToken(userId: ObjectId, rawRefreshToken: String): RefreshToken {
+    private fun storeRefreshToken(userId: ObjectId, rawRefreshToken: String, deviceName: String, devicetype: AuthController.DEVICETYPE): RefreshToken {
 
         val hashed = hashToken(rawRefreshToken)
         val expiryMs = jwtService.refreshTokenValidityMs
@@ -249,6 +251,8 @@ class AuthService(
                 hashedToken = hashed,
                 rawToken = rawRefreshToken,
                 expiresAt = Instant.fromEpochMilliseconds(expiresAt),
+                deviceName = deviceName,
+                deviceType = devicetype,
             )
         )
     }
