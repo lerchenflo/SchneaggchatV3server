@@ -210,6 +210,10 @@
                     anmelden.</string>
     <string name="resetform_success_title">Passwort geändert</string>
     <string name="stat_accounts_created">Accounts erstellt</string>
+    <string name="stat_devices_android">Android</string>
+    <string name="stat_devices_desktop">Desktop</string>
+    <string name="stat_devices_ios">iOS</string>
+    <string name="stat_devices_unknown">Unbekannt</string>
     <string name="stat_friend_requests">Freundschaftsanfragen gesendet</string>
     <string name="stat_groups_created">Gruppen erstellt</string>
     <string name="stat_groups_deleted">Gruppen gelöscht</string>
@@ -220,6 +224,7 @@
     <string name="stat_server_errors">Serverfehler</string>
     <string name="stat_server_starts">Serverstarts</string>
     <string name="stat_wakes_sent">Wecker gesendet</string>
+    <string name="stats_active_devices_heading">Aktive Geräte</string>
     <string name="stats_info_text">Die Stats werden in Echtzeit vom Server geholt und zeigen alle vom Server geloggten Events.</string>
     <string name="stats_info_title">Über die Stats</string>
     <string name="stats_total_heading">Gesamtevents</string>

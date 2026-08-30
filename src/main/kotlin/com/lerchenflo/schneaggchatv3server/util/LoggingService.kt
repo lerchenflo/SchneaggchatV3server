@@ -2,9 +2,11 @@
 
 package com.lerchenflo.schneaggchatv3server.util
 
+import com.lerchenflo.schneaggchatv3server.authentication.AuthController
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.repository.LogRepository
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryRepository
+import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
@@ -65,9 +67,10 @@ class LoggingService(
     private val logRepository: LogRepository,
     private val messageLookupService: MessageLookupService,
     private val userRepository: UserRepository,
-    private val mapEntryRepository: MapEntryRepository
+    private val mapEntryRepository: MapEntryRepository,
+    private val refreshTokenRepository: RefreshTokenRepository,
 
-) {
+    ) {
 
     init {
         log(
@@ -103,5 +106,19 @@ class LoggingService(
 
     fun getLastLogByLogtype(logType: LogType, userId: ObjectId?): Log? {
         return logRepository.findFirstByLogTypeAndUserIdOrderByTimestampDesc(logType, userId)
+    }
+
+    /**
+     * Active (non-rotated, non-logged-out) devices grouped by [AuthController.DEVICETYPE], keyed
+     * by enum name for the same reason [getStats] is String-keyed - it goes straight into a
+     * Thymeleaf `${deviceCounts['ANDROID']}` lookup. Tokens issued before `deviceType` existed
+     * have it `null`; those are counted under "UNKNOWN" rather than silently dropped.
+     */
+    fun getActiveDeviceCount(): Map<String, Long> {
+        val byType = AuthController.DEVICETYPE.entries.associate { deviceType ->
+            deviceType.name to refreshTokenRepository.countByDeletedAtIsNullAndDeviceType(deviceType)
+        }
+
+        return byType + ("UNKNOWN" to refreshTokenRepository.countByDeletedAtIsNullAndDeviceTypeIsNull())
     }
 }

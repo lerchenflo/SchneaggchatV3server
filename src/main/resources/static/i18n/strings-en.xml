@@ -92,6 +92,10 @@
     <string name="resetform_success_text">Your password has been reset successfully. You can now sign in with your new password.</string>
     <string name="resetform_success_title">Password changed</string>
     <string name="stat_accounts_created">Accounts created</string>
+    <string name="stat_devices_android">Android</string>
+    <string name="stat_devices_desktop">Desktop</string>
+    <string name="stat_devices_ios">iOS</string>
+    <string name="stat_devices_unknown">Unknown</string>
     <string name="stat_friend_requests">Friend requests sent</string>
     <string name="stat_groups_created">Groups created</string>
     <string name="stat_groups_deleted">Groups deleted</string>
@@ -102,6 +106,7 @@
     <string name="stat_server_errors">Server errors</string>
     <string name="stat_server_starts">Server starts</string>
     <string name="stat_wakes_sent">Wake-ups sent</string>
+    <string name="stats_active_devices_heading">Active devices</string>
     <string name="stats_info_text">Stats are pulled from the server in real time and show every event the server has logged.</string>
     <string name="stats_info_title">About these stats</string>
     <string name="stats_total_heading">Total events</string>

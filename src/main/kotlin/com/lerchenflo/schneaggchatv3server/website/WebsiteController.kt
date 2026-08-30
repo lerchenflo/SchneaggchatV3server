@@ -22,6 +22,7 @@ class WebsiteController(
 
         model.addAttribute("stats", stats)
         model.addAttribute("total", total)
+        model.addAttribute("deviceCounts", loggingService.getActiveDeviceCount())
 
         return "stats"
     }

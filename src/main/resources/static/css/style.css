@@ -1738,6 +1738,14 @@ header.scrolled {
     line-height: 1;
 }
 
+/* Subheading for a section within the stats page (e.g. "Active Devices") */
+.stats-subheading {
+    text-align: center;
+    font-size: 1.8rem;
+    color: var(--accent);
+    margin: 4rem 0 2rem;
+}
+
 /* Stats Details Grid */
 .stats-details-grid {
     display: grid;
