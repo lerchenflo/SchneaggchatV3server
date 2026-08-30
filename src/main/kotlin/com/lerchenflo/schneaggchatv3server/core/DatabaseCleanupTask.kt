@@ -26,6 +26,11 @@ class DatabaseCleanupTask(
             AppLogger.info("Deleted ${deletedTokensCount} refreshTokens")
         }*/
 
+        // Tokens that simply aged out without ever being rotated/logged out - deletedAt stays
+        // null for those, so the sweep above never reaches them. Can't rely on the @Indexed
+        // TTL index on expiresAt either (see RefreshTokenRepository.deleteByExpiresAtBefore).
+        refreshTokenRepository.deleteByExpiresAtBefore(Clock.System.now())
+
 
         val deletedUserlocationsCount = userLocationRepository.deleteByExpiresAtBefore(Clock.System.now())
         /*if (deletedUserlocationsCount > 0) {

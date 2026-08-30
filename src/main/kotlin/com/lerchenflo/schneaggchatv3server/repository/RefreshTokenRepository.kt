@@ -29,6 +29,17 @@ interface RefreshTokenRepository: MongoRepository<RefreshToken, ObjectId> {
     fun countByDeletedAtIsNullAndDeviceType(deviceType: AuthController.DEVICETYPE): Long
 
     /**
+     * Deletes tokens that simply aged out (`expiresAt` passed) without ever being rotated or
+     * logged out - [deleteByDeletedAtBefore] alone can't reach these, since `deletedAt` stays
+     * null for a token nobody ever refreshed again. The `@Indexed(expireAfter = "0s")` TTL index
+     * on [RefreshToken.expiresAt] can't reach them either - every `kotlin.time.Instant` field in
+     * this app is stored as a `{epochSeconds, nanosecondsOfSecond}` subdocument, not a BSON Date,
+     * so Mongo's TTL monitor silently skips it (see `DatabaseCleanupTask`). Mirrors
+     * [UserLocationRepository.deleteByExpiresAtBefore], the same already-working pattern.
+     */
+    fun deleteByExpiresAtBefore(time: Instant): Long
+
+    /**
      * Active devices whose token predates the [RefreshToken.deviceType] field.
      */
     fun countByDeletedAtIsNullAndDeviceTypeIsNull(): Long
