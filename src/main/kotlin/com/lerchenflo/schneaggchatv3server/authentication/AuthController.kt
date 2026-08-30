@@ -112,8 +112,13 @@ class AuthController(
 
     @PostMapping("/refresh")
     fun refresh(
-        @Valid @RequestBody refreshRequest: RefreshRequest
+        @Valid @RequestBody refreshRequest: RefreshRequest,
+        @RequestHeader headers: Map<String, String>
     ): AuthService.TokenPair {
+
+        headers.forEach { (key, value) ->
+            println("headers :$key: $value")
+        }
 
         require(ValidationUtils.validateToken(refreshRequest.refreshToken)) { "Invalid refresh token" }
 
