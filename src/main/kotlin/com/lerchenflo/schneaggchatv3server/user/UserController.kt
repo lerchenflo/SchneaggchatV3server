@@ -105,7 +105,6 @@ class UserController(
 
 
 
-    //TODO: Check user profilepic settings (implement first)
     @GetMapping("/profilepic/{id}")
     fun getProfilePic(@PathVariable("id") userId: String): ResponseEntity<ByteArray> {
         require(ValidationUtils.validateObjectId(userId)) { "Invalid user ID" }
