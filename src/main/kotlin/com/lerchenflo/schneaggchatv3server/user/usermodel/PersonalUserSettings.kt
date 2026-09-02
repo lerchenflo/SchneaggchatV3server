@@ -20,6 +20,11 @@ data class PersonalUserSettings(
     val pinnedChats: List<PinnedChat> = emptyList(),
 
     val developerSettings: Boolean = false,
+
+    // Epoch millis of the last time the contribute popup was shown on any device.
+    // 0 means never seeded - a fresh account gets this filled in at registration, and
+    // MainController.migrateContributePopupShown backfills accounts created before this field existed.
+    val lastContributePopupShown: Long = 0L,
 )
 
 data class PinnedChat(

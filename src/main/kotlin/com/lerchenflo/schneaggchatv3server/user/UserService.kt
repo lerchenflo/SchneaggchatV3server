@@ -435,6 +435,7 @@ class UserService(
         mapStyle: String?,
         pinnedChats: List<PinnedChat>?,
         developerSettings: Boolean?,
+        lastContributePopupShown: Long?,
     ) {
         val user = userLookupService.findById(userId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
@@ -456,6 +457,7 @@ class UserService(
             mapStyle = mapStyle ?: current.mapStyle,
             pinnedChats = pinnedChats ?: current.pinnedChats,
             developerSettings = developerSettings ?: current.developerSettings,
+            lastContributePopupShown = lastContributePopupShown ?: current.lastContributePopupShown,
         )
 
         if (newSettings == current) return

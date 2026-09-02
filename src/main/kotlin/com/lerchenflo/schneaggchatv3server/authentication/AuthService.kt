@@ -74,8 +74,13 @@ class AuthService(
             phoneNumber = phoneNumber?.ifBlank { null },
             createdAt = now,
             updatedAt = now,
-            settings = language?.ifBlank { null }?.let { PersonalUserSettings(language = it) }
-                ?: PersonalUserSettings()
+            // lastContributePopupShown is seeded to registration time so the contribute popup
+            // first appears one full interval (see ChatSelector.CONTRIBUTE_POPUP_INTERVAL_MILLIS)
+            // after signup, rather than immediately.
+            settings = PersonalUserSettings(
+                language = language?.ifBlank { null } ?: PersonalUserSettings().language,
+                lastContributePopupShown = now.toEpochMilliseconds(),
+            )
         )
 
         //Save users profilepicture

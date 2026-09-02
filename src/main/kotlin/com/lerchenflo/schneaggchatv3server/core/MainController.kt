@@ -73,6 +73,7 @@ class MainController(
         migrateTypeAliases()
         migrateLastSeen()
         migratePersonalUserSettings()
+        migrateContributePopupShown()
 
         migrateReactionTimestamps()
         migrateMessageVersions()
@@ -223,6 +224,32 @@ class MainController(
             AppLogger.success("Migration completed: Added default settings to ${result.modifiedCount} users")
         } else {
             AppLogger.success("Migration check: All users already have a settings field")
+        }
+    }
+
+    /**
+     * `PersonalUserSettings.lastContributePopupShown` is a new field. Accounts created before it
+     * existed would otherwise read as `0` (never shown), making the contribute popup due
+     * immediately for every existing user. Backfilled here to the current time instead, same as a
+     * device seeding it locally on first launch. Deliberately does NOT bump `User.updatedAt` -
+     * unlike [migratePersonalUserSettings], this shouldn't force every account through
+     * `/users/sync` again or clobber a device's own already-seeded local timestamp; devices adopt
+     * this value the next time their settings actually change.
+     */
+    fun migrateContributePopupShown() {
+        AppLogger.info("Running contribute popup timestamp migration...")
+
+        val query = Query(Criteria.where("settings.lastContributePopupShown").exists(false))
+
+        val update = Update()
+            .set("settings.lastContributePopupShown", Clock.System.now().toEpochMilliseconds())
+
+        val result = mongoTemplate.updateMulti(query, update, User::class.java)
+
+        if (result.modifiedCount > 0) {
+            AppLogger.success("Migration completed: Set contribute popup timestamp for ${result.modifiedCount} users")
+        } else {
+            AppLogger.success("Migration check: All users already have a contribute popup timestamp")
         }
     }
 
