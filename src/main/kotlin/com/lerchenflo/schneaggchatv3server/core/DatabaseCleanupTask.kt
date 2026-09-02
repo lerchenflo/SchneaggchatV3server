@@ -21,14 +21,11 @@ class DatabaseCleanupTask(
      */
     @Scheduled(fixedDelay = 60_000)
     fun cleanDatabasePeriodically() {
-        val deletedTokensCount = refreshTokenRepository.deleteByDeletedAtBefore(Clock.System.now())
-        /*if (deletedTokensCount > 0) {
-            AppLogger.info("Deleted ${deletedTokensCount} refreshTokens")
-        }*/
-
-        // Tokens that simply aged out without ever being rotated/logged out - deletedAt stays
-        // null for those, so the sweep above never reaches them. Can't rely on the @Indexed
-        // TTL index on expiresAt either (see RefreshTokenRepository.deleteByExpiresAtBefore).
+        // The only token sweep: device session rows whose sliding expiresAt passed (device
+        // stopped refreshing for the whole refresh validity window). Rotated-away tokens need no
+        // sweep anymore - rotation happens in place, the old hash just moves to
+        // previousHashedToken on the same row. Can't rely on the @Indexed TTL index on expiresAt
+        // (see RefreshTokenRepository.deleteByExpiresAtBefore).
         refreshTokenRepository.deleteByExpiresAtBefore(Clock.System.now())
 
 

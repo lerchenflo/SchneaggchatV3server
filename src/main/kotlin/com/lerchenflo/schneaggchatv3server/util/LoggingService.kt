@@ -109,16 +109,20 @@ class LoggingService(
     }
 
     /**
-     * Active (non-rotated, non-logged-out) devices grouped by [AuthController.DEVICETYPE], keyed
-     * by enum name for the same reason [getStats] is String-keyed - it goes straight into a
-     * Thymeleaf `${deviceCounts['ANDROID']}` lookup. Tokens issued before `deviceType` existed
-     * have it `null`; those are counted under "UNKNOWN" rather than silently dropped.
+     * Active devices grouped by [AuthController.DEVICETYPE], keyed by enum name for the same
+     * reason [getStats] is String-keyed - it goes straight into a Thymeleaf
+     * `${deviceCounts['ANDROID']}` lookup. One unexpired session row = one logged-in device
+     * (rotation is in place, login dedups per device - see `RefreshToken`). Tokens issued before
+     * `deviceType` existed have it `null`; those are counted under "UNKNOWN" rather than
+     * silently dropped.
      */
     fun getActiveDeviceCount(): Map<String, Long> {
+        val now = Clock.System.now()
+
         val byType = AuthController.DEVICETYPE.entries.associate { deviceType ->
-            deviceType.name to refreshTokenRepository.countByDeletedAtIsNullAndDeviceType(deviceType)
+            deviceType.name to refreshTokenRepository.countByDeviceTypeAndExpiresAtAfter(deviceType, now)
         }
 
-        return byType + ("UNKNOWN" to refreshTokenRepository.countByDeletedAtIsNullAndDeviceTypeIsNull())
+        return byType + ("UNKNOWN" to refreshTokenRepository.countByDeviceTypeIsNullAndExpiresAtAfter(now))
     }
 }

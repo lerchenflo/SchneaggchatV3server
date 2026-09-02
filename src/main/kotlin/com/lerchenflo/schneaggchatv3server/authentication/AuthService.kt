@@ -24,7 +24,6 @@ import org.springframework.web.server.ResponseStatusException
 import java.security.MessageDigest
 import java.util.*
 import java.util.Locale.getDefault
-import kotlin.jvm.optionals.getOrNull
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -109,13 +108,27 @@ class AuthService(
         val newAccessToken = jwtService.generateAccessToken(user.id.toHexString())
         val newRefreshToken = jwtService.generateRefreshToken(user.id.toHexString())
 
+        // Login dedup: reuse this device's existing session row (rotate it in place) instead of
+        // inserting a second one, so the collection keeps exactly one row per logged-in device.
+        // Blank device names are never dedup'd - they can't identify a device. If the in-place
+        // rotation loses a (very unlikely) race with a concurrent refresh of the same row, fall
+        // back to inserting a fresh row; the duplicate ages out via the expiresAt sweep.
+        val existing = if (deviceName.isNotBlank()) {
+            refreshTokenRepository.findFirstByUserIdAndDeviceNameAndDeviceTypeOrderByCreatedAtDesc(
+                userId = user.id,
+                deviceName = deviceName,
+                deviceType = devicetype,
+            )
+        } else null
 
-        storeRefreshToken(
-            userId = user.id,
-            rawRefreshToken = newRefreshToken,
-            deviceName = deviceName,
-            devicetype = devicetype,
-        )
+        if (existing == null || rotateTokenRow(user.id, existing.hashedToken, newRefreshToken, deviceName, devicetype) == null) {
+            storeRefreshToken(
+                userId = user.id,
+                rawRefreshToken = newRefreshToken,
+                deviceName = deviceName,
+                devicetype = devicetype,
+            )
+        }
 
         return TokenPair(
             accessToken = newAccessToken,
@@ -126,7 +139,6 @@ class AuthService(
 
 
     fun refresh(refreshToken: String, deviceName: String, devicetype: AuthController.DEVICETYPE) : TokenPair {
-        val now = Clock.System.now()
 
         //Check if the token is in a correct format and issued by this server
         if (!jwtService.validateRefreshToken(refreshToken)) {
@@ -143,98 +155,82 @@ class AuthService(
         //Create a hash from the token to compare to the db entry
         val oldTokenHashed = hashToken(refreshToken)
 
-        //Get newest token for this user
-        val oldTokenEntry = refreshTokenRepository.findByUserIdAndHashedToken(
-            userId = user.id,
-            hashedToken = oldTokenHashed,
-        ).maxByOrNull {
-            it.createdAt //Sort by created timestamp
-        }
-
-        if (oldTokenEntry == null) {
-            AppLogger.debug("TOKENREFRESH: Old token for user ${user.username} not found")
-            throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
-        }
-
-        //Check if the token refresh was already executed with this one, if true get the new token
-        if (oldTokenEntry.deletedAt != null && oldTokenEntry.replacedByToken != null /* Needed for migration if old tokens do not have a replacedby set*/) {
-            val newToken = refreshTokenRepository.findById(oldTokenEntry.replacedByToken).getOrNull()
-
-            //Check the new token
-            if (newToken != null && //Token exists (Should always be)
-                newToken.deletedAt == null && //New token not deleted (If deleted, token was already rotated once again)
-                newToken.rawToken != null //The raw token is still saved in the db (May not be saved during migration)
-                ) {
-
-                AppLogger.success("User failed the sync but got the linked token")
-
-                return TokenPair(
-                    accessToken = jwtService.generateAccessToken(userId),
-                    refreshToken = newToken.rawToken,
-                    encryptionKey = jwtService.getEncryptionKey()
-                )
-            }
-
-            //At this point the token was either old (not migrated) or already deleted, throw an exception
-            throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
-        }
-
-        //The token is working normally, return new
-        val newAccessToken = jwtService.generateAccessToken(userId)
         val newRefreshToken = jwtService.generateRefreshToken(userId)
 
-        //Store the new refresh token
-        val newTokenEntry = storeRefreshToken(user.id, newRefreshToken, deviceName, devicetype)
+        // Atomically rotate this device's session row in place: hashedToken -> new hash,
+        // previousHashedToken -> the hash just presented. Exactly one concurrent caller can win
+        // this findAndModify; everyone else falls through to replay recovery below.
+        val claimed = rotateTokenRow(user.id, oldTokenHashed, newRefreshToken, deviceName, devicetype)
 
+        if (claimed != null) {
+            return TokenPair(
+                accessToken = jwtService.generateAccessToken(userId),
+                refreshToken = newRefreshToken,
+                encryptionKey = jwtService.getEncryptionKey()
+            )
+        }
 
+        // No row holds this hash as its current token. Either the client lost a previous refresh
+        // response (or lost the race against a concurrent refresh) and is replaying the token
+        // that was already rotated away - then a row still holds it as previousHashedToken and we
+        // return that row's current raw token - or the token is genuinely dead (logged out,
+        // expired row swept, password changed) and the 401 below is correct.
+        val recovery = refreshTokenRepository.findByUserIdAndPreviousHashedToken(
+            userId = user.id,
+            previousHashedToken = oldTokenHashed,
+        ).maxByOrNull { it.createdAt }
+
+        if (recovery?.rawToken != null) {
+            AppLogger.success("TOKENREFRESH replay: returned current token for user ${user.username}")
+
+            return TokenPair(
+                accessToken = jwtService.generateAccessToken(userId),
+                refreshToken = recovery.rawToken,
+                encryptionKey = jwtService.getEncryptionKey()
+            )
+        }
+
+        AppLogger.warn("TOKENREFRESH: Unknown token for user ${user.username}")
+        throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
+    }
+
+    /**
+     * Atomic in-place rotation of the session row whose current hash is [expectedCurrentHash].
+     * Returns the row as it was BEFORE the update, or null if no row matched (someone else
+     * rotated it first, or it never existed). Sliding expiry: every rotation pushes
+     * [RefreshToken.expiresAt] out by the full refresh validity.
+     */
+    private fun rotateTokenRow(
+        userId: ObjectId,
+        expectedCurrentHash: String,
+        newRawToken: String,
+        deviceName: String,
+        devicetype: AuthController.DEVICETYPE,
+    ): RefreshToken? {
         val query = Query().addCriteria(
-            Criteria.where("userId").`is`(user.id)
-                .and("hashedToken").`is`(oldTokenHashed)
-                .and("deletedAt").`is`(null)
+            Criteria.where("userId").`is`(userId)
+                .and("hashedToken").`is`(expectedCurrentHash)
         )
 
         val update = Update()
-            .set("deletedAt", now)
-            .set("replacedByToken", newTokenEntry.id)
-            .set("rawToken", null) //New token is in place, delete the old raw entry
+            .set("previousHashedToken", expectedCurrentHash)
+            .set("hashedToken", hashToken(newRawToken))
+            .set("rawToken", newRawToken)
+            .set("expiresAt", Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds() + jwtService.refreshTokenValidityMs))
+            .set("deviceName", deviceName)
+            .set("deviceType", devicetype)
+            // Transitional: a pre-migration soft-deleted row can still hold this hash as its
+            // current token; claiming it revives it, so strip the legacy soft-delete markers or
+            // MainController.migrateRefreshTokenChains would sweep the revived row. No-op on
+            // rows written after the migration.
+            .unset("deletedAt")
+            .unset("replacedByToken")
 
-
-        // Returns the document BEFORE the update — null if already claimed
-        val claimedToken = mongoTemplate.findAndModify(
+        return mongoTemplate.findAndModify(
             query,
             update,
             FindAndModifyOptions.options().returnNew(false),
             RefreshToken::class.java
-        )
-
-        // Lost the race to claim the old token — most likely a concurrent refresh request for the
-        // SAME old token that got there first. Try to recover the token it rotated to, instead of
-        // forcing this caller to 401 / re-login.
-        if (claimedToken == null) {
-            refreshTokenRepository.delete(newTokenEntry) //Remove new unused token
-
-            val rotated = refreshTokenRepository.findById(oldTokenEntry.id).getOrNull()
-            val linked = rotated?.replacedByToken?.let { refreshTokenRepository.findById(it).getOrNull() }
-
-            if (linked != null && linked.deletedAt == null && linked.rawToken != null) {
-                AppLogger.success("Concurrent refresh: returned winner's rotated token for user ${user.username}")
-
-                return TokenPair(
-                    accessToken = jwtService.generateAccessToken(userId),
-                    refreshToken = linked.rawToken,
-                    encryptionKey = jwtService.getEncryptionKey()
-                )
-            }
-
-            //At this point the token was either old (not migrated) or already deleted, throw an exception
-            AppLogger.warn("TOKENREFRESH REPLAY?: Token was already deleted for user ${user.username}")
-            throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
-        }
-
-        return TokenPair(
-            accessToken = newAccessToken,
-            refreshToken = newRefreshToken,
-            encryptionKey = jwtService.getEncryptionKey()
         )
     }
 
