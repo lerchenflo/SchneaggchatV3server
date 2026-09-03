@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<resources>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><resources>
     <string name="common_back_to_home">Back to homepage</string>
     <string name="common_check_spam">Also check your spam folder</string>
     <string name="common_email_label">Email address</string>
@@ -11,6 +10,88 @@
     <string name="common_request_received">Request received</string>
     <string name="common_to_home">Back to homepage</string>
     <string name="common_whats_next">What happens next?</string>
+    <string name="compare_ads_own">No ads, ever</string>
+    <string name="compare_ads_snapchat">Ads everywhere</string>
+    <string name="compare_ads_whatsapp">Ads in the Updates tab</string>
+    <string name="compare_alarm_own">Rings even on silent (Android)</string>
+    <string name="compare_arfilters_own">Not available yet</string>
+    <string name="compare_arfilters_snapchat">Real-time camera effects, core feature</string>
+    <string name="compare_birthdays_own">Display + automatic reminder</string>
+    <string name="compare_calls_own">Optional phone number, call runs through your phone</string>
+    <string name="compare_calls_snapchat">Voice &amp; video calls in the app</string>
+    <string name="compare_calls_whatsapp">Voice &amp; video calls in the app</string>
+    <string name="compare_col_feature_sr">Feature</string>
+    <string name="compare_dialect_own">Unique language option for the app</string>
+    <string name="compare_disappearing_own">Not available yet</string>
+    <string name="compare_disappearing_snapchat">Default behavior of the app</string>
+    <string name="compare_disappearing_whatsapp">Optional, can be turned on</string>
+    <string name="compare_encryption_own">End-to-end coming soon</string>
+    <string name="compare_encryption_snapchat">Only Snaps, not chats</string>
+    <string name="compare_encryption_whatsapp">End-to-end by default</string>
+    <string name="compare_events_own">Attendee limit + group chat</string>
+    <string name="compare_events_whatsapp">Only within groups</string>
+    <string name="compare_games_own">Several mini-games + highscores</string>
+    <string name="compare_map_own">Friends live incl. history + your own places</string>
+    <string name="compare_map_snapchat">Snap Map, no custom places</string>
+    <string name="compare_map_whatsapp">Only live location in chat</string>
+    <string name="compare_markdown_own">Always on: bold, italic, links and more</string>
+    <string name="compare_markdown_whatsapp">Only bold, italic, strikethrough</string>
+    <string name="compare_mentions_own">Links users, map locations, games and events right in the text</string>
+    <string name="compare_mentions_whatsapp">Only @-mentions of users in groups</string>
+    <string name="compare_note">As of September 2026. All information without guarantee.</string>
+    <string name="compare_pill_recommended">Recommended</string>
+    <string name="compare_pin_own">Unlimited</string>
+    <string name="compare_pin_snapchat">Only with Snapchat+ (paid)</string>
+    <string name="compare_pin_whatsapp">Maximum 3 chats</string>
+    <string name="compare_polls_own">Custom options, limit per answer, options deletable</string>
+    <string name="compare_polls_snapchat">Only story stickers</string>
+    <string name="compare_polls_whatsapp">Only simple polls</string>
+    <string name="compare_reactions_own">Free text up to 10 characters, not just emojis</string>
+    <string name="compare_reactions_snapchat">Fixed emoji selection only</string>
+    <string name="compare_reactions_whatsapp">Fixed emoji selection only</string>
+    <string name="compare_row_ads">Ads</string>
+    <string name="compare_row_alarm">Alarm feature</string>
+    <string name="compare_row_arfilters">AR filters &amp; lenses</string>
+    <string name="compare_row_birthdays">Birthdays</string>
+    <string name="compare_row_calls">Calls</string>
+    <string name="compare_row_dialect">Vorarlberg dialect</string>
+    <string name="compare_row_disappearing">Disappearing messages</string>
+    <string name="compare_row_encryption">Encryption</string>
+    <string name="compare_row_events">Events</string>
+    <string name="compare_row_games">Mini-games</string>
+    <string name="compare_row_map">Live map</string>
+    <string name="compare_row_markdown">Markdown</string>
+    <string name="compare_row_mentions">@-mentions</string>
+    <string name="compare_row_pin">Pinning chats</string>
+    <string name="compare_row_polls">Polls</string>
+    <string name="compare_row_reactions">Reactions</string>
+    <string name="compare_row_status">Status</string>
+    <string name="compare_row_stickers">Stickers &amp; GIFs</string>
+    <string name="compare_row_subscription">Subscription / Premium</string>
+    <string name="compare_row_support">Support</string>
+    <string name="compare_row_theme">Changing the app theme</string>
+    <string name="compare_row_typing">Typing indicator</string>
+    <string name="compare_row_userdescription">User description</string>
+    <string name="compare_status_own">Short status text, editable anytime</string>
+    <string name="compare_status_whatsapp">Short info line</string>
+    <string name="compare_stickers_own">Not available yet</string>
+    <string name="compare_stickers_snapchat">Stickers, GIFs and Bitmoji</string>
+    <string name="compare_stickers_whatsapp">Stickers, GIFs and Bitmoji</string>
+    <string name="compare_subscription_own">All features free, no paywall</string>
+    <string name="compare_subscription_snapchat">Snapchat+ needed for many extras (pin limit, app icons, etc.)</string>
+    <string name="compare_subscription_whatsapp">No paywall, all core features free</string>
+    <string name="compare_subtitle">What you don't get with other messengers.</string>
+    <string name="compare_support_own">Bugfixes in the next update (max. 2 weeks), individual users' wishes get implemented, in-app "app broken" button</string>
+    <string name="compare_support_snapchat">No direct line to the developers, lots of unused random features</string>
+    <string name="compare_support_whatsapp">No direct line to the developers, lots of unused random features</string>
+    <string name="compare_theme_own">Free, including user-created themes</string>
+    <string name="compare_theme_snapchat">Only available with Snapchat+</string>
+    <string name="compare_theme_whatsapp">Only available with a Meta subscription</string>
+    <string name="compare_title">Why Schneaggchat?</string>
+    <string name="compare_typing_own">Not available yet</string>
+    <string name="compare_typing_snapchat">"typing ..." in real time</string>
+    <string name="compare_typing_whatsapp">"typing ..." in real time</string>
+    <string name="compare_userdescription_own">Written by your friends, you can't change it yourself</string>
     <string name="delete_button">Request deletion link</string>
     <string name="delete_info_1">You'll receive an email with a confirmation link</string>
     <string name="delete_info_2">Click the link to delete your account</string>
@@ -22,7 +103,7 @@
     <string name="donations_paypal_cta">Donate now via PayPal</string>
     <string name="donations_paypal_secure">Safe and simple with PayPal</string>
     <string name="donations_recent_heading">Recent donations</string>
-    <string name="donations_subtitle">Schneaggchat is a passion project! Just the server and app store fees cost us about <strong>€125 a year</strong> (not counting development time). Your donation helps us cover that and build new features. Every contribution counts!</string>
+    <string name="donations_subtitle">Schneaggchat is a passion project! Just the server and app store fees cost us about €125 a year (not counting development time). Your donation helps us cover that and build new features. Every contribution counts!</string>
     <string name="donations_title">Support Schneaggchat</string>
     <string name="donations_total_heading">Total donations</string>
     <string name="donations_total_thanks">Thank you to everyone who has supported us!</string>
@@ -58,6 +139,7 @@
     <string name="footer_nav_heading">Navigation</string>
     <string name="footer_reset_password">Reset password</string>
     <string name="footer_support_heading">Support</string>
+    <string name="hero_cta_compare">Why Schneaggchat?</string>
     <string name="hero_cta_download">Download now</string>
     <string name="hero_cta_features">See all features</string>
     <string name="hero_subtitle">Schneaggchat is a free, ad-free messenger for Android, iOS and Desktop – with a live map, events, polls, mini-games and the Vorarlberg dialect as a language option.</string>
@@ -67,6 +149,115 @@
     <string name="nav_home">Home</string>
     <string name="nav_privacy">Privacy</string>
     <string name="nav_stats">Stats</string>
+    <string name="privacy_header_intro">We take the protection of your personal data very seriously. Here you can find out what data we process, why, and what rights you have.</string>
+    <string name="privacy_header_title">Privacy Policy</string>
+    <string name="privacy_last_updated">Last updated: 26.08.2026</string>
+    <string name="privacy_s10_intro">If you have any questions about this privacy policy, you can contact us as follows:</string>
+    <string name="privacy_s10_title">Contact</string>
+    <string name="privacy_s1_text">The data controller within the meaning of the GDPR for the processing of your data in Schneaggchat is Florian Lerchenmüller
+                (contact: schneaggchat@gmail.com).
+                Schneaggchat is a private project with no commercial use of your data; appointing a data protection officer
+                is not required under Art. 37 GDPR.</string>
+    <string name="privacy_s1_title">Data Controller</string>
+    <string name="privacy_s2_footer">No data is processed for advertising or analytics purposes, and no data is sold.</string>
+    <string name="privacy_s2_item1">Account data
+                    Username, email address (including verification status), password (stored only as a hash, never in plain text),
+                    profile description, status, date of birth, optional phone number, profile picture, as well as account creation
+                    and last-online time. Legal basis: performance of a contract (Art. 6(1)(b) GDPR). Retention period: until account deletion.</string>
+    <string name="privacy_s2_item10">App settings
+                    Settings you choose, such as theme, language and map style, synced across your devices.</string>
+    <string name="privacy_s2_item11">IP address
+                    Used briefly to prevent abuse (rate limiting), but not permanently stored in the
+                    database.</string>
+    <string name="privacy_s2_item2">Messages and media
+                    Text, image and voice messages, polls, reactions and read receipts. Transmission is encrypted via TLS,
+                    but storage on the server is unencrypted. Legal basis: performance of a contract.</string>
+    <string name="privacy_s2_item3">Location data
+                    Only if you enable location sharing for individual friends (opt-in); additionally, optionally speed,
+                    direction, altitude and battery level, if your device provides this. Legal basis: consent (Art. 6(1)(a) GDPR),
+                    revocable at any time. Location points are automatically deleted after 24 hours.</string>
+    <string name="privacy_s2_item4">Schneaggmap entries
+                    Map points you create or edit, including their change history (including your username at the
+                    time of the change). Visible to all users. Legal basis: legitimate interest in a
+                    collaboratively maintained map (Art. 6(1)(f) GDPR).</string>
+    <string name="privacy_s2_item5">Groups and events
+                    Group membership, and for events: title, description, location, time period and invited users. Events marked
+                    as "public" are visible to all of the creator's friends, even without an invitation.</string>
+    <string name="privacy_s2_item6">Games
+                    Scores achieved, including game mode and time. Leaderboards publicly display your username to
+                    other users.</string>
+    <string name="privacy_s2_item7">Push notifications
+                    Device tokens for Firebase Cloud Messaging (Android) and Apple Push Notification Service (iOS), see
+                    the "Recipients" section below.</string>
+    <string name="privacy_s2_item8">Log data
+                    Technical event logs (e.g. login, message sent, password reset requested) as well as the time
+                    and duration of connections to the server. Legal basis: legitimate interest in operation and
+                    error analysis (Art. 6(1)(f) GDPR).</string>
+    <string name="privacy_s2_item9">Login sessions
+                    Refresh tokens used to keep you signed in, valid for 30 days and automatically deleted afterwards.</string>
+    <string name="privacy_s2_title">What data we process</string>
+    <string name="privacy_s3_footer">Beyond this, no data is shared with third parties.</string>
+    <string name="privacy_s3_intro">To operate Schneaggchat, we use the following external services (processors or independently responsible third parties):</string>
+    <string name="privacy_s3_item1">Google Firebase Cloud Messaging and Apple Push Notification Service
+                    Receive your device token, the sender's username and message metadata in order to deliver push notifications.
+                    The actual message content is encrypted before transmission; the provider and your
+                    device manufacturer do not receive it in plain text.</string>
+    <string name="privacy_s3_item2">Google Mail (Gmail SMTP)
+                    Used to send verification, password reset and account deletion emails, and for this purpose
+                    receives your email address and the email content.</string>
+    <string name="privacy_s3_item3">Cloudflare (cdnjs) and Google Fonts
+                    When you visit this website, fonts and icons are loaded from these providers, which transmits your
+                    IP address to their servers (partly outside the EU, in particular the USA).</string>
+    <string name="privacy_s3_title">Recipients of your data</string>
+    <string name="privacy_s4_text">The data is stored on a server in 6850 Dornbirn, Austria. The external service providers
+                mentioned above process data partly outside the EU/EEA.</string>
+    <string name="privacy_s4_title">Storage location</string>
+    <string name="privacy_s5_footer">You can delete your account yourself at any time via the app or via
+                this page. For all other matters, please contact us
+                at schneaggchat@gmail.com.</string>
+    <string name="privacy_s5_intro">With regard to your personal data, you have in particular the following rights:</string>
+    <string name="privacy_s5_item1">Right to access the data we process (Art. 15 GDPR)</string>
+    <string name="privacy_s5_item2">Right to rectification of inaccurate data (Art. 16 GDPR)</string>
+    <string name="privacy_s5_item3">Right to erasure of your data (Art. 17 GDPR) — e.g. by deleting your account</string>
+    <string name="privacy_s5_item4">Right to restriction of processing (Art. 18 GDPR)</string>
+    <string name="privacy_s5_item5">Right to data portability (Art. 20 GDPR)</string>
+    <string name="privacy_s5_item6">Right to object to processing based on legitimate interest (Art. 21 GDPR)</string>
+    <string name="privacy_s5_item7">Right to withdraw consent you have given (e.g. location sharing, wake feature) with effect for the future</string>
+    <string name="privacy_s5_item8">Right to lodge a complaint with a supervisory authority, in Austria the Datenschutzbehörde (Art. 77 GDPR)</string>
+    <string name="privacy_s5_title">Your rights</string>
+    <string name="privacy_s6_footer">We are working on automatically removing or anonymizing this remaining data upon account deletion in the future as well.</string>
+    <string name="privacy_s6_intro">When you delete your account, we immediately remove:</string>
+    <string name="privacy_s6_notremoved1">Your contributions to the Schneaggmap and their change history (remain visible under your username at the time)</string>
+    <string name="privacy_s6_notremoved2">Game scores already achieved</string>
+    <string name="privacy_s6_notremoved3">Technical log data (e.g. login history)</string>
+    <string name="privacy_s6_notremoved4">Regular database backups, until they are overwritten in the normal cycle</string>
+    <string name="privacy_s6_notremoved_intro">For technical reasons, the following is currently not deleted:</string>
+    <string name="privacy_s6_removed1">Your user account, including login credentials and login sessions</string>
+    <string name="privacy_s6_removed2">All your friendships and group memberships</string>
+    <string name="privacy_s6_removed3">All messages you sent or received, including image and voice files</string>
+    <string name="privacy_s6_removed4">Your profile picture</string>
+    <string name="privacy_s6_title">What happens when you delete your account</string>
+    <string name="privacy_s7_footer">Despite these measures, no data transmission or storage can be guaranteed to be completely secure.</string>
+    <string name="privacy_s7_intro">Among other things, we use the following technical protective measures:</string>
+    <string name="privacy_s7_item1">Encryption of data transmission (TLS)</string>
+    <string name="privacy_s7_item2">Passwords are stored exclusively as hashes, never in plain text</string>
+    <string name="privacy_s7_item3">Short-lived access tokens (15 minutes) with a separate, longer-lived refresh token</string>
+    <string name="privacy_s7_item4">Rate limiting against automated attacks</string>
+    <string name="privacy_s7_item5">Encryption of push notification content</string>
+    <string name="privacy_s7_item6">Access restrictions on the server</string>
+    <string name="privacy_s7_title">Our security measures</string>
+    <string name="privacy_s8_text">Schneaggchat is not specifically aimed at children. Users should have reached the minimum age required
+                under applicable law to consent to data processing, or should obtain the consent of a
+                parent or legal guardian.</string>
+    <string name="privacy_s8_title">Minors</string>
+    <string name="privacy_s9_text">We reserve the right to amend this privacy policy in the future.
+                We will inform you of any changes by publishing the new privacy policy on this page.
+                We recommend that you regularly check this privacy policy for changes.
+                Changes to this privacy policy become effective once they are published on this page.</string>
+    <string name="privacy_s9_title">Reservation of the right to amend this privacy policy</string>
+    <string name="privacy_warning_item1">Messages are not end-to-end encrypted — they are protected via TLS during transmission, but are stored unencrypted on the server.</string>
+    <string name="privacy_warning_item2">Contributions to the Schneaggmap (map points and their change history) remain visible under your username at the time, even after you delete your account.</string>
+    <string name="privacy_warning_title">Two things you should know</string>
     <string name="reset_button">Request reset link</string>
     <string name="reset_hint_1h">The link is valid for 1 hour</string>
     <string name="reset_info_1">You'll receive an email with a reset link</string>

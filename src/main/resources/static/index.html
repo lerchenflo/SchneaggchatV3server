@@ -27,6 +27,9 @@
                 <a href="#download" class="cta-button">
                     <i class="fa-solid fa-download"></i> <span data-i18n="hero_cta_download">Jetzt herunterladen</span>
                 </a>
+                <a href="#compare" class="cta-button cta-button--ghost">
+                    <i class="fa-solid fa-scale-balanced"></i> <span data-i18n="hero_cta_compare">Warum Schneaggchat?</span>
+                </a>
                 <a href="#features" class="cta-button cta-button--ghost">
                     <span data-i18n="hero_cta_features">Alle Features</span>
                 </a>
@@ -40,6 +43,430 @@
                 <img src="/web_images/screenshot_karte.webp" alt="Schneaggmap: Freunde und Orte live auf der Karte" width="700" height="1445" loading="eager">
             </div>
         </div>
+    </section>
+
+    <!-- Comparison Section -->
+    <section class="compare" id="compare">
+        <h2 class="section-title" data-i18n="compare_title">Warum Schneaggchat?</h2>
+        <p class="compare-subtitle" data-i18n="compare_subtitle">Was du bei anderen Messengern nicht bekommst.</p>
+
+        <div class="compare-scroll">
+            <table class="compare-table">
+                <thead>
+                    <tr>
+                        <th scope="col" class="compare-corner"><span class="sr-only" data-i18n="compare_col_feature_sr">Feature</span></th>
+                        <th scope="col" class="compare-col-own">
+                            <img src="/web_images/Icon.png" alt="" class="compare-logo">
+                            <span class="compare-app">Schneaggchat</span>
+                            <span class="compare-pill" data-i18n="compare_pill_recommended">Empfohlen</span>
+                        </th>
+                        <th scope="col">
+                            <i class="fa-brands fa-whatsapp compare-logo-icon"></i>
+                            <span class="compare-app">WhatsApp</span>
+                        </th>
+                        <th scope="col">
+                            <i class="fa-brands fa-snapchat compare-logo-icon"></i>
+                            <span class="compare-app">Snapchat</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-square-poll-vertical"></i> <span data-i18n="compare_row_polls">Umfragen</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_polls_own">Eigene Optionen, Limit pro Antwort, Optionen löschbar</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_polls_whatsapp">Nur einfache Umfragen</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_polls_snapchat">Nur Story-Sticker</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-face-smile-beam"></i> <span data-i18n="compare_row_reactions">Reaktionen</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_reactions_own">Freitext bis zu 10 Zeichen, nicht nur Emojis</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_reactions_whatsapp">Nur feste Emoji-Auswahl</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_reactions_snapchat">Nur feste Emoji-Auswahl</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-brands fa-markdown"></i> <span data-i18n="compare_row_markdown">Markdown</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_markdown_own">Immer aktiv, fett, kursiv, Links uvm.</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_markdown_whatsapp">Nur fett, kursiv, durchgestrichen</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-at"></i> <span data-i18n="compare_row_mentions">@-Erwähnungen</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_mentions_own">Verlinkt User, Karten-Orte, Spiele und Events direkt im Text</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_mentions_whatsapp">Nur @-Erwähnungen von Usern in Gruppen</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-map-location-dot"></i> <span data-i18n="compare_row_map">Live-Karte</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_map_own">Freunde live inkl. Verlauf + eigene Orte</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_map_whatsapp">Nur Live-Standort im Chat</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_map_snapchat">Snap Map, keine eigenen Orte</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-thumbtack"></i> <span data-i18n="compare_row_pin">Chats anpinnen</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_pin_own">Unbegrenzt</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_pin_whatsapp">Maximal 3 Chats</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_pin_snapchat">Nur mit Snapchat+ (kostenpflichtig)</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-calendar-days"></i> <span data-i18n="compare_row_events">Events</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_events_own">Teilnehmerlimit + Gruppenchat</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_events_whatsapp">Nur in Gruppen</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-cake-candles"></i> <span data-i18n="compare_row_birthdays">Geburtstage</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_birthdays_own">Anzeige + automatische Benachrichtigung</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-bell"></i> <span data-i18n="compare_row_alarm">Weckerfeature</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_alarm_own">Klingelt auch auf lautlos (Android)</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-language"></i> <span data-i18n="compare_row_dialect">Vorarlbergerisch</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_dialect_own">Einzigartige Sprachoption für die App</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-address-card"></i> <span data-i18n="compare_row_userdescription">Userbeschreibung</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_userdescription_own">Wird von deinen Freunden geschrieben, du selbst kannst sie nicht ändern</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-comment-dots"></i> <span data-i18n="compare_row_status">Status</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_status_own">Kurzer Statustext, jederzeit selbst änderbar</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_status_whatsapp">Kurze Info-Zeile</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-phone"></i> <span data-i18n="compare_row_calls">Anrufe</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_calls_own">Optionale Rufnummer, Anruf läuft über dein Telefon</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_calls_whatsapp">Sprach- & Videoanrufe in der App</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_calls_snapchat">Sprach- & Videoanrufe in der App</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-headset"></i> <span data-i18n="compare_row_support">Support</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_support_own">Bugfixes im nächsten Update (max. 2 Wochen), Wünsche einzelner User werden umgesetzt, In-App "App kaputt"-Button</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note" data-i18n="compare_support_whatsapp">Kein direkter Draht zu den Entwicklern, viele ungenutzte Zufallsfeatures</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note" data-i18n="compare_support_snapchat">Kein direkter Draht zu den Entwicklern, viele ungenutzte Zufallsfeatures</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-lock"></i> <span data-i18n="compare_row_encryption">Verschlüsselung</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_encryption_own">Ende-zu-Ende bald verfügbar</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_encryption_whatsapp">Ende-zu-Ende standardmäßig</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_encryption_snapchat">Nur Snaps, nicht Chats</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-icons"></i> <span data-i18n="compare_row_stickers">Sticker & GIFs</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note" data-i18n="compare_stickers_own">Noch nicht verfügbar</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_stickers_whatsapp">Sticker, GIFs und Bitmoji</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_stickers_snapchat">Sticker, GIFs und Bitmoji</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-hourglass-half"></i> <span data-i18n="compare_row_disappearing">Selbstlöschende Nachrichten</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note" data-i18n="compare_disappearing_own">Noch nicht verfügbar</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_disappearing_whatsapp">Optional zuschaltbar</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_disappearing_snapchat">Standardverhalten der App</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-keyboard"></i> <span data-i18n="compare_row_typing">Tippt-Anzeige</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note" data-i18n="compare_typing_own">Noch nicht verfügbar</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_typing_whatsapp">"tippt gerade ..." in Echtzeit</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_typing_snapchat">"tippt gerade ..." in Echtzeit</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="compare_row_arfilters">AR-Filter & Linsen</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note" data-i18n="compare_arfilters_own">Noch nicht verfügbar</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_arfilters_snapchat">Kamera-Effekte in Echtzeit, Kernfeature</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-palette"></i> <span data-i18n="compare_row_theme">App-Theme ändern</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_theme_own">Kostenlos, auch von Usern erstellte Themes</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_theme_whatsapp">Nur mit Meta-Abo verfügbar</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_theme_snapchat">Nur mit Snapchat+ verfügbar</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-crown"></i> <span data-i18n="compare_row_subscription">Abo / Premium</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_subscription_own">Alle Features kostenlos, keine Paywall</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_subscription_whatsapp">Keine Paywall, alle Kernfunktionen kostenlos</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_subscription_snapchat">Snapchat+ nötig für viele Extras (Pin-Limit, App-Icons, uvm.)</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-ban"></i> <span data-i18n="compare_row_ads">Werbung</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_ads_own">Keine Werbung, nie</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-circle-half-stroke cmp-partial"></i>
+                            <span class="cmp-note" data-i18n="compare_ads_whatsapp">Werbung im Updates-Tab</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note" data-i18n="compare_ads_snapchat">Werbung überall</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" class="compare-feature">
+                            <i class="fa-solid fa-gamepad"></i> <span data-i18n="compare_row_games">Minispiele</span>
+                        </th>
+                        <td class="compare-own">
+                            <i class="fa-solid fa-check cmp-yes"></i>
+                            <span class="cmp-note" data-i18n="compare_games_own">Mehrere Minispiele + Highscores</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                        <td>
+                            <i class="fa-solid fa-xmark cmp-no"></i>
+                            <span class="cmp-note">—</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <p class="compare-note" data-i18n="compare_note">Stand: September 2026. Alle Angaben ohne Gewähr.</p>
     </section>
 
     <!-- Features Section -->
