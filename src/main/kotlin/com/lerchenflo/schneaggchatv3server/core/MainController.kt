@@ -2,6 +2,7 @@
 
 package com.lerchenflo.schneaggchatv3server.core
 
+import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
@@ -27,6 +28,7 @@ import org.springframework.data.mongodb.core.BulkOperations
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.aggregation.AggregationUpdate
 import org.springframework.data.mongodb.core.aggregation.SetOperation
+import org.springframework.data.mongodb.core.index.Index
 import org.springframework.data.mongodb.core.index.IndexInfo
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
@@ -80,6 +82,7 @@ class MainController(
         migrateMapAttributeKeys()
         migrateGroupDeletedFlag()
         migrateDetachEventsFromDeletedGroups()
+        migrateRefreshTokenChains()
 
         if (debug) {
             //Create test account for google play & Apple
@@ -459,6 +462,108 @@ class MainController(
         }
 
         AppLogger.success("Type alias migration check complete")
+    }
+
+    /**
+     * Migrates `refreshTokens` from the old soft-delete rotation model (every refresh inserted a
+     * new row and kept the old one with `deletedAt` + `replacedByToken` until a cleanup sweep) to
+     * the in-place rotation model: one row per device whose `hashedToken` is swapped on refresh
+     * and whose `previousHashedToken` serves one-hop replay recovery (see [RefreshToken]).
+     * Idempotent - after the first run every step is a no-op.
+     */
+    fun migrateRefreshTokenChains() {
+        AppLogger.info("Running refresh token chain migration...")
+
+        val collection = "refreshTokens"
+
+        // 1) Preserve in-flight replay chains: a client still retrying with a rotated-away token
+        // must be able to match on its successor's previousHashedToken once the old row is gone.
+        // Raw Documents - the entity no longer has deletedAt/replacedByToken.
+        val softDeleted = mongoTemplate.find(
+            Query(Criteria.where("deletedAt").ne(null)),
+            org.bson.Document::class.java,
+            collection
+        )
+
+        var linkedCount = 0
+        for (doc in softDeleted) {
+            val successorId = doc.getObjectId("replacedByToken") ?: continue
+            val oldHash = doc.getString("hashedToken") ?: continue
+
+            val result = mongoTemplate.updateFirst(
+                Query(
+                    Criteria.where("_id").`is`(successorId)
+                        .and("deletedAt").`is`(null)
+                        .and("previousHashedToken").`is`(null)
+                ),
+                Update.update("previousHashedToken", oldHash),
+                collection
+            )
+            linkedCount += result.modifiedCount.toInt()
+        }
+
+        // 2) The rotated-away rows themselves are obsolete under the new model
+        val removedRotated = mongoTemplate.remove(Query(Criteria.where("deletedAt").ne(null)), collection)
+
+        // 3) Establish the one-row-per-device invariant (login dedup) retroactively: keep only
+        // the newest session row per (userId, deviceName, deviceType) - older duplicates are
+        // leftovers of re-logins under the old model and inflated the active-device count.
+        // Deliberately raw Documents, NOT the RefreshToken entity: a single legacy row with an
+        // off-format field (e.g. a raw BSON Date where an Instant subdocument is expected - the
+        // exact corruption [repairCorruptedUpdatedAt] exists for) would otherwise throw a
+        // ConverterNotFoundException here and crash-loop every startup.
+        fun createdAtSeconds(doc: org.bson.Document): Long = when (val v = doc["createdAt"]) {
+            is org.bson.Document -> (v["epochSeconds"] as? Number)?.toLong() ?: 0L
+            is java.util.Date -> v.time / 1000
+            else -> 0L
+        }
+
+        val duplicateIds = mongoTemplate.find(
+            Query(Criteria.where("deviceName").nin(listOf(null, ""))),
+            org.bson.Document::class.java,
+            collection
+        )
+            .groupBy { Triple(it["userId"], it.getString("deviceName"), it["deviceType"]) }
+            .values
+            .filter { it.size > 1 }
+            .flatMap { rows -> rows.sortedByDescending { createdAtSeconds(it) }.drop(1) }
+            .map { it["_id"] }
+
+        if (duplicateIds.isNotEmpty()) {
+            mongoTemplate.remove(Query(Criteria.where("_id").`in`(duplicateIds)), collection)
+        }
+
+        // 4) Drop the legacy fields from the surviving rows
+        mongoTemplate.updateMulti(
+            Query(),
+            Update().unset("deletedAt").unset("replacedByToken"),
+            collection
+        )
+
+        // 5) Index lifecycle: the old partial unique index makes no sense in the new model (its
+        // {'deletedAt': null} filter now matches every row). Managed programmatically here rather
+        // than via annotations so the drop/replace can't collide with
+        // spring.data.mongodb.auto-index-creation at startup.
+        val indexOps = mongoTemplate.indexOps(RefreshToken::class.java)
+        if (indexOps.indexInfo.any { it.name == "active_user_token" }) {
+            indexOps.dropIndex("active_user_token")
+        }
+        indexOps.createIndex(
+            Index().named("user_current_token")
+                .on("userId", Sort.Direction.ASC)
+                .on("hashedToken", Sort.Direction.ASC)
+        )
+        indexOps.createIndex(
+            Index().named("user_previous_token")
+                .on("userId", Sort.Direction.ASC)
+                .on("previousHashedToken", Sort.Direction.ASC)
+        )
+
+        if (linkedCount > 0 || removedRotated.deletedCount > 0 || duplicateIds.isNotEmpty()) {
+            AppLogger.success("Refresh token migration: linked $linkedCount replay chains, removed ${removedRotated.deletedCount} rotated rows and ${duplicateIds.size} duplicate device rows")
+        } else {
+            AppLogger.success("Refresh token migration check complete")
+        }
     }
 
     /**

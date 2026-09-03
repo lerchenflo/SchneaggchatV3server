@@ -235,6 +235,20 @@ class UserService(
     }
 
     fun getProfilePic(requestingUserId: ObjectId, userId: ObjectId): ByteArray? {
+        // Only allow viewing a profile pic when the requester is the owner, has a non-blocked
+        // friendship (ACCEPTED or a pending request) with them, or shares a group with them -
+        // otherwise any authenticated user could enumerate every user's picture.
+        val allowed = requestingUserId == userId ||
+                friendsLookupService.hasNonBlockedFriendship(requestingUserId, userId) ||
+                groupLookupService.getUserGroupIds(requestingUserId)
+                    .intersect(groupLookupService.getUserGroupIds(userId).toSet())
+                    .isNotEmpty()
+
+        requireOrLog(
+            allowed,
+            { "Unauthorized profile pic access - user: ${userLookupService.getUsername(requestingUserId)}, target: ${userLookupService.getUsername(userId)}: No non-blocked friendship and no common group" }
+        ) { "You are not allowed to view this profile picture" }
+
         return try {
             val imageName = imageManager.getProfilePicFileName(userId.toHexString(), false)
             imageManager.loadProfilePicFromFile(imageName)

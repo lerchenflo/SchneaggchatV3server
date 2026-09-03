@@ -77,8 +77,6 @@ services:
       SPRING_DATA_REDIS_HOST: schneaggchat_redis
       SPRING_DATA_REDIS_PORT: "6379"
 
-      PROMETHEUS_KEY: ${PROMETHEUS_KEY}
-
     networks:
       - spring-mongo-network
     volumes:
