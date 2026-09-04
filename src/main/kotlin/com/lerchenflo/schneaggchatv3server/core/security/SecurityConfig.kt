@@ -68,6 +68,16 @@ class SecurityConfig(
                     .requestMatchers("/donations.html")
                     .permitAll()
 
+                    //Admin panel shell - the HTML carries no data, everything is fetched afterwards
+                    //via /admin/api/** which stays authenticated + role-gated. A browser navigation
+                    //cannot carry an Authorization header, so the shell itself must be public.
+                    .requestMatchers("/admin.html")
+                    .permitAll()
+
+                    //Public donation totals for the donations page
+                    .requestMatchers("/public/donations")
+                    .permitAll()
+
                     //Favicon
                     .requestMatchers("/favicon.ico")
                     .permitAll()

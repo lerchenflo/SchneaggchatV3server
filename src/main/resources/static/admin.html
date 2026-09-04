@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Adminpanel - Schneaggchat V3</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+
+    <!-- Login -->
+    <section id="admin-login-view" class="admin-login-view">
+        <form id="admin-login-form" class="admin-login-card">
+            <div class="admin-login-logo">
+                <img src="/web_images/Icon.png" alt="Schneaggchat Icon" style="height:2.5em;">
+                <h1>Adminpanel</h1>
+            </div>
+            <div class="form-group">
+                <label for="admin-login-username"><i class="fa-solid fa-user"></i> Benutzername</label>
+                <input type="text" id="admin-login-username" autocomplete="username" required>
+            </div>
+            <div class="form-group">
+                <label for="admin-login-password"><i class="fa-solid fa-lock"></i> Passwort</label>
+                <input type="password" id="admin-login-password" autocomplete="current-password" required>
+            </div>
+            <p id="admin-login-error" class="admin-form-error"></p>
+            <button type="submit" class="primary-button">
+                <i class="fa-solid fa-right-to-bracket"></i> Anmelden
+            </button>
+        </form>
+    </section>
+
+    <!-- Access denied -->
+    <section id="admin-denied-view" class="admin-login-view hidden">
+        <div class="admin-login-card">
+            <div class="admin-login-logo">
+                <i class="fa-solid fa-ban" style="font-size: 2.5em; color: #ef4444;"></i>
+                <h1>Kein Zugriff</h1>
+            </div>
+            <p style="color: #94a3b8; margin-bottom: 1.5rem;">
+                Dieser Account hat keinen Zugriff auf das Adminpanel.
+            </p>
+            <button id="admin-denied-logout-button" type="button" class="secondary-button">
+                <i class="fa-solid fa-arrow-left"></i> Zurück zum Login
+            </button>
+        </div>
+    </section>
+
+    <!-- Panel -->
+    <div id="admin-panel-view" class="hidden">
+        <header class="admin-topbar">
+            <div class="admin-topbar-brand">
+                <img src="/web_images/Icon.png" alt="Schneaggchat Icon" style="height:1.5em;">
+                <span>Adminpanel</span>
+            </div>
+            <nav class="admin-tabs">
+                <button id="admin-tab-changelog" class="admin-tab active">
+                    <i class="fa-solid fa-map-location-dot"></i> Karten-Änderungen
+                </button>
+                <button id="admin-tab-donations" class="admin-tab">
+                    <i class="fa-solid fa-hand-holding-heart"></i> Spenden
+                </button>
+                <button id="admin-tab-connected" class="admin-tab">
+                    <i class="fa-solid fa-circle-nodes"></i> Verbundene Nutzer
+                    <span id="connected-users-count" class="admin-tab-badge">0</span>
+                </button>
+                <button id="admin-tab-logs" class="admin-tab">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Fehler-Logs
+                </button>
+            </nav>
+            <button id="admin-logout-button" type="button" class="secondary-button admin-logout-button">
+                <i class="fa-solid fa-right-from-bracket"></i> Abmelden
+            </button>
+        </header>
+
+        <main class="admin-main">
+
+            <!-- Map change log -->
+            <section id="admin-section-changelog" class="admin-section">
+                <div class="admin-section-header">
+                    <h2>Karten-Änderungen</h2>
+                    <select id="changelog-editor-filter" class="admin-select">
+                        <option value="">Alle Nutzer</option>
+                    </select>
+                </div>
+                <div class="admin-table-scroll">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Zeitpunkt</th>
+                                <th>Nutzer</th>
+                                <th>Eintrag</th>
+                                <th>Typ</th>
+                                <th>Änderungen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="changelog-rows"></tbody>
+                    </table>
+                </div>
+                <button id="changelog-load-more" type="button" class="secondary-button hidden admin-load-more">
+                    Mehr laden
+                </button>
+            </section>
+
+            <!-- Donations -->
+            <section id="admin-section-donations" class="admin-section hidden">
+                <div class="admin-section-header">
+                    <h2>Spenden</h2>
+                    <button id="donation-add-button" type="button" class="primary-button admin-inline-button">
+                        <i class="fa-solid fa-plus"></i> Neue Spende
+                    </button>
+                </div>
+                <div class="admin-table-scroll">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Datum</th>
+                                <th>Name</th>
+                                <th>Betrag</th>
+                                <th>Nachricht</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="donations-rows"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Connected users -->
+            <section id="admin-section-connected" class="admin-section hidden">
+                <div class="admin-section-header">
+                    <h2>Verbundene Nutzer</h2>
+                </div>
+                <div class="admin-table-scroll">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Benutzername</th>
+                                <th>Sitzungen</th>
+                                <th>Online seit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="connected-users-rows"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Error / event logs -->
+            <section id="admin-section-logs" class="admin-section hidden">
+                <div class="admin-section-header">
+                    <h2>Server-Logs</h2>
+                    <select id="logs-type-filter" class="admin-select">
+                        <option value="EXCEPTION_THROWN">EXCEPTION_THROWN</option>
+                    </select>
+                </div>
+                <div class="admin-table-scroll">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Zeitpunkt</th>
+                                <th>Typ</th>
+                                <th>Nutzer</th>
+                                <th>Nachricht</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-rows"></tbody>
+                    </table>
+                </div>
+                <button id="logs-load-more" type="button" class="secondary-button hidden admin-load-more">
+                    Mehr laden
+                </button>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Donation add/edit modal -->
+    <div id="donation-form-modal" class="admin-modal-overlay hidden">
+        <form id="donation-form" class="admin-modal-card">
+            <h3 id="donation-form-title">Neue Spende</h3>
+            <div class="form-group">
+                <label for="donation-form-name"><i class="fa-solid fa-user"></i> Name</label>
+                <input type="text" id="donation-form-name" maxlength="100" required>
+            </div>
+            <div class="form-group">
+                <label for="donation-form-amount"><i class="fa-solid fa-euro-sign"></i> Betrag (EUR)</label>
+                <input type="number" id="donation-form-amount" step="0.01" min="0.01" required>
+            </div>
+            <div class="form-group">
+                <label for="donation-form-date"><i class="fa-solid fa-calendar"></i> Datum</label>
+                <input type="date" id="donation-form-date" required>
+            </div>
+            <div class="form-group">
+                <label for="donation-form-message"><i class="fa-solid fa-comment"></i> Nachricht (optional)</label>
+                <input type="text" id="donation-form-message" maxlength="500">
+            </div>
+            <p id="donation-form-error" class="admin-form-error"></p>
+            <div class="admin-modal-actions">
+                <button type="button" id="donation-form-cancel" class="secondary-button">Abbrechen</button>
+                <button type="submit" class="primary-button">Speichern</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="/js/admin.js"></script>
+</body>
+
+</html>

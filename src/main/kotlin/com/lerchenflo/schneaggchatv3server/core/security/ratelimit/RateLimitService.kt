@@ -6,7 +6,7 @@ import io.github.bucket4j.ConsumptionProbe
 import io.github.bucket4j.distributed.proxy.ProxyManager
 import org.springframework.stereotype.Service
 
-enum class RateLimitTier { IP, USER, AUTH }
+enum class RateLimitTier { IP, USER, AUTH, AUTH_USER }
 
 @Service
 class RateLimitService(
@@ -18,11 +18,18 @@ class RateLimitService(
             .build(key) { buildConfig(tier) }
             .tryConsumeAndReturnRemaining(1)
 
+    /** Reads a bucket without consuming from it - for limits that are only charged on failure. */
+    fun availableTokens(key: String, tier: RateLimitTier): Long =
+        proxyManager.builder()
+            .build(key) { buildConfig(tier) }
+            .availableTokens
+
     private fun buildConfig(tier: RateLimitTier): BucketConfiguration {
         val tc = when (tier) {
             RateLimitTier.IP -> properties.ip
             RateLimitTier.USER -> properties.user
             RateLimitTier.AUTH -> properties.auth
+            RateLimitTier.AUTH_USER -> properties.authUser
         }
         return BucketConfiguration.builder()
             .addLimit(

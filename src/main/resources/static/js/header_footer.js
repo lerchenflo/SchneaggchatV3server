@@ -123,6 +123,10 @@ async function applyLanguage(lang) {
     const map = await loadTranslations(lang);
     window.__schneaggchatI18n = map;
     applyTranslations(map);
+
+    // Lets pages with server-rendered content (e.g. donations, which formats dates per locale)
+    // re-render themselves whenever the language changes, including on initial page load.
+    document.dispatchEvent(new CustomEvent('schneaggchat:languagechanged', { detail: { lang } }));
 }
 
 // Only called when the visitor actively picks a language (lang-bar button),

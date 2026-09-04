@@ -8,10 +8,13 @@ import com.lerchenflo.schneaggchatv3server.repository.LogRepository
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryRepository
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
+import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
 import org.springframework.data.annotation.TypeAlias
+import org.springframework.data.domain.PageRequest
 import org.springframework.data.mongodb.core.index.CompoundIndex
+import org.springframework.data.mongodb.core.index.CompoundIndexes
 import org.springframework.data.mongodb.core.mapping.Document
 import org.springframework.stereotype.Service
 import kotlin.time.Clock
@@ -28,6 +31,7 @@ enum class LogType {
     FIREBASE_TOKEN_REGISTERED,
     APNS_TOKEN_REGISTERED,
     FRIEND_REQUEST_SENT,
+    LOGIN_FAILED,
     EXCEPTION_THROWN,
 
     //From other repos
@@ -53,13 +57,32 @@ enum class LogType {
 
 @TypeAlias("log")
 @Document("logs")
-@CompoundIndex(name = "logtype_userid_timestamp_idx", def = "{'logType': 1, 'userId': 1, 'timestamp': -1}")
+@CompoundIndexes(
+    CompoundIndex(name = "logtype_userid_timestamp_idx", def = "{'logType': 1, 'userId': 1, 'timestamp': -1}"),
+    // Backs the admin panel's unfiltered "all logs" view.
+    CompoundIndex(name = "timestamp_idx", def = "{'timestamp': -1}"),
+)
 data class Log(
     @Id val id: ObjectId = ObjectId.get(),
     val userId: ObjectId?,
     val logType: LogType,
     val message : String? = null,
     val timestamp: Instant = Clock.System.now(),
+)
+
+/** One row of the admin "error / event logs" view. */
+data class LogEntryResponse(
+    val id: String,
+    val userId: String?,
+    val username: String?,
+    val logType: LogType,
+    val message: String?,
+    val timestamp: Long,
+)
+
+data class LogPage(
+    val entries: List<LogEntryResponse>,
+    val moreEntries: Boolean,
 )
 
 @Service
@@ -69,6 +92,7 @@ class LoggingService(
     private val userRepository: UserRepository,
     private val mapEntryRepository: MapEntryRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
+    private val userLookupService: UserLookupService,
 
     ) {
 
@@ -106,6 +130,34 @@ class LoggingService(
 
     fun getLastLogByLogtype(logType: LogType, userId: ObjectId?): Log? {
         return logRepository.findFirstByLogTypeAndUserIdOrderByTimestampDesc(logType, userId)
+    }
+
+    /** Newest-first, optionally filtered to one [LogType]. Powers the admin "logs" tab. */
+    fun getLogs(logType: LogType?, page: Int, pageSize: Int): LogPage {
+        val pageable = PageRequest.of(page, pageSize)
+        val result = if (logType != null) {
+            logRepository.findByLogTypeOrderByTimestampDesc(logType, pageable)
+        } else {
+            logRepository.findAllByOrderByTimestampDesc(pageable)
+        }
+
+        // One batched lookup for the whole page instead of one per row.
+        val usernames = userLookupService
+            .findAllById(result.content.mapNotNull { it.userId }.distinct())
+            .associate { it.id to it.username }
+
+        val entries = result.content.map { entry ->
+            LogEntryResponse(
+                id = entry.id.toHexString(),
+                userId = entry.userId?.toHexString(),
+                username = entry.userId?.let { usernames[it] },
+                logType = entry.logType,
+                message = entry.message,
+                timestamp = entry.timestamp.toEpochMilliseconds(),
+            )
+        }
+
+        return LogPage(entries = entries, moreEntries = result.hasNext())
     }
 
     /**

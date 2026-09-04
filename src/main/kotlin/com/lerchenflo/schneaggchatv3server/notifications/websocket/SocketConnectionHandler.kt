@@ -1,8 +1,10 @@
 package com.lerchenflo.schneaggchatv3server.notifications.websocket
 
+import com.lerchenflo.schneaggchatv3server.admin.AdminEventService
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.connectiontimelogger.ConnectionTimeLogger
+import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.ConnectedUser
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnection
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
@@ -32,6 +34,8 @@ class SocketConnectionHandler(
     @Lazy private val userLocationService: UserLocationService,
     // @Lazy breaks the cycle: NotificationService -> SocketConnectionHandler.
     @Lazy private val notificationService: NotificationService,
+    // @Lazy breaks the cycle: AdminEventService -> SocketConnectionHandler (for the initial snapshot on registration).
+    @Lazy private val adminEventService: AdminEventService,
 ): TextWebSocketHandler() {
 
     var connections : CopyOnWriteArrayList<SocketConnection> = CopyOnWriteArrayList()
@@ -40,6 +44,11 @@ class SocketConnectionHandler(
     fun isConnected(userId: ObjectId) : Boolean {
         return connections.find { it.userId == userId } != null
     }
+
+    /** Connected users aggregated across their (possibly multiple) sessions. For the admin panel. */
+    fun getConnectedUsers(): List<ConnectedUser> =
+        connections.groupBy { it.userId }
+            .map { (userId, sessions) -> ConnectedUser(userId, sessions.size, sessions.minOf { it.startedAt }) }
 
     fun broadcast(message: SocketConnectionMessage, excludeUserId: ObjectId?) {
         val json = Json.mapper.writeValueAsString(message)
@@ -146,6 +155,8 @@ class SocketConnectionHandler(
         if (wasOffline) {
             notificationService.notifyFriendOnlineStatusChange(userId, online = true)
         }
+
+        adminEventService.publishConnectedUsers()
     }
 
     override fun afterConnectionClosed(session: WebSocketSession, status: CloseStatus) {
@@ -183,7 +194,7 @@ class SocketConnectionHandler(
             }
         }
 
-
+        adminEventService.publishConnectedUsers()
 
         //println("Socket connection closed: $status. Remaining connections: ${connections.size}")
 

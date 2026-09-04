@@ -31,7 +31,8 @@ class AuthController(
     enum class DEVICETYPE {
         ANDROID,
         IOS,
-        DESKTOP;
+        DESKTOP,
+        WEB; // the admin panel logging in from a browser
     }
 
     data class LoginRequest(
@@ -120,6 +121,7 @@ class AuthController(
             password = loginRequest.password,
             deviceName = loginRequest.deviceName,
             devicetype = loginRequest.deviceType,
+            ip = ip,
         )
     }
 

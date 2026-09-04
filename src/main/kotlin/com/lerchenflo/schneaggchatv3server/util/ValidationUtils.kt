@@ -388,4 +388,22 @@ object ValidationUtils {
         if (altitude.isNaN() || altitude.isInfinite()) return false
         return altitude in -500.0..9000.0
     }
+
+    /** Admin-entered donor name shown on the public donations page. */
+    fun validateDonationName(name: String): Boolean {
+        if (name.isBlank()) return false
+        if (name.length > 100) return false
+        return true
+    }
+
+    /** Optional donor message shown on the public donations page. */
+    fun validateDonationMessage(message: String?): Boolean {
+        if (message == null) return true
+        return message.length <= 500
+    }
+
+    /** Donation amount in cents. Must be positive and below an obviously-mistyped upper bound (10,000 EUR). */
+    fun validateDonationAmount(amountCents: Long): Boolean {
+        return amountCents in 1..1_000_000
+    }
 }

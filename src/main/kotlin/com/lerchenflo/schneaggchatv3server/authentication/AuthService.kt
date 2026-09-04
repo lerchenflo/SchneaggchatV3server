@@ -5,6 +5,9 @@ package com.lerchenflo.schneaggchatv3server.authentication
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
+import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitProperties
+import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitService
+import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitTier
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.PersonalUserSettings
@@ -37,6 +40,8 @@ class AuthService(
     private val refreshTokenRepository: RefreshTokenRepository,
     private val loggingService: LoggingService,
     private val imageManager: ImageManager,
+    private val rateLimitService: RateLimitService,
+    private val rateLimitProperties: RateLimitProperties,
 
     private val mongoTemplate: MongoTemplate,
 ) {
@@ -92,24 +97,25 @@ class AuthService(
         return userLookupService.save(user)
     }
 
-    fun login(username: String, password: String, deviceName: String, devicetype: AuthController.DEVICETYPE) : TokenPair {
+    fun login(username: String, password: String, deviceName: String, devicetype: AuthController.DEVICETYPE, ip: String? = null) : TokenPair {
 
-        //Does this user exist
-        val user = userLookupService.findByUsername(username) ?: run {
+        requireLoginAttemptsRemaining(username)
+
+        //A missing user and a wrong password are one path: both are a failed attempt against this
+        //username, and both must answer the same way so the caller can't enumerate accounts.
+        val user = userLookupService.findByUsername(username)
+        if (user == null || !hashEncoder.matches(password, user.hashedPassword)) {
+            recordFailedLogin(username, user?.id, ip)
             throw BadCredentialsException("Invalid credentials")
         }
 
+        //Valid credentials entered - log the login only now, otherwise every failed attempt against
+        //a real username would be counted as a successful login in stats and the admin log viewer.
         loggingService.log(
             userId = user.id,
             logType = LogType.USER_LOGIN
         )
 
-        //Does the password match
-        if (!hashEncoder.matches(password, user.hashedPassword)) {
-            throw BadCredentialsException("Invalid credentials")
-        }
-
-        //Valid credentials entered
         val newAccessToken = jwtService.generateAccessToken(user.id.toHexString())
         val newRefreshToken = jwtService.generateRefreshToken(user.id.toHexString())
 
@@ -139,6 +145,55 @@ class AuthService(
             accessToken = newAccessToken,
             refreshToken = newRefreshToken,
             encryptionKey = jwtService.getEncryptionKey()
+        )
+    }
+
+    private fun loginThrottleKey(username: String) = "rl:auth-user:${username.take(100)}"
+
+    /**
+     * Per-account login throttle. The IP tiers in RateLimitFilter can be spread across source
+     * addresses, so they alone don't stop a distributed password guessing run against one account -
+     * this bucket is keyed on the account being guessed instead.
+     *
+     * Only failed attempts are charged (see [recordFailedLogin]), so a user who knows their password
+     * is never throttled by their own logins. While an account is under a sustained attack its owner
+     * is locked out too, for at most one refill period - accepted, because the alternative is
+     * leaving the account guessable.
+     */
+    private fun requireLoginAttemptsRemaining(username: String) {
+        if (!rateLimitProperties.enabled) return
+
+        val remaining = try {
+            rateLimitService.availableTokens(loginThrottleKey(username), RateLimitTier.AUTH_USER)
+        } catch (e: Exception) {
+            //Fail closed: without a working limiter there is nothing bounding password guesses.
+            AppLogger.warn("Login throttle unavailable, rejecting login: ${e.message}")
+            throw ResponseStatusException(HttpStatusCode.valueOf(503), "Login temporarily unavailable")
+        }
+
+        if (remaining <= 0) {
+            throw ResponseStatusException(
+                HttpStatusCode.valueOf(429),
+                "Too many failed login attempts for this account. Please try again later."
+            )
+        }
+    }
+
+    private fun recordFailedLogin(username: String, userId: ObjectId?, ip: String?) {
+        if (rateLimitProperties.enabled) {
+            try {
+                rateLimitService.tryConsume(loginThrottleKey(username), RateLimitTier.AUTH_USER)
+            } catch (e: Exception) {
+                AppLogger.warn("Could not record failed login attempt: ${e.message}")
+            }
+        }
+
+        //userId is null when the username doesn't exist - the row is still worth keeping, it is what
+        //makes a guessing run visible in the admin log viewer.
+        loggingService.log(
+            userId = userId,
+            logType = LogType.LOGIN_FAILED,
+            message = "username=${username.take(100)}${if (ip != null) " | ip=$ip" else ""}",
         )
     }
 

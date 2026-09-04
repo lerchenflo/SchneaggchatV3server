@@ -4,17 +4,20 @@ package com.lerchenflo.schneaggchatv3server.core
 
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
+import com.lerchenflo.schneaggchatv3server.donations.model.Donation
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
+import com.lerchenflo.schneaggchatv3server.repository.DonationRepository
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.SchneaggmapService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.PersonalUserSettings
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
+import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRole
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.SyncCollection
 import com.lerchenflo.schneaggchatv3server.util.VersionCounterService
@@ -59,6 +62,8 @@ class MainController(
 
     private val versionCounterService: VersionCounterService,
 
+    private val donationRepository: DonationRepository,
+
     @Value("\${apns.debug}") private val debug: Boolean,
 
     ){
@@ -82,7 +87,9 @@ class MainController(
         migrateMapAttributeKeys()
         migrateGroupDeletedFlag()
         migrateDetachEventsFromDeletedGroups()
+        migrateUserRole()
         migrateRefreshTokenChains()
+        migrateDonations()
 
         if (debug) {
             //Create test account for google play & Apple
@@ -363,6 +370,67 @@ class MainController(
         } else {
             AppLogger.success("Migration check: All groups already have a deleted field")
         }
+    }
+
+    /**
+     * `User.role` is a new field powering the admin panel. Documents written before it existed have
+     * no `role` at all, and Mongo does not match a missing field against a value, so a role query
+     * would silently skip them. Backfilled here to USER.
+     *
+     * This migration deliberately never grants ADMIN - it only fills in the default. Usernames are
+     * mutable (/users/changeusername), so promoting by username would be unsafe; admin access is
+     * granted by hand directly in MongoDB (`db.users.updateOne({username:"..."}, {$set:{role:"ADMIN"}})`)
+     * and survives every future run of this migration because it only touches documents missing the field.
+     */
+    fun migrateUserRole() {
+        AppLogger.info("Running user role migration...")
+
+        val query = Query(Criteria.where("role").exists(false))
+
+        val result = mongoTemplate.updateMulti(
+            query,
+            Update().set("role", UserRole.USER.name),
+            User::class.java
+        )
+
+        if (result.modifiedCount > 0) {
+            AppLogger.success("Migration completed: Set role=USER on ${result.modifiedCount} users")
+        } else {
+            AppLogger.success("Migration check: All users already have a role field")
+        }
+    }
+
+    /**
+     * One-time import of the donations that used to be hand-edited into `donations-data.js`, now
+     * that donations live in the `donations` collection and are managed from the admin panel.
+     * Guarded by a count check so it never re-inserts rows an admin has since deleted.
+     */
+    fun migrateDonations() {
+        AppLogger.info("Running donations import migration...")
+
+        if (donationRepository.count() > 0) {
+            AppLogger.success("Migration check: donations collection already populated")
+            return
+        }
+
+        fun vienna(year: Int, month: Int, day: Int) =
+            java.time.LocalDate.of(year, month, day)
+                .atStartOfDay(java.time.ZoneId.of("Europe/Vienna"))
+                .toInstant()
+                .toEpochMilli()
+                .let { kotlin.time.Instant.fromEpochMilliseconds(it) }
+
+        val now = Clock.System.now()
+        val legacyDonations = listOf(
+            Donation(name = "Petra", amountCents = 5000, donatedAt = vienna(2026, 1, 27), message = "Gratuliere", createdAt = now, updatedAt = now),
+            Donation(name = "Jonny", amountCents = 500, donatedAt = vienna(2026, 1, 14), message = "Liebe Grüße", createdAt = now, updatedAt = now),
+            Donation(name = "Daffith", amountCents = 1000, donatedAt = vienna(2025, 12, 24), message = "Weihnachtsspende", createdAt = now, updatedAt = now),
+            Donation(name = "Herr Ess", amountCents = 2000, donatedAt = vienna(2025, 10, 14), message = "Schneaggchat", createdAt = now, updatedAt = now),
+            Donation(name = "Norbert Konrad", amountCents = 2000, donatedAt = vienna(2025, 5, 28), message = "Dra bliba buaba...", createdAt = now, updatedAt = now),
+        )
+
+        donationRepository.saveAll(legacyDonations)
+        AppLogger.success("Migration completed: Imported ${legacyDonations.size} legacy donations")
     }
 
     /**

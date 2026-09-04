@@ -88,7 +88,7 @@ class GlobalExceptionHandler(
         // Log 500 errors with full stack trace
         if (e.statusCode.value() >= 500) {
             logger.error("Server error (${e.statusCode.value()}): ${e.message}", e)
-            logError(e, ip)
+            logError(e, request, ip)
         }
 
         return ResponseEntity
@@ -141,7 +141,7 @@ class GlobalExceptionHandler(
             logger.error("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", e)
             logWithUserInfo("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", ip)
 
-            logError(e, ip)
+            logError(e, request, ip)
         }
 
 
@@ -150,14 +150,17 @@ class GlobalExceptionHandler(
             .body("An unexpected error occurred. Please try again later.")
     }
 
-    private fun logError(e: Exception, ip: String? = null) {
+    private fun logError(e: Exception, request: HttpServletRequest, ip: String? = null) {
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String
 
+        // e.message is frequently null (many exceptions here carry no message), which used to leave
+        // the admin log viewer showing literal "null" rows. Exception class + request path make a
+        // message-less row still identifiable.
         loggingService.log(
             userId = if (requestingUserId != null) ObjectId(requestingUserId) else null,
             logType = LogType.EXCEPTION_THROWN,
-            message = "${e.message}${if (ip != null) " | ip=$ip" else ""}",
+            message = "${e.javaClass.simpleName}: ${e.message ?: "no message"} | path=${request.requestURI}${if (ip != null) " | ip=$ip" else ""}",
         )
     }
 

@@ -1,15 +1,7 @@
-// Donations Data Configuration
-// To add a new donation, simply add a new object to the 'donations' array below
-// Format:
-// {
-//     name: "Donor Name",
-//     amount: 25.00,
-//     date: "15. Dezember 2025",
-//     message: "Optional message from the donor" // Optional field
-// }
-// Note: Icons are randomly selected automatically!
+// Donations rendering. Donation data now lives in the database and is managed from the admin
+// panel (/admin.html) - this file only fetches and renders it.
 
-// Available icons for random selection
+// Available icons for random selection - purely decorative, not persisted.
 const iconOptions = [
     "fas fa-heart",
     "fas fa-star",
@@ -25,57 +17,8 @@ const iconOptions = [
     "fas fa-fire"
 ];
 
-const donationsConfig = {
-    // PayPal donation link
-    paypalLink: "https://paypal.me/florianlerchenmuelle",
-
-    // All donations (newest first)
-    // No need to specify icons - they're assigned randomly!
-    donations: [
-        {
-            name: "Petra",
-            amount: 50.00,
-            date: "27. Jänner 2026",
-            message: "Gratuliere"
-        },
-        {
-            name: "Jonny",
-            amount: 5.00,
-            date: "14. Jänner 2026",
-            message: "Liebe Grüße"
-        },
-        {
-            name: "Daffith",
-            amount: 10.00,
-            date: "24. Dezember 2025",
-            message: "Weihnachtsspende"
-        },
-        {
-            name: "Herr Ess",
-            amount: 20.00,
-            date: "14. Oktober 2025",
-            message: "Schneaggchat"
-        },
-        {
-            name: "Norbert Konrad",
-            amount: 20.00,
-            date: "28. Mai 2025",
-            message: "Dra bliba buaba..."
-        },
-
-
-
-    ]
-};
-
-// Get a random icon from the available options
 function getRandomIcon() {
     return iconOptions[Math.floor(Math.random() * iconOptions.length)];
-}
-
-// Calculate total donations automatically
-function calculateTotal() {
-    return donationsConfig.donations.reduce((sum, donation) => sum + donation.amount, 0);
 }
 
 // Animate value function (copied/adapted from stats.html logic)
@@ -93,47 +36,93 @@ function animateValue(element, target) {
     }, 20); // 20ms interval -> ~1 second total duration
 }
 
-// Render donations to the page
-function renderDonations() {
-    const donationsGrid = document.querySelector('.donations-grid');
-    const totalAmountElement = document.querySelector('.total-amount');
+// de-AT gives the same "27. Jänner 2026" wording the old hardcoded dates used.
+const DATE_LOCALE_TAGS = { de: 'de-DE', 'de-at': 'de-AT', en: 'en-GB' };
 
-    // Clear existing content
-    donationsGrid.innerHTML = '';
-
-    // Render each donation
-    donationsConfig.donations.forEach(donation => {
-        const donationCard = document.createElement('div');
-        donationCard.className = 'donation-card';
-
-        // Use random icon
-        const randomIcon = getRandomIcon();
-
-        donationCard.innerHTML = `
-            <div class="donation-icon">
-                <i class="${randomIcon}"></i>
-            </div>
-            <h4 class="donation-name">${donation.name}</h4>
-            <p class="donation-amount">€0.00</p>
-            <p class="donation-date">${donation.date}</p>
-            ${donation.message ? `<p class="donation-message">"${donation.message}"</p>` : ''}
-        `;
-
-        donationsGrid.appendChild(donationCard);
-
-        // Animate the individual donation amount
-        const amountElement = donationCard.querySelector('.donation-amount');
-        animateValue(amountElement, donation.amount);
-    });
-
-    // Update and animate total
-    const total = calculateTotal();
-    animateValue(totalAmountElement, total);
+function formatDonationDate(epochMillis, lang) {
+    const tag = DATE_LOCALE_TAGS[lang] || 'de-DE';
+    return new Intl.DateTimeFormat(tag, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(epochMillis));
 }
 
-// Initialize when DOM is ready
+let latestDonations = null;
+let latestTotalCents = 0;
+
+// Render donations to the page. Donor name/message come from the database (admin-entered), so they
+// are set via textContent, never innerHTML - the only markup built as a string here is the static
+// icon element, which never contains donor-supplied data.
+function renderDonations(lang) {
+    const donationsGrid = document.querySelector('.donations-grid');
+    const totalAmountElement = document.querySelector('.total-amount');
+    if (!donationsGrid || latestDonations === null) return;
+
+    donationsGrid.innerHTML = '';
+
+    latestDonations.forEach((donation) => {
+        const card = document.createElement('div');
+        card.className = 'donation-card';
+
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'donation-icon';
+        iconWrap.innerHTML = `<i class="${getRandomIcon()}"></i>`; // static, no donor data
+        card.appendChild(iconWrap);
+
+        const nameEl = document.createElement('h4');
+        nameEl.className = 'donation-name';
+        nameEl.textContent = donation.name;
+        card.appendChild(nameEl);
+
+        const amountEl = document.createElement('p');
+        amountEl.className = 'donation-amount';
+        amountEl.textContent = '€0.00';
+        card.appendChild(amountEl);
+
+        const dateEl = document.createElement('p');
+        dateEl.className = 'donation-date';
+        dateEl.textContent = formatDonationDate(donation.donatedAt, lang);
+        card.appendChild(dateEl);
+
+        if (donation.message) {
+            const messageEl = document.createElement('p');
+            messageEl.className = 'donation-message';
+            messageEl.textContent = `"${donation.message}"`;
+            card.appendChild(messageEl);
+        }
+
+        donationsGrid.appendChild(card);
+        animateValue(amountEl, donation.amount);
+    });
+
+    if (totalAmountElement) {
+        animateValue(totalAmountElement, latestTotalCents / 100);
+    }
+}
+
+async function loadAndRenderDonations() {
+    try {
+        const response = await fetch('/public/donations');
+        if (!response.ok) return;
+
+        const data = await response.json();
+        latestDonations = data.donations.map((d) => ({
+            name: d.name,
+            amount: d.amountCents / 100,
+            donatedAt: d.donatedAt,
+            message: d.message,
+        }));
+        latestTotalCents = data.totalCents;
+
+        renderDonations(getCurrentLang());
+    } catch (e) {
+        console.warn('Could not load donations', e);
+    }
+}
+
+document.addEventListener('schneaggchat:languagechanged', (event) => {
+    renderDonations(event.detail.lang);
+});
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', renderDonations);
+    document.addEventListener('DOMContentLoaded', loadAndRenderDonations);
 } else {
-    renderDonations();
+    loadAndRenderDonations();
 }
