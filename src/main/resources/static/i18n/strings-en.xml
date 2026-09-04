@@ -13,10 +13,14 @@
     <string name="compare_ads_own">No ads, ever</string>
     <string name="compare_ads_snapchat">Ads everywhere</string>
     <string name="compare_ads_whatsapp">Ads in the Updates tab</string>
+    <string name="compare_ai_own">No forced AI chat in your inbox</string>
+    <string name="compare_ai_snapchat">"My AI" pinned at the top, can't be removed</string>
+    <string name="compare_ai_whatsapp">Meta AI shows up uninvited in the chat screen</string>
     <string name="compare_alarm_own">Rings even on silent (Android)</string>
     <string name="compare_arfilters_own">Not available yet</string>
     <string name="compare_arfilters_snapchat">Real-time camera effects, core feature</string>
     <string name="compare_birthdays_own">Display + automatic reminder</string>
+    <string name="compare_birthdays_snapchat">Only a hint on the day itself, no advance notice</string>
     <string name="compare_calls_own">Optional phone number, call runs through your phone</string>
     <string name="compare_calls_snapchat">Voice &amp; video calls in the app</string>
     <string name="compare_calls_whatsapp">Voice &amp; video calls in the app</string>
@@ -50,6 +54,7 @@
     <string name="compare_reactions_snapchat">Fixed emoji selection only</string>
     <string name="compare_reactions_whatsapp">Fixed emoji selection only</string>
     <string name="compare_row_ads">Ads</string>
+    <string name="compare_row_ai">AI assistant</string>
     <string name="compare_row_alarm">Alarm feature</string>
     <string name="compare_row_arfilters">AR filters &amp; lenses</string>
     <string name="compare_row_birthdays">Birthdays</string>

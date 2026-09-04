@@ -13,10 +13,14 @@
     <string name="compare_ads_own">Keine Werbung, nie</string>
     <string name="compare_ads_snapchat">Werbung überall</string>
     <string name="compare_ads_whatsapp">Werbung im Updates-Tab</string>
+    <string name="compare_ai_own">Kein aufgezwungener KI-Chat im Postfach</string>
+    <string name="compare_ai_snapchat">"Mein KI" oben angepinnt, nicht entfernbar</string>
+    <string name="compare_ai_whatsapp">Meta AI ungefragt im Chat-Bildschirm</string>
     <string name="compare_alarm_own">Klingelt auch auf lautlos (Android)</string>
     <string name="compare_arfilters_own">Noch nicht verfügbar</string>
     <string name="compare_arfilters_snapchat">Kamera-Effekte in Echtzeit, Kernfeature</string>
     <string name="compare_birthdays_own">Anzeige + automatische Benachrichtigung</string>
+    <string name="compare_birthdays_snapchat">Nur Hinweis am Tag selbst, keine Vorankündigung</string>
     <string name="compare_calls_own">Optionale Rufnummer, Anruf läuft über dein Telefon</string>
     <string name="compare_calls_snapchat">Sprach- &amp; Videoanrufe in der App</string>
     <string name="compare_calls_whatsapp">Sprach- &amp; Videoanrufe in der App</string>
@@ -50,6 +54,7 @@
     <string name="compare_reactions_snapchat">Nur feste Emoji-Auswahl</string>
     <string name="compare_reactions_whatsapp">Nur feste Emoji-Auswahl</string>
     <string name="compare_row_ads">Werbung</string>
+    <string name="compare_row_ai">KI-Assistent</string>
     <string name="compare_row_alarm">Weckerfeature</string>
     <string name="compare_row_arfilters">AR-Filter &amp; Linsen</string>
     <string name="compare_row_birthdays">Geburtstage</string>

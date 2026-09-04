@@ -2103,7 +2103,7 @@ header.scrolled {
     z-index: 2;
     background: #101a10;
     text-align: left;
-    min-width: 11rem;
+    min-width: 8rem;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -2112,7 +2112,7 @@ header.scrolled {
 }
 
 .compare-feature {
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-weight: 600;
 }
 
@@ -2184,8 +2184,8 @@ header.scrolled {
     }
 
     .compare-feature {
-        min-width: 8.5rem;
-        font-size: 0.9rem;
+        min-width: 7rem;
+        font-size: 0.8rem;
     }
 
     .cmp-note {
@@ -2194,6 +2194,20 @@ header.scrolled {
 }
 
 @media (max-width: 480px) {
+    .compare-table {
+        min-width: 560px;
+    }
+
+    .compare-table th,
+    .compare-table td {
+        padding: 0.6rem 0.5rem;
+    }
+
+    .compare-feature {
+        min-width: 5rem;
+        font-size: 0.72rem;
+    }
+
     .compare-feature i {
         display: none;
     }
@@ -2203,5 +2217,24 @@ header.scrolled {
         height: 1.5rem;
         width: 1.5rem;
         font-size: 1.4rem;
+    }
+
+    .compare-app {
+        font-size: 0.8rem;
+    }
+
+    .compare-pill {
+        font-size: 0.6rem;
+        padding: 0.2rem 0.5rem;
+    }
+
+    .cmp-yes,
+    .cmp-partial,
+    .cmp-no {
+        font-size: 1rem;
+    }
+
+    .cmp-note {
+        font-size: 0.65rem;
     }
 }
