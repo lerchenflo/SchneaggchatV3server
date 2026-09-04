@@ -7,6 +7,8 @@ import com.lerchenflo.schneaggchatv3server.core.security.AdminGuard
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.donations.DonationService
 import com.lerchenflo.schneaggchatv3server.donations.model.AdminDonationResponse
+import com.lerchenflo.schneaggchatv3server.games.model.Difficulty
+import com.lerchenflo.schneaggchatv3server.games.model.Game
 import com.lerchenflo.schneaggchatv3server.schneaggmap.MapChangeLogEditor
 import com.lerchenflo.schneaggchatv3server.schneaggmap.MapChangeLogPage
 import com.lerchenflo.schneaggchatv3server.schneaggmap.MapEntryVersionService
@@ -34,6 +36,9 @@ class AdminController(
     private val donationService: DonationService,
     private val loggingService: LoggingService,
     private val adminEventService: AdminEventService,
+    private val adminScoreService: AdminScoreService,
+    private val adminUserService: AdminUserService,
+    private val friendsTreeService: FriendsTreeService,
 ) {
 
     // ─── Map change log ─────────────────────────────────────────────────────
@@ -161,5 +166,88 @@ class AdminController(
     fun getLogTypes(): List<String> {
         adminGuard.requireAdmin()
         return LogType.entries.map { it.name }
+    }
+
+    // ─── Game scores ─────────────────────────────────────────────────────────
+
+    data class ScoreUpdateRequest(
+        val score: Long,
+        val timeMillis: Long,
+    )
+
+    @GetMapping("/scores")
+    fun getScores(
+        @RequestParam(required = false) game: String?,
+        @RequestParam(required = false) difficulty: String?,
+        @RequestParam(required = false) userId: String?,
+        @RequestParam(defaultValue = "DATE") sort: String,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "50") pageSize: Int,
+    ): AdminScorePage {
+        adminGuard.requireAdmin()
+        require(ValidationUtils.validatePaginationPage(page)) { "Invalid page number" }
+        require(ValidationUtils.validatePaginationPageSize(pageSize)) { "Invalid page size" }
+
+        val parsedGame = game?.takeIf { it.isNotBlank() }?.let {
+            Game.fromId(it) ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown game: $it")
+        }
+        val parsedDifficulty = difficulty?.takeIf { it.isNotBlank() }?.let {
+            Difficulty.fromId(it) ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown difficulty: $it")
+        }
+        val parsedUserId = userId?.takeIf { it.isNotBlank() }?.let {
+            require(ValidationUtils.validateObjectId(it)) { "Invalid user id" }
+            ObjectId(it)
+        }
+        val parsedSort = runCatching { ScoreSort.valueOf(sort.uppercase()) }.getOrElse {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown sort: $sort")
+        }
+
+        return adminScoreService.getScores(parsedGame, parsedDifficulty, parsedUserId, parsedSort, page, pageSize)
+    }
+
+    @GetMapping("/scores/games")
+    fun getGames(): Map<String, List<String>> {
+        adminGuard.requireAdmin()
+        return mapOf(
+            "games" to Game.entries.map { it.name },
+            "difficulties" to Difficulty.entries.map { it.name },
+        )
+    }
+
+    @PutMapping("/scores/{id}")
+    fun updateScore(@PathVariable id: String, @RequestBody request: ScoreUpdateRequest): AdminScoreResponse {
+        adminGuard.requireAdmin()
+        require(ValidationUtils.validateObjectId(id)) { "Invalid score id" }
+        return adminScoreService.updateScore(ObjectId(id), request.score, request.timeMillis)
+    }
+
+    @DeleteMapping("/scores/{id}")
+    fun deleteScore(@PathVariable id: String) {
+        adminGuard.requireAdmin()
+        require(ValidationUtils.validateObjectId(id)) { "Invalid score id" }
+        adminScoreService.deleteScore(ObjectId(id))
+    }
+
+    // ─── Users ───────────────────────────────────────────────────────────────
+
+    @GetMapping("/users")
+    fun getUsers(): List<AdminUserResponse> {
+        adminGuard.requireAdmin()
+        return adminUserService.listUsers()
+    }
+
+    @PostMapping("/users/{id}/logout")
+    fun forceLogout(@PathVariable id: String) {
+        adminGuard.requireAdmin()
+        require(ValidationUtils.validateObjectId(id)) { "Invalid user id" }
+        adminUserService.forceLogout(ObjectId(id))
+    }
+
+    // ─── Friends tree ────────────────────────────────────────────────────────
+
+    @GetMapping("/friends-tree")
+    fun getFriendsTree(): FriendsTreeResponse {
+        adminGuard.requireAdmin()
+        return friendsTreeService.buildTree()
     }
 }

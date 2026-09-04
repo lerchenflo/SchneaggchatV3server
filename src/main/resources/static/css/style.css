@@ -2454,6 +2454,152 @@ header.scrolled {
     color: #ef4444;
 }
 
+.admin-badge-offline {
+    background: rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+}
+
+.admin-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    white-space: nowrap;
+}
+
+.admin-inline-button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.admin-filter-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.admin-hint {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    max-width: 70ch;
+    margin-bottom: 1.5rem;
+}
+
+/* Friends tree - classic top-down org chart built from nested <ul>/<li> with CSS connectors. */
+
+.admin-tree-scroll {
+    overflow-x: auto;
+    padding: 2rem 1rem;
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(19, 31, 19, 0.6);
+    backdrop-filter: blur(10px);
+}
+
+.admin-tree ul {
+    display: flex;
+    justify-content: center;
+    list-style: none;
+    padding-top: 1.5rem;
+    position: relative;
+}
+
+.admin-tree li {
+    list-style: none;
+    position: relative;
+    padding: 1.5rem 0.5rem 0;
+    text-align: center;
+}
+
+/* Vertical drop from a parent down to the horizontal connector above its children. */
+.admin-tree li::before,
+.admin-tree li::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 50%;
+    width: 50%;
+    height: 1.5rem;
+    border-top: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.admin-tree li::after {
+    right: auto;
+    left: 50%;
+    border-left: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+/* A lone child needs only the straight stem, not the horizontal bar. */
+.admin-tree li:only-child::before,
+.admin-tree li:only-child::after {
+    display: none;
+}
+
+.admin-tree li:only-child {
+    padding-top: 1.5rem;
+}
+
+/* Trim the outer half-bars so the connector spans only between actual siblings. */
+.admin-tree li:first-child::before,
+.admin-tree li:last-child::after {
+    border: 0 none;
+}
+
+.admin-tree li:last-child::before {
+    border-right: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Stem descending from a node that has children. */
+.admin-tree ul ul::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    border-left: 2px solid rgba(255, 255, 255, 0.15);
+    height: 1.5rem;
+}
+
+/* The outermost list has no parent above it. */
+.admin-tree > ul {
+    padding-top: 0;
+}
+
+.admin-tree > ul > li::before,
+.admin-tree > ul > li::after {
+    display: none;
+}
+
+.admin-tree-node {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.7rem 1.1rem;
+    background: var(--surface-elevated);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    white-space: nowrap;
+    transition: var(--transition);
+}
+
+.admin-tree-node:hover {
+    border-color: rgba(46, 119, 204, 0.5);
+    transform: translateY(-2px);
+}
+
+.admin-tree-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.admin-tree-meta {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: center;
+    color: #64748b;
+    font-size: 0.7rem;
+}
+
 .admin-changes-cell {
     min-width: 260px;
 }

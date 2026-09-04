@@ -50,6 +50,24 @@ class SocketConnectionHandler(
         connections.groupBy { it.userId }
             .map { (userId, sessions) -> ConnectedUser(userId, sessions.size, sessions.minOf { it.startedAt }) }
 
+    /**
+     * Force-closes every live socket of one user, for the admin panel's "log out everywhere".
+     * Only closes - [afterConnectionClosed] does the bookkeeping (removing the connection, writing
+     * the connection log, updating lastSeen, notifying friends) via the close callback.
+     *
+     * Note this ends the realtime channel only: the user's already-issued access token stays valid
+     * until it expires, since this server has no access-token revocation store.
+     */
+    fun disconnectUser(userId: ObjectId) {
+        connections.filter { it.userId == userId }.forEach { connection ->
+            try {
+                connection.session.close(CloseStatus.NORMAL)
+            } catch (e: Exception) {
+                AppLogger.error("Error force-closing socket for user $userId: ${e.message}")
+            }
+        }
+    }
+
     fun broadcast(message: SocketConnectionMessage, excludeUserId: ObjectId?) {
         val json = Json.mapper.writeValueAsString(message)
         for (connection in connections) {

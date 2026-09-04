@@ -49,4 +49,10 @@ interface RefreshTokenRepository: MongoRepository<RefreshToken, ObjectId> {
      */
     fun countByDeviceTypeIsNullAndExpiresAtAfter(time: Instant): Long
 
+    /**
+     * Every unexpired session row, for the admin user list's per-user device count - one query
+     * grouped in memory rather than a count query per listed user.
+     */
+    fun findByExpiresAtAfter(time: Instant): List<RefreshToken>
+
 }

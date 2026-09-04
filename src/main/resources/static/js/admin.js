@@ -113,7 +113,7 @@ function showPanelView() {
     document.getElementById('admin-denied-view').classList.add('hidden');
 }
 
-const TABS = ['changelog', 'donations', 'connected', 'logs'];
+const TABS = ['changelog', 'donations', 'connected', 'scores', 'users', 'tree', 'logs'];
 
 function switchTab(tab) {
     TABS.forEach((t) => {
@@ -124,6 +124,9 @@ function switchTab(tab) {
     if (tab === 'changelog' && !changelogState.loadedOnce) loadChangeLog(true);
     if (tab === 'donations' && !donationsState.loadedOnce) loadDonations();
     if (tab === 'connected' && !connectedUsersState.streamStarted) startConnectedUsersStream();
+    if (tab === 'scores' && !scoresState.loadedOnce) loadScores(true);
+    if (tab === 'users' && !usersState.loadedOnce) loadUsers();
+    if (tab === 'tree' && !treeState.loadedOnce) loadFriendsTree();
     if (tab === 'logs' && !logsState.loadedOnce) loadLogs(true);
 }
 
@@ -416,6 +419,252 @@ async function connectStream() {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Highscores                                                             */
+/* ---------------------------------------------------------------------- */
+
+const scoresState = { page: 0, game: '', difficulty: '', sort: 'DATE', loadedOnce: false, editingId: null };
+
+function formatDuration(millis) {
+    if (!millis) return '—';
+    const totalSeconds = Math.floor(millis / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return minutes > 0 ? `${minutes}:${String(seconds).padStart(2, '0')} min` : `${(millis / 1000).toFixed(2)} s`;
+}
+
+async function loadScoreFilters() {
+    const data = await adminFetchJson('/admin/api/scores/games');
+
+    const gameSelect = document.getElementById('scores-game-filter');
+    gameSelect.innerHTML = '<option value="">Alle Spiele</option>';
+    data.games.forEach((game) => {
+        const option = el('option', null, game);
+        option.value = game;
+        gameSelect.appendChild(option);
+    });
+
+    const difficultySelect = document.getElementById('scores-difficulty-filter');
+    difficultySelect.innerHTML = '<option value="">Alle Schwierigkeiten</option>';
+    data.difficulties.forEach((difficulty) => {
+        const option = el('option', null, difficulty);
+        option.value = difficulty;
+        difficultySelect.appendChild(option);
+    });
+}
+
+async function loadScores(reset) {
+    if (reset) {
+        scoresState.page = 0;
+        document.getElementById('scores-rows').innerHTML = '';
+    }
+
+    const params = new URLSearchParams({ sort: scoresState.sort, page: scoresState.page, pageSize: '50' });
+    if (scoresState.game) params.set('game', scoresState.game);
+    if (scoresState.difficulty) params.set('difficulty', scoresState.difficulty);
+
+    const pageData = await adminFetchJson(`/admin/api/scores?${params}`);
+    scoresState.loadedOnce = true;
+
+    const tbody = document.getElementById('scores-rows');
+    pageData.entries.forEach((entry) => {
+        const row = el('tr');
+        row.appendChild(el('td', null, entry.game));
+        row.appendChild(el('td', null, entry.difficulty));
+        row.appendChild(el('td', null, entry.username));
+        row.appendChild(el('td', null, String(entry.score)));
+        row.appendChild(el('td', null, formatDuration(entry.timeMillis)));
+        row.appendChild(el('td', null, formatDateTime(entry.createdAt)));
+
+        const actionsCell = el('td', 'admin-actions-cell');
+        const editButton = el('button', 'secondary-button admin-inline-button', 'Bearbeiten');
+        editButton.addEventListener('click', () => openScoreForm(entry));
+        actionsCell.appendChild(editButton);
+
+        const deleteButton = el('button', 'delete-button admin-inline-button', 'Löschen');
+        deleteButton.addEventListener('click', () => deleteScore(entry));
+        actionsCell.appendChild(deleteButton);
+        row.appendChild(actionsCell);
+
+        tbody.appendChild(row);
+    });
+
+    document.getElementById('scores-load-more').classList.toggle('hidden', !pageData.moreEntries);
+}
+
+function openScoreForm(entry) {
+    scoresState.editingId = entry.id;
+    document.getElementById('score-form-context').textContent =
+        `${entry.username} · ${entry.game} · ${entry.difficulty}`;
+    document.getElementById('score-form-score').value = entry.score;
+    document.getElementById('score-form-time').value = entry.timeMillis;
+    document.getElementById('score-form-error').textContent = '';
+    document.getElementById('score-form-modal').classList.remove('hidden');
+}
+
+function closeScoreForm() {
+    document.getElementById('score-form-modal').classList.add('hidden');
+}
+
+document.getElementById('score-form-cancel')?.addEventListener('click', closeScoreForm);
+
+document.getElementById('score-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errorEl = document.getElementById('score-form-error');
+    errorEl.textContent = '';
+
+    const score = parseInt(document.getElementById('score-form-score').value, 10);
+    const timeMillis = parseInt(document.getElementById('score-form-time').value, 10);
+
+    if (Number.isNaN(score) || score < 0 || Number.isNaN(timeMillis) || timeMillis < 0) {
+        errorEl.textContent = 'Punkte und Zeit müssen Zahlen ≥ 0 sein.';
+        return;
+    }
+
+    try {
+        await adminFetchJson(`/admin/api/scores/${scoresState.editingId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ score, timeMillis }),
+        });
+        closeScoreForm();
+        loadScores(true);
+    } catch (err) {
+        errorEl.textContent = err.message || 'Speichern fehlgeschlagen.';
+    }
+});
+
+async function deleteScore(entry) {
+    if (!confirm(`Highscore von ${entry.username} (${entry.game}, ${entry.score} Punkte) wirklich löschen?`)) return;
+    await adminFetchJson(`/admin/api/scores/${entry.id}`, { method: 'DELETE' });
+    loadScores(true);
+}
+
+document.getElementById('scores-game-filter')?.addEventListener('change', (e) => {
+    scoresState.game = e.target.value;
+    loadScores(true);
+});
+
+document.getElementById('scores-difficulty-filter')?.addEventListener('change', (e) => {
+    scoresState.difficulty = e.target.value;
+    loadScores(true);
+});
+
+document.getElementById('scores-sort')?.addEventListener('change', (e) => {
+    scoresState.sort = e.target.value;
+    loadScores(true);
+});
+
+document.getElementById('scores-load-more')?.addEventListener('click', () => {
+    scoresState.page += 1;
+    loadScores(false);
+});
+
+/* ---------------------------------------------------------------------- */
+/* Users                                                                  */
+/* ---------------------------------------------------------------------- */
+
+const usersState = { loadedOnce: false, all: [], search: '' };
+
+async function loadUsers() {
+    usersState.all = await adminFetchJson('/admin/api/users');
+    usersState.loadedOnce = true;
+    renderUsers();
+}
+
+function renderUsers() {
+    const tbody = document.getElementById('users-rows');
+    tbody.innerHTML = '';
+
+    const term = usersState.search.trim().toLowerCase();
+    const visible = term ? usersState.all.filter((u) => u.username.toLowerCase().includes(term)) : usersState.all;
+
+    visible.forEach((user) => {
+        const row = el('tr');
+
+        const nameCell = el('td', 'admin-name-cell');
+        nameCell.appendChild(el('span', null, user.username));
+        if (user.role === 'ADMIN') {
+            nameCell.appendChild(el('span', 'admin-badge admin-badge-update', 'Admin'));
+        }
+        row.appendChild(nameCell);
+
+        row.appendChild(el('td', null, formatDateTime(user.createdAt)));
+        row.appendChild(el('td', null, user.online ? '—' : formatDateTime(user.lastSeen)));
+        row.appendChild(el('td', null, String(user.activeDevices)));
+
+        const statusCell = el('td');
+        statusCell.appendChild(
+            el('span', `admin-badge ${user.online ? 'admin-badge-create' : 'admin-badge-offline'}`,
+                user.online ? 'Online' : 'Offline')
+        );
+        row.appendChild(statusCell);
+
+        const actionsCell = el('td', 'admin-actions-cell');
+        const logoutButton = el('button', 'delete-button admin-inline-button', 'Überall abmelden');
+        logoutButton.disabled = user.activeDevices === 0 && !user.online;
+        logoutButton.addEventListener('click', () => forceLogout(user));
+        actionsCell.appendChild(logoutButton);
+        row.appendChild(actionsCell);
+
+        tbody.appendChild(row);
+    });
+}
+
+async function forceLogout(user) {
+    if (!confirm(`${user.username} auf allen Geräten abmelden?\n\nAlle Sitzungen werden gelöscht und offene Verbindungen getrennt.`)) return;
+    await adminFetchJson(`/admin/api/users/${user.id}/logout`, { method: 'POST' });
+    loadUsers();
+}
+
+document.getElementById('users-search')?.addEventListener('input', (e) => {
+    usersState.search = e.target.value;
+    renderUsers();
+});
+
+/* ---------------------------------------------------------------------- */
+/* Friends tree                                                           */
+/* ---------------------------------------------------------------------- */
+
+const treeState = { loadedOnce: false };
+
+function buildTreeNode(node) {
+    const li = el('li');
+
+    const card = el('div', 'admin-tree-node');
+    card.appendChild(el('span', 'admin-tree-name', node.username));
+
+    const meta = el('div', 'admin-tree-meta');
+    meta.appendChild(el('span', null, `seit ${new Date(node.createdAt).toLocaleDateString('de-DE')}`));
+    meta.appendChild(el('span', null, `${node.friendCount} Freunde`));
+    card.appendChild(meta);
+
+    li.appendChild(card);
+
+    if (node.children.length > 0) {
+        const ul = el('ul');
+        node.children.forEach((child) => ul.appendChild(buildTreeNode(child)));
+        li.appendChild(ul);
+    }
+
+    return li;
+}
+
+async function loadFriendsTree() {
+    const tree = await adminFetchJson('/admin/api/friends-tree');
+    treeState.loadedOnce = true;
+
+    document.getElementById('tree-summary').textContent =
+        `${tree.totalUsers} Nutzer · ${tree.roots.length} Wurzel(n)`;
+
+    const container = document.getElementById('tree-container');
+    container.innerHTML = '';
+
+    const rootList = el('ul');
+    tree.roots.forEach((root) => rootList.appendChild(buildTreeNode(root)));
+    container.appendChild(rootList);
+}
+
+/* ---------------------------------------------------------------------- */
 /* Error / event logs                                                     */
 /* ---------------------------------------------------------------------- */
 
@@ -497,6 +746,7 @@ async function enterPanel() {
     try {
         await loadChangeLogEditors();
         await loadLogTypes();
+        await loadScoreFilters();
         showPanelView();
         switchTab('changelog');
     } catch (e) {
