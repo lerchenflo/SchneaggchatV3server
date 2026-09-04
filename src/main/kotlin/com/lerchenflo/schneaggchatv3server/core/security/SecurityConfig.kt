@@ -85,9 +85,6 @@ class SecurityConfig(
                     .requestMatchers("/i18n/**")
                     .permitAll()
 
-                    .requestMatchers("/actuator/**")
-                    .permitAll()
-
 
 
                     //Allow forward of all Errors
