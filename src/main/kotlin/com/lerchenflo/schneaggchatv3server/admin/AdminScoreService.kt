@@ -52,6 +52,7 @@ class AdminScoreService(
         difficulty: Difficulty?,
         userId: ObjectId?,
         sort: ScoreSort,
+        ascending: Boolean,
         page: Int,
         pageSize: Int,
     ): AdminScorePage {
@@ -81,22 +82,24 @@ class AdminScoreService(
             )
         }
 
-        val sorted = when (sort) {
-            ScoreSort.DATE -> responses.sortedByDescending { it.createdAt }
-            ScoreSort.GAME -> responses.sortedWith(
-                compareBy<AdminScoreResponse> { it.game.name }
-                    .thenBy { it.difficulty.ordinal }
-                    .thenByDescending { it.score }
-            )
-            ScoreSort.USER -> responses.sortedWith(
-                compareBy<AdminScoreResponse> { it.username.lowercase() }
-                    .thenBy { it.game.name }
-                    .thenByDescending { it.score }
-            )
-            ScoreSort.SCORE -> responses.sortedWith(
-                compareByDescending<AdminScoreResponse> { it.score }.thenBy { it.timeMillis }
-            )
+        // The primary key flips with the sort direction; the secondary keys stay fixed so each
+        // group (one game, one player) always reads best-first internally.
+        val primary: Comparator<AdminScoreResponse> = when (sort) {
+            ScoreSort.DATE -> compareBy { it.createdAt }
+            ScoreSort.GAME -> compareBy { it.game.name }
+            ScoreSort.USER -> compareBy { it.username.lowercase() }
+            ScoreSort.SCORE -> compareBy { it.score }
         }
+        val directed = if (ascending) primary else primary.reversed()
+
+        val sorted = responses.sortedWith(
+            when (sort) {
+                ScoreSort.DATE -> directed
+                ScoreSort.GAME -> directed.thenBy { it.difficulty.ordinal }.thenByDescending { it.score }
+                ScoreSort.USER -> directed.thenBy { it.game.name }.thenByDescending { it.score }
+                ScoreSort.SCORE -> directed.thenBy { it.timeMillis }
+            }
+        )
 
         val start = page * pageSize
         return AdminScorePage(

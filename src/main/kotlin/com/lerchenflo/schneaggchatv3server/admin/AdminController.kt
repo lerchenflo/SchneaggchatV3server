@@ -13,6 +13,7 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.MapChangeLogEditor
 import com.lerchenflo.schneaggchatv3server.schneaggmap.MapChangeLogPage
 import com.lerchenflo.schneaggchatv3server.schneaggmap.MapEntryVersionService
 import com.lerchenflo.schneaggchatv3server.util.LogPage
+import com.lerchenflo.schneaggchatv3server.util.LogSort
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
@@ -144,6 +145,8 @@ class AdminController(
     @GetMapping("/logs")
     fun getLogs(
         @RequestParam(defaultValue = "EXCEPTION_THROWN") logType: String,
+        @RequestParam(defaultValue = "DATE") sort: String,
+        @RequestParam(defaultValue = "false") ascending: Boolean,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "50") pageSize: Int,
     ): LogPage {
@@ -159,7 +162,11 @@ class AdminController(
             }
         }
 
-        return loggingService.getLogs(parsedLogType, page, pageSize)
+        val parsedSort = runCatching { LogSort.valueOf(sort.uppercase()) }.getOrElse {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown sort: $sort")
+        }
+
+        return loggingService.getLogs(parsedLogType, parsedSort, ascending, page, pageSize)
     }
 
     @GetMapping("/logs/types")
@@ -181,6 +188,7 @@ class AdminController(
         @RequestParam(required = false) difficulty: String?,
         @RequestParam(required = false) userId: String?,
         @RequestParam(defaultValue = "DATE") sort: String,
+        @RequestParam(defaultValue = "false") ascending: Boolean,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "50") pageSize: Int,
     ): AdminScorePage {
@@ -202,7 +210,7 @@ class AdminController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown sort: $sort")
         }
 
-        return adminScoreService.getScores(parsedGame, parsedDifficulty, parsedUserId, parsedSort, page, pageSize)
+        return adminScoreService.getScores(parsedGame, parsedDifficulty, parsedUserId, parsedSort, ascending, page, pageSize)
     }
 
     @GetMapping("/scores/games")

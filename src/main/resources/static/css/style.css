@@ -2349,6 +2349,14 @@ header.scrolled {
     border-radius: 50px;
 }
 
+/* Divides the read-only tabs from the ones that change data. */
+.admin-tab-separator {
+    width: 1px;
+    align-self: stretch;
+    margin: 0.2rem 0.5rem;
+    background: rgba(255, 255, 255, 0.12);
+}
+
 .admin-logout-button {
     flex: none;
     width: auto;
@@ -2466,11 +2474,37 @@ header.scrolled {
     white-space: nowrap;
 }
 
-.admin-inline-button:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+/* Sortable table headers */
+
+.admin-table th.admin-sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: var(--transition);
+}
+
+.admin-table th.admin-sortable:hover {
+    color: var(--light);
+}
+
+/* Neutral double-arrow until the column is the active sort, then a single direction arrow. */
+.admin-table th.admin-sortable::after {
+    content: '\f0dc';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    margin-left: 0.5rem;
+    font-size: 0.75em;
+    opacity: 0.3;
+}
+
+.admin-table th.admin-sortable.is-sorted::after {
+    content: '\f0d8';
+    opacity: 1;
+    color: var(--accent);
+}
+
+.admin-table th.admin-sortable.is-sorted.is-desc::after {
+    content: '\f0d7';
 }
 
 .admin-filter-row {
@@ -2486,29 +2520,91 @@ header.scrolled {
     margin-bottom: 1.5rem;
 }
 
-/* Friends tree - classic top-down org chart built from nested <ul>/<li> with CSS connectors. */
+/* Friends tree - classic top-down org chart built from nested <ul>/<li> with CSS connectors,
+   inside a pan/zoom viewport. The tree itself is scaled with a transform; #tree-canvas is sized to
+   the scaled dimensions so the viewport's native scrollbars match what is actually on screen. */
 
-.admin-tree-scroll {
-    overflow-x: auto;
-    padding: 2rem 1rem;
+.admin-zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.admin-zoom-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.admin-zoom-button:hover {
+    background: rgba(46, 119, 204, 0.2);
+    border-color: rgba(46, 119, 204, 0.4);
+}
+
+.admin-zoom-label {
+    min-width: 4rem;
+    text-align: center;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9rem;
+}
+
+.admin-tree-viewport {
+    position: relative;
+    height: 70vh;
+    min-height: 420px;
+    overflow: auto;
     border-radius: 15px;
     border: 1px solid rgba(255, 255, 255, 0.05);
     background: rgba(19, 31, 19, 0.6);
     backdrop-filter: blur(10px);
+    /* Native one-finger scrolling stays; two-finger pinch is handled in admin.js. */
+    touch-action: pan-x pan-y;
+    cursor: grab;
+    overscroll-behavior: contain;
+}
+
+.admin-tree-viewport.is-panning {
+    cursor: grabbing;
+}
+
+.admin-tree-canvas {
+    position: relative;
+}
+
+.admin-tree {
+    /* Absolutely positioned and max-content sized so its layout never depends on the canvas box -
+       the canvas is sized purely from JS to natural size x zoom, and would otherwise squeeze the
+       tree into wrapping at zoom levels below 100%. */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: max-content;
+    padding: 4rem 2rem;
+    transform-origin: 0 0;
 }
 
 .admin-tree ul {
     display: flex;
     justify-content: center;
     list-style: none;
-    padding-top: 1.5rem;
+    padding-top: 3rem;
     position: relative;
 }
 
 .admin-tree li {
     list-style: none;
     position: relative;
-    padding: 1.5rem 0.5rem 0;
+    padding: 3rem 1rem 0;
     text-align: center;
 }
 
@@ -2520,14 +2616,14 @@ header.scrolled {
     top: 0;
     right: 50%;
     width: 50%;
-    height: 1.5rem;
-    border-top: 2px solid rgba(255, 255, 255, 0.15);
+    height: 3rem;
+    border-top: 3px solid rgba(255, 255, 255, 0.15);
 }
 
 .admin-tree li::after {
     right: auto;
     left: 50%;
-    border-left: 2px solid rgba(255, 255, 255, 0.15);
+    border-left: 3px solid rgba(255, 255, 255, 0.15);
 }
 
 /* A lone child needs only the straight stem, not the horizontal bar. */
@@ -2537,7 +2633,7 @@ header.scrolled {
 }
 
 .admin-tree li:only-child {
-    padding-top: 1.5rem;
+    padding-top: 3rem;
 }
 
 /* Trim the outer half-bars so the connector spans only between actual siblings. */
@@ -2547,7 +2643,7 @@ header.scrolled {
 }
 
 .admin-tree li:last-child::before {
-    border-right: 2px solid rgba(255, 255, 255, 0.15);
+    border-right: 3px solid rgba(255, 255, 255, 0.15);
 }
 
 /* Stem descending from a node that has children. */
@@ -2556,8 +2652,8 @@ header.scrolled {
     position: absolute;
     top: 0;
     left: 50%;
-    border-left: 2px solid rgba(255, 255, 255, 0.15);
-    height: 1.5rem;
+    border-left: 3px solid rgba(255, 255, 255, 0.15);
+    height: 3rem;
 }
 
 /* The outermost list has no parent above it. */
@@ -2573,11 +2669,11 @@ header.scrolled {
 .admin-tree-node {
     display: inline-flex;
     flex-direction: column;
-    gap: 0.25rem;
-    padding: 0.7rem 1.1rem;
+    gap: 0.5rem;
+    padding: 1.4rem 2.2rem;
     background: var(--surface-elevated);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
     white-space: nowrap;
     transition: var(--transition);
 }
@@ -2587,17 +2683,48 @@ header.scrolled {
     transform: translateY(-2px);
 }
 
+/* Nobody invited this user AND they have descendants - they started a tree. */
+.admin-tree-node-root {
+    border-color: var(--primary);
+    background: linear-gradient(135deg, rgba(30, 216, 96, 0.18) 0%, rgba(22, 163, 74, 0.1) 100%);
+    box-shadow: 0 0 25px rgba(30, 216, 96, 0.25);
+}
+
+/* Nobody invited this user and they have no descendants either - an isolated account. */
+.admin-tree-node-lone {
+    border-style: dashed;
+    border-color: rgba(148, 163, 184, 0.5);
+}
+
+.admin-tree-root-badge {
+    align-self: center;
+    margin-top: 0.4rem;
+    padding: 0.25rem 0.9rem;
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+}
+
+.admin-tree-node-root .admin-tree-root-badge {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: var(--dark);
+}
+
 .admin-tree-name {
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 1.7rem;
 }
 
 .admin-tree-meta {
     display: flex;
-    gap: 0.6rem;
+    gap: 1.2rem;
     justify-content: center;
     color: #64748b;
-    font-size: 0.7rem;
+    font-size: 1.3rem;
 }
 
 .admin-changes-cell {
@@ -2621,17 +2748,58 @@ header.scrolled {
     word-break: break-word;
 }
 
+.admin-user-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    white-space: nowrap;
+}
+
+.admin-user-id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.7rem;
+    color: #64748b;
+}
+
 .admin-actions-cell {
     display: flex;
+    align-items: center;
+    justify-content: flex-end;
     gap: 0.5rem;
     white-space: nowrap;
 }
 
+/* Table-row buttons reuse .primary-button/.secondary-button/.delete-button for their colours, but
+   those are styled as full-width page CTAs - reset the layout properties they bring along
+   (.delete-button in particular carries width:100%, margin-top:2rem and a large glow, which
+   otherwise knocks it out of line with the button next to it). */
 .admin-inline-button {
     width: auto;
     flex: none;
+    margin: 0;
     padding: 0.5rem 1rem;
     font-size: 0.85rem;
+    line-height: 1.2;
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+.admin-inline-button:hover {
+    transform: translateY(-1px);
+    box-shadow: none;
+}
+
+.admin-inline-button:active {
+    transform: none;
+}
+
+/* Must stay after the :hover rule above so a hovered disabled button doesn't lift. */
+.admin-inline-button:disabled,
+.admin-inline-button:disabled:hover {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .admin-modal-overlay {

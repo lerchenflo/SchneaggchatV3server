@@ -13,6 +13,7 @@ import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
 import org.springframework.data.annotation.TypeAlias
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.index.CompoundIndex
 import org.springframework.data.mongodb.core.index.CompoundIndexes
 import org.springframework.data.mongodb.core.mapping.Document
@@ -61,6 +62,9 @@ enum class LogType {
     CompoundIndex(name = "logtype_userid_timestamp_idx", def = "{'logType': 1, 'userId': 1, 'timestamp': -1}"),
     // Backs the admin panel's unfiltered "all logs" view.
     CompoundIndex(name = "timestamp_idx", def = "{'timestamp': -1}"),
+    // Backs the admin log viewer's "sort by user" over all log types, which the logType-prefixed
+    // index above cannot serve.
+    CompoundIndex(name = "userid_timestamp_idx", def = "{'userId': 1, 'timestamp': -1}"),
 )
 data class Log(
     @Id val id: ObjectId = ObjectId.get(),
@@ -84,6 +88,13 @@ data class LogPage(
     val entries: List<LogEntryResponse>,
     val moreEntries: Boolean,
 )
+
+/** Sortable columns of the admin log viewer. */
+enum class LogSort(val field: String) {
+    DATE("timestamp"),
+    USER("userId"),
+    TYPE("logType"),
+}
 
 @Service
 class LoggingService(
@@ -132,13 +143,24 @@ class LoggingService(
         return logRepository.findFirstByLogTypeAndUserIdOrderByTimestampDesc(logType, userId)
     }
 
-    /** Newest-first, optionally filtered to one [LogType]. Powers the admin "logs" tab. */
-    fun getLogs(logType: LogType?, page: Int, pageSize: Int): LogPage {
-        val pageable = PageRequest.of(page, pageSize)
-        val result = if (logType != null) {
-            logRepository.findByLogTypeOrderByTimestampDesc(logType, pageable)
+    /**
+     * Optionally filtered to one [LogType] and sorted by any [LogSort] column. Powers the admin
+     * "logs" tab. Timestamp is always the secondary key so rows of one user (or one type) stay in
+     * chronological order within their group.
+     */
+    fun getLogs(logType: LogType?, sort: LogSort, ascending: Boolean, page: Int, pageSize: Int): LogPage {
+        val direction = if (ascending) Sort.Direction.ASC else Sort.Direction.DESC
+        val order = if (sort == LogSort.DATE) {
+            Sort.by(direction, LogSort.DATE.field)
         } else {
-            logRepository.findAllByOrderByTimestampDesc(pageable)
+            Sort.by(direction, sort.field).and(Sort.by(Sort.Direction.DESC, LogSort.DATE.field))
+        }
+
+        val pageable = PageRequest.of(page, pageSize, order)
+        val result = if (logType != null) {
+            logRepository.findByLogType(logType, pageable)
+        } else {
+            logRepository.findAll(pageable)
         }
 
         // One batched lookup for the whole page instead of one per row.

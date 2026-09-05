@@ -60,27 +60,31 @@
                 <span>Adminpanel</span>
             </div>
             <nav class="admin-tabs">
-                <button id="admin-tab-changelog" class="admin-tab active">
-                    <i class="fa-solid fa-map-location-dot"></i> Karten-Änderungen
-                </button>
-                <button id="admin-tab-donations" class="admin-tab">
-                    <i class="fa-solid fa-hand-holding-heart"></i> Spenden
-                </button>
-                <button id="admin-tab-connected" class="admin-tab">
+                <!-- Read-only views first, everything that changes data after the separator. -->
+                <button id="admin-tab-connected" class="admin-tab active">
                     <i class="fa-solid fa-circle-nodes"></i> Verbundene Nutzer
                     <span id="connected-users-count" class="admin-tab-badge">0</span>
                 </button>
-                <button id="admin-tab-scores" class="admin-tab">
-                    <i class="fa-solid fa-trophy"></i> Highscores
-                </button>
-                <button id="admin-tab-users" class="admin-tab">
-                    <i class="fa-solid fa-users"></i> Nutzer
+                <button id="admin-tab-changelog" class="admin-tab">
+                    <i class="fa-solid fa-map-location-dot"></i> Karten-Änderungen
                 </button>
                 <button id="admin-tab-tree" class="admin-tab">
                     <i class="fa-solid fa-sitemap"></i> Freundes-Baum
                 </button>
                 <button id="admin-tab-logs" class="admin-tab">
                     <i class="fa-solid fa-triangle-exclamation"></i> Fehler-Logs
+                </button>
+
+                <span class="admin-tab-separator" aria-hidden="true"></span>
+
+                <button id="admin-tab-donations" class="admin-tab">
+                    <i class="fa-solid fa-hand-holding-heart"></i> Spenden
+                </button>
+                <button id="admin-tab-scores" class="admin-tab">
+                    <i class="fa-solid fa-trophy"></i> Highscores
+                </button>
+                <button id="admin-tab-users" class="admin-tab">
+                    <i class="fa-solid fa-users"></i> Nutzer
                 </button>
             </nav>
             <button id="admin-logout-button" type="button" class="secondary-button admin-logout-button">
@@ -91,7 +95,7 @@
         <main class="admin-main">
 
             <!-- Map change log -->
-            <section id="admin-section-changelog" class="admin-section">
+            <section id="admin-section-changelog" class="admin-section hidden">
                 <div class="admin-section-header">
                     <h2>Karten-Änderungen</h2>
                     <select id="changelog-editor-filter" class="admin-select">
@@ -172,24 +176,18 @@
                         <select id="scores-difficulty-filter" class="admin-select">
                             <option value="">Alle Schwierigkeiten</option>
                         </select>
-                        <select id="scores-sort" class="admin-select">
-                            <option value="DATE">Sortieren: Datum</option>
-                            <option value="GAME">Sortieren: Spiel</option>
-                            <option value="USER">Sortieren: Nutzer</option>
-                            <option value="SCORE">Sortieren: Punkte</option>
-                        </select>
                     </div>
                 </div>
                 <div class="admin-table-scroll">
                     <table class="admin-table">
                         <thead>
-                            <tr>
-                                <th>Spiel</th>
+                            <tr id="scores-header">
+                                <th class="admin-sortable" data-sort="GAME">Spiel</th>
                                 <th>Schwierigkeit</th>
-                                <th>Nutzer</th>
-                                <th>Punkte</th>
+                                <th class="admin-sortable" data-sort="USER">Nutzer</th>
+                                <th class="admin-sortable" data-sort="SCORE">Punkte</th>
                                 <th>Zeit</th>
-                                <th>Datum</th>
+                                <th class="admin-sortable" data-sort="DATE">Datum</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -210,12 +208,12 @@
                 <div class="admin-table-scroll">
                     <table class="admin-table">
                         <thead>
-                            <tr>
-                                <th>Benutzername</th>
-                                <th>Registriert</th>
-                                <th>Zuletzt gesehen</th>
-                                <th>Geräte</th>
-                                <th>Status</th>
+                            <tr id="users-header">
+                                <th class="admin-sortable" data-sort="username">Benutzername</th>
+                                <th class="admin-sortable" data-sort="createdAt">Registriert</th>
+                                <th class="admin-sortable" data-sort="lastSeen">Zuletzt gesehen</th>
+                                <th class="admin-sortable" data-sort="activeDevices">Geräte</th>
+                                <th class="admin-sortable" data-sort="online">Status</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -228,15 +226,31 @@
             <section id="admin-section-tree" class="admin-section hidden">
                 <div class="admin-section-header">
                     <h2>Freundes-Baum</h2>
-                    <span class="admin-muted" id="tree-summary"></span>
+                    <div class="admin-zoom-controls">
+                        <span class="admin-muted" id="tree-summary"></span>
+                        <button type="button" id="tree-zoom-out" class="admin-zoom-button" aria-label="Verkleinern">
+                            <i class="fa-solid fa-minus"></i>
+                        </button>
+                        <span id="tree-zoom-label" class="admin-zoom-label">100%</span>
+                        <button type="button" id="tree-zoom-in" class="admin-zoom-button" aria-label="Vergrößern">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                        <button type="button" id="tree-zoom-reset" class="admin-zoom-button" aria-label="Zoom zurücksetzen">
+                            <i class="fa-solid fa-arrows-to-dot"></i>
+                        </button>
+                    </div>
                 </div>
                 <p class="admin-hint">
                     Jeder Nutzer hängt unter dem Freund, mit dem er am frühesten befreundet war und der sich
                     vor ihm registriert hat &ndash; also vermutlich der, der ihn eingeladen hat. Nutzer ohne
                     solchen Freund stehen als eigene Wurzel.
+                    <br>
+                    Zoomen mit Strg&nbsp;+&nbsp;Mausrad oder zwei Fingern, verschieben durch Ziehen oder Scrollen.
                 </p>
-                <div class="admin-tree-scroll">
-                    <div id="tree-container" class="admin-tree"></div>
+                <div class="admin-tree-viewport" id="tree-viewport">
+                    <div class="admin-tree-canvas" id="tree-canvas">
+                        <div id="tree-container" class="admin-tree"></div>
+                    </div>
                 </div>
             </section>
 
@@ -251,10 +265,10 @@
                 <div class="admin-table-scroll">
                     <table class="admin-table">
                         <thead>
-                            <tr>
-                                <th>Zeitpunkt</th>
-                                <th>Typ</th>
-                                <th>Nutzer</th>
+                            <tr id="logs-header">
+                                <th class="admin-sortable" data-sort="DATE">Zeitpunkt</th>
+                                <th class="admin-sortable" data-sort="TYPE">Typ</th>
+                                <th class="admin-sortable" data-sort="USER">Nutzer</th>
                                 <th>Nachricht</th>
                             </tr>
                         </thead>

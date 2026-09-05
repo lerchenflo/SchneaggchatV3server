@@ -113,7 +113,8 @@ function showPanelView() {
     document.getElementById('admin-denied-view').classList.add('hidden');
 }
 
-const TABS = ['changelog', 'donations', 'connected', 'scores', 'users', 'tree', 'logs'];
+// Order matches the top bar: read-only views first, data-changing views after the separator.
+const TABS = ['connected', 'changelog', 'tree', 'logs', 'donations', 'scores', 'users'];
 
 function switchTab(tab) {
     TABS.forEach((t) => {
@@ -149,6 +150,41 @@ function el(tag, className, text) {
     if (className) node.className = className;
     if (text !== undefined) node.textContent = text;
     return node;
+}
+
+/**
+ * Wires a table header row for click-to-sort. `state` carries `sortKey`/`sortAsc`; clicking the
+ * active column flips the direction, clicking another switches to it using `defaultDirections`
+ * (so e.g. dates start newest-first while names start A-Z). `onChange` re-runs the query/render.
+ */
+function attachSortableHeader(headerId, state, defaultDirections, onChange) {
+    const header = document.getElementById(headerId);
+    if (!header) return;
+
+    header.addEventListener('click', (e) => {
+        const cell = e.target.closest('.admin-sortable');
+        if (!cell) return;
+
+        const key = cell.dataset.sort;
+        if (state.sortKey === key) {
+            state.sortAsc = !state.sortAsc;
+        } else {
+            state.sortKey = key;
+            state.sortAsc = defaultDirections[key] === 'asc';
+        }
+        renderSortIndicators(headerId, state);
+        onChange();
+    });
+
+    renderSortIndicators(headerId, state);
+}
+
+function renderSortIndicators(headerId, state) {
+    document.querySelectorAll(`#${headerId} .admin-sortable`).forEach((cell) => {
+        const active = cell.dataset.sort === state.sortKey;
+        cell.classList.toggle('is-sorted', active);
+        cell.classList.toggle('is-desc', active && !state.sortAsc);
+    });
 }
 
 /* ---------------------------------------------------------------------- */
@@ -422,7 +458,12 @@ async function connectStream() {
 /* Highscores                                                             */
 /* ---------------------------------------------------------------------- */
 
-const scoresState = { page: 0, game: '', difficulty: '', sort: 'DATE', loadedOnce: false, editingId: null };
+const scoresState = {
+    page: 0, game: '', difficulty: '', loadedOnce: false, editingId: null,
+    sortKey: 'DATE', sortAsc: false,
+};
+
+const SCORE_SORT_DEFAULT_DIR = { GAME: 'asc', USER: 'asc', SCORE: 'desc', DATE: 'desc' };
 
 function formatDuration(millis) {
     if (!millis) return '—';
@@ -458,7 +499,12 @@ async function loadScores(reset) {
         document.getElementById('scores-rows').innerHTML = '';
     }
 
-    const params = new URLSearchParams({ sort: scoresState.sort, page: scoresState.page, pageSize: '50' });
+    const params = new URLSearchParams({
+        sort: scoresState.sortKey,
+        ascending: String(scoresState.sortAsc),
+        page: scoresState.page,
+        pageSize: '50',
+    });
     if (scoresState.game) params.set('game', scoresState.game);
     if (scoresState.difficulty) params.set('difficulty', scoresState.difficulty);
 
@@ -549,10 +595,7 @@ document.getElementById('scores-difficulty-filter')?.addEventListener('change', 
     loadScores(true);
 });
 
-document.getElementById('scores-sort')?.addEventListener('change', (e) => {
-    scoresState.sort = e.target.value;
-    loadScores(true);
-});
+attachSortableHeader('scores-header', scoresState, SCORE_SORT_DEFAULT_DIR, () => loadScores(true));
 
 document.getElementById('scores-load-more')?.addEventListener('click', () => {
     scoresState.page += 1;
@@ -563,7 +606,17 @@ document.getElementById('scores-load-more')?.addEventListener('click', () => {
 /* Users                                                                  */
 /* ---------------------------------------------------------------------- */
 
-const usersState = { loadedOnce: false, all: [], search: '' };
+const usersState = { loadedOnce: false, all: [], search: '', sortKey: 'createdAt', sortAsc: true };
+
+// Which direction a column starts in when you first click it: names A-Z, everything else
+// "most interesting first" (newest, most devices, online before offline).
+const USER_SORT_DEFAULT_DIR = {
+    username: 'asc',
+    createdAt: 'asc',
+    lastSeen: 'desc',
+    activeDevices: 'desc',
+    online: 'desc',
+};
 
 async function loadUsers() {
     usersState.all = await adminFetchJson('/admin/api/users');
@@ -571,12 +624,34 @@ async function loadUsers() {
     renderUsers();
 }
 
+function sortUsers(users) {
+    const { sortKey, sortAsc } = usersState;
+    const factor = sortAsc ? 1 : -1;
+
+    return [...users].sort((a, b) => {
+        let result;
+        if (sortKey === 'username') {
+            result = a.username.localeCompare(b.username);
+        } else if (sortKey === 'online') {
+            // Online first, then the longest-online (earliest lastSeen is meaningless while
+            // online, so fall back to device count) - keeps the grouping readable.
+            result = (a.online === b.online) ? (a.activeDevices - b.activeDevices) : (a.online ? 1 : -1);
+        } else {
+            result = a[sortKey] - b[sortKey];
+        }
+        return result * factor || a.username.localeCompare(b.username);
+    });
+}
+
 function renderUsers() {
     const tbody = document.getElementById('users-rows');
     tbody.innerHTML = '';
 
+    renderSortIndicators('users-header', usersState);
+
     const term = usersState.search.trim().toLowerCase();
-    const visible = term ? usersState.all.filter((u) => u.username.toLowerCase().includes(term)) : usersState.all;
+    const filtered = term ? usersState.all.filter((u) => u.username.toLowerCase().includes(term)) : usersState.all;
+    const visible = sortUsers(filtered);
 
     visible.forEach((user) => {
         const row = el('tr');
@@ -621,16 +696,28 @@ document.getElementById('users-search')?.addEventListener('input', (e) => {
     renderUsers();
 });
 
+attachSortableHeader('users-header', usersState, USER_SORT_DEFAULT_DIR, renderUsers);
+
 /* ---------------------------------------------------------------------- */
 /* Friends tree                                                           */
 /* ---------------------------------------------------------------------- */
 
-const treeState = { loadedOnce: false };
+const treeState = { loadedOnce: false, zoom: 1 };
 
-function buildTreeNode(node) {
+const TREE_MIN_ZOOM = 0.2;
+const TREE_MAX_ZOOM = 3;
+
+function buildTreeNode(node, isRoot) {
     const li = el('li');
 
     const card = el('div', 'admin-tree-node');
+    if (isRoot) {
+        // A root is someone with no earlier-registered first friend - i.e. nobody invited them.
+        // Split them apart: one that has descendants actually started a tree, one without is
+        // simply an isolated account.
+        card.classList.add(node.children.length > 0 ? 'admin-tree-node-root' : 'admin-tree-node-lone');
+    }
+
     card.appendChild(el('span', 'admin-tree-name', node.username));
 
     const meta = el('div', 'admin-tree-meta');
@@ -638,11 +725,17 @@ function buildTreeNode(node) {
     meta.appendChild(el('span', null, `${node.friendCount} Freunde`));
     card.appendChild(meta);
 
+    if (isRoot) {
+        card.appendChild(
+            el('span', 'admin-tree-root-badge', node.children.length > 0 ? 'Baum-Start' : 'Ohne Einlader')
+        );
+    }
+
     li.appendChild(card);
 
     if (node.children.length > 0) {
         const ul = el('ul');
-        node.children.forEach((child) => ul.appendChild(buildTreeNode(child)));
+        node.children.forEach((child) => ul.appendChild(buildTreeNode(child, false)));
         li.appendChild(ul);
     }
 
@@ -653,22 +746,149 @@ async function loadFriendsTree() {
     const tree = await adminFetchJson('/admin/api/friends-tree');
     treeState.loadedOnce = true;
 
+    const treeStarters = tree.roots.filter((root) => root.children.length > 0).length;
+    const loneUsers = tree.roots.length - treeStarters;
     document.getElementById('tree-summary').textContent =
-        `${tree.totalUsers} Nutzer · ${tree.roots.length} Wurzel(n)`;
+        `${tree.totalUsers} Nutzer · ${treeStarters} Baum-Start(s) · ${loneUsers} ohne Einlader`;
 
     const container = document.getElementById('tree-container');
     container.innerHTML = '';
 
     const rootList = el('ul');
-    tree.roots.forEach((root) => rootList.appendChild(buildTreeNode(root)));
+    tree.roots.forEach((root) => rootList.appendChild(buildTreeNode(root, true)));
     container.appendChild(rootList);
+
+    applyTreeZoom(treeState.zoom);
 }
+
+/* --- Pan / zoom -------------------------------------------------------- */
+
+/**
+ * The tree is scaled with a CSS transform (which doesn't affect layout), so the canvas around it
+ * is resized to the scaled dimensions - that's what gives the viewport correct native scrollbars
+ * on desktop and correct one-finger scrolling on mobile.
+ *
+ * When a focal point is given (cursor position, pinch centre) the scroll offset is corrected so
+ * that point stays put instead of the view jumping to the top-left corner.
+ */
+function applyTreeZoom(zoom, focalClientX, focalClientY) {
+    const viewport = document.getElementById('tree-viewport');
+    const canvas = document.getElementById('tree-canvas');
+    const container = document.getElementById('tree-container');
+    if (!viewport || !canvas || !container) return;
+
+    const clamped = Math.min(TREE_MAX_ZOOM, Math.max(TREE_MIN_ZOOM, zoom));
+    const previous = treeState.zoom;
+    const rect = viewport.getBoundingClientRect();
+
+    const focalX = focalClientX === undefined ? rect.width / 2 : focalClientX - rect.left;
+    const focalY = focalClientY === undefined ? rect.height / 2 : focalClientY - rect.top;
+
+    const anchorX = viewport.scrollLeft + focalX;
+    const anchorY = viewport.scrollTop + focalY;
+
+    treeState.zoom = clamped;
+    container.style.transform = `scale(${clamped})`;
+    canvas.style.width = `${container.offsetWidth * clamped}px`;
+    canvas.style.height = `${container.offsetHeight * clamped}px`;
+
+    const ratio = clamped / previous;
+    viewport.scrollLeft = anchorX * ratio - focalX;
+    viewport.scrollTop = anchorY * ratio - focalY;
+
+    document.getElementById('tree-zoom-label').textContent = `${Math.round(clamped * 100)}%`;
+}
+
+document.getElementById('tree-zoom-in')?.addEventListener('click', () => applyTreeZoom(treeState.zoom * 1.25));
+document.getElementById('tree-zoom-out')?.addEventListener('click', () => applyTreeZoom(treeState.zoom / 1.25));
+document.getElementById('tree-zoom-reset')?.addEventListener('click', () => applyTreeZoom(1));
+
+// Ctrl/⌘ + wheel, and trackpad pinch (which browsers report as a ctrlKey wheel event).
+// A plain wheel is left alone so it still scrolls the viewport natively.
+document.getElementById('tree-viewport')?.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    applyTreeZoom(treeState.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12), e.clientX, e.clientY);
+}, { passive: false });
+
+// Drag to pan with a mouse. Touch is left to the browser's native scrolling.
+(() => {
+    const viewport = document.getElementById('tree-viewport');
+    if (!viewport) return;
+
+    let panning = false;
+    let startX = 0;
+    let startY = 0;
+    let startScrollLeft = 0;
+    let startScrollTop = 0;
+
+    viewport.addEventListener('pointerdown', (e) => {
+        if (e.pointerType !== 'mouse' || e.button !== 0) return;
+        panning = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startScrollLeft = viewport.scrollLeft;
+        startScrollTop = viewport.scrollTop;
+        viewport.classList.add('is-panning');
+        viewport.setPointerCapture(e.pointerId);
+    });
+
+    viewport.addEventListener('pointermove', (e) => {
+        if (!panning) return;
+        viewport.scrollLeft = startScrollLeft - (e.clientX - startX);
+        viewport.scrollTop = startScrollTop - (e.clientY - startY);
+    });
+
+    const endPan = (e) => {
+        if (!panning) return;
+        panning = false;
+        viewport.classList.remove('is-panning');
+        if (viewport.hasPointerCapture(e.pointerId)) viewport.releasePointerCapture(e.pointerId);
+    };
+
+    viewport.addEventListener('pointerup', endPan);
+    viewport.addEventListener('pointercancel', endPan);
+})();
+
+// Two-finger pinch zoom on touch devices. One finger keeps scrolling natively (touch-action in CSS).
+(() => {
+    const viewport = document.getElementById('tree-viewport');
+    if (!viewport) return;
+
+    let pinchStartDistance = 0;
+    let pinchStartZoom = 1;
+
+    const distance = (touches) => Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY,
+    );
+
+    viewport.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 2) return;
+        pinchStartDistance = distance(e.touches);
+        pinchStartZoom = treeState.zoom;
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', (e) => {
+        if (e.touches.length !== 2 || pinchStartDistance === 0) return;
+        e.preventDefault();
+        const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        applyTreeZoom(pinchStartZoom * (distance(e.touches) / pinchStartDistance), centerX, centerY);
+    }, { passive: false });
+
+    viewport.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) pinchStartDistance = 0;
+    }, { passive: true });
+})();
 
 /* ---------------------------------------------------------------------- */
 /* Error / event logs                                                     */
 /* ---------------------------------------------------------------------- */
 
-const logsState = { page: 0, logType: 'EXCEPTION_THROWN', loadedOnce: false };
+const logsState = { page: 0, logType: 'EXCEPTION_THROWN', loadedOnce: false, sortKey: 'DATE', sortAsc: false };
+
+const LOG_SORT_DEFAULT_DIR = { DATE: 'desc', TYPE: 'asc', USER: 'asc' };
 
 async function loadLogTypes() {
     const types = await adminFetchJson('/admin/api/logs/types');
@@ -688,7 +908,13 @@ async function loadLogs(reset) {
         document.getElementById('logs-rows').innerHTML = '';
     }
 
-    const params = new URLSearchParams({ logType: logsState.logType, page: logsState.page, pageSize: '50' });
+    const params = new URLSearchParams({
+        logType: logsState.logType,
+        sort: logsState.sortKey,
+        ascending: String(logsState.sortAsc),
+        page: logsState.page,
+        pageSize: '50',
+    });
     const pageData = await adminFetchJson(`/admin/api/logs?${params}`);
     logsState.loadedOnce = true;
 
@@ -697,7 +923,14 @@ async function loadLogs(reset) {
         const row = el('tr');
         row.appendChild(el('td', null, formatDateTime(entry.timestamp)));
         row.appendChild(el('td', null, entry.logType));
-        row.appendChild(el('td', null, entry.username || '—'));
+
+        // The user id is what the "Nutzer" column actually sorts on, so surface it next to the
+        // resolved name - otherwise a sorted-by-user list looks arbitrarily ordered.
+        const userCell = el('td', 'admin-user-cell');
+        userCell.appendChild(el('span', null, entry.username || '—'));
+        if (entry.userId) userCell.appendChild(el('span', 'admin-user-id', entry.userId));
+        row.appendChild(userCell);
+
         row.appendChild(el('td', 'admin-log-message', entry.message || ''));
         tbody.appendChild(row);
     });
@@ -709,6 +942,8 @@ document.getElementById('logs-type-filter')?.addEventListener('change', (e) => {
     logsState.logType = e.target.value;
     loadLogs(true);
 });
+
+attachSortableHeader('logs-header', logsState, LOG_SORT_DEFAULT_DIR, () => loadLogs(true));
 
 document.getElementById('logs-load-more')?.addEventListener('click', () => {
     logsState.page += 1;
@@ -748,7 +983,7 @@ async function enterPanel() {
         await loadLogTypes();
         await loadScoreFilters();
         showPanelView();
-        switchTab('changelog');
+        switchTab(TABS[0]);
     } catch (e) {
         if (e instanceof SessionExpiredError) {
             // adminFetch already cleared tokens and switched to the login view - nothing more to do.
