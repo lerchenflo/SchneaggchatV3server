@@ -49,7 +49,6 @@ class AuthService(
     data class TokenPair(
         val accessToken: String,
         val refreshToken: String,
-        val encryptionKey: String? = null
     )
 
     fun register(username: String, password: String, email: String, birthdate: String, profilePic: MultipartFile, phoneNumber: String? = null, language: String? = null) : User {
@@ -143,8 +142,7 @@ class AuthService(
 
         return TokenPair(
             accessToken = newAccessToken,
-            refreshToken = newRefreshToken,
-            encryptionKey = jwtService.getEncryptionKey()
+            refreshToken = newRefreshToken
         )
     }
 
@@ -225,8 +223,7 @@ class AuthService(
         if (claimed != null) {
             return TokenPair(
                 accessToken = jwtService.generateAccessToken(userId),
-                refreshToken = newRefreshToken,
-                encryptionKey = jwtService.getEncryptionKey()
+                refreshToken = newRefreshToken
             )
         }
 
@@ -245,8 +242,7 @@ class AuthService(
 
             return TokenPair(
                 accessToken = jwtService.generateAccessToken(userId),
-                refreshToken = recovery.rawToken,
-                encryptionKey = jwtService.getEncryptionKey()
+                refreshToken = recovery.rawToken
             )
         }
 
