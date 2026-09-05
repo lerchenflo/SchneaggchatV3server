@@ -2283,6 +2283,22 @@ header.scrolled {
     margin-bottom: 0.5rem;
 }
 
+.admin-back-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.admin-back-link:hover {
+    color: var(--primary);
+}
+
 .admin-topbar {
     position: sticky;
     top: 0;
@@ -2294,7 +2310,8 @@ header.scrolled {
     background: rgba(16, 26, 16, 0.9);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    flex-wrap: wrap;
+    /* No wrapping - the brand and logout button stay put and the tab row scrolls between them. */
+    flex-wrap: nowrap;
 }
 
 .admin-topbar-brand {
@@ -2304,13 +2321,43 @@ header.scrolled {
     font-weight: 700;
     font-size: 1.1rem;
     white-space: nowrap;
+    flex: 0 0 auto;
 }
 
+/* Single non-wrapping row that scrolls horizontally, so the top bar keeps its height no matter
+   how many tabs exist. `min-width: 0` is what actually lets it shrink below its content width
+   inside the flex top bar - without it the row would just push the logout button off screen. */
 .admin-tabs {
     display: flex;
     gap: 0.5rem;
-    flex-wrap: wrap;
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--secondary) transparent;
+    /* Room for the scrollbar so it never overlaps the tab borders. */
+    padding-bottom: 0.35rem;
+}
+
+.admin-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.admin-tabs::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.admin-tabs::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+}
+
+.admin-tabs:hover::-webkit-scrollbar-thumb {
+    background: var(--secondary);
 }
 
 .admin-tab {
@@ -2327,6 +2374,7 @@ header.scrolled {
     cursor: pointer;
     transition: var(--transition);
     white-space: nowrap;
+    flex: 0 0 auto;
 }
 
 .admin-tab:hover {
@@ -2351,6 +2399,7 @@ header.scrolled {
 
 /* Divides the read-only tabs from the ones that change data. */
 .admin-tab-separator {
+    flex: 0 0 auto;
     width: 1px;
     align-self: stretch;
     margin: 0.2rem 0.5rem;
@@ -2839,8 +2888,22 @@ header.scrolled {
 
 @media (max-width: 768px) {
     .admin-topbar {
-        flex-direction: column;
-        align-items: stretch;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+    }
+
+    /* The brand text would eat most of the width on a phone - the icon alone identifies the page,
+       and the tab row is what actually needs the space. */
+    .admin-topbar-brand span {
+        display: none;
+    }
+
+    .admin-logout-button {
+        padding: 0.6rem 0.8rem;
+    }
+
+    .admin-logout-button span {
+        display: none;
     }
 
     .admin-main {

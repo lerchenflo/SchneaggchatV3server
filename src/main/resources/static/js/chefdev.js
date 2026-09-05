@@ -50,7 +50,7 @@ function resetTabState() {
 }
 
 /**
- * Fetch wrapper for every /admin/api/** call. A 401 means the access token expired - there is no
+ * Fetch wrapper for every /chefdev/api/** call. A 401 means the access token expired - there is no
  * refresh token to fall back on, so the panel returns to the login screen.
  */
 async function adminFetch(path, options = {}) {
@@ -121,6 +121,11 @@ function switchTab(tab) {
         document.getElementById(`admin-tab-${t}`).classList.toggle('active', t === tab);
         document.getElementById(`admin-section-${t}`).classList.toggle('hidden', t !== tab);
     });
+
+    // The tab row scrolls horizontally, so the selected tab may be off screen - pull it into view
+    // without scrolling the page itself.
+    document.getElementById(`admin-tab-${tab}`)
+        ?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
 
     if (tab === 'changelog' && !changelogState.loadedOnce) loadChangeLog(true);
     if (tab === 'donations' && !donationsState.loadedOnce) loadDonations();
@@ -194,7 +199,7 @@ function renderSortIndicators(headerId, state) {
 const changelogState = { page: 0, editedBy: '', loadedOnce: false, moreEntries: false };
 
 async function loadChangeLogEditors() {
-    const editors = await adminFetchJson('/admin/api/map/changelog/editors');
+    const editors = await adminFetchJson('/chefdev/api/map/changelog/editors');
     const select = document.getElementById('changelog-editor-filter');
     select.innerHTML = '<option value="">Alle Nutzer</option>';
     editors
@@ -215,7 +220,7 @@ async function loadChangeLog(reset) {
     const params = new URLSearchParams({ page: changelogState.page, pageSize: '30' });
     if (changelogState.editedBy) params.set('editedBy', changelogState.editedBy);
 
-    const pageData = await adminFetchJson(`/admin/api/map/changelog?${params}`);
+    const pageData = await adminFetchJson(`/chefdev/api/map/changelog?${params}`);
     changelogState.loadedOnce = true;
     changelogState.moreEntries = pageData.moreEntries;
 
@@ -266,7 +271,7 @@ document.getElementById('changelog-load-more')?.addEventListener('click', () => 
 const donationsState = { loadedOnce: false, editingId: null };
 
 async function loadDonations() {
-    const donations = await adminFetchJson('/admin/api/donations');
+    const donations = await adminFetchJson('/chefdev/api/donations');
     donationsState.loadedOnce = true;
 
     const tbody = document.getElementById('donations-rows');
@@ -341,7 +346,7 @@ document.getElementById('donation-form')?.addEventListener('submit', async (e) =
     });
 
     try {
-        const path = donationsState.editingId ? `/admin/api/donations/${donationsState.editingId}` : '/admin/api/donations';
+        const path = donationsState.editingId ? `/chefdev/api/donations/${donationsState.editingId}` : '/chefdev/api/donations';
         await adminFetchJson(path, {
             method: donationsState.editingId ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -356,7 +361,7 @@ document.getElementById('donation-form')?.addEventListener('submit', async (e) =
 
 async function deleteDonation(id) {
     if (!confirm('Diese Spende wirklich löschen?')) return;
-    await adminFetchJson(`/admin/api/donations/${id}`, { method: 'DELETE' });
+    await adminFetchJson(`/chefdev/api/donations/${id}`, { method: 'DELETE' });
     loadDonations();
 }
 
@@ -394,7 +399,7 @@ async function startConnectedUsersStream() {
     // already confirmed to reach this screen, so any failure here is transient - the SSE
     // connection below will fill the table in shortly regardless.
     try {
-        renderConnectedUsers(await adminFetchJson('/admin/api/connected-users'));
+        renderConnectedUsers(await adminFetchJson('/chefdev/api/connected-users'));
     } catch (e) {
         // ignore - stream below will populate it
     }
@@ -409,7 +414,7 @@ async function connectStream() {
     connectedUsersState.abortController = abortController;
 
     try {
-        const response = await fetch('/admin/api/connected-users/stream', {
+        const response = await fetch('/chefdev/api/connected-users/stream', {
             headers: { Authorization: `Bearer ${accessToken}` },
             signal: abortController.signal,
         });
@@ -474,7 +479,7 @@ function formatDuration(millis) {
 }
 
 async function loadScoreFilters() {
-    const data = await adminFetchJson('/admin/api/scores/games');
+    const data = await adminFetchJson('/chefdev/api/scores/games');
 
     const gameSelect = document.getElementById('scores-game-filter');
     gameSelect.innerHTML = '<option value="">Alle Spiele</option>';
@@ -508,7 +513,7 @@ async function loadScores(reset) {
     if (scoresState.game) params.set('game', scoresState.game);
     if (scoresState.difficulty) params.set('difficulty', scoresState.difficulty);
 
-    const pageData = await adminFetchJson(`/admin/api/scores?${params}`);
+    const pageData = await adminFetchJson(`/chefdev/api/scores?${params}`);
     scoresState.loadedOnce = true;
 
     const tbody = document.getElementById('scores-rows');
@@ -567,7 +572,7 @@ document.getElementById('score-form')?.addEventListener('submit', async (e) => {
     }
 
     try {
-        await adminFetchJson(`/admin/api/scores/${scoresState.editingId}`, {
+        await adminFetchJson(`/chefdev/api/scores/${scoresState.editingId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ score, timeMillis }),
@@ -581,7 +586,7 @@ document.getElementById('score-form')?.addEventListener('submit', async (e) => {
 
 async function deleteScore(entry) {
     if (!confirm(`Highscore von ${entry.username} (${entry.game}, ${entry.score} Punkte) wirklich löschen?`)) return;
-    await adminFetchJson(`/admin/api/scores/${entry.id}`, { method: 'DELETE' });
+    await adminFetchJson(`/chefdev/api/scores/${entry.id}`, { method: 'DELETE' });
     loadScores(true);
 }
 
@@ -619,7 +624,7 @@ const USER_SORT_DEFAULT_DIR = {
 };
 
 async function loadUsers() {
-    usersState.all = await adminFetchJson('/admin/api/users');
+    usersState.all = await adminFetchJson('/chefdev/api/users');
     usersState.loadedOnce = true;
     renderUsers();
 }
@@ -687,7 +692,7 @@ function renderUsers() {
 
 async function forceLogout(user) {
     if (!confirm(`${user.username} auf allen Geräten abmelden?\n\nAlle Sitzungen werden gelöscht und offene Verbindungen getrennt.`)) return;
-    await adminFetchJson(`/admin/api/users/${user.id}/logout`, { method: 'POST' });
+    await adminFetchJson(`/chefdev/api/users/${user.id}/logout`, { method: 'POST' });
     loadUsers();
 }
 
@@ -743,7 +748,7 @@ function buildTreeNode(node, isRoot) {
 }
 
 async function loadFriendsTree() {
-    const tree = await adminFetchJson('/admin/api/friends-tree');
+    const tree = await adminFetchJson('/chefdev/api/friends-tree');
     treeState.loadedOnce = true;
 
     const treeStarters = tree.roots.filter((root) => root.children.length > 0).length;
@@ -891,7 +896,7 @@ const logsState = { page: 0, logType: 'EXCEPTION_THROWN', loadedOnce: false, sor
 const LOG_SORT_DEFAULT_DIR = { DATE: 'desc', TYPE: 'asc', USER: 'asc' };
 
 async function loadLogTypes() {
-    const types = await adminFetchJson('/admin/api/logs/types');
+    const types = await adminFetchJson('/chefdev/api/logs/types');
     const select = document.getElementById('logs-type-filter');
     select.innerHTML = '<option value="ALL">Alle Typen</option>';
     types.forEach((type) => {
@@ -915,7 +920,7 @@ async function loadLogs(reset) {
         page: logsState.page,
         pageSize: '50',
     });
-    const pageData = await adminFetchJson(`/admin/api/logs?${params}`);
+    const pageData = await adminFetchJson(`/chefdev/api/logs?${params}`);
     logsState.loadedOnce = true;
 
     const tbody = document.getElementById('logs-rows');
@@ -989,7 +994,7 @@ async function enterPanel() {
             // adminFetch already cleared tokens and switched to the login view - nothing more to do.
             return;
         }
-        // A logged-in-but-not-admin user gets 404s from every /admin/api/** call (see AdminGuard);
+        // A logged-in-but-not-admin user gets 404s from every /chefdev/api/** call (see AdminGuard);
         // any other failure here also means the panel can't be shown, so the same screen covers both.
         showDeniedView();
     }

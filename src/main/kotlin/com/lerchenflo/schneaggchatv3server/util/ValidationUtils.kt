@@ -404,6 +404,6 @@ object ValidationUtils {
 
     /** Donation amount in cents. Must be positive and below an obviously-mistyped upper bound (10,000 EUR). */
     fun validateDonationAmount(amountCents: Long): Boolean {
-        return amountCents in 1..1_000_000
+        return amountCents in 1..1_000_000_000
     }
 }

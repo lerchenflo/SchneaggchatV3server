@@ -69,9 +69,9 @@ class SecurityConfig(
                     .permitAll()
 
                     //Admin panel shell - the HTML carries no data, everything is fetched afterwards
-                    //via /admin/api/** which stays authenticated + role-gated. A browser navigation
+                    //via /chefdev/api/** which stays authenticated + role-gated. A browser navigation
                     //cannot carry an Authorization header, so the shell itself must be public.
-                    .requestMatchers("/admin.html")
+                    .requestMatchers("/chefdev.html")
                     .permitAll()
 
                     //Public donation totals for the donations page
@@ -97,10 +97,17 @@ class SecurityConfig(
 
 
 
-                    //Allow forward of all Errors
+                    //Allow forward of all Errors.
+                    //ASYNC is the container re-dispatching a request the app answered
+                    //asynchronously (the admin SSE stream) once that response ends. It carries no
+                    //SecurityContext - JwtAuthFilter is a OncePerRequestFilter and does not run on
+                    //async dispatches - so authorizing it again would deny a request that was
+                    //already authorized on its initial dispatch, and the denial can't even be
+                    //written because the streamed body is long since committed.
                     .dispatcherTypeMatchers(
                         DispatcherType.ERROR,
-                        DispatcherType.FORWARD
+                        DispatcherType.FORWARD,
+                        DispatcherType.ASYNC
                     )
                     .permitAll()
 

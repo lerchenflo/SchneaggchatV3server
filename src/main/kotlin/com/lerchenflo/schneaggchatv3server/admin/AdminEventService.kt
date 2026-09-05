@@ -47,7 +47,12 @@ class AdminEventService(
         subscribers += subscriber
 
         emitter.onCompletion { subscribers.remove(subscriber) }
-        emitter.onTimeout { subscribers.remove(subscriber) }
+        //Ending the emitter here turns the timeout into an ordinary completion instead of leaving
+        //the container to tear the async request down as an error.
+        emitter.onTimeout {
+            subscribers.remove(subscriber)
+            closeQuietly(subscriber)
+        }
         emitter.onError { subscribers.remove(subscriber) }
 
         try {

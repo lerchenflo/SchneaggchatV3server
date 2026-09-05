@@ -29,7 +29,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 @RestController
-@RequestMapping("/admin/api")
+@RequestMapping("/chefdev/api")
 class AdminController(
     private val adminGuard: AdminGuard,
     private val jwtService: JwtService,

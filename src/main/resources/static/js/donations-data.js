@@ -1,5 +1,5 @@
 // Donations rendering. Donation data now lives in the database and is managed from the admin
-// panel (/admin.html) - this file only fetches and renders it.
+// panel (/chefdev.html) - this file only fetches and renders it.
 
 // Available icons for random selection - purely decorative, not persisted.
 const iconOptions = [
