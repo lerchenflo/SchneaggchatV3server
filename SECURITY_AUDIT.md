@@ -83,7 +83,12 @@ deployment/network setup, which isn't visible in the repo.
 - **Fix**: Remove the `27017:27017` mapping (and `8081:8081`, see C-2). Inter-container traffic works over
   the Docker network without host publishing.
 
-### M-2 — 20 chars of the JWT signing secret are handed to every client
+### M-2 — 20 chars of the JWT signing secret are handed to every client  ✅ FIXED (2026-09-05)
+> Resolved by removing the push-payload encryption entirely: `JwtService.getEncryptionKey()`, the
+> `encryptionKey` field on `TokenPair`, `util/CryptoUtil.kt` and the `dev.whyoleg.cryptography` deps are
+> gone. `MessageNotificationResponse.encodedContent` became plaintext `content`. Clients no longer receive
+> any part of `JWT_SECRET`. Rotate `JWT_SECRET` once after deploying, since every client issued a login
+> before this change has seen its first 20 chars. Real payload confidentiality is the E2E work.
 - **Location**: `core/security/JwtService.kt:20-24` (`getEncryptionKey() = jwtSecret.take(20)`), returned in `AuthService.TokenPair.encryptionKey` on every login/refresh
 - **Confidence**: High.
 - **Issue**: The same `JWT_SECRET` used as the HS256 signing key (`Keys.hmacShaKeyFor(jwtSecret.toByteArray())`)

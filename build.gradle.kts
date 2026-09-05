@@ -60,9 +60,6 @@ dependencies {
     implementation("com.eatthepath:pushy:0.15.6")
     runtimeOnly("io.netty:netty-tcnative-boringssl-static:2.0.78.Final")
 
-    //cryptography
-    implementation("dev.whyoleg.cryptography:cryptography-core:0.6.0")
-    implementation("dev.whyoleg.cryptography:cryptography-provider-jdk:0.6.0")
 
     implementation("org.springframework.boot:spring-boot-starter-websocket")
 

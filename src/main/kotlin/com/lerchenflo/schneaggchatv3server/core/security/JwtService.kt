@@ -17,10 +17,6 @@ class JwtService(
     @Value("\${apns.debug}") private val apnsDebug: Boolean,
 
     ) {
-    fun getEncryptionKey() : String {
-        return jwtSecret.take(20)
-    }
-
     private val secretKey = Keys.hmacShaKeyFor(jwtSecret.toByteArray())
     private val accessTokenValidityMs = 15L /*min*/ * 60L * 1000L    //How long a user can use his access token
     private val debugAccessTokenValidityMs = 15L /*min*/ * 60L * 1000L    //Debug same as release

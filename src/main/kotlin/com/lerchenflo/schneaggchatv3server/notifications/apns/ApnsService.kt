@@ -6,7 +6,6 @@ import com.eatthepath.pushy.apns.DeliveryPriority
 import com.eatthepath.pushy.apns.PushType
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification
-import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 import com.lerchenflo.schneaggchatv3server.notifications.apns.model.ApnsToken
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
@@ -28,7 +27,6 @@ class ApnsService(
     private val tokenRepository: ApnsTokenRepository,
     private val loggingService: LoggingService,
     private val userLookupService: UserLookupService,
-    private val jwtService: JwtService,
     @Value("\${apns.team-id}") private val teamId: String,
     @Value("\${apns.key-id}") private val keyId: String,
     @Value("\${apns.bundle-id}") private val bundleId: String,
@@ -122,14 +120,13 @@ class ApnsService(
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val encodedContent = CryptoUtil.encrypt(messageContent, jwtService.getEncryptionKey())
                 val notification = NotificationResponse.MessageNotificationResponse(
                     msgId = msgId,
                     senderName = senderName,
                     messageType = messageType,
                     groupMessage = groupMessage,
                     groupName = groupName ?: "",
-                    encodedContent = encodedContent,
+                    content = messageContent,
                     senderId = senderId.toHexString(),
                     receiverId = receiverId.toHexString(),
                     groupId = groupId?.toHexString() ?: "",
@@ -169,14 +166,13 @@ class ApnsService(
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val encodedContent = CryptoUtil.encrypt(reactionContent, jwtService.getEncryptionKey())
                 val notification = NotificationResponse.MessageNotificationResponse(
                     msgId = msgId,
                     senderName = reactorName,
                     messageType = messageType,
                     groupMessage = groupMessage,
                     groupName = groupName ?: "",
-                    encodedContent = encodedContent,
+                    content = reactionContent,
                     senderId = reactorId.toHexString(),
                     receiverId = receiverId.toHexString(),
                     reaction = true,

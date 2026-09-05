@@ -26,7 +26,9 @@ sealed interface NotificationResponse {
         val groupMessage: Boolean,
         val messageType: MessageType,
         val groupName: String,
-        val encodedContent: String,
+        //Message text for TEXT messages, the emoji for reactions. Sent as plaintext: the old
+        //shared-key obfuscation was removed, real confidentiality comes with end-to-end encryption.
+        val content: String,
         val senderId: String,
         val receiverId: String,
         val reaction: Boolean = false,
