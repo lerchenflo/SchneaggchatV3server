@@ -24,8 +24,20 @@
                 schreib uns einfach.
             </p>
 
+            <div class="faq-search">
+                <i class="fa-solid fa-magnifying-glass faq-search-icon"></i>
+                <input id="faq-search-input" type="search" autocomplete="off" placeholder="Frage suchen ...">
+                <button type="button" id="faq-search-clear" class="faq-search-clear hidden" aria-label="Suche zurücksetzen">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
             <!-- Categories and entries are loaded from the database -->
             <div id="faq-categories"></div>
+
+            <p id="faq-no-results" class="update-info hidden" data-i18n="faq_search_noresults">
+                Keine Frage passt zu deiner Suche.
+            </p>
 
             <p id="faq-empty" class="update-info hidden" data-i18n="faq_empty">
                 Hier stehen bald Antworten. Schau später nochmal vorbei.

@@ -5,6 +5,7 @@ package com.lerchenflo.schneaggchatv3server.core
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.website.donations.model.Donation
+import com.lerchenflo.schneaggchatv3server.website.faq.FaqSeedService
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
@@ -64,6 +65,8 @@ class MainController(
 
     private val donationRepository: DonationRepository,
 
+    private val faqSeedService: FaqSeedService,
+
     @Value("\${apns.debug}") private val debug: Boolean,
 
     ){
@@ -90,6 +93,8 @@ class MainController(
         migrateUserRole()
         migrateRefreshTokenChains()
         migrateDonations()
+
+        faqSeedService.seedMissingEntries()
 
         if (debug) {
             //Create test account for google play & Apple

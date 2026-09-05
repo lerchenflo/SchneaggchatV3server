@@ -130,11 +130,14 @@
     <string name="faq_category_chats">Chats</string>
     <string name="faq_category_general">Allgemein</string>
     <string name="faq_category_map">Karte</string>
+    <string name="faq_category_notifications">Benachrichtigungen</string>
     <string name="faq_category_privacy">Datenschutz</string>
     <string name="faq_category_technical">Technisches</string>
     <string name="faq_contact_heading">Frage nicht dabei?</string>
     <string name="faq_contact_text">Schreib uns an <a href="mailto:schneaggchat@gmail.com">schneaggchat@gmail.com</a>, wir antworten so schnell wir können.</string>
     <string name="faq_empty">Hier stehen bald Antworten. Schau später nochmal vorbei.</string>
+    <string name="faq_search_noresults">Keine Frage passt zu deiner Suche.</string>
+    <string name="faq_search_placeholder">Frage suchen ...</string>
     <string name="faq_subtitle">Antworten auf die Fragen, die uns am häufigsten gestellt werden. Ist deine Frage nicht dabei, schreib uns einfach.</string>
     <string name="faq_title">Häufige Fragen</string>
     <string name="feature_alarm_text">Spiele einen Weckton bei Freunden ab, auch wenn deren Gerät auf lautlos ist! (Android Only)</string>

@@ -11,12 +11,14 @@ const CATEGORY_FALLBACK_LABELS = {
     GENERAL: 'Allgemein',
     ACCOUNT: 'Account',
     CHATS: 'Chats',
+    NOTIFICATIONS: 'Benachrichtigungen',
     MAP: 'Karte',
     PRIVACY: 'Datenschutz',
     TECHNICAL: 'Technisches',
 };
 
 let faqEntries = null;
+let searchTerm = '';
 const openEntryIds = new Set();
 
 function translationForLang(entry, lang) {
@@ -30,6 +32,19 @@ function categoryLabel(category) {
     return translated || CATEGORY_FALLBACK_LABELS[category] || category;
 }
 
+// A term matches when every word of it appears in the question or the answer, so "email spam"
+// finds an entry mentioning both regardless of their order.
+function matchesSearch(text) {
+    if (!searchTerm) return true;
+
+    const haystack = `${text.question} ${text.answer}`.toLowerCase();
+    return searchTerm.toLowerCase().split(/\s+/).every((word) => haystack.includes(word));
+}
+
+function searchPlaceholder() {
+    return window.__schneaggchatI18n['faq_search_placeholder'] || 'Frage suchen ...';
+}
+
 // Question and answer are admin-entered database content, so both are set via textContent - the
 // FAQ never builds markup out of them.
 function buildEntry(entry, lang) {
@@ -37,8 +52,11 @@ function buildEntry(entry, lang) {
 
     const item = document.createElement('details');
     item.className = 'faq-item';
-    item.open = openEntryIds.has(entry.id);
+    // While searching, every hit is shown open - the match may sit in the answer. That open state
+    // belongs to the search, so it is not remembered once the search is cleared.
+    item.open = searchTerm ? true : openEntryIds.has(entry.id);
     item.addEventListener('toggle', () => {
+        if (searchTerm) return;
         if (item.open) openEntryIds.add(entry.id);
         else openEntryIds.delete(entry.id);
     });
@@ -64,17 +82,25 @@ function buildEntry(entry, lang) {
 function renderFaq(lang) {
     const container = document.getElementById('faq-categories');
     const emptyHint = document.getElementById('faq-empty');
+    const noResultsHint = document.getElementById('faq-no-results');
+    const searchInput = document.getElementById('faq-search-input');
     if (!container || faqEntries === null) return;
+
+    searchInput.placeholder = searchPlaceholder();
+    document.getElementById('faq-search-clear').classList.toggle('hidden', !searchTerm);
+
+    const matches = faqEntries.filter((entry) => matchesSearch(translationForLang(entry, lang)));
 
     container.innerHTML = '';
     emptyHint.classList.toggle('hidden', faqEntries.length > 0);
+    noResultsHint.classList.toggle('hidden', faqEntries.length === 0 || matches.length > 0);
 
     // Entries arrive already ordered by category and position, so a category block ends as soon as
     // the next entry carries a different category.
     let currentCategory = null;
     let currentList = null;
 
-    faqEntries.forEach((entry) => {
+    matches.forEach((entry) => {
         if (entry.category !== currentCategory) {
             currentCategory = entry.category;
 
@@ -111,12 +137,34 @@ async function loadAndRenderFaq() {
     }
 }
 
+function setUpSearch() {
+    const input = document.getElementById('faq-search-input');
+    const clearButton = document.getElementById('faq-search-clear');
+
+    input.addEventListener('input', () => {
+        searchTerm = input.value.trim();
+        renderFaq(getCurrentLang());
+    });
+
+    clearButton.addEventListener('click', () => {
+        input.value = '';
+        searchTerm = '';
+        renderFaq(getCurrentLang());
+        input.focus();
+    });
+}
+
 document.addEventListener('schneaggchat:languagechanged', (event) => {
     renderFaq(event.detail.lang);
 });
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadAndRenderFaq);
-} else {
+function initFaqPage() {
+    setUpSearch();
     loadAndRenderFaq();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFaqPage);
+} else {
+    initFaqPage();
 }

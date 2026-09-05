@@ -377,6 +377,7 @@ const FAQ_CATEGORY_LABELS = {
     GENERAL: 'Allgemein',
     ACCOUNT: 'Account',
     CHATS: 'Chats',
+    NOTIFICATIONS: 'Benachrichtigungen',
     MAP: 'Karte',
     PRIVACY: 'Datenschutz',
     TECHNICAL: 'Technisches',

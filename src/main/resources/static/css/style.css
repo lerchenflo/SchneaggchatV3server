@@ -1291,6 +1291,66 @@ header.scrolled {
     margin: 0 auto;
 }
 
+.faq-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-bottom: 3rem;
+}
+
+.faq-search input {
+    width: 100%;
+    padding: 1rem 3rem;
+    font-family: inherit;
+    font-size: 1rem;
+    color: var(--light);
+    background: rgba(19, 31, 19, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    transition: var(--transition);
+}
+
+.faq-search input::placeholder {
+    color: rgba(248, 249, 250, 0.45);
+}
+
+.faq-search input:focus {
+    outline: none;
+    border-color: rgba(30, 216, 96, 0.4);
+    background: rgba(19, 31, 19, 0.85);
+}
+
+/* Safari draws its own clear button on type="search"; the page uses its own. */
+.faq-search input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.faq-search-icon {
+    position: absolute;
+    left: 1.2rem;
+    color: var(--primary);
+    pointer-events: none;
+}
+
+.faq-search-clear {
+    position: absolute;
+    right: 1rem;
+    display: flex;
+    padding: 0.4rem;
+    color: rgba(248, 249, 250, 0.6);
+    background: none;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.faq-search-clear:hover {
+    color: var(--light);
+    background: rgba(255, 255, 255, 0.08);
+}
+
 .faq-category {
     margin-bottom: 3rem;
 }

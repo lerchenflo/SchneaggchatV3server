@@ -23,6 +23,13 @@ data class FaqEntry(
     val category: FaqCategory,
     val sortOrder: Int, // position inside the category, ascending
 
+    /**
+     * Set only on entries inserted by [com.lerchenflo.schneaggchatv3server.website.faq.FaqSeedService].
+     * Identifies a seed entry across restarts even after an admin rewrote its text, so the seed
+     * never inserts the same question twice. Admin-created entries carry null.
+     */
+    val seedKey: String? = null,
+
     val german: FaqText,
     val austrian: FaqText? = null,
     val english: FaqText? = null,

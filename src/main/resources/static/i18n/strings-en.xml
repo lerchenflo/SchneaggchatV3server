@@ -125,11 +125,14 @@
     <string name="faq_category_chats">Chats</string>
     <string name="faq_category_general">General</string>
     <string name="faq_category_map">Map</string>
+    <string name="faq_category_notifications">Notifications</string>
     <string name="faq_category_privacy">Privacy</string>
     <string name="faq_category_technical">Technical</string>
     <string name="faq_contact_heading">Question not covered?</string>
     <string name="faq_contact_text">Write to us at <a href="mailto:schneaggchat@gmail.com">schneaggchat@gmail.com</a> and we will reply as soon as we can.</string>
     <string name="faq_empty">Answers are coming soon. Check back later.</string>
+    <string name="faq_search_noresults">No question matches your search.</string>
+    <string name="faq_search_placeholder">Search a question ...</string>
     <string name="faq_subtitle">Answers to the questions we get asked most. If yours is not here, just write to us.</string>
     <string name="faq_title">Frequently asked questions</string>
     <string name="feature_alarm_text">Play an alarm sound on a friend's device, even if it's on silent! (Android only)</string>

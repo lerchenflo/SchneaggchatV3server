@@ -5,6 +5,7 @@ enum class FaqCategory {
     GENERAL,
     ACCOUNT,
     CHATS,
+    NOTIFICATIONS,
     MAP,
     PRIVACY,
     TECHNICAL;
