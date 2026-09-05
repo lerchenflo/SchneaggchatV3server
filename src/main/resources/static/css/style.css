@@ -2626,6 +2626,21 @@ header.scrolled {
     opacity: 0.5;
 }
 
+.admin-table tbody tr.admin-divider-row:hover {
+    background: none;
+}
+
+.admin-divider-row td {
+    padding: 0.5rem 1.1rem;
+    background: rgba(13, 21, 13, 0.75);
+    color: #94a3b8;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .admin-load-more {
     width: auto;
     margin: 1.5rem auto 0;

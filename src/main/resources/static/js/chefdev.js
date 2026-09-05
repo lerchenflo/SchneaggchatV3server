@@ -792,6 +792,32 @@ const USER_SORT_DEFAULT_DIR = {
     online: 'desc',
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Divider buckets for the "Zuletzt gesehen" sort, widest window last. `days` counts whole days
+// back from the start of today, so the groups line up with calendar days instead of the clock
+// time the page happened to be opened at.
+const LAST_SEEN_BUCKETS = [
+    { label: 'Heute', days: 0 },
+    { label: 'Letzte 3 Tage', days: 2 },
+    { label: 'Letzte Woche', days: 6 },
+    { label: 'Letzte 2 Wochen', days: 13 },
+    { label: 'Letzter Monat', days: 29 },
+];
+
+function lastSeenBucketLabel(lastSeen, startOfToday) {
+    const bucket = LAST_SEEN_BUCKETS.find((b) => lastSeen >= startOfToday - b.days * DAY_MS);
+    return bucket ? bucket.label : 'Älter';
+}
+
+function lastSeenDividerRow(label) {
+    const row = el('tr', 'admin-divider-row');
+    const cell = el('td', null, label);
+    cell.colSpan = document.querySelectorAll('#users-header th').length;
+    row.appendChild(cell);
+    return row;
+}
+
 async function loadUsers() {
     usersState.all = await adminFetchJson('/chefdev/api/users');
     usersState.loadedOnce = true;
@@ -827,7 +853,19 @@ function renderUsers() {
     const filtered = term ? usersState.all.filter((u) => u.username.toLowerCase().includes(term)) : usersState.all;
     const visible = sortUsers(filtered);
 
+    const groupByLastSeen = usersState.sortKey === 'lastSeen';
+    const startOfToday = new Date().setHours(0, 0, 0, 0);
+    let currentBucket = null;
+
     visible.forEach((user) => {
+        if (groupByLastSeen) {
+            const bucket = lastSeenBucketLabel(user.lastSeen, startOfToday);
+            if (bucket !== currentBucket) {
+                currentBucket = bucket;
+                tbody.appendChild(lastSeenDividerRow(bucket));
+            }
+        }
+
         const row = el('tr');
 
         const nameCell = el('td', 'admin-name-cell');
