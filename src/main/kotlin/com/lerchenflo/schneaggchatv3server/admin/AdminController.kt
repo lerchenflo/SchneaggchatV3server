@@ -7,6 +7,10 @@ import com.lerchenflo.schneaggchatv3server.core.security.AdminGuard
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.donations.DonationService
 import com.lerchenflo.schneaggchatv3server.donations.model.AdminDonationResponse
+import com.lerchenflo.schneaggchatv3server.faq.FaqService
+import com.lerchenflo.schneaggchatv3server.faq.model.AdminFaqEntryResponse
+import com.lerchenflo.schneaggchatv3server.faq.model.FaqCategory
+import com.lerchenflo.schneaggchatv3server.faq.model.FaqText
 import com.lerchenflo.schneaggchatv3server.games.model.Difficulty
 import com.lerchenflo.schneaggchatv3server.games.model.Game
 import com.lerchenflo.schneaggchatv3server.schneaggmap.MapChangeLogEditor
@@ -35,6 +39,7 @@ class AdminController(
     private val jwtService: JwtService,
     private val mapEntryVersionService: MapEntryVersionService,
     private val donationService: DonationService,
+    private val faqService: FaqService,
     private val loggingService: LoggingService,
     private val adminEventService: AdminEventService,
     private val adminScoreService: AdminScoreService,
@@ -114,6 +119,78 @@ class AdminController(
         require(ValidationUtils.validateObjectId(id)) { "Invalid donation id" }
         donationService.delete(ObjectId(id))
     }
+
+    // ─── FAQ ─────────────────────────────────────────────────────────────────
+
+    data class FaqTextRequest(
+        @field:Size(max = 300, message = "Question too long")
+        val question: String,
+        @field:Size(max = 5000, message = "Answer too long")
+        val answer: String,
+    )
+
+    data class FaqEntryRequest(
+        @field:NotBlank(message = "Category must not be blank")
+        val category: String,
+        val sortOrder: Int,
+        @field:Valid
+        val german: FaqTextRequest,
+        @field:Valid
+        val austrian: FaqTextRequest?,
+        @field:Valid
+        val english: FaqTextRequest?,
+    )
+
+    @GetMapping("/faq")
+    fun getFaqEntries(): List<AdminFaqEntryResponse> {
+        adminGuard.requireAdmin()
+        return faqService.listAll()
+    }
+
+    @GetMapping("/faq/categories")
+    fun getFaqCategories(): List<String> {
+        adminGuard.requireAdmin()
+        return FaqCategory.entries.map { it.name }
+    }
+
+    @PostMapping("/faq")
+    fun createFaqEntry(@Valid @RequestBody request: FaqEntryRequest): AdminFaqEntryResponse {
+        adminGuard.requireAdmin()
+        return faqService.create(
+            category = request.parsedCategory(),
+            sortOrder = request.sortOrder,
+            german = request.german.toFaqText(),
+            austrian = request.austrian?.toFaqText(),
+            english = request.english?.toFaqText(),
+        )
+    }
+
+    @PutMapping("/faq/{id}")
+    fun updateFaqEntry(@PathVariable id: String, @Valid @RequestBody request: FaqEntryRequest): AdminFaqEntryResponse {
+        adminGuard.requireAdmin()
+        require(ValidationUtils.validateObjectId(id)) { "Invalid FAQ entry id" }
+        return faqService.update(
+            id = ObjectId(id),
+            category = request.parsedCategory(),
+            sortOrder = request.sortOrder,
+            german = request.german.toFaqText(),
+            austrian = request.austrian?.toFaqText(),
+            english = request.english?.toFaqText(),
+        )
+    }
+
+    @DeleteMapping("/faq/{id}")
+    fun deleteFaqEntry(@PathVariable id: String) {
+        adminGuard.requireAdmin()
+        require(ValidationUtils.validateObjectId(id)) { "Invalid FAQ entry id" }
+        faqService.delete(ObjectId(id))
+    }
+
+    private fun FaqEntryRequest.parsedCategory(): FaqCategory =
+        FaqCategory.fromId(category)
+            ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown category: $category")
+
+    private fun FaqTextRequest.toFaqText(): FaqText = FaqText(question = question, answer = answer)
 
     // ─── Connected users ─────────────────────────────────────────────────────
 

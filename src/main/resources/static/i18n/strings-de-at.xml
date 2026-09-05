@@ -103,14 +103,11 @@
     <string name="donations_paypal_cta">Jetzt via PayPal spenda</string>
     <string name="donations_paypal_secure">Sicher und einfach über PayPal</string>
     <string name="donations_recent_heading">Aktuelle Spenden</string>
-    <string name="donations_subtitle">Schneaggchat isch a Leidenschaftsprojekt! Allua da Server und Appstore-Gebühren kostan rund
-                125 € im Joar (ohne Programmiera, denn wärs unbezahlbar). Dine Spende hilft, das zum decka
-                und neue Features zum entwickela. Jeder Beitrag zählt!</string>
+    <string name="donations_subtitle">Schneaggchat isch a Leidenschaftsprojekt! Allua da Server und Appstore-Gebühren kostan rund 125€ im Joar (ohne Programmiera, denn wärs unbezahlbar). Dine Spende hilft, des zum decka und neue Features zum entwickla. Jeder Beitrag zählt!</string>
     <string name="donations_title">Unterstütz Schneaggchat</string>
     <string name="donations_total_heading">Gesamte Spenda</string>
     <string name="donations_total_thanks">Vielen Dank an alle Unterstützer!</string>
-    <string name="donations_update_info">Die Spendenliste wird regelmäßig aktualisiert. Alle Spenda gond zu 100% in die Entwicklung und da
-                Betrieb vo Schneaggchat.</string>
+    <string name="donations_update_info">Die Spendenliste wird regelmäßig aktualisiert. Alle Spenda gond zu 100% in die Entwicklung und da Betrieb vo Schneaggchat.</string>
     <string name="download_android_name">Android</string>
     <string name="download_android_sub">Google Play Store</string>
     <string name="download_desktop_name">Desktop</string>

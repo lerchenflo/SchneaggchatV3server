@@ -86,6 +86,9 @@
                 <button id="admin-tab-donations" class="admin-tab">
                     <i class="fa-solid fa-hand-holding-heart"></i> Spenden
                 </button>
+                <button id="admin-tab-faq" class="admin-tab">
+                    <i class="fa-solid fa-circle-question"></i> FAQ
+                </button>
                 <button id="admin-tab-scores" class="admin-tab">
                     <i class="fa-solid fa-trophy"></i> Highscores
                 </button>
@@ -148,6 +151,35 @@
                             </tr>
                         </thead>
                         <tbody id="donations-rows"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- FAQ -->
+            <section id="admin-section-faq" class="admin-section hidden">
+                <div class="admin-section-header">
+                    <h2>FAQ</h2>
+                    <button id="faq-add-button" type="button" class="primary-button admin-inline-button">
+                        <i class="fa-solid fa-plus"></i> Neuer Eintrag
+                    </button>
+                </div>
+                <p class="admin-hint">
+                    Die Position bestimmt die Reihenfolge innerhalb einer Kategorie (kleinste Zahl zuerst).
+                    Fehlt eine Übersetzung, zeigt die Website den deutschen Text.
+                </p>
+                <div class="admin-table-scroll">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Kategorie</th>
+                                <th>Position</th>
+                                <th>Frage (Deutsch)</th>
+                                <th>Übersetzungen</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="faq-rows"></tbody>
                     </table>
                 </div>
             </section>
@@ -312,6 +344,59 @@
             <p id="donation-form-error" class="admin-form-error"></p>
             <div class="admin-modal-actions">
                 <button type="button" id="donation-form-cancel" class="secondary-button">Abbrechen</button>
+                <button type="submit" class="primary-button">Speichern</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- FAQ add/edit modal -->
+    <div id="faq-form-modal" class="admin-modal-overlay hidden">
+        <form id="faq-form" class="admin-modal-card admin-modal-card-wide">
+            <h3 id="faq-form-title">Neuer FAQ-Eintrag</h3>
+            <div class="admin-form-row">
+                <div class="form-group">
+                    <label for="faq-form-category"><i class="fa-solid fa-folder"></i> Kategorie</label>
+                    <select id="faq-form-category" class="admin-select admin-form-select"></select>
+                </div>
+                <div class="form-group">
+                    <label for="faq-form-sort"><i class="fa-solid fa-arrow-down-1-9"></i> Position</label>
+                    <input type="number" id="faq-form-sort" min="0" step="1" required>
+                </div>
+            </div>
+
+            <h4 class="admin-form-heading">Deutsch <span class="admin-muted">(Pflicht)</span></h4>
+            <div class="form-group">
+                <label for="faq-form-question-de"><i class="fa-solid fa-circle-question"></i> Frage</label>
+                <input type="text" id="faq-form-question-de" maxlength="300" required>
+            </div>
+            <div class="form-group">
+                <label for="faq-form-answer-de"><i class="fa-solid fa-comment-dots"></i> Antwort</label>
+                <textarea id="faq-form-answer-de" rows="4" maxlength="5000" required></textarea>
+            </div>
+
+            <h4 class="admin-form-heading">Vorarlbergerisch <span class="admin-muted">(optional)</span></h4>
+            <div class="form-group">
+                <label for="faq-form-question-at"><i class="fa-solid fa-circle-question"></i> Frage</label>
+                <input type="text" id="faq-form-question-at" maxlength="300">
+            </div>
+            <div class="form-group">
+                <label for="faq-form-answer-at"><i class="fa-solid fa-comment-dots"></i> Antwort</label>
+                <textarea id="faq-form-answer-at" rows="4" maxlength="5000"></textarea>
+            </div>
+
+            <h4 class="admin-form-heading">Englisch <span class="admin-muted">(optional)</span></h4>
+            <div class="form-group">
+                <label for="faq-form-question-en"><i class="fa-solid fa-circle-question"></i> Frage</label>
+                <input type="text" id="faq-form-question-en" maxlength="300">
+            </div>
+            <div class="form-group">
+                <label for="faq-form-answer-en"><i class="fa-solid fa-comment-dots"></i> Antwort</label>
+                <textarea id="faq-form-answer-en" rows="4" maxlength="5000"></textarea>
+            </div>
+
+            <p id="faq-form-error" class="admin-form-error"></p>
+            <div class="admin-modal-actions">
+                <button type="button" id="faq-form-cancel" class="secondary-button">Abbrechen</button>
                 <button type="submit" class="primary-button">Speichern</button>
             </div>
         </form>

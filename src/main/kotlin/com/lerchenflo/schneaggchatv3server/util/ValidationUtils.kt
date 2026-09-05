@@ -406,4 +406,21 @@ object ValidationUtils {
     fun validateDonationAmount(amountCents: Long): Boolean {
         return amountCents in 1..1_000_000_000
     }
+
+    /** Admin-entered FAQ question shown on the public FAQ page. */
+    fun validateFaqQuestion(question: String): Boolean {
+        if (question.isBlank()) return false
+        return question.length <= 300
+    }
+
+    /** Admin-entered FAQ answer shown on the public FAQ page. Plain text, rendered with line breaks kept. */
+    fun validateFaqAnswer(answer: String): Boolean {
+        if (answer.isBlank()) return false
+        return answer.length <= 5000
+    }
+
+    /** Position of a FAQ entry inside its category. */
+    fun validateFaqSortOrder(sortOrder: Int): Boolean {
+        return sortOrder in 0..10_000
+    }
 }

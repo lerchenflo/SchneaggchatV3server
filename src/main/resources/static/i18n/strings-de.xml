@@ -126,6 +126,17 @@
     <string name="download_ios_sub">App Store</string>
     <string name="download_recommended">Empfohlen für dich</string>
     <string name="download_title">Download</string>
+    <string name="faq_category_account">Account</string>
+    <string name="faq_category_chats">Chats</string>
+    <string name="faq_category_general">Allgemein</string>
+    <string name="faq_category_map">Karte</string>
+    <string name="faq_category_privacy">Datenschutz</string>
+    <string name="faq_category_technical">Technisches</string>
+    <string name="faq_contact_heading">Frage nicht dabei?</string>
+    <string name="faq_contact_text">Schreib uns an <a href="mailto:schneaggchat@gmail.com">schneaggchat@gmail.com</a>, wir antworten so schnell wir können.</string>
+    <string name="faq_empty">Hier stehen bald Antworten. Schau später nochmal vorbei.</string>
+    <string name="faq_subtitle">Antworten auf die Fragen, die uns am häufigsten gestellt werden. Ist deine Frage nicht dabei, schreib uns einfach.</string>
+    <string name="faq_title">Häufige Fragen</string>
     <string name="feature_alarm_text">Spiele einen Weckton bei Freunden ab, auch wenn deren Gerät auf lautlos ist! (Android Only)</string>
     <string name="feature_alarm_title">Weckerfeature</string>
     <string name="feature_dialect_text">Wähl Vorarlbergerisch als Sprachoption für die App.</string>
@@ -156,6 +167,7 @@
     <string name="hero_title">Die Chat-App für dich und deine Freunde</string>
     <string name="hero_trust">Kostenlos · Open Source · Keine Werbung · Guter Support</string>
     <string name="nav_donate">Spenden</string>
+    <string name="nav_faq">FAQ</string>
     <string name="nav_home">Home</string>
     <string name="nav_privacy">Datenschutz</string>
     <string name="nav_stats">Stats</string>

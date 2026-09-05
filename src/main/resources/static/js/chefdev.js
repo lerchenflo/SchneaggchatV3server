@@ -45,6 +45,7 @@ function resetTabState() {
     changelogState.loadedOnce = false;
     changelogState.page = 0;
     donationsState.loadedOnce = false;
+    faqState.loadedOnce = false;
     logsState.loadedOnce = false;
     logsState.page = 0;
 }
@@ -114,7 +115,7 @@ function showPanelView() {
 }
 
 // Order matches the top bar: read-only views first, data-changing views after the separator.
-const TABS = ['connected', 'changelog', 'tree', 'logs', 'donations', 'scores', 'users'];
+const TABS = ['connected', 'changelog', 'tree', 'logs', 'donations', 'faq', 'scores', 'users'];
 
 function switchTab(tab) {
     TABS.forEach((t) => {
@@ -129,6 +130,7 @@ function switchTab(tab) {
 
     if (tab === 'changelog' && !changelogState.loadedOnce) loadChangeLog(true);
     if (tab === 'donations' && !donationsState.loadedOnce) loadDonations();
+    if (tab === 'faq' && !faqState.loadedOnce) loadFaqEntries();
     if (tab === 'connected' && !connectedUsersState.streamStarted) startConnectedUsersStream();
     if (tab === 'scores' && !scoresState.loadedOnce) loadScores(true);
     if (tab === 'users' && !usersState.loadedOnce) loadUsers();
@@ -364,6 +366,173 @@ async function deleteDonation(id) {
     await adminFetchJson(`/chefdev/api/donations/${id}`, { method: 'DELETE' });
     loadDonations();
 }
+
+/* ---------------------------------------------------------------------- */
+/* FAQ                                                                    */
+/* ---------------------------------------------------------------------- */
+
+// German labels for the category enum served by /chefdev/api/faq/categories. A category the server
+// knows but this map does not still shows up, under its raw enum name.
+const FAQ_CATEGORY_LABELS = {
+    GENERAL: 'Allgemein',
+    ACCOUNT: 'Account',
+    CHATS: 'Chats',
+    MAP: 'Karte',
+    PRIVACY: 'Datenschutz',
+    TECHNICAL: 'Technisches',
+};
+
+const faqState = { loadedOnce: false, editingId: null, categoriesLoaded: false };
+
+function faqCategoryLabel(category) {
+    return FAQ_CATEGORY_LABELS[category] || category;
+}
+
+async function loadFaqCategories() {
+    if (faqState.categoriesLoaded) return;
+
+    const categories = await adminFetchJson('/chefdev/api/faq/categories');
+    const select = document.getElementById('faq-form-category');
+    select.innerHTML = '';
+    categories.forEach((category) => {
+        const option = el('option', null, faqCategoryLabel(category));
+        option.value = category;
+        select.appendChild(option);
+    });
+    faqState.categoriesLoaded = true;
+}
+
+function translationBadge(label, present) {
+    return el('span', `admin-badge ${present ? 'admin-badge-create' : 'admin-badge-offline'}`, label);
+}
+
+async function loadFaqEntries() {
+    const [entries] = await Promise.all([
+        adminFetchJson('/chefdev/api/faq'),
+        loadFaqCategories(),
+    ]);
+    faqState.loadedOnce = true;
+
+    const tbody = document.getElementById('faq-rows');
+    tbody.innerHTML = '';
+
+    entries.forEach((entry) => {
+        const row = el('tr');
+        if (entry.deleted) row.classList.add('admin-row-deleted');
+
+        row.appendChild(el('td', null, faqCategoryLabel(entry.category)));
+        row.appendChild(el('td', null, String(entry.sortOrder)));
+        row.appendChild(el('td', null, entry.german.question));
+
+        const translationsCell = el('td', 'admin-actions-cell');
+        translationsCell.appendChild(translationBadge('AT', Boolean(entry.austrian)));
+        translationsCell.appendChild(translationBadge('EN', Boolean(entry.english)));
+        row.appendChild(translationsCell);
+
+        row.appendChild(el('td', null, entry.deleted ? 'Gelöscht' : 'Aktiv'));
+
+        const actionsCell = el('td', 'admin-actions-cell');
+        if (!entry.deleted) {
+            const editButton = el('button', 'secondary-button admin-inline-button', 'Bearbeiten');
+            editButton.addEventListener('click', () => openFaqForm(entry));
+            actionsCell.appendChild(editButton);
+
+            const deleteButton = el('button', 'delete-button admin-inline-button', 'Löschen');
+            deleteButton.addEventListener('click', () => deleteFaqEntry(entry.id));
+            actionsCell.appendChild(deleteButton);
+        }
+        row.appendChild(actionsCell);
+
+        tbody.appendChild(row);
+    });
+}
+
+function openFaqForm(entry) {
+    faqState.editingId = entry ? entry.id : null;
+    document.getElementById('faq-form-title').textContent = entry ? 'FAQ-Eintrag bearbeiten' : 'Neuer FAQ-Eintrag';
+    document.getElementById('faq-form-category').value = entry ? entry.category : 'GENERAL';
+    document.getElementById('faq-form-sort').value = entry ? entry.sortOrder : 0;
+    document.getElementById('faq-form-question-de').value = entry ? entry.german.question : '';
+    document.getElementById('faq-form-answer-de').value = entry ? entry.german.answer : '';
+    document.getElementById('faq-form-question-at').value = entry?.austrian ? entry.austrian.question : '';
+    document.getElementById('faq-form-answer-at').value = entry?.austrian ? entry.austrian.answer : '';
+    document.getElementById('faq-form-question-en').value = entry?.english ? entry.english.question : '';
+    document.getElementById('faq-form-answer-en').value = entry?.english ? entry.english.answer : '';
+    document.getElementById('faq-form-error').textContent = '';
+    document.getElementById('faq-form-modal').classList.remove('hidden');
+}
+
+function closeFaqForm() {
+    document.getElementById('faq-form-modal').classList.add('hidden');
+}
+
+async function deleteFaqEntry(id) {
+    if (!confirm('Diesen FAQ-Eintrag wirklich löschen?')) return;
+    await adminFetchJson(`/chefdev/api/faq/${id}`, { method: 'DELETE' });
+    loadFaqEntries();
+}
+
+document.getElementById('faq-add-button')?.addEventListener('click', () => openFaqForm(null));
+document.getElementById('faq-form-cancel')?.addEventListener('click', closeFaqForm);
+
+// A translation counts as filled in only when both its question and its answer are there - half a
+// translation would show a German answer under an English question on the website.
+function readFaqTranslation(suffix, errorEl, languageName) {
+    const question = document.getElementById(`faq-form-question-${suffix}`).value.trim();
+    const answer = document.getElementById(`faq-form-answer-${suffix}`).value.trim();
+
+    if (!question && !answer) return null;
+    if (!question || !answer) {
+        errorEl.textContent = `${languageName}: bitte Frage und Antwort ausfüllen oder beide leer lassen.`;
+        throw new Error(errorEl.textContent);
+    }
+    return { question, answer };
+}
+
+document.getElementById('faq-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errorEl = document.getElementById('faq-form-error');
+    errorEl.textContent = '';
+
+    const question = document.getElementById('faq-form-question-de').value.trim();
+    const answer = document.getElementById('faq-form-answer-de').value.trim();
+    const sortOrder = parseInt(document.getElementById('faq-form-sort').value, 10);
+
+    if (!question || !answer || Number.isNaN(sortOrder) || sortOrder < 0) {
+        errorEl.textContent = 'Bitte deutsche Frage, Antwort und eine gültige Position ausfüllen.';
+        return;
+    }
+
+    let austrian;
+    let english;
+    try {
+        austrian = readFaqTranslation('at', errorEl, 'Vorarlbergerisch');
+        english = readFaqTranslation('en', errorEl, 'Englisch');
+    } catch {
+        return; // message already in errorEl
+    }
+
+    const body = JSON.stringify({
+        category: document.getElementById('faq-form-category').value,
+        sortOrder,
+        german: { question, answer },
+        austrian,
+        english,
+    });
+
+    try {
+        const path = faqState.editingId ? `/chefdev/api/faq/${faqState.editingId}` : '/chefdev/api/faq';
+        await adminFetchJson(path, {
+            method: faqState.editingId ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+        });
+        closeFaqForm();
+        loadFaqEntries();
+    } catch (err) {
+        errorEl.textContent = err.message || 'Speichern fehlgeschlagen.';
+    }
+});
 
 /* ---------------------------------------------------------------------- */
 /* Connected users (SSE via fetch, since EventSource can't send a header) */
@@ -709,7 +878,7 @@ attachSortableHeader('users-header', usersState, USER_SORT_DEFAULT_DIR, renderUs
 
 const treeState = { loadedOnce: false, zoom: 1 };
 
-const TREE_MIN_ZOOM = 0.2;
+const TREE_MIN_ZOOM = 0.02;
 const TREE_MAX_ZOOM = 3;
 
 function buildTreeNode(node, isRoot) {
@@ -804,8 +973,8 @@ function applyTreeZoom(zoom, focalClientX, focalClientY) {
     document.getElementById('tree-zoom-label').textContent = `${Math.round(clamped * 100)}%`;
 }
 
-document.getElementById('tree-zoom-in')?.addEventListener('click', () => applyTreeZoom(treeState.zoom * 1.25));
-document.getElementById('tree-zoom-out')?.addEventListener('click', () => applyTreeZoom(treeState.zoom / 1.25));
+document.getElementById('tree-zoom-in')?.addEventListener('click', () => applyTreeZoom(treeState.zoom * 1.4));
+document.getElementById('tree-zoom-out')?.addEventListener('click', () => applyTreeZoom(treeState.zoom / 1.4));
 document.getElementById('tree-zoom-reset')?.addEventListener('click', () => applyTreeZoom(1));
 
 // Ctrl/⌘ + wheel, and trackpad pinch (which browsers report as a ctrlKey wheel event).

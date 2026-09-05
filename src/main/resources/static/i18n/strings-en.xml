@@ -121,6 +121,17 @@
     <string name="download_ios_sub">App Store</string>
     <string name="download_recommended">Recommended for you</string>
     <string name="download_title">Download</string>
+    <string name="faq_category_account">Account</string>
+    <string name="faq_category_chats">Chats</string>
+    <string name="faq_category_general">General</string>
+    <string name="faq_category_map">Map</string>
+    <string name="faq_category_privacy">Privacy</string>
+    <string name="faq_category_technical">Technical</string>
+    <string name="faq_contact_heading">Question not covered?</string>
+    <string name="faq_contact_text">Write to us at <a href="mailto:schneaggchat@gmail.com">schneaggchat@gmail.com</a> and we will reply as soon as we can.</string>
+    <string name="faq_empty">Answers are coming soon. Check back later.</string>
+    <string name="faq_subtitle">Answers to the questions we get asked most. If yours is not here, just write to us.</string>
+    <string name="faq_title">Frequently asked questions</string>
     <string name="feature_alarm_text">Play an alarm sound on a friend's device, even if it's on silent! (Android only)</string>
     <string name="feature_alarm_title">Alarm feature</string>
     <string name="feature_dialect_text">Choose the Vorarlberg dialect as the app's language.</string>
@@ -151,6 +162,7 @@
     <string name="hero_title">The messenger for you and your friends</string>
     <string name="hero_trust">Free · Open Source · No ads · Great support</string>
     <string name="nav_donate">Donate</string>
+    <string name="nav_faq">FAQ</string>
     <string name="nav_home">Home</string>
     <string name="nav_privacy">Privacy</string>
     <string name="nav_stats">Stats</string>

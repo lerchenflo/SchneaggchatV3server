@@ -68,6 +68,10 @@ class SecurityConfig(
                     .requestMatchers("/donations.html")
                     .permitAll()
 
+                    //FAQ
+                    .requestMatchers("/faq.html")
+                    .permitAll()
+
                     //Admin panel shell - the HTML carries no data, everything is fetched afterwards
                     //via /chefdev/api/** which stays authenticated + role-gated. A browser navigation
                     //cannot carry an Authorization header, so the shell itself must be public.
@@ -76,6 +80,10 @@ class SecurityConfig(
 
                     //Public donation totals for the donations page
                     .requestMatchers("/public/donations")
+                    .permitAll()
+
+                    //Public FAQ entries for the FAQ page
+                    .requestMatchers("/public/faq")
                     .permitAll()
 
                     //Favicon
