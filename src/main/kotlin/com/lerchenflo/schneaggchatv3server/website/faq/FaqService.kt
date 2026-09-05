@@ -1,12 +1,12 @@
 @file:OptIn(ExperimentalTime::class)
 
-package com.lerchenflo.schneaggchatv3server.faq
+package com.lerchenflo.schneaggchatv3server.website.faq
 
-import com.lerchenflo.schneaggchatv3server.faq.model.AdminFaqEntryResponse
-import com.lerchenflo.schneaggchatv3server.faq.model.FaqCategory
-import com.lerchenflo.schneaggchatv3server.faq.model.FaqEntry
-import com.lerchenflo.schneaggchatv3server.faq.model.FaqText
-import com.lerchenflo.schneaggchatv3server.faq.model.toAdminFaqEntryResponse
+import com.lerchenflo.schneaggchatv3server.website.faq.model.AdminFaqEntryResponse
+import com.lerchenflo.schneaggchatv3server.website.faq.model.FaqCategory
+import com.lerchenflo.schneaggchatv3server.website.faq.model.FaqEntry
+import com.lerchenflo.schneaggchatv3server.website.faq.model.FaqText
+import com.lerchenflo.schneaggchatv3server.website.faq.model.toAdminFaqEntryResponse
 import com.lerchenflo.schneaggchatv3server.repository.FaqRepository
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import org.bson.types.ObjectId

@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalTime::class)
 
-package com.lerchenflo.schneaggchatv3server.faq.model
+package com.lerchenflo.schneaggchatv3server.website.faq.model
 
 import kotlin.time.ExperimentalTime
 

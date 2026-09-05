@@ -17,6 +17,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 import kotlin.jvm.optionals.getOrNull
@@ -129,6 +130,17 @@ class GlobalExceptionHandler(
         return ResponseEntity
             .badRequest()
             .body(mapOf("error" to "Invalid request body: ${e.message}"))
+    }
+
+    /**
+     * A client that went away mid-stream (closed admin panel tab, dropped connection). The container
+     * reports the broken pipe as an async error dispatch, which would otherwise land in the catch-all
+     * below and be logged - and stored - as a server error. Nothing can be written to the response
+     * either, so the handler returns void.
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException::class)
+    fun handleDisconnectedClient(e: AsyncRequestNotUsableException) {
+        logger.debug("Client disconnected during an async response: ${e.message}")
     }
 
     // Catch-all handler for any unhandled exceptions

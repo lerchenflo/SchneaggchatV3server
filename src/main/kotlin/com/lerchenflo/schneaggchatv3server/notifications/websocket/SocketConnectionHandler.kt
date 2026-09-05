@@ -1,6 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.notifications.websocket
 
-import com.lerchenflo.schneaggchatv3server.admin.AdminEventService
+import com.lerchenflo.schneaggchatv3server.website.admin.AdminEventService
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.connectiontimelogger.ConnectionTimeLogger

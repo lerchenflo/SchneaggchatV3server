@@ -1,10 +1,10 @@
 @file:OptIn(ExperimentalTime::class)
 
-package com.lerchenflo.schneaggchatv3server.donations
+package com.lerchenflo.schneaggchatv3server.website.donations
 
-import com.lerchenflo.schneaggchatv3server.donations.model.AdminDonationResponse
-import com.lerchenflo.schneaggchatv3server.donations.model.Donation
-import com.lerchenflo.schneaggchatv3server.donations.model.toAdminDonationResponse
+import com.lerchenflo.schneaggchatv3server.website.donations.model.AdminDonationResponse
+import com.lerchenflo.schneaggchatv3server.website.donations.model.Donation
+import com.lerchenflo.schneaggchatv3server.website.donations.model.toAdminDonationResponse
 import com.lerchenflo.schneaggchatv3server.repository.DonationRepository
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import org.bson.types.ObjectId

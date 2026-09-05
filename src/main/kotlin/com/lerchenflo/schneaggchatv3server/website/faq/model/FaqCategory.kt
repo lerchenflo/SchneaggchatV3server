@@ -1,4 +1,4 @@
-package com.lerchenflo.schneaggchatv3server.faq.model
+package com.lerchenflo.schneaggchatv3server.website.faq.model
 
 /** Declaration order is the order the sections appear on the FAQ page. */
 enum class FaqCategory {

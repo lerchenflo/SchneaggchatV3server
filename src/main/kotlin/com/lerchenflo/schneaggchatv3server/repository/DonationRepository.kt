@@ -1,6 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.repository
 
-import com.lerchenflo.schneaggchatv3server.donations.model.Donation
+import com.lerchenflo.schneaggchatv3server.website.donations.model.Donation
 import org.bson.types.ObjectId
 import org.springframework.data.mongodb.repository.MongoRepository
 

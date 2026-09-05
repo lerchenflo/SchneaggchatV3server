@@ -1,9 +1,9 @@
 @file:OptIn(ExperimentalTime::class)
 
-package com.lerchenflo.schneaggchatv3server.admin
+package com.lerchenflo.schneaggchatv3server.website.admin
 
-import com.lerchenflo.schneaggchatv3server.admin.model.ConnectedUserResponse
-import com.lerchenflo.schneaggchatv3server.admin.model.ConnectedUsersSnapshot
+import com.lerchenflo.schneaggchatv3server.website.admin.model.ConnectedUserResponse
+import com.lerchenflo.schneaggchatv3server.website.admin.model.ConnectedUsersSnapshot
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.SocketConnectionHandler
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRole

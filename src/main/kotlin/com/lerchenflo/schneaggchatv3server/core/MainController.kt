@@ -4,7 +4,7 @@ package com.lerchenflo.schneaggchatv3server.core
 
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
-import com.lerchenflo.schneaggchatv3server.donations.model.Donation
+import com.lerchenflo.schneaggchatv3server.website.donations.model.Donation
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService

@@ -1,6 +1,6 @@
-package com.lerchenflo.schneaggchatv3server.faq
+package com.lerchenflo.schneaggchatv3server.website.faq
 
-import com.lerchenflo.schneaggchatv3server.faq.model.FaqListResponse
+import com.lerchenflo.schneaggchatv3server.website.faq.model.FaqListResponse
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 

@@ -1,16 +1,16 @@
 @file:OptIn(ExperimentalTime::class)
 
-package com.lerchenflo.schneaggchatv3server.admin
+package com.lerchenflo.schneaggchatv3server.website.admin
 
-import com.lerchenflo.schneaggchatv3server.admin.model.ConnectedUsersSnapshot
+import com.lerchenflo.schneaggchatv3server.website.admin.model.ConnectedUsersSnapshot
 import com.lerchenflo.schneaggchatv3server.core.security.AdminGuard
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
-import com.lerchenflo.schneaggchatv3server.donations.DonationService
-import com.lerchenflo.schneaggchatv3server.donations.model.AdminDonationResponse
-import com.lerchenflo.schneaggchatv3server.faq.FaqService
-import com.lerchenflo.schneaggchatv3server.faq.model.AdminFaqEntryResponse
-import com.lerchenflo.schneaggchatv3server.faq.model.FaqCategory
-import com.lerchenflo.schneaggchatv3server.faq.model.FaqText
+import com.lerchenflo.schneaggchatv3server.website.donations.DonationService
+import com.lerchenflo.schneaggchatv3server.website.donations.model.AdminDonationResponse
+import com.lerchenflo.schneaggchatv3server.website.faq.FaqService
+import com.lerchenflo.schneaggchatv3server.website.faq.model.AdminFaqEntryResponse
+import com.lerchenflo.schneaggchatv3server.website.faq.model.FaqCategory
+import com.lerchenflo.schneaggchatv3server.website.faq.model.FaqText
 import com.lerchenflo.schneaggchatv3server.games.model.Difficulty
 import com.lerchenflo.schneaggchatv3server.games.model.Game
 import com.lerchenflo.schneaggchatv3server.schneaggmap.MapChangeLogEditor

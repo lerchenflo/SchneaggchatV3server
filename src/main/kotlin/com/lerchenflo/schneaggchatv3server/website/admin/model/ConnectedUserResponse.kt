@@ -1,4 +1,4 @@
-package com.lerchenflo.schneaggchatv3server.admin.model
+package com.lerchenflo.schneaggchatv3server.website.admin.model
 
 data class ConnectedUserResponse(
     val userId: String,

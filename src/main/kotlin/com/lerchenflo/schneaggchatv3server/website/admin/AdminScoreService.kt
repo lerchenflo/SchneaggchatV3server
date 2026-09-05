@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalTime::class)
 
-package com.lerchenflo.schneaggchatv3server.admin
+package com.lerchenflo.schneaggchatv3server.website.admin
 
 import com.lerchenflo.schneaggchatv3server.games.model.Difficulty
 import com.lerchenflo.schneaggchatv3server.games.model.Game

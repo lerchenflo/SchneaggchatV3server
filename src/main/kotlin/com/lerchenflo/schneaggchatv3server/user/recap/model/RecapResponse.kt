@@ -1,4 +1,4 @@
-package com.lerchenflo.schneaggchatv3server.recap.model
+package com.lerchenflo.schneaggchatv3server.user.recap.model
 
 data class RecapResponse(
     val year: Int,

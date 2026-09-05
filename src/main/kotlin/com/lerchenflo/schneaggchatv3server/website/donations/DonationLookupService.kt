@@ -1,7 +1,7 @@
-package com.lerchenflo.schneaggchatv3server.donations
+package com.lerchenflo.schneaggchatv3server.website.donations
 
-import com.lerchenflo.schneaggchatv3server.donations.model.DonationsListResponse
-import com.lerchenflo.schneaggchatv3server.donations.model.toDonationResponse
+import com.lerchenflo.schneaggchatv3server.website.donations.model.DonationsListResponse
+import com.lerchenflo.schneaggchatv3server.website.donations.model.toDonationResponse
 import com.lerchenflo.schneaggchatv3server.repository.DonationRepository
 import org.springframework.stereotype.Service
 
