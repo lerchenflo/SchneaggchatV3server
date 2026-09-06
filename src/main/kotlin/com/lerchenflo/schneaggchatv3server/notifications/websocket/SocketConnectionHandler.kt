@@ -26,6 +26,7 @@ import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator
 import org.springframework.web.socket.handler.TextWebSocketHandler
+import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
@@ -85,7 +86,7 @@ class SocketConnectionHandler(
             try {
                 connection.session.close(CloseStatus.NORMAL)
             } catch (e: Exception) {
-                AppLogger.error("Error force-closing socket for user $userId: ${e.message}")
+                if (!e.isPeerGone()) AppLogger.error("Error force-closing socket for user $userId: ${e.describe()}")
             }
         }
     }
@@ -97,7 +98,7 @@ class SocketConnectionHandler(
             try {
                 connection.session.sendMessage(TextMessage(json))
             } catch (e: Exception) {
-                AppLogger.error("Error broadcasting to user ${connection.userId}: ${e.message}")
+                if (!e.isPeerGone()) AppLogger.error("Error broadcasting to user ${connection.userId}: ${e.describe()}")
                 closeDeadConnection(connection)
             }
         }
@@ -123,7 +124,9 @@ class SocketConnectionHandler(
                 connection.session.sendMessage(TextMessage(jsonMessage))
                 delivered = true
             } catch (e: Exception) {
-                AppLogger.error("Error sending socket message to user $receiverId (session ${connection.sessionId}): ${e.message}")
+                if (!e.isPeerGone()) {
+                    AppLogger.error("Error sending socket message to user $receiverId (session ${connection.sessionId}): ${e.describe()}")
+                }
                 closeDeadConnection(connection)
             }
         }
@@ -165,7 +168,8 @@ class SocketConnectionHandler(
 
     override fun handleTransportError(session: WebSocketSession, exception: Throwable) {
         // The container closes the session after this and afterConnectionClosed does the bookkeeping.
-        AppLogger.warn("Socket transport error on session ${session.id}: ${exception.message}")
+        if (exception.isPeerGone()) return
+        AppLogger.warn("Socket transport error on session ${session.id}: ${exception.describe()}")
     }
 
     /**
@@ -192,7 +196,9 @@ class SocketConnectionHandler(
             try {
                 connection.session.sendMessage(PingMessage())
             } catch (e: Exception) {
-                AppLogger.warn("Keepalive ping to user ${connection.userId} (session ${connection.sessionId}) failed: ${e.message}")
+                if (!e.isPeerGone()) {
+                    AppLogger.warn("Keepalive ping to user ${connection.userId} (session ${connection.sessionId}) failed: ${e.describe()}")
+                }
                 closeDeadConnection(connection)
             }
         }
@@ -207,7 +213,7 @@ class SocketConnectionHandler(
         try {
             connection.session.close(CloseStatus.SESSION_NOT_RELIABLE)
         } catch (e: Exception) {
-            AppLogger.error("Error closing dead socket of user ${connection.userId}: ${e.message}")
+            if (!e.isPeerGone()) AppLogger.error("Error closing dead socket of user ${connection.userId}: ${e.describe()}")
         }
         unregister(connection.sessionId)
     }
@@ -320,4 +326,19 @@ class SocketConnectionHandler(
         //println("Socket connection closed: $status. Remaining connections: ${connections.size}")
     }
 
+    /**
+     * A peer that vanished (app backgrounded, radio off, network switch, browser tab closed) shows
+     * up here in two shapes, both of them normal traffic rather than server faults: an [IOException]
+     * from the dead TCP connection, and Tomcat's [IllegalStateException] ("Message will not be sent
+     * because the WebSocket session has been closed") when a send races the close callback that
+     * would have removed the session from [connections]. Both are handled by dropping the
+     * connection, so logging them would only be noise. Either shape can arrive wrapped in a
+     * container exception, so the whole cause chain is checked.
+     */
+    private fun Throwable.isPeerGone(): Boolean =
+        generateSequence(this) { it.cause.takeIf { cause -> cause !== it } }
+            .any { it is IOException || it is IllegalStateException }
+
+    /** Many transport exceptions carry a null message, which alone says nothing - name the type too. */
+    private fun Throwable.describe(): String = "${this::class.simpleName}: ${message ?: "no message"}"
 }

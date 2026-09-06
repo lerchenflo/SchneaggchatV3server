@@ -20,7 +20,7 @@
     <string name="compare_arfilters_own">Not available yet</string>
     <string name="compare_arfilters_snapchat">Real-time camera effects, core feature</string>
     <string name="compare_birthdays_own">Display + automatic reminder</string>
-    <string name="compare_birthdays_snapchat">Only a hint on the day itself, no advance notice</string>
+    <string name="compare_birthdays_snapchat">Hint on the day itself</string>
     <string name="compare_calls_own">Optional phone number, call runs through your phone</string>
     <string name="compare_calls_snapchat">Voice &amp; video calls in the app</string>
     <string name="compare_calls_whatsapp">Voice &amp; video calls in the app</string>
@@ -129,7 +129,7 @@
     <string name="faq_category_privacy">Privacy</string>
     <string name="faq_category_technical">Technical</string>
     <string name="faq_contact_heading">Question not covered?</string>
-    <string name="faq_contact_text">Write to us at <a href="mailto:schneaggchat@gmail.com">schneaggchat@gmail.com</a> and we will reply as soon as we can.</string>
+    <string name="faq_contact_text">Write to us at schneaggchat@gmail.com and we will reply as fast as possible.</string>
     <string name="faq_empty">Answers are coming soon. Check back later.</string>
     <string name="faq_search_noresults">No question matches your search.</string>
     <string name="faq_search_placeholder">Search a question ...</string>
