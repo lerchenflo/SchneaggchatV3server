@@ -3,6 +3,7 @@
 package com.lerchenflo.schneaggchatv3server.group
 
 import com.lerchenflo.schneaggchatv3server.events.EventsLookupService
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationStatus
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
@@ -388,6 +389,29 @@ class GroupService(
                         groupLookupService.isAdmin(requestingUser, groupMembers),
                         { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
                     ) { "You are not an admin" }
+                }
+
+                // Being in an event's group is what counts as accepting that event, so leaving it
+                // (or being removed) has to take the accept back - otherwise the member shows as
+                // going forever, with no way to correct it once the dismiss button is gone.
+                // Walking out is a decision, so it reads as DISMISSED; being removed by an admin is
+                // not the user's own choice, so that only drops back to SEEN.
+                // Runs before the last-member deleteGroup path below, which re-reads the event.
+                val statusAfterRemoval = if (requestingUser == groupMember) {
+                    EventParticipationStatus.DISMISSED
+                } else {
+                    EventParticipationStatus.SEEN
+                }
+                // The creator counts as going for as long as the event exists, so their own entry
+                // is never taken back - leaving the chat is not cancelling the event.
+                eventsLookupService.findByGroupId(groupId)?.takeIf { groupMember != it.creatorId }?.let { event ->
+                    eventsLookupService.setParticipationIfPresent(event.id, groupMember, statusAfterRemoval)?.let { updated ->
+                        notificationService.notifyEventUpdate(
+                            eventResponse = updated.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+                            newEntry = false,
+                            deleted = false
+                        )
+                    }
                 }
 
                 // If user is leaving and is the last admin, promote someone

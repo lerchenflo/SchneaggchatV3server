@@ -267,20 +267,25 @@ class EventService(
         )
 
         //Joining the group is the accept for a group event - the participation list must not disagree with it
-        eventsLookupService.upsertParticipation(
+        val updatedEvent = eventsLookupService.upsertParticipation(
             eventId = event.id,
             userId = joiningUser,
             status = EventParticipationStatus.ACCEPTED
-        )?.let { updated ->
+        )
+        val eventResponse = (updatedEvent ?: event)
+            .toResponse(creatorName = userLookupService.getUsername(event.creatorId))
+
+        if (updatedEvent != null) {
             notificationService.notifyEventUpdate(
-                eventResponse = updated.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+                eventResponse = eventResponse,
                 newEntry = false,
                 deleted = false
             )
         }
 
         return EventJoinResponse(
-            groupResponse = groupLookupService.getGroupAsGroupResponse(groupId)
+            groupResponse = groupLookupService.getGroupAsGroupResponse(groupId),
+            event = eventResponse
         )
 
     }
@@ -301,8 +306,24 @@ class EventService(
             { "Unauthorized event action - user: ${userLookupService.getUsername(requestingUser)}, eventId: ${event.id.toHexString()}: Cannot access event" }
         ) { "You can not access this event" }
 
+        //Being in the event group IS the accept, so the group member list decides for a group event:
+        //a member can not dismiss it (they have to leave the group), and anything weaker than
+        //ACCEPTED becomes ACCEPTED. That second rule also repairs members who joined before
+        //participations existed - their first open writes the entry they should have had.
+        val isGroupMember = event.groupId != null && groupLookupService.isUserInGroup(requestingUser, event.groupId)
+
+        require(!(isGroupMember && request.status == EventParticipationStatus.DISMISSED)) {
+            "You joined this event, leave the group chat first"
+        }
+
+        //Left as the requested status when the member is already marked ACCEPTED, so a repeated
+        //SEEN stays the silent no-op it is for everyone else instead of rewriting the entry
+        val alreadyAccepted = eventsLookupService.findParticipation(event, requestingUser)
+            ?.status == EventParticipationStatus.ACCEPTED
+        val status = if (isGroupMember && !alreadyAccepted) EventParticipationStatus.ACCEPTED else request.status
+
         //Groupless events have no member list, so their cap can only be enforced through the accepts
-        if (request.status == EventParticipationStatus.ACCEPTED && event.groupId == null) {
+        if (status == EventParticipationStatus.ACCEPTED && event.groupId == null) {
             event.maxUsers?.let { max ->
                 val accepted = event.participations.filter { it.status == EventParticipationStatus.ACCEPTED }
                 require(accepted.any { it.userId == requestingUser } || accepted.size < max) { "Event is full" }
@@ -315,7 +336,7 @@ class EventService(
         val updated = eventsLookupService.upsertParticipation(
             eventId = event.id,
             userId = requestingUser,
-            status = request.status
+            status = status
         ) ?: return event.toResponse(creatorName = creatorName)
 
         val response = updated.toResponse(creatorName = creatorName)

@@ -55,6 +55,26 @@ class EventsLookupService(
     }
 
     /**
+     * Rewrites [userId]'s existing entry without ever creating one, so a user who never responded
+     * stays unseen. Used to take an accept back when someone leaves or is removed from an event's
+     * group, since being in that group is what counted as the accept.
+     *
+     * @return the updated event, or null when the user had no entry to change.
+     */
+    fun setParticipationIfPresent(eventId: ObjectId, userId: ObjectId, status: EventParticipationStatus): Event? {
+        val now = Clock.System.now()
+        return mongoTemplate.findAndModify(
+            Query(Criteria.where("_id").`is`(eventId).and("participations.userId").`is`(userId)),
+            Update()
+                .set("participations.\$.status", status)
+                .set("participations.\$.updatedAt", now)
+                .set("updatedAt", now),
+            FindAndModifyOptions.options().returnNew(true),
+            Event::class.java
+        )
+    }
+
+    /**
      * Writes [userId]'s entry in the event's `participations` array and bumps `updatedAt` so the existing
      * IdTimeStamp sync and the EventChange push carry the change. The only place that array is
      * written.
