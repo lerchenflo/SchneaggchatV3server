@@ -358,13 +358,17 @@ class NotificationService(
 
     fun notifyEventUpdate(eventResponse: EventResponse, newEntry: Boolean, deleted: Boolean) {
 
-        val toNotify = when (eventResponse.visibility) {
+        val audience = when (eventResponse.visibility) {
             // Only explicitly invited users can see this event
-            EventVisibility.INVITED_FRIENDS_ONLY -> eventResponse.invitedUsers.toSet()
+            EventVisibility.INVITED_FRIENDS_ONLY -> eventResponse.invitedUsers
             // Everyone who can access the event (invited users + the creator's friends) gets notified
             EventVisibility.FRIENDS_ONLY, EventVisibility.PUBLIC ->
-                (eventResponse.invitedUsers + friendsLookupService.getFriends(ObjectId(eventResponse.creatorId)).map { it.toHexString() }).toSet()
+                eventResponse.invitedUsers + friendsLookupService.getFriends(ObjectId(eventResponse.creatorId)).map { it.toHexString() }
         }
+
+        // The creator is in neither list but has to see the event change too - somebody else
+        // responding to their event is a change they never triggered themselves.
+        val toNotify = (audience + eventResponse.creatorId).toSet()
 
         val socketMessage = SocketConnectionMessage.EventChange(
             event = eventResponse,

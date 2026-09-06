@@ -26,6 +26,9 @@ data class Event(
 
     val invitedUsers: List<ObjectId>,
 
+    /** One entry per user at most - see [EventParticipation]. Default keeps documents written before this field existed loadable. */
+    val participations: List<EventParticipation> = emptyList(),
+
     val visibility: EventVisibility,
 
     val maxUsers: Int? = null, // Optional cap on how many people can join, null = unlimited

@@ -7,6 +7,9 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventRequest
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipation
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationRequest
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationStatus
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
@@ -152,6 +155,9 @@ class EventService(
             startDate = startDate,
             closeDate = closeDate,
             invitedUsers = eventRequest.invitedUsers.map { ObjectId(it) },
+            //An edit rebuilds the whole document, so the responses have to be carried over explicitly
+            participations = existing?.participations
+                ?: listOf(EventParticipation(userId = upsertingUser, status = EventParticipationStatus.ACCEPTED, updatedAt = now)),
             visibility = eventRequest.visibility,
             maxUsers = eventRequest.maxUsers,
             groupDeleteDelay = eventRequest.groupDeleteDelay,
@@ -260,12 +266,69 @@ class EventService(
             actorId = joiningUser,
         )
 
+        //Joining the group is the accept for a group event - the participation list must not disagree with it
+        eventsLookupService.upsertParticipation(
+            eventId = event.id,
+            userId = joiningUser,
+            status = EventParticipationStatus.ACCEPTED
+        )?.let { updated ->
+            notificationService.notifyEventUpdate(
+                eventResponse = updated.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+                newEntry = false,
+                deleted = false
+            )
+        }
+
         return EventJoinResponse(
             groupResponse = groupLookupService.getGroupAsGroupResponse(groupId)
         )
 
     }
 
+
+
+    /**
+     * Records how [requestingUser] responded to an event: SEEN when they opened it, ACCEPTED or
+     * DISMISSED when they answered it. Returns the current event either way, so a caller whose
+     * write was a no-op (SEEN on an event they already responded to) still gets fresh state.
+     */
+    fun setParticipation(requestingUser: ObjectId, request: EventParticipationRequest): EventResponse {
+        val event = eventsLookupService.findById(request.eventId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found")
+
+        requireOrLog(
+            canAccessEvent(requesterId = requestingUser, event = event),
+            { "Unauthorized event action - user: ${userLookupService.getUsername(requestingUser)}, eventId: ${event.id.toHexString()}: Cannot access event" }
+        ) { "You can not access this event" }
+
+        //Groupless events have no member list, so their cap can only be enforced through the accepts
+        if (request.status == EventParticipationStatus.ACCEPTED && event.groupId == null) {
+            event.maxUsers?.let { max ->
+                val accepted = event.participations.filter { it.status == EventParticipationStatus.ACCEPTED }
+                require(accepted.any { it.userId == requestingUser } || accepted.size < max) { "Event is full" }
+            }
+        }
+
+        val creatorName = userLookupService.getUsername(event.creatorId)
+
+        //null = the write was a no-op (SEEN on an already answered event); nothing changed, nothing to push
+        val updated = eventsLookupService.upsertParticipation(
+            eventId = event.id,
+            userId = requestingUser,
+            status = request.status
+        ) ?: return event.toResponse(creatorName = creatorName)
+
+        val response = updated.toResponse(creatorName = creatorName)
+
+        //updatedBy stays untouched - it means "last content editor", and a response is not an edit
+        notificationService.notifyEventUpdate(
+            eventResponse = response,
+            newEntry = false,
+            deleted = false
+        )
+
+        return response
+    }
 
 
     private fun canAccessEvent(requesterId: ObjectId, event: Event): Boolean {
