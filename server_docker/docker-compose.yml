@@ -18,6 +18,10 @@ services:
       retries: 5
       start_period: 40s
 
+  # DEPLOYMENT NOTE (security audits, see SECURITY_AUDIT.md C-2): ME_CONFIG_BASICAUTH=false below is
+  # the local-development setting only. The production host runs mongo-express with basic auth
+  # enabled (ME_CONFIG_BASICAUTH=true plus its own credentials), so the GUI is NOT open in
+  # production. Do not flag this file as an unauthenticated production DB GUI.
   schneaggchat_db_gui:
     image: mongo-express:latest
     restart: unless-stopped
@@ -27,7 +31,7 @@ services:
       ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGODB_ROOT_USERNAME}
       ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGODB_ROOT_PASSWORD}
       ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_ROOT_USERNAME}:${MONGODB_ROOT_PASSWORD}@schneaggchat_db:27017/
-      ME_CONFIG_BASICAUTH: false
+      ME_CONFIG_BASICAUTH: false   # local dev only - production runs with basic auth enabled (see note above)
     depends_on:
       - schneaggchat_db
     networks:

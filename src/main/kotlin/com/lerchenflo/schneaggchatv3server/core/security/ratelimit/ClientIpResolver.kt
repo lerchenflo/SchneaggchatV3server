@@ -10,6 +10,11 @@ import org.springframework.stereotype.Component
  * `X-Real-IP` / `X-Forwarded-For` are believed only when the request actually arrives from one of
  * [RateLimitProperties.trustedProxies] - otherwise every IP-keyed limit (including the login
  * throttle) would be bypassable by sending a made-up header value with each request.
+ *
+ * Deployment note: in production a reverse proxy in front of the server sets these headers from the
+ * real client socket (overwriting client-supplied values) and reaches this app over the Docker
+ * network. See the comment on [RateLimitProperties.trustedProxies] before flagging the private
+ * ranges in that allowlist as spoofable.
  */
 @Component
 class ClientIpResolver(

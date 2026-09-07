@@ -6,6 +6,7 @@ import com.lerchenflo.schneaggchatv3server.events.EventsLookupService
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationStatus
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.hasEnded
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
@@ -303,15 +304,21 @@ class GroupService(
     }
 
     /**
-     * User-facing: change a group's expiry, or clear it entirely (null = never auto-expires).
-     * Note: for a group backed by an event, the next event create/edit re-syncs this to the
-     * event's own group-delete-delay setting, overwriting whatever is set here.
+     * User-facing: set or move a group's delete timer, or clear it entirely (null = never
+     * auto-expires). Admins only - the timer deletes the whole chat for everyone, so it must not
+     * be open to every member (the endpoint is reachable without the client UI).
+     * Note: for a group backed by an event, the next event edit that changes the event's dates or
+     * delete delay re-syncs this to the event's own setting, overwriting whatever is set here.
      */
     fun changeGroupExpiresAt(userId: ObjectId, groupId: ObjectId, expiresAt: Instant?) {
         requireOrLog(
             groupLookupService.isUserInGroup(userId, groupId),
             { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_EXPIRES_AT, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
         ) { "You are not a member of this group" }
+        requireOrLog(
+            groupLookupService.isAdmin(userId, groupLookupService.getGroupMembers(groupId)),
+            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_EXPIRES_AT, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
+        ) { "You are not an admin" }
         expiresAt?.let {
             require(it > Clock.System.now()) { "Expiry date must be in the future" }
         }
@@ -618,14 +625,19 @@ class GroupService(
     }
 
     /**
-     * Permanently deletes every group whose [Group.expiresAt] has passed. A connected event only
-     * expires this way after its own date has passed, so it is deleted along with the group.
+     * Permanently deletes every group whose [Group.expiresAt] has passed. The timer of an event
+     * group normally fires after the event (close date, or start date, plus the creator's delay),
+     * so the event goes with the group. Should the timer ever sit ahead of the event's own end
+     * (moved by hand, or the dates were edited apart), the group still goes but the event is only
+     * detached - an event that has not happened yet must never be deleted as a side effect of its
+     * chat's timer.
      */
     fun deleteExpiredGroups() {
         val now = Clock.System.now()
 
         groupLookupService.getExpiredGroups(now).forEach { group ->
-            deleteGroup(group.id, deletedBy = null, deleteConnectedEvent = true)
+            val eventEnded = eventsLookupService.findByGroupId(group.id)?.hasEnded(now) ?: true
+            deleteGroup(group.id, deletedBy = null, deleteConnectedEvent = eventEnded)
         }
     }
 

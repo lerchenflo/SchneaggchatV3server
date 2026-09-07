@@ -59,7 +59,7 @@ class EventService(
         //Get all this users friends for the privacy sync of the events
         val friends = friendsLookupService.getFriends(requesterId)
 
-        val serverEvents = eventsLookupService.getFutureEvents()
+        val serverEvents = eventsLookupService.getActiveEvents()
 
         //Filter for all events this user can sync
         val availableEvents = serverEvents.filter {
@@ -69,7 +69,7 @@ class EventService(
         //Remove all events the user has but are not available anymore
         val availableEventIds = availableEvents.map { it.id.toHexString() }.toSet()
         val eventsToRemove = clientEvents
-            .filter { it.key !in availableEventIds } //Remove all events i can not access anymore (expired or friend removed)
+            .filter { it.key !in availableEventIds } //Remove all events i can not access anymore (ended or friend removed)
 
         val eventsToUpdate = availableEvents
             .filter { event ->
@@ -137,9 +137,16 @@ class EventService(
                 ).id
             } else null
 
+        // Re-sync the group's timer only when the creator changed something it is derived from
+        // (dates or delay). A title-only edit must not silently overwrite a timer a group admin
+        // set by hand in the chat, but a real change of the delay - including away from NEVER, or
+        // after an admin cleared the timer - has to arm or move it again. The old "only if a timer
+        // is currently set" rule could never re-arm a cleared or NEVER timer.
         if (existing?.groupId != null) {
-            val currentGroupExpiresAt = groupLookupService.getGroupById(existing.groupId)?.expiresAt
-            if (currentGroupExpiresAt != null) {
+            val timerInputsChanged = existing.startDate != startDate
+                    || existing.closeDate != closeDate
+                    || existing.groupDeleteDelay != eventRequest.groupDeleteDelay
+            if (timerInputsChanged && groupLookupService.getGroupById(existing.groupId) != null) {
                 groupService.setGroupExpiresAt(existing.groupId, groupExpiresAt)
             }
         }
