@@ -165,6 +165,10 @@ deployment/network setup, which isn't visible in the repo.
 - **Issue**: Even once H-1 is fixed, protection is per-IP. A distributed attacker (many IPs) can still spread
   guesses against a single account. There's no account-level throttle or lockout, and no CAPTCHA.
 - **Fix**: Add a per-username failure counter with backoff/temporary lockout, independent of source IP.
+- **Update 2026-09-07**: every successful `/auth/login` now emails the account owner (verified addresses
+  only, skipped when the previous login was under 10 min ago) with device, new/known-device flag, IP + reverse DNS,
+  `User-Agent`, `Accept-Language` and the list of active sessions
+  (`EmailService.sendLoginAlertEmail`). Does not stop a takeover, but makes one visible immediately.
 
 ### L-5 — `Bearer` stripping replaces all occurrences
 - **Location**: `core/security/JwtService.kt:96` (`token.replace("Bearer ", "")`)
@@ -210,5 +214,8 @@ C-1 is critical only if the key is empty/weak. Verify the real production `.env`
 - **NoSQL injection**: queries use typed `Criteria.where(...).is(ObjectId/…)`; inputs validated by
   `ValidationUtils` (ObjectId regex, etc.). No string-concatenated Mongo queries or `$where`.
 - **Login user-enumeration**: uniform `BadCredentialsException` for unknown user vs. wrong password.
+- **Login-alert mail injection**: client-supplied device name, `User-Agent`, `Accept-Language` and IP are
+  stripped of control characters and length-capped before they land in the mail body, so a
+  login with a crafted device name can't add a phishing line to the owner's alert.
 - **No secrets committed**: `git ls-files` shows no `.p8`, firebase json, or `.env` tracked (but see M-3).
 - **BCrypt** for password hashing; **AES-GCM with a full 32-byte SHA-256 key** for FCM payloads (nonce handled by the crypto library).

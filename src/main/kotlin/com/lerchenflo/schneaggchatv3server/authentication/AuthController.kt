@@ -122,6 +122,10 @@ class AuthController(
             deviceName = loginRequest.deviceName,
             devicetype = loginRequest.deviceType,
             ip = ip,
+            clientInfo = AuthService.LoginClientInfo(
+                userAgent = request.getHeader("User-Agent"),
+                acceptLanguage = request.getHeader("Accept-Language"),
+            ),
         )
     }
 
