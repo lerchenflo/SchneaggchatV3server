@@ -31,6 +31,18 @@ class MessageLookupService(
         return messageRepository.findById(messageId).getOrNull()
     }
 
+    /**
+     * Send idempotency lookup - resolves a retried send (same [senderId], same
+     * [clientMessageId]) back to the message that was already created for it.
+     */
+    fun findByClientMessageId(senderId: ObjectId, clientMessageId: String): Message? {
+        val query = Query(
+            Criteria.where("senderId").`is`(senderId)
+                .and("clientMessageId").`is`(clientMessageId)
+        )
+        return mongoTemplate.findOne(query, Message::class.java)
+    }
+
     fun count() : Long {
         return messageRepository.count()
     }

@@ -52,10 +52,15 @@ class NotificationService(
      * @param newMessage is this a new message
      * @param deleted did this message just get deleted
      * @param changingUserId user which made the change
+     * @return the recipients the socket send actually reached. [notifyReactionAdded] decides its
+     * own push fallback from this instead of doing a second, independent presence lookup that can
+     * disagree with what happened here (a session reaped in between, a send that failed). Callers
+     * that only need the fan-out can ignore it.
      */
-    fun  notifyMessageUpdate(message: Message, newMessage: Boolean, deleted: Boolean, changingUserId: ObjectId) {
+    fun  notifyMessageUpdate(message: Message, newMessage: Boolean, deleted: Boolean, changingUserId: ObjectId): Set<ObjectId> {
 
         val group = message.groupMessage
+        val deliveredOverSocket = mutableSetOf<ObjectId>()
 
         if (group) {
             val groupMembers = groupLookupService.getGroupMembers(message.receiverId)
@@ -67,7 +72,7 @@ class NotificationService(
                 //Exclude the changing user
                 if (member.userid == changingUserId) return@forEach
 
-                if (!socketConnectionHandler.sendMessage(
+                if (socketConnectionHandler.sendMessage(
                         message = SocketConnectionMessage.MessageChange(
                             message = message.toMessageResponse(member.userid),
                             deleted = deleted,
@@ -75,6 +80,8 @@ class NotificationService(
                         ),
                         receiverId = member.userid,
                     )) {
+                    deliveredOverSocket += member.userid
+                } else {
 
                     if (newMessage) {
                         firebaseMessagingService.sendNewMessageNotificationToUser(
@@ -86,6 +93,8 @@ class NotificationService(
                             groupMessage = true,
                             groupName = groupName,
                             groupId = message.receiverId,
+                            sendDate = message.sendDate.toEpochMilliseconds(),
+                            answerId = message.answerId?.toHexString(),
                         )
                         apnsService.sendNewMessageNotificationToUser(
                             senderId = message.senderId,
@@ -96,6 +105,8 @@ class NotificationService(
                             groupMessage = true,
                             groupName = groupName,
                             groupId = message.receiverId,
+                            sendDate = message.sendDate.toEpochMilliseconds(),
+                            answerId = message.answerId?.toHexString(),
                         )
                     }
                 }
@@ -105,15 +116,20 @@ class NotificationService(
         } else {
             //Single message
 
+            //Notify the user which did not change the message
+            val recipient = if (message.senderId == changingUserId) message.receiverId else message.senderId
+
             //Try sending via socketconnection
-            if (!socketConnectionHandler.sendMessage(
+            if (socketConnectionHandler.sendMessage(
                     SocketConnectionMessage.MessageChange(
                         message = message.toMessageResponse(message.receiverId),
                         deleted = deleted,
                         newMessage = newMessage,
                     ),
-                    receiverId = if (message.senderId == changingUserId) message.receiverId else message.senderId, //Notify the user which did not change the message
+                    receiverId = recipient,
                 )) {
+                deliveredOverSocket += recipient
+            } else {
 
                 if (newMessage) {
                     firebaseMessagingService.sendNewMessageNotificationToUser(
@@ -124,6 +140,8 @@ class NotificationService(
                         msgId = message.id.toHexString(),
                         groupMessage = false,
                         groupName = null,
+                        sendDate = message.sendDate.toEpochMilliseconds(),
+                        answerId = message.answerId?.toHexString(),
                     )
                     apnsService.sendNewMessageNotificationToUser(
                         senderId = message.senderId,
@@ -133,14 +151,15 @@ class NotificationService(
                         msgId = message.id.toHexString(),
                         groupMessage = false,
                         groupName = null,
+                        sendDate = message.sendDate.toEpochMilliseconds(),
+                        answerId = message.answerId?.toHexString(),
                     )
                 }
 
             }
         }
 
-
-
+        return deliveredOverSocket
     }
 
 
@@ -339,43 +358,43 @@ class NotificationService(
 
     fun notifyEventUpdate(eventResponse: EventResponse, newEntry: Boolean, deleted: Boolean) {
 
-        val toNotify = when (eventResponse.visibility) {
+        val audience = when (eventResponse.visibility) {
             // Only explicitly invited users can see this event
-            EventVisibility.INVITED_FRIENDS_ONLY -> eventResponse.invitedUsers.toSet()
+            EventVisibility.INVITED_FRIENDS_ONLY -> eventResponse.invitedUsers
             // Everyone who can access the event (invited users + the creator's friends) gets notified
             EventVisibility.FRIENDS_ONLY, EventVisibility.PUBLIC ->
-                (eventResponse.invitedUsers + friendsLookupService.getFriends(ObjectId(eventResponse.creatorId)).map { it.toHexString() }).toSet()
+                eventResponse.invitedUsers + friendsLookupService.getFriends(ObjectId(eventResponse.creatorId)).map { it.toHexString() }
         }
 
-        toNotify.forEach { user ->
-            socketConnectionHandler.sendMessage(
-                SocketConnectionMessage.EventChange(
-                    event = eventResponse,
-                    newEntry = newEntry,
-                    deleted = deleted
-                ),
-                receiverId = ObjectId(user),
-            )
-        }
+        // The creator is in neither list but has to see the event change too - somebody else
+        // responding to their event is a change they never triggered themselves.
+        val toNotify = (audience + eventResponse.creatorId).toSet()
 
-        // Firebase + APNs push for brand-new events (offline users only, creator excluded)
-        if (newEntry) {
-            val notification = NotificationResponse.EventNotificationResponse(
+        val socketMessage = SocketConnectionMessage.EventChange(
+            event = eventResponse,
+            newEntry = newEntry,
+            deleted = deleted
+        )
+
+        // Firebase + APNs push for brand-new events only
+        val notification = if (newEntry) {
+            NotificationResponse.EventNotificationResponse(
                 eventId = eventResponse.id,
                 eventTitle = eventResponse.title,
                 creatorId = eventResponse.creatorId,
                 creatorName = eventResponse.creatorName,
             )
+        } else null
 
-            toNotify.forEach { userId ->
-                // Don't push the creator — they already know
-                if (userId == eventResponse.creatorId) return@forEach
-                val userOid = ObjectId(userId)
-                // Only push to users NOT connected via WebSocket (offline fallback)
-                if (!socketConnectionHandler.isConnected(userOid)) {
-                    firebaseMessagingService.sendNotificationToUser(userOid, notification)
-                    apnsService.sendNotificationToUser(userOid, notification)
-                }
+        toNotify.forEach { user ->
+            val userOid = ObjectId(user)
+            val delivered = socketConnectionHandler.sendMessage(socketMessage, receiverId = userOid)
+
+            // Push fallback for whoever the socket could not reach, decided by that same send
+            // rather than a second presence lookup. The creator is skipped - they already know.
+            if (notification != null && !delivered && user != eventResponse.creatorId) {
+                firebaseMessagingService.sendNotificationToUser(userOid, notification)
+                apnsService.sendNotificationToUser(userOid, notification)
             }
         }
     }
@@ -395,15 +414,26 @@ class NotificationService(
      * Notify the original message sender that someone added a reaction.
      * Only fires on add (not on remove). Skipped if the reactor is the message sender.
      * The recipient is always the message sender; other group members are not notified.
-     * Live UI sync (WebSocket MessageChange) is already handled by notifyMessageUpdate;
+     * Live UI sync (WebSocket MessageChange) is already handled by [notifyMessageUpdate];
      * this only takes care of the push fallback when the recipient is offline.
+     *
+     * @param deliveredOverSocket what that [notifyMessageUpdate] call actually reached - pass its
+     * return value. Deciding the fallback from the real send result instead of a fresh
+     * `isConnected` check closes the window where a session is still registered but already dead
+     * (it stays in the registry until the keepalive sweep reaps it), which used to drop the push
+     * entirely without ever attempting a delivery that could fail.
      */
-    fun notifyReactionAdded(message: Message, reactorId: ObjectId, reactionContent: String) {
+    fun notifyReactionAdded(
+        message: Message,
+        reactorId: ObjectId,
+        reactionContent: String,
+        deliveredOverSocket: Set<ObjectId>,
+    ) {
         if (message.senderId == reactorId) return
 
         val recipient = message.senderId
 
-        if (socketConnectionHandler.isConnected(recipient)) return
+        if (recipient in deliveredOverSocket) return
 
         val groupName = if (message.groupMessage) {
             groupLookupService.getGroupById(message.receiverId)?.name ?: "Unknown Group"

@@ -7,7 +7,6 @@ data class EventRequest(
     val type: EventType,
     val title: String,
     val description: String,
-    val groupId: String,
     val location: LatLong?,
     val startDate: Long,
     val closeDate: Long?,
@@ -15,6 +14,7 @@ data class EventRequest(
     val visibility: EventVisibility,
     val maxUsers: Int?,
     val groupDeleteDelay: GroupDeleteDelay,
+    val createGroup: Boolean = true,
 )
 
 

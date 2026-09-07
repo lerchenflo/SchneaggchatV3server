@@ -1,7 +1,7 @@
-package com.lerchenflo.schneaggchatv3server.recap
+package com.lerchenflo.schneaggchatv3server.user.recap
 
 import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
-import com.lerchenflo.schneaggchatv3server.recap.model.RecapResponse
+import com.lerchenflo.schneaggchatv3server.user.recap.model.RecapResponse
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam

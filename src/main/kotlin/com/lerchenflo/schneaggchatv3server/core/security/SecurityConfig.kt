@@ -68,6 +68,24 @@ class SecurityConfig(
                     .requestMatchers("/donations.html")
                     .permitAll()
 
+                    //FAQ
+                    .requestMatchers("/faq.html")
+                    .permitAll()
+
+                    //Admin panel shell - the HTML carries no data, everything is fetched afterwards
+                    //via /chefdev/api/** which stays authenticated + role-gated. A browser navigation
+                    //cannot carry an Authorization header, so the shell itself must be public.
+                    .requestMatchers("/chefdev.html")
+                    .permitAll()
+
+                    //Public donation totals for the donations page
+                    .requestMatchers("/public/donations")
+                    .permitAll()
+
+                    //Public FAQ entries for the FAQ page
+                    .requestMatchers("/public/faq")
+                    .permitAll()
+
                     //Favicon
                     .requestMatchers("/favicon.ico")
                     .permitAll()
@@ -85,15 +103,19 @@ class SecurityConfig(
                     .requestMatchers("/i18n/**")
                     .permitAll()
 
-                    .requestMatchers("/actuator/**")
-                    .permitAll()
 
 
-
-                    //Allow forward of all Errors
+                    //Allow forward of all Errors.
+                    //ASYNC is the container re-dispatching a request the app answered
+                    //asynchronously (the admin SSE stream) once that response ends. It carries no
+                    //SecurityContext - JwtAuthFilter is a OncePerRequestFilter and does not run on
+                    //async dispatches - so authorizing it again would deny a request that was
+                    //already authorized on its initial dispatch, and the denial can't even be
+                    //written because the streamed body is long since committed.
                     .dispatcherTypeMatchers(
                         DispatcherType.ERROR,
-                        DispatcherType.FORWARD
+                        DispatcherType.FORWARD,
+                        DispatcherType.ASYNC
                     )
                     .permitAll()
 

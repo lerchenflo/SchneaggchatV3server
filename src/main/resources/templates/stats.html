@@ -159,6 +159,55 @@
             </div>
         </div>
 
+        <!-- Active Devices -->
+        <h2 class="stats-subheading" data-i18n="stats_active_devices_heading">Aktive Geräte</h2>
+        <div class="stats-details-grid">
+
+            <!-- Android -->
+            <div class="stat-detail-card">
+                <div class="stat-detail-icon" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);">
+                    <i class="fa-brands fa-android"></i>
+                </div>
+                <div class="stat-detail-content">
+                    <h3 data-i18n="stat_devices_android">Android</h3>
+                    <div class="stat-detail-number" th:text="${deviceCounts['ANDROID']}">0</div>
+                </div>
+            </div>
+
+            <!-- iOS -->
+            <div class="stat-detail-card">
+                <div class="stat-detail-icon" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%);">
+                    <i class="fa-brands fa-apple"></i>
+                </div>
+                <div class="stat-detail-content">
+                    <h3 data-i18n="stat_devices_ios">iOS</h3>
+                    <div class="stat-detail-number" th:text="${deviceCounts['IOS']}">0</div>
+                </div>
+            </div>
+
+            <!-- Desktop -->
+            <div class="stat-detail-card">
+                <div class="stat-detail-icon" style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);">
+                    <i class="fa-solid fa-desktop"></i>
+                </div>
+                <div class="stat-detail-content">
+                    <h3 data-i18n="stat_devices_desktop">Desktop</h3>
+                    <div class="stat-detail-number" th:text="${deviceCounts['DESKTOP']}">0</div>
+                </div>
+            </div>
+
+            <!-- Unknown (tokens issued before device type tracking existed) - only shown once none remain -->
+            <div class="stat-detail-card" th:if="${deviceCounts['UNKNOWN'] > 0}">
+                <div class="stat-detail-icon" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);">
+                    <i class="fa-solid fa-question"></i>
+                </div>
+                <div class="stat-detail-content">
+                    <h3 data-i18n="stat_devices_unknown">Unbekannt</h3>
+                    <div class="stat-detail-number" th:text="${deviceCounts['UNKNOWN']}">0</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Info Box -->
         <div class="stats-info-box">
             <i class="fa-solid fa-circle-info"></i>

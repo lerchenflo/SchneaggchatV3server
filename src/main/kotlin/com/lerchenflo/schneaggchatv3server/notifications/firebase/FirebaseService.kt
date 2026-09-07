@@ -4,7 +4,6 @@ import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.messaging.*
-import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.FirebaseToken
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
@@ -24,7 +23,6 @@ class FirebaseService(
     private val tokenRepository: FirebaseTokenRepository,
     private val loggingService: LoggingService,
     private val userLookupService: UserLookupService,
-    private val jwtService: JwtService
 ) {
 
     init {
@@ -107,6 +105,8 @@ class FirebaseService(
         messageType: MessageType,
         groupName: String? = null,
         groupId: ObjectId? = null,
+        sendDate: Long = 0L,
+        answerId: String? = null,
     ) {
         val senderName = userLookupService.getUsername(senderId)
 
@@ -119,7 +119,6 @@ class FirebaseService(
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val encodedContent = CryptoUtil.encrypt(messageContent, jwtService.getEncryptionKey())
 
                 // Build the NotificationResponse and delegate to generic sender
                 val notification = NotificationResponse.MessageNotificationResponse(
@@ -128,10 +127,12 @@ class FirebaseService(
                     messageType = messageType,
                     groupMessage = groupMessage,
                     groupName = groupName ?: "",
-                    encodedContent = encodedContent,
+                    content = messageContent,
                     senderId = senderId.toHexString(),
                     receiverId = receiverId.toHexString(),
                     groupId = groupId?.toHexString() ?: "",
+                    sendDate = sendDate,
+                    answerId = answerId ?: "",
                 )
 
                 // Reuse the generic sender
@@ -170,7 +171,6 @@ class FirebaseService(
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val encodedContent = CryptoUtil.encrypt(reactionContent, jwtService.getEncryptionKey())
 
                 val notification = NotificationResponse.MessageNotificationResponse(
                     msgId = msgId,
@@ -178,7 +178,7 @@ class FirebaseService(
                     messageType = messageType,
                     groupMessage = groupMessage,
                     groupName = groupName ?: "",
-                    encodedContent = encodedContent,
+                    content = reactionContent,
                     senderId = reactorId.toHexString(),
                     receiverId = receiverId.toHexString(),
                     reaction = true,

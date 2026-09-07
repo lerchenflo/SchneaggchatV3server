@@ -6,6 +6,7 @@ import org.springframework.web.multipart.MultipartFile
 import java.awt.RenderingHints
 import java.awt.geom.Ellipse2D
 import java.awt.image.BufferedImage
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.imageio.ImageIO
@@ -34,7 +35,7 @@ class ImageManager {
         val filename = getProfilePicFileName(userId, group)
 
         // Read the image, make it round, and save
-        val originalImage = ImageIO.read(image.inputStream)
+        val originalImage = readUprightImage(image)
         val roundImage = makeImageRound(originalImage)
         val finalImage = downscaleIfNeeded(roundImage)
 
@@ -70,7 +71,7 @@ class ImageManager {
 
     fun saveImageMessage(image: MultipartFile, messageId: ObjectId, group: Boolean): String {
         val filename = getImageMessageFileName(messageId, group)
-        val downscaledImage = downscaleIfNeeded(ImageIO.read(image.inputStream))
+        val downscaledImage = downscaleIfNeeded(readUprightImage(image))
 
         val imagesDir = File("/app/images_messages")
         if (!imagesDir.exists()) {
@@ -96,6 +97,18 @@ class ImageManager {
 
 
 
+
+    /**
+     * Uploads are stored as PNG, which cannot carry an orientation tag, so a rotated JPEG has
+     * to have its EXIF orientation applied to the pixels while reading it.
+     */
+    private fun readUprightImage(image: MultipartFile): BufferedImage {
+        val imageBytes = image.bytes
+        val decodedImage = ImageIO.read(ByteArrayInputStream(imageBytes))
+            ?: throw IllegalArgumentException("Invalid image data")
+
+        return applyExifOrientation(decodedImage, readJpegExifOrientation(imageBytes))
+    }
 
     private fun makeImageRound(inputImage: BufferedImage): BufferedImage {
         val size = minOf(inputImage.width, inputImage.height)

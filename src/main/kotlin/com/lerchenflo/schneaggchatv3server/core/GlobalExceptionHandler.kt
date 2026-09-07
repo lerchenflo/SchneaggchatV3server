@@ -17,6 +17,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 import kotlin.jvm.optionals.getOrNull
@@ -88,7 +89,7 @@ class GlobalExceptionHandler(
         // Log 500 errors with full stack trace
         if (e.statusCode.value() >= 500) {
             logger.error("Server error (${e.statusCode.value()}): ${e.message}", e)
-            logError(e, ip)
+            logError(e, request, ip)
         }
 
         return ResponseEntity
@@ -131,6 +132,17 @@ class GlobalExceptionHandler(
             .body(mapOf("error" to "Invalid request body: ${e.message}"))
     }
 
+    /**
+     * A client that went away mid-stream (closed admin panel tab, dropped connection). The container
+     * reports the broken pipe as an async error dispatch, which would otherwise land in the catch-all
+     * below and be logged - and stored - as a server error. Nothing can be written to the response
+     * either, so the handler returns void.
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException::class)
+    fun handleDisconnectedClient(e: AsyncRequestNotUsableException) {
+        logger.debug("Client disconnected during an async response: ${e.message}")
+    }
+
     // Catch-all handler for any unhandled exceptions
     @ExceptionHandler(Exception::class)
     fun handleGeneralException(e: Exception, request: HttpServletRequest): ResponseEntity<String> {
@@ -141,7 +153,7 @@ class GlobalExceptionHandler(
             logger.error("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", e)
             logWithUserInfo("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", ip)
 
-            logError(e, ip)
+            logError(e, request, ip)
         }
 
 
@@ -150,14 +162,17 @@ class GlobalExceptionHandler(
             .body("An unexpected error occurred. Please try again later.")
     }
 
-    private fun logError(e: Exception, ip: String? = null) {
+    private fun logError(e: Exception, request: HttpServletRequest, ip: String? = null) {
         val requestingUserId =
             SecurityContextHolder.getContext().authentication?.principal as? String
 
+        // e.message is frequently null (many exceptions here carry no message), which used to leave
+        // the admin log viewer showing literal "null" rows. Exception class + request path make a
+        // message-less row still identifiable.
         loggingService.log(
             userId = if (requestingUserId != null) ObjectId(requestingUserId) else null,
             logType = LogType.EXCEPTION_THROWN,
-            message = "${e.message}${if (ip != null) " | ip=$ip" else ""}",
+            message = "${e.javaClass.simpleName}: ${e.message ?: "no message"} | path=${request.requestURI}${if (ip != null) " | ip=$ip" else ""}",
         )
     }
 

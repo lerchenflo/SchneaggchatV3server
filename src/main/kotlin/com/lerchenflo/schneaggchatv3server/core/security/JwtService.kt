@@ -17,13 +17,9 @@ class JwtService(
     @Value("\${apns.debug}") private val apnsDebug: Boolean,
 
     ) {
-    fun getEncryptionKey() : String {
-        return jwtSecret.take(20)
-    }
-
     private val secretKey = Keys.hmacShaKeyFor(jwtSecret.toByteArray())
     private val accessTokenValidityMs = 15L /*min*/ * 60L * 1000L    //How long a user can use his access token
-    private val debugAccessTokenValidityMs = 10L * 1000L    //Debug 10 s
+    private val debugAccessTokenValidityMs = 15L /*min*/ * 60L * 1000L    //Debug same as release
 
     val refreshTokenValidityMs = 30L /*days*/ * 24L * 60L * 60L * 1000L
     private val emailTokenValidityMs = 24L * 60L * 60L * 1000L
@@ -81,6 +77,14 @@ class JwtService(
             return false
         }
         return tokentype == "refresh_token"
+    }
+
+    /**
+     * Expiry of a token as epoch millis, or null if it can't be read. Lets a long-lived connection
+     * (the admin SSE stream) end when the credential that opened it does, instead of outliving it.
+     */
+    fun getExpiryMillisFromToken(token: String): Long? {
+        return parseAllClaims(token)?.expiration?.time
     }
 
     // Authorization: Bearer <Token>

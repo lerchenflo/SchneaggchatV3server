@@ -43,5 +43,10 @@ data class User(
 
     // Per-user app settings (theme, language, pinned chats, ...), synced across all of this
     // user's devices. See PersonalUserSettings.
-    val settings: PersonalUserSettings = PersonalUserSettings()
+    val settings: PersonalUserSettings = PersonalUserSettings(),
+
+    // Admin-panel access. Never auto-granted (usernames are mutable via /users/changeusername, so
+    // any username-keyed allowlist would silently break) - set by hand directly in MongoDB. Never
+    // expose this on any UserResponse variant.
+    val role: UserRole = UserRole.USER,
 )

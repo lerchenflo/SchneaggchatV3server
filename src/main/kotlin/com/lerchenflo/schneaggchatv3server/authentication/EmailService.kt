@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.authentication
 
+import com.lerchenflo.schneaggchatv3server.authentication.model.LoginAlert
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
@@ -13,8 +14,12 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.mail.SimpleMailMessage
 import org.springframework.mail.javamail.JavaMailSender
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
+import java.net.InetAddress
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
@@ -187,7 +192,7 @@ class EmailService(
         val mail = SimpleMailMessage()
         mail.setTo(email)
         mail.subject = "Schneaggchat password reset"
-        mail.text = "Someone requested to reset your password. If this was not you, please ignore this email.\nTo reset your password, click the link below:\n$resetUrl\n\nThis link is valid for 1 hour."
+        mail.text = "Someone requested to reset your password. If this was not you, please ignore this email.\n\nYour Username: ${userLookupService.getUsername(userId)}\n\nTo reset your password, click the link below:\n$resetUrl\n\nThis link is valid for 1 hour."
         try {
             mailSender.send(mail)
             loggingService.log(userId, LogType.PASSWORD_RESET_EMAIL_SENT)
@@ -210,8 +215,132 @@ class EmailService(
     }
 
 
+    /**
+     * Security alert after every successful `/auth/login`: tells the account owner which device,
+     * IP and client just signed in, plus every device currently holding a session, so
+     * a stolen password is noticed early. Runs on the async executor so SMTP latency and the
+     * reverse-DNS lookup never delay the login response; failures are logged and never surface
+     * to the caller.
+     *
+     * Only verified addresses get it. Until a user proves the address is theirs, the mail would
+     * hand their username, device name and IP to whoever actually owns that inbox.
+     *
+     * Throttled to one mail per [LOGIN_ALERT_MIN_INTERVAL] per account so someone holding the
+     * password can't flood the owner's inbox by logging in repeatedly - the first alert is what
+     * matters, and it always goes out. The throttle reads the gap to the previous `USER_LOGIN`
+     * log ([LoginAlert.previousLoginAt]); sending is deliberately not logged itself.
+     */
+    @Async
+    fun sendLoginAlertEmail(alert: LoginAlert) {
+        val user = alert.user
+        if (user.emailVerifiedAt == null) return
+
+        val previousLogin = alert.previousLoginAt
+        if (previousLogin != null && previousLogin.plus(LOGIN_ALERT_MIN_INTERVAL) > alert.loginTime) {
+            return
+        }
+
+        val now = Clock.System.now()
+
+        val device = describeDevice(alert.deviceName, alert.deviceType)
+        val ip = alert.ip?.let { sanitize(it, 64) }?.ifBlank { null }
+        val sessions = try {
+            refreshTokenRepository.findByUserIdAndExpiresAtAfterOrderByCreatedAtDesc(user.id, now)
+        } catch (e: Exception) {
+            AppLogger.warn("Login alert: could not list sessions of ${user.username}: ${e.message}")
+            emptyList()
+        }
+
+        val details = buildList {
+            add("Account" to user.username)
+            add("Time" to formatTime(alert.loginTime))
+            add("Device" to "$device - ${if (alert.newDevice) "NEW device" else "previously used device"}")
+            add("IP address" to (ip ?: "unknown"))
+            ip?.let(::reverseDns)?.let { add("Hostname" to it) }
+            alert.userAgent?.let { sanitize(it, 200) }?.ifBlank { null }?.let { add("Client" to it) }
+            alert.acceptLanguage?.let { sanitize(it, 40) }?.ifBlank { null }?.let { add("Language" to it) }
+        }
+        val labelWidth = details.maxOf { it.first.length } + 1
+        val detailBlock = details.joinToString("\n") { (label, value) -> "$label:".padEnd(labelWidth + 1) + value }
+
+        val sessionBlock = if (sessions.isEmpty()) {
+            "(no session list available)"
+        } else {
+            sessions.joinToString("\n") { row ->
+                val rowDevice = describeDevice(row.deviceName ?: "", row.deviceType)
+                "- $rowDevice, signed in since ${formatTime(row.createdAt)}"
+            }
+        }
+
+        val mail = SimpleMailMessage()
+        mail.setTo(user.email)
+        mail.subject = "Schneaggchat: new login to your account"
+        mail.text = """
+            |Someone just logged in to your Schneaggchat account.
+            |
+            |$detailBlock
+            |
+            |Devices currently signed in to your account (including this one):
+            |$sessionBlock
+            |
+            |If this was you, you can ignore this email.
+            |
+            |If this was NOT you, reset your password right away - that also logs out every device:
+            |$baseUrl/reset_password.html
+            """.trimMargin()
+        try {
+            mailSender.send(mail)
+        } catch (e: Exception) {
+            AppLogger.warn("Login alert mail to ${user.username} not sent: ${e.message}")
+        }
+    }
+
+    /** "Pixel 7 (Android)". Device names are client-supplied, see [sanitize]. */
+    private fun describeDevice(deviceName: String, deviceType: AuthController.DEVICETYPE?): String {
+        val name = sanitize(deviceName, 80).ifBlank { "Unknown device" }
+        val type = deviceType?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "unknown type"
+        return "$name ($type)"
+    }
+
+    /**
+     * Client-supplied text goes into the mail body verbatim otherwise. Control characters (line
+     * breaks above all) are stripped so a login with a crafted device name or User-Agent can't
+     * inject extra lines - say, a phishing link - into the mail, and everything is length-capped.
+     */
+    private fun sanitize(value: String, maxLength: Int): String =
+        value.replace(CONTROL_CHARS, " ").trim().take(maxLength)
+
+    /**
+     * Reverse DNS of the client address, which usually names the ISP ("...a1.net", "...drei.com")
+     * and is far easier to judge than a bare IP. Null for private/loopback ranges and when no PTR
+     * record exists. Blocking, but this runs on the async executor.
+     */
+    private fun reverseDns(ip: String): String? = try {
+        val address = InetAddress.getByName(ip)
+        if (address.isLoopbackAddress || address.isSiteLocalAddress || address.isLinkLocalAddress || address.isAnyLocalAddress) {
+            null
+        } else {
+            address.canonicalHostName.takeIf { it != ip && it != address.hostAddress }
+        }
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun formatTime(instant: Instant): String =
+        LOGIN_ALERT_TIME_FORMAT.format(java.time.Instant.ofEpochMilli(instant.toEpochMilliseconds()).atZone(LOGIN_ALERT_ZONE))
+
     fun getLastEmailTimestamp(userId: ObjectId, logType: LogType) : Instant? {
         return loggingService.getLastLogByLogtype(logType = logType, userId = userId)?.timestamp
+    }
+
+    companion object {
+        /** Minimum gap between two login-alert mails to the same account. */
+        private val LOGIN_ALERT_MIN_INTERVAL = Duration.parse("10m")
+        private val CONTROL_CHARS = Regex("\\p{Cntrl}+")
+
+        /** Users are in Austria and the server container runs in this zone too (see Dockerfile TZ). */
+        private val LOGIN_ALERT_ZONE: ZoneId = ZoneId.of("Europe/Vienna")
+        private val LOGIN_ALERT_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm z")
     }
 
 }

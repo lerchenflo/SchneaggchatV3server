@@ -6,6 +6,7 @@ import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
 import org.springframework.data.annotation.TypeAlias
 import org.springframework.data.mongodb.core.index.CompoundIndex
+import org.springframework.data.mongodb.core.index.CompoundIndexes
 import org.springframework.data.mongodb.core.mapping.Document
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -17,7 +18,11 @@ import kotlin.time.Instant
  */
 @Document("map_entry_versions")
 @TypeAlias("mapentryversion")
-@CompoundIndex(name = "entryid_editedat_idx", def = "{'entryId': 1, 'editedAt': -1}")
+@CompoundIndexes(
+    CompoundIndex(name = "entryid_editedat_idx", def = "{'entryId': 1, 'editedAt': -1}"),
+    // Backs the admin changelog view's "sort by user" filter.
+    CompoundIndex(name = "editedby_editedat_idx", def = "{'editedBy': 1, 'editedAt': -1}"),
+)
 data class MapEntryVersion(
     @Id val id: ObjectId = ObjectId(),
     val entryId: ObjectId,

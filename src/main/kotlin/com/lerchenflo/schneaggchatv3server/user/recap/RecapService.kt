@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalTime::class)
 
-package com.lerchenflo.schneaggchatv3server.recap
+package com.lerchenflo.schneaggchatv3server.user.recap
 
 import com.lerchenflo.schneaggchatv3server.games.GamesService
 import com.lerchenflo.schneaggchatv3server.games.model.Difficulty
@@ -10,27 +10,27 @@ import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
-import com.lerchenflo.schneaggchatv3server.recap.model.AccountRecap
-import com.lerchenflo.schneaggchatv3server.recap.model.BetaTesterRecap
-import com.lerchenflo.schneaggchatv3server.recap.model.BetaTesterRow
-import com.lerchenflo.schneaggchatv3server.recap.model.DayCount
-import com.lerchenflo.schneaggchatv3server.recap.model.EmojiCount
-import com.lerchenflo.schneaggchatv3server.recap.model.GameRecapEntry
-import com.lerchenflo.schneaggchatv3server.recap.model.GroupActivity
-import com.lerchenflo.schneaggchatv3server.recap.model.GroupsRecap
-import com.lerchenflo.schneaggchatv3server.recap.model.LeaderboardRecap
-import com.lerchenflo.schneaggchatv3server.recap.model.LeaderboardRow
-import com.lerchenflo.schneaggchatv3server.recap.model.LongestMessageRecap
-import com.lerchenflo.schneaggchatv3server.recap.model.MapRecap
-import com.lerchenflo.schneaggchatv3server.recap.model.MessagingRecap
-import com.lerchenflo.schneaggchatv3server.recap.model.MonthCount
-import com.lerchenflo.schneaggchatv3server.recap.model.MostReactedMessage
-import com.lerchenflo.schneaggchatv3server.recap.model.PartnerRecap
-import com.lerchenflo.schneaggchatv3server.recap.model.PasswordResetRecap
-import com.lerchenflo.schneaggchatv3server.recap.model.PollsRecap
-import com.lerchenflo.schneaggchatv3server.recap.model.ReactionsRecap
-import com.lerchenflo.schneaggchatv3server.recap.model.RecapResponse
-import com.lerchenflo.schneaggchatv3server.recap.model.SocialRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.AccountRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.BetaTesterRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.BetaTesterRow
+import com.lerchenflo.schneaggchatv3server.user.recap.model.DayCount
+import com.lerchenflo.schneaggchatv3server.user.recap.model.EmojiCount
+import com.lerchenflo.schneaggchatv3server.user.recap.model.GameRecapEntry
+import com.lerchenflo.schneaggchatv3server.user.recap.model.GroupActivity
+import com.lerchenflo.schneaggchatv3server.user.recap.model.GroupsRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.LeaderboardRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.LeaderboardRow
+import com.lerchenflo.schneaggchatv3server.user.recap.model.LongestMessageRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.MapRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.MessagingRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.MonthCount
+import com.lerchenflo.schneaggchatv3server.user.recap.model.MostReactedMessage
+import com.lerchenflo.schneaggchatv3server.user.recap.model.PartnerRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.PasswordResetRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.PollsRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.ReactionsRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.RecapResponse
+import com.lerchenflo.schneaggchatv3server.user.recap.model.SocialRecap
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.repository.LogRepository
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryVersionRepository
@@ -46,6 +46,7 @@ import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.aggregation.Aggregation
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.stereotype.Service
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -139,7 +140,7 @@ class RecapService(
     // kotlin.time.Instant is stored as a nested {epochSeconds, nanosecondsOfSecond} doc rather than a
     // native date - rebuild a zoned java.time value locally for calendar/hour bucketing.
     private fun Message.sentZoned() =
-        java.time.Instant.ofEpochSecond(sendDate.epochSeconds, sendDate.nanosecondsOfSecond.toLong()).atZone(RECAP_ZONE)
+        Instant.ofEpochSecond(sendDate.epochSeconds, sendDate.nanosecondsOfSecond.toLong()).atZone(RECAP_ZONE)
 
     private fun buildMessagingRecap(
         allMessages: List<Message>,

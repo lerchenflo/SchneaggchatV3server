@@ -3,6 +3,9 @@
 package com.lerchenflo.schneaggchatv3server.group
 
 import com.lerchenflo.schneaggchatv3server.events.EventsLookupService
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationStatus
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
@@ -361,6 +364,10 @@ class GroupService(
         // group exists before it receives a system message addressed to it.
         var pendingEvent: SystemEventType? = null
 
+        // Same idea for the connected event's participation change, emitted after the group update
+        // so the added member knows the group before they are told they are attending its event.
+        var pendingEventUpdate: Event? = null
+
         when (userAction) {
             GroupMemberAction.ADD_USER -> {
                 requireOrLog(
@@ -373,6 +380,25 @@ class GroupService(
                     memberId = groupMember,
                     timeStamp = now
                 )
+
+                // Being in an event's group is what counts as accepting that event, so an admin
+                // putting someone in has to write that accept as well - the mirror image of the
+                // take-back in REMOVE_USER below.
+                eventsLookupService.findByGroupId(groupId)?.let { event ->
+                    // An uninvited member cannot even sync the event they now attend, so the add
+                    // is also the invite for an invite-only event.
+                    val invited = if (event.visibility == EventVisibility.INVITED_FRIENDS_ONLY) {
+                        eventsLookupService.addInvitedUser(event.id, groupMember)
+                    } else {
+                        null
+                    }
+
+                    pendingEventUpdate = eventsLookupService.upsertParticipation(
+                        eventId = event.id,
+                        userId = groupMember,
+                        status = EventParticipationStatus.ACCEPTED
+                    ) ?: invited
+                }
 
                 pendingEvent = SystemEventType.GROUP_MEMBER_ADDED
             }
@@ -388,6 +414,29 @@ class GroupService(
                         groupLookupService.isAdmin(requestingUser, groupMembers),
                         { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
                     ) { "You are not an admin" }
+                }
+
+                // Being in an event's group is what counts as accepting that event, so leaving it
+                // (or being removed) has to take the accept back - otherwise the member shows as
+                // going forever, with no way to correct it once the dismiss button is gone.
+                // Walking out is a decision, so it reads as DISMISSED; being removed by an admin is
+                // not the user's own choice, so that only drops back to SEEN.
+                // Runs before the last-member deleteGroup path below, which re-reads the event.
+                val statusAfterRemoval = if (requestingUser == groupMember) {
+                    EventParticipationStatus.DISMISSED
+                } else {
+                    EventParticipationStatus.SEEN
+                }
+                // The creator counts as going for as long as the event exists, so their own entry
+                // is never taken back - leaving the chat is not cancelling the event.
+                eventsLookupService.findByGroupId(groupId)?.takeIf { groupMember != it.creatorId }?.let { event ->
+                    eventsLookupService.setParticipationIfPresent(event.id, groupMember, statusAfterRemoval)?.let { updated ->
+                        notificationService.notifyEventUpdate(
+                            eventResponse = updated.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+                            newEntry = false,
+                            deleted = false
+                        )
+                    }
                 }
 
                 // If user is leaving and is the last admin, promote someone
@@ -470,6 +519,14 @@ class GroupService(
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
 
+        pendingEventUpdate?.let { event ->
+            notificationService.notifyEventUpdate(
+                eventResponse = event.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+                newEntry = false,
+                deleted = false
+            )
+        }
+
         pendingEvent.let { eventType ->
             // GROUP_MEMBER_LEFT has no separate target - the actor is the subject of their own event.
             val targets = if (eventType == SystemEventType.GROUP_MEMBER_LEFT) emptyList() else listOf(groupMember)
@@ -519,10 +576,10 @@ class GroupService(
 
     /**
      * Soft-delete a group and all of its members. The single point every group deletion goes through,
-     * so members are always cleaned up, clients are always notified, and a connected event (if any) is
-     * always deleted along with it.
+     * so members are always cleaned up and clients are always notified. A connected event (if any) is
+     * detached (groupId set to null) unless [deleteConnectedEvent] is set, in which case it is deleted too.
      */
-    fun deleteGroup(groupId: ObjectId, deletedBy: ObjectId? = null) {
+    fun deleteGroup(groupId: ObjectId, deletedBy: ObjectId? = null, deleteConnectedEvent: Boolean = false) {
         val group = groupLookupService.getGroupById(groupId) ?: return
         val response = groupLookupService.getGroupAsGroupResponse(groupId)
 
@@ -538,26 +595,37 @@ class GroupService(
 
         notificationService.notifyGroupUpdate(response, deleted = true)
 
-        // If this group belongs to an event, delete the event too
         eventsLookupService.findByGroupId(groupId)?.let { event ->
-            eventsLookupService.deleteEvent(event)
-            notificationService.notifyEventUpdate(
-                eventResponse = event.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
-                newEntry = false,
-                deleted = true
-            )
+            val creatorName = userLookupService.getUsername(event.creatorId)
+            if (deleteConnectedEvent) {
+                eventsLookupService.deleteEvent(event)
+                notificationService.notifyEventUpdate(
+                    eventResponse = event.toResponse(creatorName = creatorName),
+                    newEntry = false,
+                    deleted = true
+                )
+            } else {
+                val detached = eventsLookupService.save(
+                    event.copy(groupId = null, updatedAt = Clock.System.now(), updatedBy = deletedBy ?: event.updatedBy)
+                )
+                notificationService.notifyEventUpdate(
+                    eventResponse = detached.toResponse(creatorName = creatorName),
+                    newEntry = false,
+                    deleted = false
+                )
+            }
         }
     }
 
     /**
-     * Permanently deletes every group whose [Group.expiresAt] has passed (and, via
-     * [deleteGroup], the event connected to it, if any).
+     * Permanently deletes every group whose [Group.expiresAt] has passed. A connected event only
+     * expires this way after its own date has passed, so it is deleted along with the group.
      */
     fun deleteExpiredGroups() {
         val now = Clock.System.now()
 
         groupLookupService.getExpiredGroups(now).forEach { group ->
-            deleteGroup(group.id, deletedBy = null)
+            deleteGroup(group.id, deletedBy = null, deleteConnectedEvent = true)
         }
     }
 

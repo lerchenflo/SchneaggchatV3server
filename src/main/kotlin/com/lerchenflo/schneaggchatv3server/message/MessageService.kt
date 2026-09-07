@@ -13,6 +13,7 @@ import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.util.*
 import org.bson.types.ObjectId
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.data.mongodb.core.BulkOperations
 import org.springframework.data.mongodb.core.FindAndModifyOptions
@@ -47,6 +48,11 @@ class MessageService(
     private val versionCounterService: VersionCounterService,
 ) {
 
+    companion object {
+        //Creation caps at 20 options; custom answers added later via votePoll may grow the poll up to this
+        private const val POLL_MAX_TOTAL_OPTIONS = 50
+    }
+
     sealed class MessageContent {
         data class Text(val message: String) : MessageContent()
         data class Image(val image: MultipartFile, val text: String) : MessageContent()
@@ -55,13 +61,20 @@ class MessageService(
         data class Poll(val poll: PollMessage) : MessageContent()
     }
 
-    fun sendMessage(sender: ObjectId, receiver: ObjectId, groupMessage: Boolean, messageType: MessageType, content: MessageContent, answerId: ObjectId?) : Message {
+    fun sendMessage(sender: ObjectId, receiver: ObjectId, groupMessage: Boolean, messageType: MessageType, content: MessageContent, answerId: ObjectId?, clientMessageId: String) : Message {
 
         canUserAccessMessage(
             sender = sender,
             receiver = receiver,
             groupMessage = groupMessage,
         )
+
+        // Idempotency: a retried send (offline queue, lost response, replayed auth-refresh
+        // request) carries the same clientMessageId as the original attempt. Resolve it to the
+        // already-created message before doing any validation or writing any media to disk -
+        // an orphaned image/audio file keyed on a discarded ObjectId is otherwise unrecoverable.
+        messageLookupService.findByClientMessageId(sender, clientMessageId)?.let { return it }
+
 
 
         when (messageType) {
@@ -108,6 +121,12 @@ class MessageService(
 
                 content.poll.voteOptions.forEach { voteOption ->
                     require(ValidationUtils.validatePollVoteText(voteOption.text)) {"Pollvote option text in wrong format"}
+                }
+
+                //A list-mode poll (no checkboxes) does not vote, so answer limits are meaningless
+                if (!content.poll.showCheckboxes) {
+                    require(content.poll.maxAnswers == null) { "maxAnswers is not allowed on a list poll" }
+                    require(content.poll.voteOptions.none { it.maxVoters != null }) { "maxVoters is not allowed on a list poll" }
                 }
             }
             AUDIO -> {
@@ -162,35 +181,46 @@ class MessageService(
 
         val sendDate = Clock.System.now()
 
-        val message = versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
-            messageLookupService.saveMessage(Message(
-                id = savedObjectId,
-                senderId = sender,
-                receiverId = receiver,
-                groupMessage = groupMessage,
-                msgType = messageType,
-                content = storedContent,
-                poll = if (content is MessageContent.Poll) content.poll else null,
-                answerId = answerId,
-                sendDate = sendDate,
-                lastChanged = sendDate,
-                deleted = false,
-                version = version,
-                readers = listOf(Reader(
-                    userId = sender,
-                    readAt = sendDate
-                )),
-            ))
+        // Two retries of the same send can both pass the pre-check above concurrently; the
+        // unique index is the actual race guard, this just resolves the loser back to the
+        // winner's document instead of surfacing a 500.
+        val (message, deduped) = try {
+            versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
+                messageLookupService.saveMessage(Message(
+                    id = savedObjectId,
+                    senderId = sender,
+                    receiverId = receiver,
+                    groupMessage = groupMessage,
+                    msgType = messageType,
+                    content = storedContent,
+                    poll = if (content is MessageContent.Poll) content.poll else null,
+                    answerId = answerId,
+                    sendDate = sendDate,
+                    lastChanged = sendDate,
+                    deleted = false,
+                    version = version,
+                    readers = listOf(Reader(
+                        userId = sender,
+                        readAt = sendDate
+                    )),
+                    clientMessageId = clientMessageId,
+                ))
+            } to false
+        } catch (e: DuplicateKeyException) {
+            val existing = messageLookupService.findByClientMessageId(sender, clientMessageId) ?: throw e
+            existing to true
         }
 
-
-        notificationService.notifyMessageUpdate(
-            message = message,
-            newMessage = true,
-            deleted = false,
-            changingUserId = sender
-        )
-
+        // A dedup hit is not a new message: no version was allocated for it, so re-notifying
+        // would fire a socket/push frame with no corresponding sync-cursor advance.
+        if (!deduped) {
+            notificationService.notifyMessageUpdate(
+                message = message,
+                newMessage = true,
+                deleted = false,
+                changingUserId = sender
+            )
+        }
 
         return message
     }
@@ -221,6 +251,11 @@ class MessageService(
             //Block custom answers if not allowed
             if (pollVoteRequest.id == null || poll.voteOptions.none { it.id == pollVoteRequest.id }) {
                 require(poll.customAnswersEnabled) { "Custom answers are not allowed for this poll" }
+            }
+
+            //A list-mode poll (no checkboxes) only accepts new custom options, never a vote on an existing one
+            if (!poll.showCheckboxes) {
+                require(pollVoteRequest.id == null) { "This poll does not accept votes" }
             }
 
             //Block answers after expiry
@@ -272,6 +307,9 @@ class MessageService(
                     require(userCreatedCustomPollCount < poll.maxAllowedCustomAnswers) { "You already made the max amount of custom answers allowed" }
                 }
 
+                //Hard cap on total options regardless of per-user limits
+                require(poll.voteOptions.size < POLL_MAX_TOTAL_OPTIONS) { "This poll has reached the maximum number of options" }
+
                 //If atleast one of the options has a limit set, the user can set a limit for voters on his custom entry
                 val newPollOptionMaxAnswers = if (poll.voteOptions.any { it.maxVoters != null }) {
                     pollVoteRequest.maxAllowedAnswers
@@ -286,11 +324,11 @@ class MessageService(
                         creatorId = requestingUserId,
                         maxVoters = newPollOptionMaxAnswers,
 
-                        //User automatically votes for his created item
-                        voters = listOf(PollVoter(
+                        //User automatically votes for his created item, unless this is a list-mode poll (no voting)
+                        voters = if (poll.showCheckboxes) listOf(PollVoter(
                             userId = requestingUserId,
                             votedAt = timeStamp
-                        ))
+                        )) else emptyList()
                     )
                 )
             } else {
@@ -360,6 +398,70 @@ class MessageService(
         }
     }
 
+
+    fun deletePollOption(requestingUserId: ObjectId, request: PollOptionDeleteRequest): Message {
+        return withOptimisticRetry {
+            val message = canUserAccessMessage(
+                messageId = ObjectId(request.messageId),
+                userId = requestingUserId
+            )
+
+            require(message.msgType == MessageType.POLL && message.poll != null) { "This is not a poll message" }
+
+            val poll = message.poll
+
+            require(poll.allowDeleteOptions) { "Deleting options is not allowed for this poll" }
+
+            if (poll.closeDate != null) {
+                require(Clock.System.now() < poll.closeDate) { "Poll is closed" }
+            }
+
+            val option = poll.voteOptions.find { it.id == request.optionId }
+                ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Vote option not found")
+
+            requireOrLog(
+                poll.canUserDeleteOption(requestingUserId, option),
+                { "Poll option deletion denied - user: ${userLookupService.getUsername(requestingUserId)}, messageId: ${request.messageId}, optionId: ${request.optionId}" }
+            ) { "You can only delete options you created" }
+
+            val timeStamp = Clock.System.now()
+            val newPoll = poll.copy(voteOptions = poll.voteOptions.filterNot { it.id == request.optionId })
+
+            val query = Query(
+                Criteria.where("_id").`is`(message.id)
+                    .and("lastChanged.epochSeconds").`is`(message.lastChanged.epochSeconds)
+                    .and("lastChanged.nanosecondsOfSecond").`is`(message.lastChanged.nanosecondsOfSecond)
+            )
+
+            val savedMessage = versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
+                val update = Update()
+                    .set("lastChanged", timeStamp)
+                    .set("poll", newPoll)
+                    .set("version", version)
+
+                mongoTemplate.findAndModify(
+                    query,
+                    update,
+                    FindAndModifyOptions.options().returnNew(true),
+                    Message::class.java
+                )
+            } ?: throw OptimisticLockingFailureException("Message was modified by another request")
+
+            loggingService.log(
+                userId = requestingUserId,
+                logType = LogType.POLL_OPTION_DELETED
+            )
+
+            notificationService.notifyMessageUpdate(
+                message = savedMessage,
+                newMessage = false,
+                deleted = false,
+                changingUserId = requestingUserId
+            )
+
+            savedMessage
+        }
+    }
 
 
     fun editMessage(messageId: ObjectId, editingUserId: ObjectId, newContent: String) : MessageResponse {
@@ -436,7 +538,7 @@ class MessageService(
                 )
             } ?: throw OptimisticLockingFailureException("Message was modified by another request")
 
-            notificationService.notifyMessageUpdate(
+            val deliveredOverSocket = notificationService.notifyMessageUpdate(
                 message = savedMessage,
                 newMessage = false,
                 deleted = false,
@@ -448,6 +550,7 @@ class MessageService(
                     message = savedMessage,
                     reactorId = reactingUserId,
                     reactionContent = content,
+                    deliveredOverSocket = deliveredOverSocket,
                 )
             }
 

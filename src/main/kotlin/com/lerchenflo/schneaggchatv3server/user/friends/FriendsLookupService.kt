@@ -151,6 +151,17 @@ class FriendsLookupService(
     }
 
     /**
+     * True when a friendship row exists between the two users and it is not blocked - i.e. any
+     * ongoing relationship (ACCEPTED or a still-open PENDING request), but not a DECLINED or
+     * BLOCKED one. Used to decide softer visibility (e.g. seeing a group's picture through a
+     * friend in it).
+     */
+    fun hasNonBlockedFriendship(userId1: ObjectId, userId2: ObjectId): Boolean {
+        val status = findFriendship(userId1, userId2)?.status ?: return false
+        return status == FriendshipStatus.ACCEPTED || status == FriendshipStatus.PENDING
+    }
+
+    /**
      * Get all users that share at least one mutual friend with the given user,
      * excluding users already interacted with
      * @return Map of userId to count of common friends (only users with count > 0)

@@ -19,12 +19,15 @@ data class Event(
     val title: String,
     val description: String,
 
-    val groupId: ObjectId, //Group connected to this event
+    val groupId: ObjectId?, //Group connected to this event, null = event without a group chat
     val location: LatLong?, //Optional Location
     val startDate: Instant,
     val closeDate: Instant?,
 
     val invitedUsers: List<ObjectId>,
+
+    /** One entry per user at most - see [EventParticipation]. Default keeps documents written before this field existed loadable. */
+    val participations: List<EventParticipation> = emptyList(),
 
     val visibility: EventVisibility,
 

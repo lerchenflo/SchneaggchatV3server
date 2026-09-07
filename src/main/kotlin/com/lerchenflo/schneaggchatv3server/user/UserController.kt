@@ -105,7 +105,6 @@ class UserController(
 
 
 
-    //TODO: Check user profilepic settings (implement first)
     @GetMapping("/profilepic/{id}")
     fun getProfilePic(@PathVariable("id") userId: String): ResponseEntity<ByteArray> {
         require(ValidationUtils.validateObjectId(userId)) { "Invalid user ID" }
@@ -230,6 +229,7 @@ class UserController(
         val mapStyle: String? = null,
         val pinnedChats: List<PinnedChat>? = null,
         val developerSettings: Boolean? = null,
+        val lastContributePopupShown: Long? = null,
     )
 
     @PostMapping("/settings")
@@ -249,6 +249,7 @@ class UserController(
             mapStyle = request.mapStyle,
             pinnedChats = request.pinnedChats,
             developerSettings = request.developerSettings,
+            lastContributePopupShown = request.lastContributePopupShown,
         )
     }
 

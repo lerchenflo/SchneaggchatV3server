@@ -26,13 +26,18 @@ sealed interface NotificationResponse {
         val groupMessage: Boolean,
         val messageType: MessageType,
         val groupName: String,
-        val encodedContent: String,
+        //Message text for TEXT messages, the emoji for reactions. Sent as plaintext: the old
+        //shared-key obfuscation was removed, real confidentiality comes with end-to-end encryption.
+        val content: String,
         val senderId: String,
         val receiverId: String,
         val reaction: Boolean = false,
         //The chat this notification belongs to when it is a group message. Empty for 1:1
         //messages, where the chat is identified by senderId instead.
-        val groupId: String = ""
+        val groupId: String = "",
+        //Lets the client order a provisionally-upserted message correctly without waiting for sync.
+        val sendDate: Long = 0L,
+        val answerId: String = ""
     ) : NotificationResponse
 
     //Response for a friend request notification

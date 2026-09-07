@@ -16,4 +16,7 @@ interface UserRepository : MongoRepository<User, ObjectId> {
     @Query("{ 'birthDate': { \$regex: ?0 } }")
     fun findByBirthDateRegex(regex: String): List<User>
 
+    /** Registration order - backs the admin user list and the friends tree's parent/child orientation. */
+    fun findAllByOrderByCreatedAtAsc(): List<User>
+
 }

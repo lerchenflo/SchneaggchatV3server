@@ -2,21 +2,28 @@
 
 package com.lerchenflo.schneaggchatv3server.core
 
+import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
+import com.lerchenflo.schneaggchatv3server.website.donations.model.Donation
+import com.lerchenflo.schneaggchatv3server.website.faq.FaqSeedService
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
+import com.lerchenflo.schneaggchatv3server.repository.DonationRepository
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.SchneaggmapService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.PersonalUserSettings
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
+import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRole
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.SyncCollection
 import com.lerchenflo.schneaggchatv3server.util.VersionCounterService
 import com.mongodb.MongoNamespace
+import org.bson.types.ObjectId
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -25,6 +32,7 @@ import org.springframework.data.mongodb.core.BulkOperations
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.aggregation.AggregationUpdate
 import org.springframework.data.mongodb.core.aggregation.SetOperation
+import org.springframework.data.mongodb.core.index.Index
 import org.springframework.data.mongodb.core.index.IndexInfo
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
@@ -55,6 +63,10 @@ class MainController(
 
     private val versionCounterService: VersionCounterService,
 
+    private val donationRepository: DonationRepository,
+
+    private val faqSeedService: FaqSeedService,
+
     @Value("\${apns.debug}") private val debug: Boolean,
 
     ){
@@ -71,11 +83,18 @@ class MainController(
         migrateTypeAliases()
         migrateLastSeen()
         migratePersonalUserSettings()
+        migrateContributePopupShown()
 
         migrateReactionTimestamps()
         migrateMessageVersions()
         migrateMapAttributeKeys()
         migrateGroupDeletedFlag()
+        migrateDetachEventsFromDeletedGroups()
+        migrateUserRole()
+        migrateRefreshTokenChains()
+        migrateDonations()
+
+        faqSeedService.seedMissingEntries()
 
         if (debug) {
             //Create test account for google play & Apple
@@ -224,6 +243,32 @@ class MainController(
     }
 
     /**
+     * `PersonalUserSettings.lastContributePopupShown` is a new field. Accounts created before it
+     * existed would otherwise read as `0` (never shown), making the contribute popup due
+     * immediately for every existing user. Backfilled here to the current time instead, same as a
+     * device seeding it locally on first launch. Deliberately does NOT bump `User.updatedAt` -
+     * unlike [migratePersonalUserSettings], this shouldn't force every account through
+     * `/users/sync` again or clobber a device's own already-seeded local timestamp; devices adopt
+     * this value the next time their settings actually change.
+     */
+    fun migrateContributePopupShown() {
+        AppLogger.info("Running contribute popup timestamp migration...")
+
+        val query = Query(Criteria.where("settings.lastContributePopupShown").exists(false))
+
+        val update = Update()
+            .set("settings.lastContributePopupShown", Clock.System.now().toEpochMilliseconds())
+
+        val result = mongoTemplate.updateMulti(query, update, User::class.java)
+
+        if (result.modifiedCount > 0) {
+            AppLogger.success("Migration completed: Set contribute popup timestamp for ${result.modifiedCount} users")
+        } else {
+            AppLogger.success("Migration check: All users already have a contribute popup timestamp")
+        }
+    }
+
+    /**
      * Backfills `reactedAt` on all embedded reaction subdocuments that were created before
      * the field was introduced. Sets `reactedAt` to the parent message's `sendDate` so existing
      * reactions get a sensible default timestamp.
@@ -333,6 +378,95 @@ class MainController(
     }
 
     /**
+     * `User.role` is a new field powering the admin panel. Documents written before it existed have
+     * no `role` at all, and Mongo does not match a missing field against a value, so a role query
+     * would silently skip them. Backfilled here to USER.
+     *
+     * This migration deliberately never grants ADMIN - it only fills in the default. Usernames are
+     * mutable (/users/changeusername), so promoting by username would be unsafe; admin access is
+     * granted by hand directly in MongoDB (`db.users.updateOne({username:"..."}, {$set:{role:"ADMIN"}})`)
+     * and survives every future run of this migration because it only touches documents missing the field.
+     */
+    fun migrateUserRole() {
+        AppLogger.info("Running user role migration...")
+
+        val query = Query(Criteria.where("role").exists(false))
+
+        val result = mongoTemplate.updateMulti(
+            query,
+            Update().set("role", UserRole.USER.name),
+            User::class.java
+        )
+
+        if (result.modifiedCount > 0) {
+            AppLogger.success("Migration completed: Set role=USER on ${result.modifiedCount} users")
+        } else {
+            AppLogger.success("Migration check: All users already have a role field")
+        }
+    }
+
+    /**
+     * One-time import of the donations that used to be hand-edited into `donations-data.js`, now
+     * that donations live in the `donations` collection and are managed from the admin panel.
+     * Guarded by a count check so it never re-inserts rows an admin has since deleted.
+     */
+    fun migrateDonations() {
+        AppLogger.info("Running donations import migration...")
+
+        if (donationRepository.count() > 0) {
+            AppLogger.success("Migration check: donations collection already populated")
+            return
+        }
+
+        fun vienna(year: Int, month: Int, day: Int) =
+            java.time.LocalDate.of(year, month, day)
+                .atStartOfDay(java.time.ZoneId.of("Europe/Vienna"))
+                .toInstant()
+                .toEpochMilli()
+                .let { kotlin.time.Instant.fromEpochMilliseconds(it) }
+
+        val now = Clock.System.now()
+        val legacyDonations = listOf(
+            Donation(name = "Petra", amountCents = 5000, donatedAt = vienna(2026, 1, 27), message = "Gratuliere", createdAt = now, updatedAt = now),
+            Donation(name = "Jonny", amountCents = 500, donatedAt = vienna(2026, 1, 14), message = "Liebe Grüße", createdAt = now, updatedAt = now),
+            Donation(name = "Daffith", amountCents = 1000, donatedAt = vienna(2025, 12, 24), message = "Weihnachtsspende", createdAt = now, updatedAt = now),
+            Donation(name = "Herr Ess", amountCents = 2000, donatedAt = vienna(2025, 10, 14), message = "Schneaggchat", createdAt = now, updatedAt = now),
+            Donation(name = "Norbert Konrad", amountCents = 2000, donatedAt = vienna(2025, 5, 28), message = "Dra bliba buaba...", createdAt = now, updatedAt = now),
+        )
+
+        donationRepository.saveAll(legacyDonations)
+        AppLogger.success("Migration completed: Imported ${legacyDonations.size} legacy donations")
+    }
+
+    /**
+     * Events used to be hard-deleted the moment their group was deleted, so no dangling groupId
+     * could ever exist. Now that events can survive a deleted group, backfill any pre-existing
+     * event still pointing at a soft-deleted (or missing) group by detaching it. No-op once clean.
+     */
+    fun migrateDetachEventsFromDeletedGroups() {
+        AppLogger.info("Running event group-detach migration...")
+
+        val liveGroupIds = mongoTemplate.findDistinct(
+            Query(Criteria.where("deleted").ne(true)),
+            "_id",
+            Group::class.java,
+            ObjectId::class.java
+        )
+
+        val query = Query(
+            Criteria.where("groupId").exists(true).ne(null).nin(liveGroupIds)
+        )
+
+        val result = mongoTemplate.updateMulti(query, Update().set("groupId", null), Event::class.java)
+
+        if (result.modifiedCount > 0) {
+            AppLogger.success("Migration completed: Detached ${result.modifiedCount} events from deleted groups")
+        } else {
+            AppLogger.success("Migration check: No events pointed at a deleted group")
+        }
+    }
+
+    /**
      * One-time fix for the "frienships" collection name typo -> "friendships".
      * Renaming preserves all documents and indexes. No-op once already renamed.
      *
@@ -401,6 +535,108 @@ class MainController(
         }
 
         AppLogger.success("Type alias migration check complete")
+    }
+
+    /**
+     * Migrates `refreshTokens` from the old soft-delete rotation model (every refresh inserted a
+     * new row and kept the old one with `deletedAt` + `replacedByToken` until a cleanup sweep) to
+     * the in-place rotation model: one row per device whose `hashedToken` is swapped on refresh
+     * and whose `previousHashedToken` serves one-hop replay recovery (see [RefreshToken]).
+     * Idempotent - after the first run every step is a no-op.
+     */
+    fun migrateRefreshTokenChains() {
+        AppLogger.info("Running refresh token chain migration...")
+
+        val collection = "refreshTokens"
+
+        // 1) Preserve in-flight replay chains: a client still retrying with a rotated-away token
+        // must be able to match on its successor's previousHashedToken once the old row is gone.
+        // Raw Documents - the entity no longer has deletedAt/replacedByToken.
+        val softDeleted = mongoTemplate.find(
+            Query(Criteria.where("deletedAt").ne(null)),
+            org.bson.Document::class.java,
+            collection
+        )
+
+        var linkedCount = 0
+        for (doc in softDeleted) {
+            val successorId = doc.getObjectId("replacedByToken") ?: continue
+            val oldHash = doc.getString("hashedToken") ?: continue
+
+            val result = mongoTemplate.updateFirst(
+                Query(
+                    Criteria.where("_id").`is`(successorId)
+                        .and("deletedAt").`is`(null)
+                        .and("previousHashedToken").`is`(null)
+                ),
+                Update.update("previousHashedToken", oldHash),
+                collection
+            )
+            linkedCount += result.modifiedCount.toInt()
+        }
+
+        // 2) The rotated-away rows themselves are obsolete under the new model
+        val removedRotated = mongoTemplate.remove(Query(Criteria.where("deletedAt").ne(null)), collection)
+
+        // 3) Establish the one-row-per-device invariant (login dedup) retroactively: keep only
+        // the newest session row per (userId, deviceName, deviceType) - older duplicates are
+        // leftovers of re-logins under the old model and inflated the active-device count.
+        // Deliberately raw Documents, NOT the RefreshToken entity: a single legacy row with an
+        // off-format field (e.g. a raw BSON Date where an Instant subdocument is expected - the
+        // exact corruption [repairCorruptedUpdatedAt] exists for) would otherwise throw a
+        // ConverterNotFoundException here and crash-loop every startup.
+        fun createdAtSeconds(doc: org.bson.Document): Long = when (val v = doc["createdAt"]) {
+            is org.bson.Document -> (v["epochSeconds"] as? Number)?.toLong() ?: 0L
+            is java.util.Date -> v.time / 1000
+            else -> 0L
+        }
+
+        val duplicateIds = mongoTemplate.find(
+            Query(Criteria.where("deviceName").nin(listOf(null, ""))),
+            org.bson.Document::class.java,
+            collection
+        )
+            .groupBy { Triple(it["userId"], it.getString("deviceName"), it["deviceType"]) }
+            .values
+            .filter { it.size > 1 }
+            .flatMap { rows -> rows.sortedByDescending { createdAtSeconds(it) }.drop(1) }
+            .map { it["_id"] }
+
+        if (duplicateIds.isNotEmpty()) {
+            mongoTemplate.remove(Query(Criteria.where("_id").`in`(duplicateIds)), collection)
+        }
+
+        // 4) Drop the legacy fields from the surviving rows
+        mongoTemplate.updateMulti(
+            Query(),
+            Update().unset("deletedAt").unset("replacedByToken"),
+            collection
+        )
+
+        // 5) Index lifecycle: the old partial unique index makes no sense in the new model (its
+        // {'deletedAt': null} filter now matches every row). Managed programmatically here rather
+        // than via annotations so the drop/replace can't collide with
+        // spring.data.mongodb.auto-index-creation at startup.
+        val indexOps = mongoTemplate.indexOps(RefreshToken::class.java)
+        if (indexOps.indexInfo.any { it.name == "active_user_token" }) {
+            indexOps.dropIndex("active_user_token")
+        }
+        indexOps.createIndex(
+            Index().named("user_current_token")
+                .on("userId", Sort.Direction.ASC)
+                .on("hashedToken", Sort.Direction.ASC)
+        )
+        indexOps.createIndex(
+            Index().named("user_previous_token")
+                .on("userId", Sort.Direction.ASC)
+                .on("previousHashedToken", Sort.Direction.ASC)
+        )
+
+        if (linkedCount > 0 || removedRotated.deletedCount > 0 || duplicateIds.isNotEmpty()) {
+            AppLogger.success("Refresh token migration: linked $linkedCount replay chains, removed ${removedRotated.deletedCount} rotated rows and ${duplicateIds.size} duplicate device rows")
+        } else {
+            AppLogger.success("Refresh token migration check complete")
+        }
     }
 
     /**

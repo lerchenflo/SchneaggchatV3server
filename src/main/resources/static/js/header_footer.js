@@ -8,6 +8,7 @@ const headerHTML = `
                 <nav class="nav-links">
                     <a href="/" data-i18n="nav_home">Home</a>
                     <a href="/stats.html" data-i18n="nav_stats">Stats</a>
+                    <a href="/faq.html" data-i18n="nav_faq">FAQ</a>
                     <a href="/privacypolicy.html" data-i18n="nav_privacy">Datenschutz</a>
                     <a href="/donations.html" data-i18n="nav_donate">Spenden</a>
                     <div class="lang-select-wrap">
@@ -32,6 +33,7 @@ const footerHTML = `
                         <h4 data-i18n="footer_nav_heading">Navigation</h4>
                         <a href="/" data-i18n="nav_home">Home</a>
                         <a href="/stats.html" data-i18n="nav_stats">Stats</a>
+                        <a href="/faq.html" data-i18n="nav_faq">FAQ</a>
                     </div>
                     <div class="footer-column">
                         <h4 data-i18n="footer_legal_heading">Rechtliches</h4>
@@ -123,6 +125,10 @@ async function applyLanguage(lang) {
     const map = await loadTranslations(lang);
     window.__schneaggchatI18n = map;
     applyTranslations(map);
+
+    // Lets pages with server-rendered content (e.g. donations, which formats dates per locale)
+    // re-render themselves whenever the language changes, including on initial page load.
+    document.dispatchEvent(new CustomEvent('schneaggchat:languagechanged', { detail: { lang } }));
 }
 
 // Only called when the visitor actively picks a language (lang-bar button),

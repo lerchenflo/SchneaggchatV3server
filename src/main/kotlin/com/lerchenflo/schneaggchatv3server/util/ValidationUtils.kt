@@ -242,6 +242,16 @@ object ValidationUtils {
         return OBJECT_ID_REGEX.matches(id)
     }
 
+    private val CLIENT_MESSAGE_ID_REGEX = "^[A-Za-z0-9-]{8,36}$".toRegex()
+
+    /**
+     * Validates a client-generated message send idempotency key (UUID-shaped, but not required
+     * to be a strict UUID - any client-unique opaque token in this shape is accepted).
+     */
+    fun validateClientMessageId(clientMessageId: String): Boolean {
+        return CLIENT_MESSAGE_ID_REGEX.matches(clientMessageId)
+    }
+
     /**
      * Validates a latitude/longitude pair
      * - Latitude must be between -90 and 90
@@ -377,5 +387,40 @@ object ValidationUtils {
     fun validateAltitude(altitude: Double): Boolean {
         if (altitude.isNaN() || altitude.isInfinite()) return false
         return altitude in -500.0..9000.0
+    }
+
+    /** Admin-entered donor name shown on the public donations page. */
+    fun validateDonationName(name: String): Boolean {
+        if (name.isBlank()) return false
+        if (name.length > 100) return false
+        return true
+    }
+
+    /** Optional donor message shown on the public donations page. */
+    fun validateDonationMessage(message: String?): Boolean {
+        if (message == null) return true
+        return message.length <= 500
+    }
+
+    /** Donation amount in cents. Must be positive and below an obviously-mistyped upper bound (10,000 EUR). */
+    fun validateDonationAmount(amountCents: Long): Boolean {
+        return amountCents in 1..1_000_000_000
+    }
+
+    /** Admin-entered FAQ question shown on the public FAQ page. */
+    fun validateFaqQuestion(question: String): Boolean {
+        if (question.isBlank()) return false
+        return question.length <= 300
+    }
+
+    /** Admin-entered FAQ answer shown on the public FAQ page. Plain text, rendered with line breaks kept. */
+    fun validateFaqAnswer(answer: String): Boolean {
+        if (answer.isBlank()) return false
+        return answer.length <= 5000
+    }
+
+    /** Position of a FAQ entry inside its category. */
+    fun validateFaqSortOrder(sortOrder: Int): Boolean {
+        return sortOrder in 0..10_000
     }
 }

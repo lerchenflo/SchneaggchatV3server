@@ -25,6 +25,9 @@ data class PollCreateRequest(
     val closeDate: Long?,
 
     val voteOptions: List<PollVoteOptionCreateRequest>,
+
+    val allowDeleteOptions: Boolean = false,
+    val showCheckboxes: Boolean = true,
 )
 
 /**
@@ -58,7 +61,9 @@ fun PollCreateRequest.toPoll(creatorId: ObjectId) : PollMessage {
                 voters = emptyList(),
                 maxVoters = it.maxVoters,
             )
-        }
+        },
+        allowDeleteOptions = this.allowDeleteOptions,
+        showCheckboxes = this.showCheckboxes,
     )
 }
 
@@ -78,4 +83,16 @@ data class PollVoteRequest(
     val text: String?, //Pass if the id is null (New custom option with this text)
     val maxAllowedAnswers: Int?, //Pass if the user creates a custom entry and the poll supports restricting the entries for votes
     val selected: Boolean, //Did the user select or unselect this item
+)
+
+/**
+ * Delete a vote option from a poll
+ */
+data class PollOptionDeleteRequest(
+    @field:NotBlank(message = "Message ID must not be blank")
+    @field:Size(max = 24, message = "Message ID too long")
+    val messageId: String,
+    @field:NotBlank(message = "Option ID must not be blank")
+    @field:Size(max = 24, message = "Option ID too long")
+    val optionId: String,
 )

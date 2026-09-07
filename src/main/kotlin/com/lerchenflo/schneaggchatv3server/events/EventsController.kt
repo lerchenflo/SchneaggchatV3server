@@ -5,6 +5,7 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
@@ -67,18 +68,34 @@ class EventsController(
     }
 
     @DeleteMapping("/delete")
-    fun deleteEvent(
+    fun detachEvent(
         @RequestParam(value = "eventid") eventId: String,
-        @RequestParam(value = "deleteconnectedgroup") deleteConnectedGroup: Boolean,
+        @RequestParam(value = "deletegroup", defaultValue = "false") deleteGroup: Boolean,
+        @RequestParam(value = "deleteevent", defaultValue = "false") deleteEvent: Boolean,
     ) {
         require(ValidationUtils.validateObjectId(eventId)) { "Invalid event id" }
 
         val requestingUserId = requireAuth()
 
-        eventService.deleteEvent(
+        eventService.detachEvent(
             requestingUser = requestingUserId,
             eventId = eventId,
-            deleteConnectedGroup = deleteConnectedGroup
+            deleteGroup = deleteGroup,
+            deleteEvent = deleteEvent,
+        )
+    }
+
+    @PostMapping("/participation")
+    fun setParticipation(
+        @RequestBody requestBody: EventParticipationRequest,
+    ): EventResponse {
+        require(ValidationUtils.validateObjectId(requestBody.eventId)) { "Invalid event id" }
+
+        val requestingUserId = requireAuth()
+
+        return eventService.setParticipation(
+            requestingUser = requestingUserId,
+            request = requestBody
         )
     }
 
