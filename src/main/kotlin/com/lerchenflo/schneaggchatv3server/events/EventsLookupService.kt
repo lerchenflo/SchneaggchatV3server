@@ -5,6 +5,7 @@ package com.lerchenflo.schneaggchatv3server.events
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipation
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationStatus
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.hasEnded
 import com.lerchenflo.schneaggchatv3server.repository.EventRepository
 import org.bson.types.ObjectId
 import org.springframework.data.mongodb.core.FindAndModifyOptions
@@ -26,8 +27,21 @@ class EventsLookupService(
         return eventRepository.findAll()
     }
 
-    fun getFutureEvents(): List<Event> {
-        return eventRepository.findEventsByStartDateAfter(Clock.System.now())
+    /**
+     * Every event that has not ended yet - see [hasEnded]: still before its close date, or, when it
+     * has none, before its start. Filtering on the start date alone would report a running event
+     * as deleted to every client the moment it starts (worst for multi-day events), while its
+     * group chat lives on until the close date plus the creator's delete delay.
+     */
+    fun getActiveEvents(): List<Event> {
+        val now = Clock.System.now()
+        val query = Query(
+            Criteria().orOperator(
+                Criteria.where("closeDate").gt(now),
+                Criteria.where("closeDate").`is`(null).and("startDate").gt(now),
+            )
+        )
+        return mongoTemplate.find(query, Event::class.java)
     }
 
     fun findById(eventId: ObjectId): Event? {
