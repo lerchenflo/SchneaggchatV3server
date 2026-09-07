@@ -4,6 +4,8 @@ package com.lerchenflo.schneaggchatv3server
 
 import com.lerchenflo.schneaggchatv3server.authentication.AuthController
 import com.lerchenflo.schneaggchatv3server.authentication.AuthService
+import com.lerchenflo.schneaggchatv3server.authentication.EmailService
+import com.lerchenflo.schneaggchatv3server.authentication.model.LoginAlert
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
@@ -13,6 +15,8 @@ import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
+import com.lerchenflo.schneaggchatv3server.util.Log
+import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import io.mockk.every
 import io.mockk.mockk
@@ -52,7 +56,12 @@ class AuthServiceTokenRotationTest {
     private val loggingService = mockk<LoggingService>(relaxed = true)
     private val imageManager = mockk<ImageManager>(relaxed = true)
     private val mongoTemplate = mockk<MongoTemplate>()
-    private val rateLimitService = mockk<RateLimitService>(relaxed = true)
+    // A relaxed mock answers availableTokens() with 0, which the login throttle reads as "locked
+    // out" -> every login would be a 429. Pretend the bucket is full.
+    private val rateLimitService = mockk<RateLimitService>(relaxed = true) {
+        every { availableTokens(any(), any()) } returns 10L
+    }
+    private val emailService = mockk<EmailService>(relaxed = true)
 
     private val authService = AuthService(
         jwtService = jwtService,
@@ -60,6 +69,7 @@ class AuthServiceTokenRotationTest {
         hashEncoder = hashEncoder,
         refreshTokenRepository = refreshTokenRepository,
         loggingService = loggingService,
+        emailService = emailService,
         imageManager = imageManager,
         rateLimitService = rateLimitService,
         rateLimitProperties = RateLimitProperties(),
@@ -277,5 +287,89 @@ class AuthServiceTokenRotationTest {
         val pair = authService.login("testuser", "pw", "Test device", AuthController.DEVICETYPE.ANDROID)
 
         assertEquals(hash(pair.refreshToken), savedSlot.captured.hashedToken)
+    }
+
+    // ------------------------------------------------------------------ login alert mail
+
+    @Test
+    @DisplayName("Login on an unknown device schedules an alert mail flagged as new device, with the request details")
+    fun loginNewDeviceSendsAlert() {
+        every { hashEncoder.matches("pw", "hashed-pw") } returns true
+        every {
+            refreshTokenRepository.findFirstByUserIdAndDeviceNameAndDeviceTypeOrderByCreatedAtDesc(any(), any(), any())
+        } returns null
+        every { refreshTokenRepository.save(any()) } answers { firstArg() }
+        val previousLogin = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds() - 1000L * 60 * 60)
+        every { loggingService.getLastLogByLogtype(LogType.USER_LOGIN, userId) } returns
+            Log(userId = userId, logType = LogType.USER_LOGIN, timestamp = previousLogin)
+
+        val alertSlot = slot<LoginAlert>()
+        every { emailService.sendLoginAlertEmail(capture(alertSlot)) } returns Unit
+
+        authService.login(
+            "testuser", "pw", "New device", AuthController.DEVICETYPE.IOS,
+            ip = "203.0.113.7",
+            clientInfo = AuthService.LoginClientInfo(userAgent = "Ktor client", acceptLanguage = "de-AT"),
+        )
+
+        val alert = alertSlot.captured
+        assertSame(user, alert.user)
+        assertTrue(alert.newDevice)
+        // Previous login is read before the new USER_LOGIN row is written
+        assertEquals(previousLogin, alert.previousLoginAt)
+        assertEquals("New device", alert.deviceName)
+        assertEquals(AuthController.DEVICETYPE.IOS, alert.deviceType)
+        assertEquals("203.0.113.7", alert.ip)
+        assertEquals("Ktor client", alert.userAgent)
+        assertEquals("de-AT", alert.acceptLanguage)
+    }
+
+    @Test
+    @DisplayName("Login on a known device schedules an alert mail not flagged as new device")
+    fun loginKnownDeviceAlertNotNew() {
+        every { hashEncoder.matches("pw", "hashed-pw") } returns true
+        val existing = sessionRow(hashedToken = hash("some-old-token"))
+        every {
+            refreshTokenRepository.findFirstByUserIdAndDeviceNameAndDeviceTypeOrderByCreatedAtDesc(
+                userId, "Test device", AuthController.DEVICETYPE.ANDROID
+            )
+        } returns existing
+        every {
+            mongoTemplate.findAndModify(any(), any(), any(), RefreshToken::class.java)
+        } returns existing
+
+        val alertSlot = slot<LoginAlert>()
+        every { emailService.sendLoginAlertEmail(capture(alertSlot)) } returns Unit
+
+        authService.login("testuser", "pw", "Test device", AuthController.DEVICETYPE.ANDROID)
+
+        assertFalse(alertSlot.captured.newDevice)
+    }
+
+    @Test
+    @DisplayName("A failed login never schedules an alert mail")
+    fun failedLoginSendsNoAlert() {
+        every { hashEncoder.matches("wrong", "hashed-pw") } returns false
+
+        assertThrows<org.springframework.security.authentication.BadCredentialsException> {
+            authService.login("testuser", "wrong", "Test device", AuthController.DEVICETYPE.ANDROID)
+        }
+
+        verify(exactly = 0) { emailService.sendLoginAlertEmail(any()) }
+    }
+
+    @Test
+    @DisplayName("A failing alert mail scheduler never breaks the login")
+    fun alertFailureDoesNotBreakLogin() {
+        every { hashEncoder.matches("pw", "hashed-pw") } returns true
+        every {
+            refreshTokenRepository.findFirstByUserIdAndDeviceNameAndDeviceTypeOrderByCreatedAtDesc(any(), any(), any())
+        } returns null
+        every { refreshTokenRepository.save(any()) } answers { firstArg() }
+        every { emailService.sendLoginAlertEmail(any()) } throws IllegalStateException("executor down")
+
+        val pair = authService.login("testuser", "pw", "New device", AuthController.DEVICETYPE.DESKTOP)
+
+        assertTrue(jwtService.validateAccessToken(pair.accessToken))
     }
 }
