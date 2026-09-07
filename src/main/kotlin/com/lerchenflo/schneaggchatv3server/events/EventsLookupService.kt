@@ -75,6 +75,26 @@ class EventsLookupService(
     }
 
     /**
+     * Adds [userId] to the event's `invitedUsers`, so someone who was put into an
+     * INVITED_FRIENDS_ONLY event's group by an admin can actually access the event they now count
+     * as attending. Uses addToSet under a filter that requires the user to still be absent, so
+     * concurrent calls can never duplicate an entry.
+     *
+     * @return the updated event, or null when the user was already invited.
+     */
+    fun addInvitedUser(eventId: ObjectId, userId: ObjectId): Event? {
+        val now = Clock.System.now()
+        return mongoTemplate.findAndModify(
+            Query(Criteria.where("_id").`is`(eventId).and("invitedUsers").ne(userId)),
+            Update()
+                .addToSet("invitedUsers", userId)
+                .set("updatedAt", now),
+            FindAndModifyOptions.options().returnNew(true),
+            Event::class.java
+        )
+    }
+
+    /**
      * Writes [userId]'s entry in the event's `participations` array and bumps `updatedAt` so the existing
      * IdTimeStamp sync and the EventChange push carry the change. The only place that array is
      * written.

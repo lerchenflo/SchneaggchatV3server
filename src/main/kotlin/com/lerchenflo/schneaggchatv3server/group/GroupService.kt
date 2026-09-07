@@ -3,7 +3,9 @@
 package com.lerchenflo.schneaggchatv3server.group
 
 import com.lerchenflo.schneaggchatv3server.events.EventsLookupService
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationStatus
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
@@ -362,6 +364,10 @@ class GroupService(
         // group exists before it receives a system message addressed to it.
         var pendingEvent: SystemEventType? = null
 
+        // Same idea for the connected event's participation change, emitted after the group update
+        // so the added member knows the group before they are told they are attending its event.
+        var pendingEventUpdate: Event? = null
+
         when (userAction) {
             GroupMemberAction.ADD_USER -> {
                 requireOrLog(
@@ -374,6 +380,25 @@ class GroupService(
                     memberId = groupMember,
                     timeStamp = now
                 )
+
+                // Being in an event's group is what counts as accepting that event, so an admin
+                // putting someone in has to write that accept as well - the mirror image of the
+                // take-back in REMOVE_USER below.
+                eventsLookupService.findByGroupId(groupId)?.let { event ->
+                    // An uninvited member cannot even sync the event they now attend, so the add
+                    // is also the invite for an invite-only event.
+                    val invited = if (event.visibility == EventVisibility.INVITED_FRIENDS_ONLY) {
+                        eventsLookupService.addInvitedUser(event.id, groupMember)
+                    } else {
+                        null
+                    }
+
+                    pendingEventUpdate = eventsLookupService.upsertParticipation(
+                        eventId = event.id,
+                        userId = groupMember,
+                        status = EventParticipationStatus.ACCEPTED
+                    ) ?: invited
+                }
 
                 pendingEvent = SystemEventType.GROUP_MEMBER_ADDED
             }
@@ -493,6 +518,14 @@ class GroupService(
         groupLookupService.saveGroup(group.copy(updatedAt = now))
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+
+        pendingEventUpdate?.let { event ->
+            notificationService.notifyEventUpdate(
+                eventResponse = event.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+                newEntry = false,
+                deleted = false
+            )
+        }
 
         pendingEvent.let { eventType ->
             // GROUP_MEMBER_LEFT has no separate target - the actor is the subject of their own event.
