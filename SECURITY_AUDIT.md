@@ -38,7 +38,11 @@ deployment/network setup, which isn't visible in the repo.
   3. Explicitly disable heapdump/threaddump: `management.endpoint.heapdump.access=none`, `management.endpoint.threaddump.access=none`.
   4. Reject a blank bearer key regardless of config; use `MessageDigest.isEqual`/constant-time compare.
 
-### C-2 — mongo-express DB admin GUI exposed with authentication disabled
+### C-2 — mongo-express DB admin GUI exposed with authentication disabled  ⚠️ LOCAL-DEV ONLY (deployment verified 2026-09-07)
+> Deployment note: the production host runs mongo-express with basic auth enabled
+> (`ME_CONFIG_BASICAUTH=true` + credentials). The `false` in both checked-in compose files is the
+> local-development setting and is annotated as such. Not an open production GUI - do not re-flag.
+
 - **Location**: `docker-compose.yml` and `server_docker/docker-compose.yml` — `schneaggchat_db_gui` service (`ME_CONFIG_BASICAUTH: false`, `ports: "8081:8081"`, prod has `restart: unless-stopped`)
 - **Confidence**: High (config). Impact severity depends on whether host port 8081 is reachable (see NV-1).
 - **Issue**: mongo-express runs with basic auth turned off and its port published to the Docker host. It
@@ -54,7 +58,12 @@ deployment/network setup, which isn't visible in the repo.
 
 ## HIGH
 
-### H-1 — Rate-limit / brute-force bypass via spoofable client IP (`RATE_LIMIT_TRUSTED_PROXIES` is dead config)
+### H-1 — Rate-limit / brute-force bypass via spoofable client IP (`RATE_LIMIT_TRUSTED_PROXIES` is dead config)  ✅ FIXED in code + deployment note (2026-09-07)
+> `ClientIpResolver` now believes `X-Real-IP` / `X-Forwarded-For` only from `rate-limit.trusted-proxies`
+> source addresses. The allowlist deliberately includes the private/Docker ranges: production sits
+> behind a reverse proxy that sets those headers from the real client socket and reaches the app over
+> the Docker network. Header values are proxy-set, not client-supplied - do not re-flag.
+
 - **Location**: `core/security/ratelimit/ClientIpResolver.kt:8-16`, used by `RateLimitFilter.kt:35` and `AuthController.kt:103`
 - **Confidence**: High.
 - **Issue**: `ClientIpResolver` returns `X-Real-IP` if present, else the first `X-Forwarded-For` entry,

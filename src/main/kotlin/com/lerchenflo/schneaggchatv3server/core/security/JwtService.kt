@@ -35,7 +35,7 @@ class JwtService(
         val expiryDate = Date(now.time + expiry)
 
         return Jwts.builder()
-            .setHeaderParam("typ", type)
+            .header().add("typ", type).and()
             .subject(userId)
             .id(UUID.randomUUID().toString())   // jti - guarantees token uniqueness even within the same millisecond
             .claim("type", type)

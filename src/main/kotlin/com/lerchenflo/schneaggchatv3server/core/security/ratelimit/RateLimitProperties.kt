@@ -18,6 +18,13 @@ data class RateLimitProperties(
     // Source addresses whose X-Real-IP / X-Forwarded-For headers may be believed. Anything else is
     // treated as a direct client and rate limited by its real socket address, so a client cannot
     // hand itself a fresh identity per request by making a header up.
+    //
+    // DEPLOYMENT NOTE (security audits, see SECURITY_AUDIT.md H-1): production sits behind a reverse
+    // proxy that terminates the client connection and sets X-Real-IP / X-Forwarded-For from the real
+    // client socket, replacing anything the client sent. The proxy reaches the app container over the
+    // Docker network, so its requests arrive from the private ranges below - that is why they are
+    // trusted. Header values reaching this code are therefore proxy-set, not client-supplied; this is
+    // not a spoofing hole.
     val trustedProxies: List<String> = listOf(
         "127.0.0.1/32",
         "::1/128",
