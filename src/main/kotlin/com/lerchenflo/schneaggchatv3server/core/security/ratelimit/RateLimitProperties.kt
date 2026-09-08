@@ -9,8 +9,8 @@ data class RateLimitProperties(
 
     // Logs every bucket consumption with the tokens left, not just the requests that get a 429.
     val debugLogging: Boolean = false,
-    val ip: TierConfig = TierConfig(100L, Duration.ofMinutes(1)),
-    val user: TierConfig = TierConfig(300L, Duration.ofMinutes(1)),
+    val ip: TierConfig = TierConfig(200L, Duration.ofMinutes(1)),
+    val user: TierConfig = TierConfig(200L, Duration.ofMinutes(1)),
     val auth: TierConfig = TierConfig(10L, Duration.ofMinutes(1)),
     // Per-account login throttle. Consumed only by failed logins, so a legitimate user never sees it
     // unless their account is actually under attack. Unlike the IP tiers this one cannot be evaded
