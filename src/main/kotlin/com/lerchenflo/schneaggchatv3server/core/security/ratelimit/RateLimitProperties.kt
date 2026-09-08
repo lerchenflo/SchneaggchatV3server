@@ -6,6 +6,9 @@ import java.time.Duration
 @ConfigurationProperties(prefix = "rate-limit")
 data class RateLimitProperties(
     val enabled: Boolean = true,
+
+    // Logs every bucket consumption with the tokens left, not just the requests that get a 429.
+    val debugLogging: Boolean = false,
     val ip: TierConfig = TierConfig(100L, Duration.ofMinutes(1)),
     val user: TierConfig = TierConfig(300L, Duration.ofMinutes(1)),
     val auth: TierConfig = TierConfig(10L, Duration.ofMinutes(1)),
@@ -33,6 +36,13 @@ data class RateLimitProperties(
         "192.168.0.0/16",
     ),
 ) {
+    fun tierConfig(tier: RateLimitTier): TierConfig = when (tier) {
+        RateLimitTier.IP -> ip
+        RateLimitTier.USER -> user
+        RateLimitTier.AUTH -> auth
+        RateLimitTier.AUTH_USER -> authUser
+    }
+
     data class TierConfig(
         val capacity: Long = 100L,
         val refillPeriod: Duration = Duration.ofMinutes(1)

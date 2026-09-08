@@ -59,10 +59,10 @@ class GlobalExceptionHandler(
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationError(e: MethodArgumentNotValidException, request: HttpServletRequest): ResponseEntity<Map<String, Any>> {
         val ip = clientIpResolver.resolve(request)
-        logWithUserInfo("Validation Error happened: ${e.message}", ip)
         val errors = e.bindingResult.allErrors.map {
             it.defaultMessage ?: "Invalid value"
         }
+        logWithUserInfo("Validation Error happened: ${errors.joinToString(", ")}", ip)
         //logError(e, ip)
         return ResponseEntity
             .status(400)
