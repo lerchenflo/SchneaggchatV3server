@@ -1,10 +1,11 @@
 package com.lerchenflo.schneaggchatv3server.core.security.ratelimit
 
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
+import io.github.bucket4j.ConsumptionProbe
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import org.slf4j.LoggerFactory
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
@@ -16,8 +17,6 @@ class RateLimitFilter(
     private val clientIpResolver: ClientIpResolver,
     private val properties: RateLimitProperties
 ) : OncePerRequestFilter() {
-
-    private val log = LoggerFactory.getLogger(RateLimitFilter::class.java)
 
     private val staticPrefixes = listOf("/css/", "/js/", "/web_images/", "/i18n/")
     private val staticSuffixes = listOf(".html", ".ico", ".png", ".js", ".css", ".xml", ".webp")
@@ -34,13 +33,18 @@ class RateLimitFilter(
 
         val ip = clientIpResolver.resolve(request)
         val userId = SecurityContextHolder.getContext().authentication?.principal as? String
+        val requestDescription = "${request.method} ${request.servletPath} ip=$ip user=${userId ?: "-"}"
 
         if (request.servletPath.startsWith(properties.authPathPrefix)) {
             try {
                 val probe = rateLimitService.tryConsume("rl:auth-ip:$ip", RateLimitTier.AUTH)
-                if (!probe.isConsumed) { deny(response, probe.nanosToWaitForRefill); return }
+                logConsumption(RateLimitTier.AUTH, "rl:auth-ip:$ip", probe, requestDescription)
+                if (!probe.isConsumed) {
+                    denyLimitReached(response, RateLimitTier.AUTH, probe, requestDescription)
+                    return
+                }
             } catch (e: Exception) {
-                log.warn("Rate limiter unavailable on auth path, failing closed: ${e.message}")
+                AppLogger.warn("RATELIMIT unavailable on auth path, failing closed ($requestDescription): ${e.message}")
                 response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE)
                 return
             }
@@ -48,14 +52,22 @@ class RateLimitFilter(
 
         try {
             val ipProbe = rateLimitService.tryConsume("rl:ip:$ip", RateLimitTier.IP)
-            if (!ipProbe.isConsumed) { deny(response, ipProbe.nanosToWaitForRefill); return }
+            logConsumption(RateLimitTier.IP, "rl:ip:$ip", ipProbe, requestDescription)
+            if (!ipProbe.isConsumed) {
+                denyLimitReached(response, RateLimitTier.IP, ipProbe, requestDescription)
+                return
+            }
 
             if (userId != null) {
                 val userProbe = rateLimitService.tryConsume("rl:user:$userId", RateLimitTier.USER)
-                if (!userProbe.isConsumed) { deny(response, userProbe.nanosToWaitForRefill); return }
+                logConsumption(RateLimitTier.USER, "rl:user:$userId", userProbe, requestDescription)
+                if (!userProbe.isConsumed) {
+                    denyLimitReached(response, RateLimitTier.USER, userProbe, requestDescription)
+                    return
+                }
             }
         } catch (e: Exception) {
-            log.warn("Rate limiter unavailable, failing open: ${e.message}")
+            AppLogger.warn("RATELIMIT unavailable, failing open ($requestDescription): ${e.message}")
         }
 
         filterChain.doFilter(request, response)
@@ -64,8 +76,33 @@ class RateLimitFilter(
     private fun isStaticPath(path: String): Boolean =
         staticPrefixes.any { path.startsWith(it) } || staticSuffixes.any { path.endsWith(it) }
 
-    private fun deny(response: HttpServletResponse, nanosToWait: Long) {
-        val retryAfter = TimeUnit.NANOSECONDS.toSeconds(nanosToWait) + 1
+    private fun logConsumption(
+        tier: RateLimitTier,
+        key: String,
+        probe: ConsumptionProbe,
+        requestDescription: String
+    ) {
+        if (!properties.debugLogging) return
+        val capacity = properties.tierConfig(tier).capacity
+        AppLogger.debug(
+            "RATELIMIT ${tier.name} key=$key ${probe.remainingTokens}/$capacity left" +
+                    "${if (probe.isConsumed) "" else " DENIED"} | $requestDescription"
+        )
+    }
+
+    private fun denyLimitReached(
+        response: HttpServletResponse,
+        tier: RateLimitTier,
+        probe: ConsumptionProbe,
+        requestDescription: String
+    ) {
+        val retryAfter = TimeUnit.NANOSECONDS.toSeconds(probe.nanosToWaitForRefill) + 1
+        val limit = properties.tierConfig(tier)
+        AppLogger.warn(
+            "RATELIMIT ${tier.name} exceeded (more than ${limit.capacity} requests per " +
+                    "${limit.refillPeriod}), 429 for ${retryAfter}s | $requestDescription"
+        )
+
         response.status = 429
         response.setHeader("Retry-After", retryAfter.toString())
         response.contentType = "application/json;charset=UTF-8"
