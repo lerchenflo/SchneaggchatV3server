@@ -25,12 +25,7 @@ class RateLimitService(
             .availableTokens
 
     private fun buildConfig(tier: RateLimitTier): BucketConfiguration {
-        val tc = when (tier) {
-            RateLimitTier.IP -> properties.ip
-            RateLimitTier.USER -> properties.user
-            RateLimitTier.AUTH -> properties.auth
-            RateLimitTier.AUTH_USER -> properties.authUser
-        }
+        val tc = properties.tierConfig(tier)
         return BucketConfiguration.builder()
             .addLimit(
                 Bandwidth.builder()

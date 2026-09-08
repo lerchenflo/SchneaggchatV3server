@@ -170,9 +170,21 @@ class AuthService(
         }
 
         if (remaining <= 0) {
+            val limit = rateLimitProperties.authUser
+            AppLogger.warn(
+                "RATELIMIT AUTH_USER exceeded, 429 for login | username=${username.take(100)} " +
+                        "(more than ${limit.capacity} failed logins per ${limit.refillPeriod})"
+            )
             throw ResponseStatusException(
                 HttpStatusCode.valueOf(429),
                 "Too many failed login attempts for this account. Please try again later."
+            )
+        }
+
+        if (rateLimitProperties.debugLogging) {
+            AppLogger.debug(
+                "RATELIMIT AUTH_USER username=${username.take(100)} " +
+                        "$remaining/${rateLimitProperties.authUser.capacity} login attempts left"
             )
         }
     }
@@ -180,7 +192,13 @@ class AuthService(
     private fun recordFailedLogin(username: String, userId: ObjectId?, ip: String?) {
         if (rateLimitProperties.enabled) {
             try {
-                rateLimitService.tryConsume(loginThrottleKey(username), RateLimitTier.AUTH_USER)
+                val probe = rateLimitService.tryConsume(loginThrottleKey(username), RateLimitTier.AUTH_USER)
+                if (rateLimitProperties.debugLogging) {
+                    AppLogger.debug(
+                        "RATELIMIT AUTH_USER charged a failed login | username=${username.take(100)} " +
+                                "${probe.remainingTokens}/${rateLimitProperties.authUser.capacity} attempts left"
+                    )
+                }
             } catch (e: Exception) {
                 AppLogger.warn("Could not record failed login attempt: ${e.message}")
             }
