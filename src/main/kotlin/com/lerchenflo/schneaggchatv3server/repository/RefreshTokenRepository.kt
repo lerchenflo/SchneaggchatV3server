@@ -25,7 +25,9 @@ interface RefreshTokenRepository: MongoRepository<RefreshToken, ObjectId> {
         deviceType: AuthController.DEVICETYPE
     ): RefreshToken?
 
-    fun deleteByUserId(userId: ObjectId)
+    /** Kills every session of a user (logout on all devices, ban, password change). Returns the
+     * number of session rows removed. */
+    fun deleteByUserId(userId: ObjectId): Long
 
     /**
      * The only token sweep: removes device sessions whose sliding `expiresAt` passed — devices

@@ -24,6 +24,7 @@ import kotlin.time.Instant
 
 enum class LogType {
     USER_LOGIN,
+    USER_LOGOUT,
     SERVER_START,
     MESSAGE_DELETED,
     POLL_OPTION_DELETED,

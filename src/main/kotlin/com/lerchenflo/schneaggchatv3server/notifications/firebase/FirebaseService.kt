@@ -91,6 +91,18 @@ class FirebaseService(
         tokenRepository.deleteByToken(token)
     }
 
+    /**
+     * Ownership checked delete for logout: [deleteToken] matches on the token alone, so calling it
+     * with a client supplied token would let anyone unregister another device's push token.
+     */
+    fun deleteTokenForUser(userId: ObjectId, token: String) {
+        tokenRepository.findByUserIdAndToken(userId, token)?.let { tokenRepository.delete(it) }
+    }
+
+    fun deleteAllTokensForUser(userId: ObjectId) {
+        tokenRepository.deleteAll(tokenRepository.findAllByUserId(userId))
+    }
+
     fun getTokensForUser(userId: ObjectId): List<FirebaseToken> {
         return tokenRepository.findAllByUserId(userId)
     }

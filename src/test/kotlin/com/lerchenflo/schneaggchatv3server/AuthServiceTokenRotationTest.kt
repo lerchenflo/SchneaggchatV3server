@@ -9,6 +9,8 @@ import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitProperties
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitService
+import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
+import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
@@ -53,6 +55,8 @@ class AuthServiceTokenRotationTest {
     private val imageManager = mockk<ImageManager>(relaxed = true)
     private val mongoTemplate = mockk<MongoTemplate>()
     private val rateLimitService = mockk<RateLimitService>(relaxed = true)
+    private val firebaseService = mockk<FirebaseService>(relaxed = true)
+    private val apnsService = mockk<ApnsService>(relaxed = true)
 
     private val authService = AuthService(
         jwtService = jwtService,
@@ -63,6 +67,8 @@ class AuthServiceTokenRotationTest {
         imageManager = imageManager,
         rateLimitService = rateLimitService,
         rateLimitProperties = RateLimitProperties(),
+        firebaseService = firebaseService,
+        apnsService = apnsService,
         mongoTemplate = mongoTemplate,
     )
 
