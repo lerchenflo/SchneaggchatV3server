@@ -125,7 +125,7 @@ class GlobalExceptionHandler(
         val ip = clientIpResolver.resolve(request)
         logWithUserInfo("HttpMessageNotReadableException Error happened: ${e.message}", ip)
 
-        e.printStackTrace()
+        //e.printStackTrace()
 
         return ResponseEntity
             .badRequest()

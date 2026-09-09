@@ -36,11 +36,14 @@ class RateLimitFilter(
         val requestDescription = "${request.method} ${request.servletPath} ip=$ip user=${userId ?: "-"}"
 
         if (request.servletPath.startsWith(properties.authPathPrefix)) {
+            val refreshing = request.servletPath == properties.refreshPath
+            val tier = if (refreshing) RateLimitTier.AUTH_REFRESH else RateLimitTier.AUTH
+            val key = if (refreshing) "rl:auth-refresh-ip:$ip" else "rl:auth-ip:$ip"
             try {
-                val probe = rateLimitService.tryConsume("rl:auth-ip:$ip", RateLimitTier.AUTH)
-                logConsumption(RateLimitTier.AUTH, "rl:auth-ip:$ip", probe, requestDescription)
+                val probe = rateLimitService.tryConsume(key, tier)
+                logConsumption(tier, key, probe, requestDescription)
                 if (!probe.isConsumed) {
-                    denyLimitReached(response, RateLimitTier.AUTH, probe, requestDescription)
+                    denyLimitReached(response, tier, probe, requestDescription)
                     return
                 }
             } catch (e: Exception) {
