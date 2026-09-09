@@ -95,6 +95,9 @@
                 <button id="admin-tab-users" class="admin-tab">
                     <i class="fa-solid fa-users"></i> Nutzer
                 </button>
+                <button id="admin-tab-server" class="admin-tab">
+                    <i class="fa-solid fa-server"></i> Server
+                </button>
             </nav>
             <button id="admin-logout-button" type="button" class="secondary-button admin-logout-button">
                 <i class="fa-solid fa-right-from-bracket"></i> <span>Abmelden</span>
@@ -258,6 +261,26 @@
                         <tbody id="users-rows"></tbody>
                     </table>
                 </div>
+            </section>
+
+            <!-- Server: update flag. Only sets/clears a key in Redis; the host's update script does the work. -->
+            <section id="admin-section-server" class="admin-section hidden">
+                <div class="admin-section-header">
+                    <h2>Server</h2>
+                </div>
+                <p class="admin-muted admin-server-help">
+                    „Update anfordern“ setzt nur ein Flag in Redis. Das Update-Skript am Host holt es ab, baut den
+                    aktuellen <code>main</code>-Stand von GitHub und startet den Container neu (kurzer Ausfall).
+                </p>
+                <div class="admin-server-actions">
+                    <button id="server-update-button" type="button" class="primary-button admin-inline-button">
+                        <i class="fa-solid fa-cloud-arrow-down"></i> Update anfordern
+                    </button>
+                    <button id="server-cancel-button" type="button" class="secondary-button admin-inline-button">
+                        <i class="fa-solid fa-xmark"></i> Anfrage zurückziehen
+                    </button>
+                </div>
+                <p id="server-message" class="admin-server-message"></p>
             </section>
 
             <!-- Friends tree -->

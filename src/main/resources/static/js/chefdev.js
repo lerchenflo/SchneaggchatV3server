@@ -115,7 +115,7 @@ function showPanelView() {
 }
 
 // Order matches the top bar: read-only views first, data-changing views after the separator.
-const TABS = ['connected', 'changelog', 'tree', 'logs', 'donations', 'faq', 'scores', 'users'];
+const TABS = ['connected', 'changelog', 'tree', 'logs', 'donations', 'faq', 'scores', 'users', 'server'];
 
 function switchTab(tab) {
     TABS.forEach((t) => {
@@ -1164,8 +1164,39 @@ document.getElementById('logs-load-more')?.addEventListener('click', () => {
 });
 
 /* ---------------------------------------------------------------------- */
+/* Server (update flag)                                                   */
+/* ---------------------------------------------------------------------- */
+
+// The buttons only set / clear a flag in Redis; the host's update script does the build and the
+// container swap. Both endpoints answer with an empty body, hence adminFetch instead of adminFetchJson.
+async function setServerUpdateFlag(method) {
+    const messageEl = document.getElementById('server-message');
+    messageEl.classList.remove('admin-form-error');
+    messageEl.textContent = '';
+    try {
+        const response = await adminFetch('/chefdev/api/server/update', { method });
+        if (response.status === 404) throw new Error('Keine Admin-Berechtigung.');
+        if (!response.ok) throw new Error(`Anfrage fehlgeschlagen (${response.status})`);
+        messageEl.textContent = method === 'POST'
+            ? 'Update-Flag gesetzt. Das Update-Skript am Host holt es beim nächsten Lauf ab.'
+            : 'Update-Flag entfernt.';
+    } catch (e) {
+        if (e instanceof SessionExpiredError) return;
+        messageEl.classList.add('admin-form-error');
+        messageEl.textContent = e.message || 'Anfrage fehlgeschlagen.';
+    }
+}
+
+document.getElementById('server-update-button')?.addEventListener('click', () => {
+    if (!confirm('Server-Update anfordern?\n\nDas Update-Skript am Host baut den aktuellen main-Stand von GitHub und startet den Server neu (kurzer Ausfall für alle Nutzer).')) return;
+    setServerUpdateFlag('POST');
+});
+document.getElementById('server-cancel-button')?.addEventListener('click', () => setServerUpdateFlag('DELETE'));
+
+/* ---------------------------------------------------------------------- */
 /* Bootstrap                                                              */
 /* ---------------------------------------------------------------------- */
+
 
 document.getElementById('admin-login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();

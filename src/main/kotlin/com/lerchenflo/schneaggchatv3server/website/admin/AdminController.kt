@@ -19,12 +19,14 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.MapEntryVersionService
 import com.lerchenflo.schneaggchatv3server.util.LogPage
 import com.lerchenflo.schneaggchatv3server.util.LogSort
 import com.lerchenflo.schneaggchatv3server.util.LogType
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
+import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
@@ -45,6 +47,7 @@ class AdminController(
     private val adminScoreService: AdminScoreService,
     private val adminUserService: AdminUserService,
     private val friendsTreeService: FriendsTreeService,
+    private val redisTemplate: StringRedisTemplate,
 ) {
 
     // ─── Map change log ─────────────────────────────────────────────────────
@@ -334,5 +337,29 @@ class AdminController(
     fun getFriendsTree(): FriendsTreeResponse {
         adminGuard.requireAdmin()
         return friendsTreeService.buildTree()
+    }
+
+    // ─── Server update flag ──────────────────────────────────────────────────
+    // The panel's "Update anfordern" button. The app never touches Docker itself (that would need
+    // the host's Docker socket inside a public-facing container); it only sets a key in Redis that
+    // the host's update script consumes with `redis-cli GETDEL`.
+
+    @PostMapping("/server/update")
+    fun requestServerUpdate() {
+        val adminId = adminGuard.requireAdmin()
+        redisTemplate.opsForValue().set(SERVER_UPDATE_KEY, "1")
+        AppLogger.info("ADMIN: Server update requested by $adminId")
+    }
+
+    @DeleteMapping("/server/update")
+    fun cancelServerUpdate() {
+        val adminId = adminGuard.requireAdmin()
+        redisTemplate.delete(SERVER_UPDATE_KEY)
+        AppLogger.info("ADMIN: Server update request cancelled by $adminId")
+    }
+
+    companion object {
+        /** Read and cleared by the host's update script; changing it breaks that script. */
+        const val SERVER_UPDATE_KEY = "schneaggchat:deploy:requested"
     }
 }

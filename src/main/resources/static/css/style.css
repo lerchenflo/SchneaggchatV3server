@@ -3182,3 +3182,27 @@ header.scrolled {
         padding: 1.5rem 1rem;
     }
 }
+
+/* Admin: server tab */
+.admin-server-help {
+    max-width: 60rem;
+    margin: 0 0 1.5rem;
+    line-height: 1.6;
+}
+
+.admin-server-help code {
+    font-family: monospace;
+    font-size: 0.9em;
+    color: #94a3b8;
+}
+
+.admin-server-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.admin-server-message {
+    margin-top: 1rem;
+    min-height: 1.5em;
+}
