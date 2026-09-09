@@ -11,6 +11,8 @@ import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitProperties
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitService
+import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
+import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
@@ -56,12 +58,9 @@ class AuthServiceTokenRotationTest {
     private val loggingService = mockk<LoggingService>(relaxed = true)
     private val imageManager = mockk<ImageManager>(relaxed = true)
     private val mongoTemplate = mockk<MongoTemplate>()
-    // A relaxed mock answers availableTokens() with 0, which the login throttle reads as "locked
-    // out" -> every login would be a 429. Pretend the bucket is full.
-    private val rateLimitService = mockk<RateLimitService>(relaxed = true) {
-        every { availableTokens(any(), any()) } returns 10L
-    }
-    private val emailService = mockk<EmailService>(relaxed = true)
+    private val rateLimitService = mockk<RateLimitService>(relaxed = true)
+    private val firebaseService = mockk<FirebaseService>(relaxed = true)
+    private val apnsService = mockk<ApnsService>(relaxed = true)
 
     private val authService = AuthService(
         jwtService = jwtService,
@@ -73,6 +72,8 @@ class AuthServiceTokenRotationTest {
         imageManager = imageManager,
         rateLimitService = rateLimitService,
         rateLimitProperties = RateLimitProperties(),
+        firebaseService = firebaseService,
+        apnsService = apnsService,
         mongoTemplate = mongoTemplate,
     )
 
