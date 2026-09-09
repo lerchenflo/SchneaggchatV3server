@@ -39,3 +39,10 @@ data class Event(
     val updatedAt: Instant,
     val updatedBy: ObjectId,
 )
+
+/**
+ * True once the event is over: past its close date, or - when it has none - past its start.
+ * The server's single definition of "ended", mirrored by the client's `Event.hasEnded`. Keep in
+ * sync with the query in [com.lerchenflo.schneaggchatv3server.events.EventsLookupService.getActiveEvents].
+ */
+fun Event.hasEnded(now: Instant): Boolean = (closeDate ?: startDate) <= now

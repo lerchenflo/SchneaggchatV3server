@@ -2,6 +2,7 @@
 
 package com.lerchenflo.schneaggchatv3server.authentication
 
+import com.lerchenflo.schneaggchatv3server.authentication.model.LoginAlert
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
@@ -41,6 +42,7 @@ class AuthService(
     private val hashEncoder: HashEncoder,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val loggingService: LoggingService,
+    private val emailService: EmailService,
     private val imageManager: ImageManager,
     private val rateLimitService: RateLimitService,
     private val rateLimitProperties: RateLimitProperties,
@@ -53,6 +55,12 @@ class AuthService(
     data class TokenPair(
         val accessToken: String,
         val refreshToken: String,
+    )
+
+    /** Request details that only matter for the login-alert mail, kept out of the login signature. */
+    data class LoginClientInfo(
+        val userAgent: String? = null,
+        val acceptLanguage: String? = null,
     )
 
     fun register(username: String, password: String, email: String, birthdate: String, profilePic: MultipartFile, phoneNumber: String? = null, language: String? = null) : User {
@@ -100,7 +108,14 @@ class AuthService(
         return userLookupService.save(user)
     }
 
-    fun login(username: String, password: String, deviceName: String, devicetype: AuthController.DEVICETYPE, ip: String? = null) : TokenPair {
+    fun login(
+        username: String,
+        password: String,
+        deviceName: String,
+        devicetype: AuthController.DEVICETYPE,
+        ip: String? = null,
+        clientInfo: LoginClientInfo = LoginClientInfo(),
+    ) : TokenPair {
 
         requireLoginAttemptsRemaining(username)
 
@@ -111,6 +126,9 @@ class AuthService(
             recordFailedLogin(username, user?.id, ip)
             throw BadCredentialsException("Invalid credentials")
         }
+
+        //Read before the new login is logged: the alert mail is throttled on the gap between logins.
+        val previousLoginAt = loggingService.getLastLogByLogtype(LogType.USER_LOGIN, user.id)?.timestamp
 
         //Valid credentials entered - log the login only now, otherwise every failed attempt against
         //a real username would be counted as a successful login in stats and the admin log viewer.
@@ -143,6 +161,24 @@ class AuthService(
                 devicetype = devicetype,
             )
         }
+
+        //Tell the owner about the sign-in. @Async, so this returns at once; the mail itself is
+        //best-effort and must never turn a valid login into an error.
+        runCatching {
+            emailService.sendLoginAlertEmail(
+                LoginAlert(
+                    user = user,
+                    deviceName = deviceName,
+                    deviceType = devicetype,
+                    newDevice = existing == null,
+                    ip = ip,
+                    userAgent = clientInfo.userAgent,
+                    acceptLanguage = clientInfo.acceptLanguage,
+                    loginTime = Clock.System.now(),
+                    previousLoginAt = previousLoginAt,
+                )
+            )
+        }.onFailure { AppLogger.warn("Could not schedule login alert mail for ${user.username}: ${it.message}") }
 
         return TokenPair(
             accessToken = newAccessToken,

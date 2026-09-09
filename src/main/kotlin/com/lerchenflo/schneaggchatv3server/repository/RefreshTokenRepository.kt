@@ -57,4 +57,10 @@ interface RefreshTokenRepository: MongoRepository<RefreshToken, ObjectId> {
      */
     fun findByExpiresAtAfter(time: Instant): List<RefreshToken>
 
+    /**
+     * One account's unexpired sessions, newest login first - listed in the login-alert mail so
+     * the owner can spot a device that isn't theirs.
+     */
+    fun findByUserIdAndExpiresAtAfterOrderByCreatedAtDesc(userId: ObjectId, time: Instant): List<RefreshToken>
+
 }
