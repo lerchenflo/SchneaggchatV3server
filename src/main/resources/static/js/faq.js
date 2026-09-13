@@ -154,13 +154,28 @@ function setUpSearch() {
     });
 }
 
+// The contact line is a single translated sentence in strings-<lang>.xml, plain text in every
+// language (the Austrian file is hand-written and stays untouched), so the mail address is turned
+// into a mailto link here rather than being marked up per language.
+function linkifyContactEmail() {
+    const paragraph = document.getElementById('faq-contact-text');
+    if (!paragraph || paragraph.querySelector('a[href^="mailto:"]')) return;
+
+    paragraph.innerHTML = paragraph.innerHTML.replace(
+        /[\w.+-]+@[\w-]+\.[\w.-]+\w/g,
+        (address) => `<a href="mailto:${address}">${address}</a>`
+    );
+}
+
 document.addEventListener('schneaggchat:languagechanged', (event) => {
     renderFaq(event.detail.lang);
+    linkifyContactEmail();
 });
 
 function initFaqPage() {
     setUpSearch();
     loadAndRenderFaq();
+    linkifyContactEmail();
 }
 
 if (document.readyState === 'loading') {

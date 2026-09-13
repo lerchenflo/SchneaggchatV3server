@@ -9,6 +9,8 @@ import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitProperties
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitService
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitTier
+import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
+import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.PersonalUserSettings
@@ -44,6 +46,8 @@ class AuthService(
     private val imageManager: ImageManager,
     private val rateLimitService: RateLimitService,
     private val rateLimitProperties: RateLimitProperties,
+    private val firebaseService: FirebaseService,
+    private val apnsService: ApnsService,
 
     private val mongoTemplate: MongoTemplate,
 ) {
@@ -182,6 +186,69 @@ class AuthService(
         )
     }
 
+    /**
+     * Ends a device session. Idempotent on purpose: a client pressing logout must never be left
+     * holding a session it cannot drop, so an unknown, expired or already rotated token is a no-op
+     * rather than an error.
+     *
+     * The session to end is identified by the refresh token itself - it is signed by this server,
+     * so presenting it is proof enough to kill it. [authenticatedUserId] only carries an
+     * [allDevices] logout whose client no longer has a usable refresh token. The access token
+     * already issued stays valid until it expires (see JwtService.accessTokenValidityMs); there is
+     * no access token blacklist.
+     *
+     * The device's push token goes with the session, otherwise a logged out device keeps receiving
+     * notifications for the account it just left.
+     */
+    fun logout(
+        refreshToken: String?,
+        allDevices: Boolean,
+        notificationToken: String?,
+        isAndroid: Boolean?,
+        authenticatedUserId: ObjectId?,
+    ) {
+        val validRefreshToken = refreshToken?.takeIf { jwtService.validateRefreshToken(it) }
+        val tokenUserId = validRefreshToken?.let { ObjectId(jwtService.getUserIdFromToken(it)) }
+
+        val userId = tokenUserId ?: authenticatedUserId ?: return
+
+        val endedSessions = when {
+            allDevices -> refreshTokenRepository.deleteByUserId(userId)
+            validRefreshToken != null -> deleteSession(userId, hashToken(validRefreshToken))
+            else -> 0L
+        }
+
+        if (allDevices) {
+            firebaseService.deleteAllTokensForUser(userId)
+            apnsService.deleteAllTokensForUser(userId)
+        } else if (notificationToken != null && isAndroid != null) {
+            if (isAndroid) firebaseService.deleteTokenForUser(userId, notificationToken)
+            else apnsService.deleteTokenForUser(userId, notificationToken)
+        }
+
+        loggingService.log(
+            userId = userId,
+            logType = LogType.USER_LOGOUT,
+            message = if (allDevices) "all devices | $endedSessions sessions ended" else null,
+        )
+    }
+
+    /**
+     * Removes this device's session row. Matches [RefreshToken.previousHashedToken] too, so a
+     * client logging out with the token it presented right before a rotation still ends the
+     * session instead of leaving the rotated row alive.
+     */
+    private fun deleteSession(userId: ObjectId, hashedToken: String): Long {
+        val query = Query().addCriteria(
+            Criteria.where("userId").`is`(userId).orOperator(
+                Criteria.where("hashedToken").`is`(hashedToken),
+                Criteria.where("previousHashedToken").`is`(hashedToken),
+            )
+        )
+
+        return mongoTemplate.remove(query, RefreshToken::class.java).deletedCount
+    }
+
     private fun loginThrottleKey(username: String) = "rl:auth-user:${username.take(100)}"
 
     /**
@@ -206,9 +273,21 @@ class AuthService(
         }
 
         if (remaining <= 0) {
+            val limit = rateLimitProperties.authUser
+            AppLogger.warn(
+                "RATELIMIT AUTH_USER exceeded, 429 for login | username=${username.take(100)} " +
+                        "(more than ${limit.capacity} failed logins per ${limit.refillPeriod})"
+            )
             throw ResponseStatusException(
                 HttpStatusCode.valueOf(429),
                 "Too many failed login attempts for this account. Please try again later."
+            )
+        }
+
+        if (rateLimitProperties.debugLogging) {
+            AppLogger.debug(
+                "RATELIMIT AUTH_USER username=${username.take(100)} " +
+                        "$remaining/${rateLimitProperties.authUser.capacity} login attempts left"
             )
         }
     }
@@ -216,7 +295,13 @@ class AuthService(
     private fun recordFailedLogin(username: String, userId: ObjectId?, ip: String?) {
         if (rateLimitProperties.enabled) {
             try {
-                rateLimitService.tryConsume(loginThrottleKey(username), RateLimitTier.AUTH_USER)
+                val probe = rateLimitService.tryConsume(loginThrottleKey(username), RateLimitTier.AUTH_USER)
+                if (rateLimitProperties.debugLogging) {
+                    AppLogger.debug(
+                        "RATELIMIT AUTH_USER charged a failed login | username=${username.take(100)} " +
+                                "${probe.remainingTokens}/${rateLimitProperties.authUser.capacity} attempts left"
+                    )
+                }
             } catch (e: Exception) {
                 AppLogger.warn("Could not record failed login attempt: ${e.message}")
             }

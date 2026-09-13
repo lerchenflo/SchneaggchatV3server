@@ -24,6 +24,7 @@ import kotlin.time.Instant
 
 enum class LogType {
     USER_LOGIN,
+    USER_LOGOUT,
     SERVER_START,
     MESSAGE_DELETED,
     POLL_OPTION_DELETED,
@@ -44,6 +45,7 @@ enum class LogType {
     MAP_ENTRY_CREATED,
     MAP_ENTRY_EDITED,
     MAP_ENTRY_DELETED,
+    MAP_ENTRY_REVERTED,
 
     //Games
     GAME_SCORE_SUBMITTED,

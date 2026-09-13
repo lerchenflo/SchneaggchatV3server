@@ -5,8 +5,12 @@ import org.springframework.http.HttpStatus
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.server.ResponseStatusException
 
-fun requireAuth(): ObjectId {
-    val id = SecurityContextHolder.getContext().authentication?.principal as? String
-        ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not logged in")
-    return ObjectId(id)
-}
+fun requireAuth(): ObjectId =
+    optionalAuth() ?: throw ResponseStatusException(HttpStatus.FORBIDDEN, "Not logged in")
+
+/**
+ * The authenticated user, or null when the request carries no valid access token. Only for
+ * endpoints that must still work for a client whose access token already expired (logout).
+ */
+fun optionalAuth(): ObjectId? =
+    (SecurityContextHolder.getContext().authentication?.principal as? String)?.let { ObjectId(it) }

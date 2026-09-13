@@ -35,6 +35,7 @@ The server will run on port 8080
 | `POST` | `/auth/register` | Register a new user | **Multipart/Form-Data**:<br>`username`: String<br>`password`: String (8+ chars, 1 digit, 1 upper, 1 lower)<br>`email`: String<br>`birthDate`: String<br>`profilepic`: File |
 | `POST` | `/auth/login` | Login user. Sends a "new login" alert mail (device, IP, client, active sessions) to the account's verified email, at most once per 10 min | **Body**:<br>`username`: String<br>`password`: String<br>`deviceName`: String<br>`deviceType`: `ANDROID`/`IOS`/`DESKTOP`/`WEB` |
 | `POST` | `/auth/refresh` | Refresh access token | **Body**:<br>`refreshToken`: String |
+| `POST` | `/auth/logout` | End this device's session (invalidates the refresh token) | **Body**:<br>`refreshToken`: String (optional)<br>`notificationToken`: String (optional)<br>`isAndroid`: Boolean (required with `notificationToken`)<br>`allDevices`: Boolean (default `false`, needs a valid access token when no refresh token is sent) |
 | `GET` | `/auth/verify_email` | Verify email address | **Query**:<br>`token`: String |
 | `POST` | `/auth/send_delete_email` | Send account deletion email | **Query**:<br>`email`: String |
 | `GET` | `/auth/delete_account` | Delete account via token | **Query**:<br>`token`: String |

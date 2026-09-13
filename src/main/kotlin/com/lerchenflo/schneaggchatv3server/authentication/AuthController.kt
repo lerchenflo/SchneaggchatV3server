@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.authentication
 
+import com.lerchenflo.schneaggchatv3server.core.security.optionalAuth
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.ClientIpResolver
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
@@ -78,6 +79,15 @@ class AuthController(
         val deviceType: DEVICETYPE
     )
 
+    data class LogoutRequest(
+        @field:Size(max = 2000, message = "Refresh token too long")
+        val refreshToken: String? = null,
+        @field:Size(max = 2000, message = "Notification token too long")
+        val notificationToken: String? = null,
+        val isAndroid: Boolean? = null,
+        val allDevices: Boolean = false,
+    )
+
     //https://schneaggchat.eu/auth/register
     @PostMapping("/register", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun register(
@@ -144,6 +154,33 @@ class AuthController(
         )
 
         return tokenPair
+    }
+
+
+    /**
+     * Drops this device's refresh token server side, so logging out actually ends the session
+     * instead of only forgetting the tokens on the client. Answers 200 even when nothing was
+     * found - a client must always be able to complete a logout.
+     */
+    @PostMapping("/logout")
+    fun logout(
+        @Valid @RequestBody logoutRequest: LogoutRequest,
+    ) {
+        logoutRequest.refreshToken?.let {
+            require(ValidationUtils.validateToken(it)) { "Invalid refresh token" }
+        }
+        logoutRequest.notificationToken?.let {
+            require(logoutRequest.isAndroid != null) { "isAndroid required with a notification token" }
+            require(ValidationUtils.validateNotificationToken(it, logoutRequest.isAndroid)) { "Invalid notification token" }
+        }
+
+        authService.logout(
+            refreshToken = logoutRequest.refreshToken,
+            allDevices = logoutRequest.allDevices,
+            notificationToken = logoutRequest.notificationToken,
+            isAndroid = logoutRequest.isAndroid,
+            authenticatedUserId = optionalAuth(),
+        )
     }
 
 

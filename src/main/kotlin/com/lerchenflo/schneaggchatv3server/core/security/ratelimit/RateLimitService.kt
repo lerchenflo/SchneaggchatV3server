@@ -6,7 +6,7 @@ import io.github.bucket4j.ConsumptionProbe
 import io.github.bucket4j.distributed.proxy.ProxyManager
 import org.springframework.stereotype.Service
 
-enum class RateLimitTier { IP, USER, AUTH, AUTH_USER }
+enum class RateLimitTier { IP, USER, AUTH, AUTH_REFRESH, AUTH_USER }
 
 @Service
 class RateLimitService(
@@ -25,12 +25,7 @@ class RateLimitService(
             .availableTokens
 
     private fun buildConfig(tier: RateLimitTier): BucketConfiguration {
-        val tc = when (tier) {
-            RateLimitTier.IP -> properties.ip
-            RateLimitTier.USER -> properties.user
-            RateLimitTier.AUTH -> properties.auth
-            RateLimitTier.AUTH_USER -> properties.authUser
-        }
+        val tc = properties.tierConfig(tier)
         return BucketConfiguration.builder()
             .addLimit(
                 Bandwidth.builder()

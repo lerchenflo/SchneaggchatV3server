@@ -31,9 +31,13 @@ data class MapEntryVersion(
     val editedAt: Instant,
     val changeType: MapChangeType,
     val changes: List<FieldChange> = emptyList(),
+    /** Set when this version is itself the result of undoing exactly one earlier version ("undo this change"). */
+    val revertOfVersionId: ObjectId? = null,
+    /** Set when this version comes from a bulk revert (per-user time range, or restore-to-timestamp) - a short human-readable summary of what triggered it, for the change log. */
+    val revertNote: String? = null,
 )
 
-enum class MapChangeType { CREATE, UPDATE, DELETE }
+enum class MapChangeType { CREATE, UPDATE, DELETE, RESTORE }
 
 /**
  * A single field that changed. [oldValue]/[newValue] are JSON-encoded with the shared `Json.mapper`
