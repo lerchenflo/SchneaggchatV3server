@@ -45,6 +45,7 @@ enum class LogType {
     MAP_ENTRY_CREATED,
     MAP_ENTRY_EDITED,
     MAP_ENTRY_DELETED,
+    MAP_ENTRY_REVERTED,
 
     //Games
     GAME_SCORE_SUBMITTED,

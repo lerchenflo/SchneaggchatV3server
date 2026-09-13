@@ -29,6 +29,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
+import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -69,6 +70,67 @@ class AdminController(
     fun getMapChangeLogEditors(): List<MapChangeLogEditor> {
         adminGuard.requireAdmin()
         return mapEntryVersionService.getEditors()
+    }
+
+    data class RevertUserChangesRequest(
+        @field:NotBlank(message = "userId must not be blank")
+        val userId: String,
+        val fromMillis: Long,
+        val toMillis: Long,
+    )
+
+    data class RestoreToTimestampRequest(
+        val timestampMillis: Long,
+    )
+
+    data class RevertResult(val revertedCount: Int)
+
+    /** Undoes exactly one change from the log - the entry's own edit history since is left alone. */
+    @PostMapping("/map/changelog/{versionId}/revert")
+    fun revertMapChange(@PathVariable versionId: String) {
+        val adminId = adminGuard.requireAdmin()
+        require(ValidationUtils.validateObjectId(versionId)) { "Invalid change id" }
+        mapEntryVersionService.revertVersion(ObjectId(versionId), adminId)
+        loggingService.log(userId = adminId, logType = LogType.MAP_ENTRY_REVERTED, message = "Reverted change $versionId")
+    }
+
+    /** Undoes everything one user did to the map in a time window - e.g. after they messed it up. */
+    @PostMapping("/map/revert-user")
+    fun revertUserChanges(@Valid @RequestBody request: RevertUserChangesRequest): RevertResult {
+        val adminId = adminGuard.requireAdmin()
+        require(ValidationUtils.validateObjectId(request.userId)) { "Invalid user id" }
+        require(request.fromMillis <= request.toMillis) { "fromMillis must be before toMillis" }
+
+        val count = mapEntryVersionService.revertUserChanges(
+            targetUserId = ObjectId(request.userId),
+            from = Instant.fromEpochMilliseconds(request.fromMillis),
+            to = Instant.fromEpochMilliseconds(request.toMillis),
+            requesterId = adminId,
+        )
+        loggingService.log(
+            userId = adminId,
+            logType = LogType.MAP_ENTRY_REVERTED,
+            message = "Bulk-reverted $count entries edited by ${request.userId} between ${request.fromMillis} and ${request.toMillis}",
+        )
+        return RevertResult(count)
+    }
+
+    /** Rolls the whole map back to how it looked at a point in time - every entry touched since is reset. */
+    @PostMapping("/map/restore-to-timestamp")
+    fun restoreMapToTimestamp(@Valid @RequestBody request: RestoreToTimestampRequest): RevertResult {
+        val adminId = adminGuard.requireAdmin()
+        require(request.timestampMillis <= Clock.System.now().toEpochMilliseconds()) { "Timestamp must not be in the future" }
+
+        val count = mapEntryVersionService.restoreMapToTimestamp(
+            at = Instant.fromEpochMilliseconds(request.timestampMillis),
+            requesterId = adminId,
+        )
+        loggingService.log(
+            userId = adminId,
+            logType = LogType.MAP_ENTRY_REVERTED,
+            message = "Restored $count entries to timestamp ${request.timestampMillis}",
+        )
+        return RevertResult(count)
     }
 
     // ─── Donations ───────────────────────────────────────────────────────────

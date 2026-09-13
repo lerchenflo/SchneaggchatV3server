@@ -202,15 +202,26 @@ const changelogState = { page: 0, editedBy: '', loadedOnce: false, moreEntries: 
 
 async function loadChangeLogEditors() {
     const editors = await adminFetchJson('/chefdev/api/map/changelog/editors');
-    const select = document.getElementById('changelog-editor-filter');
-    select.innerHTML = '<option value="">Alle Nutzer</option>';
-    editors
-        .sort((a, b) => a.username.localeCompare(b.username))
-        .forEach((editor) => {
+    const sorted = [...editors].sort((a, b) => a.username.localeCompare(b.username));
+
+    const filterSelect = document.getElementById('changelog-editor-filter');
+    filterSelect.innerHTML = '<option value="">Alle Nutzer</option>';
+    sorted.forEach((editor) => {
+        const option = el('option', null, editor.username);
+        option.value = editor.userId;
+        filterSelect.appendChild(option);
+    });
+
+    // Same list powers the "revert this user's changes" tool below the table.
+    const revertSelect = document.getElementById('revert-user-select');
+    if (revertSelect) {
+        revertSelect.innerHTML = '<option value="">Nutzer wählen…</option>';
+        sorted.forEach((editor) => {
             const option = el('option', null, editor.username);
             option.value = editor.userId;
-            select.appendChild(option);
+            revertSelect.appendChild(option);
         });
+    }
 }
 
 async function loadChangeLog(reset) {
@@ -248,13 +259,116 @@ async function loadChangeLog(reset) {
                 changesCell.appendChild(line);
             });
         }
+        if (entry.revertOfVersionId) {
+            changesCell.appendChild(el('div', 'admin-muted', '↩ macht eine Änderung rückgängig'));
+        } else if (entry.revertNote) {
+            changesCell.appendChild(el('div', 'admin-muted', `↩ ${entry.revertNote}`));
+        }
         row.appendChild(changesCell);
+
+        const actionsCell = el('td', 'admin-actions-cell');
+        const undoButton = el('button', 'secondary-button admin-inline-button', 'Rückgängig');
+        undoButton.addEventListener('click', () => revertChange(entry));
+        actionsCell.appendChild(undoButton);
+        row.appendChild(actionsCell);
 
         tbody.appendChild(row);
     });
 
     document.getElementById('changelog-load-more').classList.toggle('hidden', !pageData.moreEntries);
 }
+
+/** Undoes exactly this one change, regardless of what happened to the entry afterwards. */
+async function revertChange(entry) {
+    const target = entry.entryName || `Eintrag ${entry.entryId}`;
+    if (!confirm(`Diese Änderung an "${target}" wirklich rückgängig machen?`)) return;
+
+    try {
+        await adminFetchJson(`/chefdev/api/map/changelog/${entry.id}/revert`, { method: 'POST' });
+        loadChangeLog(true);
+    } catch (err) {
+        alert(err.message || 'Rückgängig machen fehlgeschlagen.');
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Map change log - bulk revert tools                                     */
+/* ---------------------------------------------------------------------- */
+
+document.getElementById('revert-user-button')?.addEventListener('click', async () => {
+    const errorEl = document.getElementById('revert-user-error');
+    errorEl.textContent = '';
+
+    const userId = document.getElementById('revert-user-select').value;
+    const fromValue = document.getElementById('revert-user-from').value;
+    const toValue = document.getElementById('revert-user-to').value;
+    const username = document.getElementById('revert-user-select').selectedOptions[0]?.textContent || '';
+
+    if (!userId || !fromValue || !toValue) {
+        errorEl.textContent = 'Bitte Nutzer sowie Von- und Bis-Zeitpunkt wählen.';
+        return;
+    }
+
+    const fromMillis = new Date(fromValue).getTime();
+    const toMillis = new Date(toValue).getTime();
+    if (fromMillis > toMillis) {
+        errorEl.textContent = 'Der Von-Zeitpunkt muss vor dem Bis-Zeitpunkt liegen.';
+        return;
+    }
+
+    if (!confirm(
+        `Alle Kartenänderungen von "${username}" zwischen ${formatDateTime(fromMillis)} und ` +
+        `${formatDateTime(toMillis)} rückgängig machen? Betroffene Einträge werden auf ihren Stand ` +
+        `direkt vor der ersten Änderung von "${username}" in diesem Zeitraum zurückgesetzt.`
+    )) return;
+
+    try {
+        const result = await adminFetchJson('/chefdev/api/map/revert-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, fromMillis, toMillis }),
+        });
+        alert(`${result.revertedCount} Eintrag/Einträge zurückgesetzt.`);
+        loadChangeLog(true);
+    } catch (err) {
+        errorEl.textContent = err.message || 'Rückgängig machen fehlgeschlagen.';
+    }
+});
+
+document.getElementById('restore-timestamp-button')?.addEventListener('click', async () => {
+    const errorEl = document.getElementById('restore-timestamp-error');
+    errorEl.textContent = '';
+
+    const value = document.getElementById('restore-timestamp-input').value;
+    if (!value) {
+        errorEl.textContent = 'Bitte einen Zeitpunkt wählen.';
+        return;
+    }
+
+    const timestampMillis = new Date(value).getTime();
+    if (timestampMillis > Date.now()) {
+        errorEl.textContent = 'Der Zeitpunkt darf nicht in der Zukunft liegen.';
+        return;
+    }
+
+    if (!confirm(
+        `Die GESAMTE Karte auf den Stand von ${formatDateTime(timestampMillis)} zurücksetzen? ` +
+        `Jede seitdem von irgendjemandem gemachte Änderung geht dabei verloren. Das kann nicht ` +
+        `rückgängig gemacht werden (außer erneut über die Änderungshistorie).`
+    )) return;
+
+    try {
+        const result = await adminFetchJson('/chefdev/api/map/restore-to-timestamp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ timestampMillis }),
+        });
+        alert(`${result.revertedCount} Eintrag/Einträge zurückgesetzt.`);
+        loadChangeLog(true);
+    } catch (err) {
+        errorEl.textContent = err.message || 'Zurücksetzen fehlgeschlagen.';
+    }
+});
 
 document.getElementById('changelog-editor-filter')?.addEventListener('change', (e) => {
     changelogState.editedBy = e.target.value;

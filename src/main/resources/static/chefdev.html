@@ -120,6 +120,7 @@
                                 <th>Eintrag</th>
                                 <th>Typ</th>
                                 <th>Änderungen</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody id="changelog-rows"></tbody>
@@ -128,6 +129,56 @@
                 <button id="changelog-load-more" type="button" class="secondary-button hidden admin-load-more">
                     Mehr laden
                 </button>
+
+                <div class="admin-revert-tools">
+                    <div class="admin-revert-card">
+                        <h3><i class="fa-solid fa-user-clock"></i> Änderungen eines Nutzers rückgängig machen</h3>
+                        <p class="admin-muted">
+                            Macht alle Änderungen eines Nutzers in einem Zeitraum rückgängig - jeder betroffene
+                            Eintrag wird auf den Stand direkt vor dessen erster Änderung im Zeitraum zurückgesetzt,
+                            inklusive Löschungen. Änderungen anderer Nutzer im selben Zeitraum an denselben
+                            Einträgen gehen dabei ebenfalls verloren.
+                        </p>
+                        <div class="form-group">
+                            <label for="revert-user-select"><i class="fa-solid fa-user"></i> Nutzer</label>
+                            <select id="revert-user-select" class="admin-select admin-form-select">
+                                <option value="">Nutzer wählen…</option>
+                            </select>
+                        </div>
+                        <div class="admin-form-row">
+                            <div class="form-group">
+                                <label for="revert-user-from"><i class="fa-solid fa-calendar"></i> Von</label>
+                                <input type="datetime-local" id="revert-user-from">
+                            </div>
+                            <div class="form-group">
+                                <label for="revert-user-to"><i class="fa-solid fa-calendar"></i> Bis</label>
+                                <input type="datetime-local" id="revert-user-to">
+                            </div>
+                        </div>
+                        <p id="revert-user-error" class="admin-form-error"></p>
+                        <button id="revert-user-button" type="button" class="delete-button admin-inline-button">
+                            <i class="fa-solid fa-rotate-left"></i> Änderungen rückgängig machen
+                        </button>
+                    </div>
+
+                    <div class="admin-revert-card">
+                        <h3><i class="fa-solid fa-clock-rotate-left"></i> Karte auf Zeitpunkt zurücksetzen</h3>
+                        <p class="admin-muted">
+                            Setzt die <strong>gesamte Karte</strong> auf den gewählten Zeitpunkt zurück - jeder
+                            Eintrag, der seither von irgendjemandem verändert wurde, wird auf seinen damaligen
+                            Stand zurückgesetzt (inklusive Löschungen und Neuanlagen). Sehr weitreichend - nur im
+                            Notfall verwenden.
+                        </p>
+                        <div class="form-group">
+                            <label for="restore-timestamp-input"><i class="fa-solid fa-calendar"></i> Zeitpunkt</label>
+                            <input type="datetime-local" id="restore-timestamp-input">
+                        </div>
+                        <p id="restore-timestamp-error" class="admin-form-error"></p>
+                        <button id="restore-timestamp-button" type="button" class="delete-button admin-inline-button">
+                            <i class="fa-solid fa-rotate-left"></i> Karte zurücksetzen
+                        </button>
+                    </div>
+                </div>
             </section>
 
             <!-- Donations -->

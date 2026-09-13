@@ -2732,6 +2732,11 @@ header.scrolled {
     color: #ef4444;
 }
 
+.admin-badge-restore {
+    background: rgba(168, 85, 247, 0.2);
+    color: #a855f7;
+}
+
 .admin-badge-offline {
     background: rgba(255, 255, 255, 0.08);
     color: #94a3b8;
@@ -3101,6 +3106,36 @@ header.scrolled {
     max-width: 640px;
     max-height: 85vh;
     overflow-y: auto;
+}
+
+.admin-revert-tools {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.admin-revert-card {
+    background: var(--surface-elevated);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 1.5rem;
+}
+
+.admin-revert-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.admin-revert-card p.admin-muted {
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+}
+
+.admin-revert-card .form-group:last-of-type {
+    margin-bottom: 0.5rem;
 }
 
 .admin-form-row {
