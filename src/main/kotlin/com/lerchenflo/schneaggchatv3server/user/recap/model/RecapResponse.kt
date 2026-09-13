@@ -125,6 +125,22 @@ data class MapRecap(
     val entriesCreatedAllTime: Long,
     val entriesEditedThisYear: Long,
     val entriesEditedAllTime: Long,
+    val leaderboard: MapLeaderboardRecap,
+)
+
+data class MapLeaderboardRow(
+    val rank: Int,
+    val userId: String,
+    val username: String,
+    val contributionCount: Long,
+)
+
+// Global, app-wide ranking by map entries created + edited in the recap's year. Same top-N +
+// own-true-rank shape as LeaderboardRecap so the client can render both with one component.
+data class MapLeaderboardRecap(
+    val top: List<MapLeaderboardRow>,
+    val myRank: Int?,
+    val myContributionCount: Long,
 )
 
 data class GameRecapEntry(
