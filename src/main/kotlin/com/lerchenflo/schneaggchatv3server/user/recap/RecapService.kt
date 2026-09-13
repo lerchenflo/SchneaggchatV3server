@@ -21,6 +21,8 @@ import com.lerchenflo.schneaggchatv3server.user.recap.model.GroupsRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.LeaderboardRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.LeaderboardRow
 import com.lerchenflo.schneaggchatv3server.user.recap.model.LongestMessageRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.MapLeaderboardRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.MapLeaderboardRow
 import com.lerchenflo.schneaggchatv3server.user.recap.model.MapRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.MessagingRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.MonthCount
@@ -371,6 +373,44 @@ class RecapService(
             entriesCreatedAllTime = created.size.toLong(),
             entriesEditedThisYear = edited.count { it.editedAt.epochSeconds in yearStart until yearEnd }.toLong(),
             entriesEditedAllTime = edited.size.toLong(),
+            leaderboard = buildMapLeaderboard(requesterId, yearStart, yearEnd),
+        )
+    }
+
+    private data class ContributorCount(val editedBy: ObjectId, val count: Long)
+
+    // Global "top map contributors" for the recap's year: one point per CREATE or UPDATE version.
+    // Deletions are left out so removing entries never climbs the ranking. Same top-N + own-true-rank
+    // pattern as buildLeaderboard.
+    private fun buildMapLeaderboard(requesterId: ObjectId, yearStart: Long, yearEnd: Long): MapLeaderboardRecap {
+        val aggregation = Aggregation.newAggregation(
+            Aggregation.match(
+                Criteria.where("changeType").`in`(MapChangeType.CREATE.name, MapChangeType.UPDATE.name)
+                    .and("editedAt.epochSeconds").gte(yearStart).lt(yearEnd)
+            ),
+            Aggregation.group("editedBy")
+                .count().`as`("count")
+                .first("editedBy").`as`("editedBy"),
+            Aggregation.sort(Sort.Direction.DESC, "count"),
+        )
+        val ranked = mongoTemplate.aggregate(aggregation, "map_entry_versions", ContributorCount::class.java).mappedResults
+
+        val top = ranked.take(LEADERBOARD_SIZE)
+        val usernames = userLookupService.findAllById(top.map { it.editedBy }).associate { it.id to it.username }
+        val topRows = top.mapIndexed { index, entry ->
+            MapLeaderboardRow(
+                rank = index + 1,
+                userId = entry.editedBy.toHexString(),
+                username = usernames[entry.editedBy] ?: "Unknown",
+                contributionCount = entry.count,
+            )
+        }
+
+        val myIndex = ranked.indexOfFirst { it.editedBy == requesterId }
+        return MapLeaderboardRecap(
+            top = topRows,
+            myRank = if (myIndex >= 0) myIndex + 1 else null,
+            myContributionCount = ranked.getOrNull(myIndex)?.count ?: 0,
         )
     }
 

@@ -120,16 +120,20 @@ class GlobalExceptionHandler(
             .body("Request method '${e.method}' is not supported for this endpoint")
     }
 
+    /**
+     * Malformed or missing request body (bad JSON, wrong types, empty body). A client-side bug, not a
+     * server error: one concise warn line with the root cause, no stack trace and no error-log row -
+     * a misbehaving client used to flood the logs with a full trace per request.
+     */
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException, request: HttpServletRequest): ResponseEntity<Map<String, String>> {
         val ip = clientIpResolver.resolve(request)
-        logWithUserInfo("HttpMessageNotReadableException Error happened: ${e.message}", ip)
-
-        e.printStackTrace()
+        val cause = e.mostSpecificCause.message?.lineSequence()?.firstOrNull() ?: "unreadable body"
+        logger.warn("Unreadable request body on ${request.method} ${request.requestURI} (ip=$ip): $cause")
 
         return ResponseEntity
             .badRequest()
-            .body(mapOf("error" to "Invalid request body: ${e.message}"))
+            .body(mapOf("error" to "Invalid request body: $cause"))
     }
 
     /**
