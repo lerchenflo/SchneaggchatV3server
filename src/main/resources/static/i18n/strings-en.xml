@@ -303,6 +303,9 @@
     <string name="resetform_success_text">Your password has been reset successfully. You can now sign in with your new password.</string>
     <string name="resetform_success_title">Password changed</string>
     <string name="stat_accounts_created">Accounts created</string>
+    <string name="stat_contributor_added">Lines added</string>
+    <string name="stat_contributor_commits">Commits</string>
+    <string name="stat_contributor_removed">Lines removed</string>
     <string name="stat_devices_android">Android</string>
     <string name="stat_devices_desktop">Desktop</string>
     <string name="stat_devices_ios">iOS</string>
@@ -318,6 +321,11 @@
     <string name="stat_server_starts">Server starts</string>
     <string name="stat_wakes_sent">Wake-ups sent</string>
     <string name="stats_active_devices_heading">Active devices</string>
+    <string name="stats_contributors_heading">Code contributions</string>
+    <string name="stats_contributors_loading">Loading GitHub data…</string>
+    <string name="stats_contributors_note">Fetched live from the GitHub API, combined across the client and server repos.</string>
+    <string name="stats_contributors_toggle_lifetime">Lifetime</string>
+    <string name="stats_contributors_toggle_recent">Last 2 weeks</string>
     <string name="stats_info_text">Stats are pulled from the server in real time and show every event the server has logged.</string>
     <string name="stats_info_title">About these stats</string>
     <string name="stats_total_heading">Total events</string>
