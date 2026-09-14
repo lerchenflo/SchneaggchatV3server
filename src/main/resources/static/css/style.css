@@ -48,7 +48,9 @@ header {
     width: 100%;
     top: 0;
     z-index: 1000;
-    padding: 1rem 5%;
+    /* viewport-fit=cover lets the page draw under the iOS status bar/notch,
+       so keep the header's own content clear of it. */
+    padding: calc(1rem + env(safe-area-inset-top)) 5% 1rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -486,7 +488,9 @@ header {
     align-items: center;
     justify-content: center;
     gap: 1rem 1.5rem;
-    padding: 1rem 3.5rem 1rem 1.5rem;
+    /* viewport-fit=cover lets the page draw under the iOS home indicator,
+       so keep this fixed bar's content clear of it. */
+    padding: 1rem 3.5rem calc(1rem + env(safe-area-inset-bottom)) 1.5rem;
     background: rgba(10, 16, 10, 0.97);
     backdrop-filter: blur(10px);
     border-top: 1px solid rgba(255, 255, 255, 0.08);

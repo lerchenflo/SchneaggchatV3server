@@ -2,7 +2,8 @@
 <html lang="de" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0a100a">
     <title>Schneaggchat V3 - Stats</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -283,6 +284,8 @@
         { owner: 'lerchenflo', repo: 'SchneaggchatV3' },
     ];
     const RECENT_WINDOW_DAYS = 14;
+    // Automated/bot commit identities that shouldn't show up as human contributors.
+    const EXCLUDED_LOGINS = ['claude'];
 
     function applyContributorTranslations() {
         const map = window.__schneaggchatI18n || {};
@@ -324,6 +327,7 @@
         perRepoEntries.flat().forEach(entry => {
             if (!entry.author) return; // commit identity not linked to a GitHub account
             const login = entry.author.login;
+            if (EXCLUDED_LOGINS.includes(login.toLowerCase())) return;
             const contributor = combined[login] || {
                 login,
                 avatarUrl: entry.author.avatar_url,
