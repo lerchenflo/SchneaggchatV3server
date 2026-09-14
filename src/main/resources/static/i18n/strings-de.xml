@@ -312,6 +312,9 @@
                     anmelden.</string>
     <string name="resetform_success_title">Passwort geändert</string>
     <string name="stat_accounts_created">Accounts erstellt</string>
+    <string name="stat_contributor_added">Zeilen hinzugefügt</string>
+    <string name="stat_contributor_commits">Commits</string>
+    <string name="stat_contributor_removed">Zeilen entfernt</string>
     <string name="stat_devices_android">Android</string>
     <string name="stat_devices_desktop">Desktop</string>
     <string name="stat_devices_ios">iOS</string>
@@ -327,6 +330,11 @@
     <string name="stat_server_starts">Serverstarts</string>
     <string name="stat_wakes_sent">Wecker gesendet</string>
     <string name="stats_active_devices_heading">Aktive Geräte</string>
+    <string name="stats_contributors_heading">Code-Beiträge</string>
+    <string name="stats_contributors_loading">Lade GitHub-Daten…</string>
+    <string name="stats_contributors_note">Live von der GitHub-API geholt, kombiniert aus Client- und Server-Repo.</string>
+    <string name="stats_contributors_toggle_lifetime">Gesamt</string>
+    <string name="stats_contributors_toggle_recent">Letzte 2 Wochen</string>
     <string name="stats_info_text">Die Stats werden in Echtzeit vom Server geholt und zeigen alle vom Server geloggten Events.</string>
     <string name="stats_info_title">Über die Stats</string>
     <string name="stats_total_heading">Gesamtevents</string>

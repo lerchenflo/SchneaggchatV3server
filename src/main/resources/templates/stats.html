@@ -2,7 +2,8 @@
 <html lang="de" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0a100a">
     <title>Schneaggchat V3 - Stats</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -208,6 +209,18 @@
             </div>
         </div>
 
+        <!-- Contributors -->
+        <h2 class="stats-subheading" data-i18n="stats_contributors_heading">Code-Beiträge</h2>
+        <div class="contributor-toggle" id="contributor-toggle">
+            <button type="button" class="contributor-toggle-btn active" data-range="recent" data-i18n="stats_contributors_toggle_recent">Letzte 2 Wochen</button>
+            <button type="button" class="contributor-toggle-btn" data-range="lifetime" data-i18n="stats_contributors_toggle_lifetime">Gesamt</button>
+        </div>
+        <p class="contributor-loading" id="contributor-loading" data-i18n="stats_contributors_loading">Lade GitHub-Daten…</p>
+        <div class="contributor-grid" id="contributor-grid">
+            <!-- Filled in by JS from the GitHub API -->
+        </div>
+        <p class="contributor-note" data-i18n="stats_contributors_note">Live von der GitHub-API geholt, kombiniert aus Client- und Server-Repo.</p>
+
         <!-- Info Box -->
         <div class="stats-info-box">
             <i class="fa-solid fa-circle-info"></i>
@@ -244,23 +257,160 @@
     });
 
     // Animate numbers on load
+    function animateNumber(num) {
+        const target = parseInt(num.textContent, 10) || 0;
+        let current = 0;
+        const increment = target / 50 || target;
+        const timer = setInterval(() => {
+            current += increment;
+            if (current >= target) {
+                num.textContent = target.toLocaleString();
+                clearInterval(timer);
+            } else {
+                num.textContent = Math.floor(current).toLocaleString();
+            }
+        }, 20);
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
-        const numbers = document.querySelectorAll('.stat-detail-number, .total-number');
-        numbers.forEach(num => {
-            const target = parseInt(num.textContent);
-            let current = 0;
-            const increment = target / 50;
-            const timer = setInterval(() => {
-                current += increment;
-                if (current >= target) {
-                    num.textContent = target;
-                    clearInterval(timer);
-                } else {
-                    num.textContent = Math.floor(current);
-                }
-            }, 20);
-        });
+        document.querySelectorAll('.stat-detail-number, .total-number')
+            .forEach(animateNumber);
     });
+
+    // Contributor leaderboard (lines committed per user), pulled live from the
+    // GitHub "stats/contributors" API and combined across the client + server repos.
+    const CONTRIBUTOR_REPOS = [
+        { owner: 'lerchenflo', repo: 'SchneaggchatV3server' },
+        { owner: 'lerchenflo', repo: 'SchneaggchatV3' },
+    ];
+    const RECENT_WINDOW_DAYS = 14;
+    // Automated/bot commit identities that shouldn't show up as human contributors.
+    const EXCLUDED_LOGINS = ['claude'];
+
+    function applyContributorTranslations() {
+        const map = window.__schneaggchatI18n || {};
+        document.querySelectorAll('#contributor-toggle [data-i18n], #contributor-grid [data-i18n], .contributor-loading[data-i18n]')
+            .forEach((el) => {
+                const key = el.getAttribute('data-i18n');
+                if (map[key] !== undefined) el.innerHTML = map[key];
+            });
+    }
+
+    // GitHub computes these stats asynchronously per repo; a cold cache replies
+    // 202 while it works, so poll briefly before giving up.
+    async function fetchContributorStats(owner, repo) {
+        const url = `https://api.github.com/repos/${owner}/${repo}/stats/contributors`;
+        for (let attempt = 0; attempt < 6; attempt++) {
+            const res = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } });
+            if (res.status === 200) return res.json();
+            if (res.status !== 202) return [];
+            await new Promise(r => setTimeout(r, 2000));
+        }
+        return [];
+    }
+
+    function sumWeeks(weeks, sinceSeconds) {
+        const totals = { added: 0, removed: 0, commits: 0 };
+        weeks.forEach(w => {
+            if (sinceSeconds !== null && (w.w + 7 * 86400) < sinceSeconds) return;
+            totals.added += w.a;
+            totals.removed += w.d;
+            totals.commits += w.c;
+        });
+        return totals;
+    }
+
+    function mergeRepoStats(perRepoEntries) {
+        const combined = {};
+        const recentSince = Math.floor(Date.now() / 1000) - RECENT_WINDOW_DAYS * 86400;
+
+        perRepoEntries.flat().forEach(entry => {
+            if (!entry.author) return; // commit identity not linked to a GitHub account
+            const login = entry.author.login;
+            if (EXCLUDED_LOGINS.includes(login.toLowerCase())) return;
+            const contributor = combined[login] || {
+                login,
+                avatarUrl: entry.author.avatar_url,
+                profileUrl: entry.author.html_url,
+                lifetime: { added: 0, removed: 0, commits: 0 },
+                recent: { added: 0, removed: 0, commits: 0 },
+            };
+            const lifetime = sumWeeks(entry.weeks, null);
+            const recent = sumWeeks(entry.weeks, recentSince);
+            contributor.lifetime.added += lifetime.added;
+            contributor.lifetime.removed += lifetime.removed;
+            contributor.lifetime.commits += lifetime.commits;
+            contributor.recent.added += recent.added;
+            contributor.recent.removed += recent.removed;
+            contributor.recent.commits += recent.commits;
+            combined[login] = contributor;
+        });
+
+        return Object.values(combined);
+    }
+
+    function renderContributors(contributors, range) {
+        const grid = document.getElementById('contributor-grid');
+        grid.innerHTML = '';
+
+        contributors
+            .slice()
+            .sort((a, b) => b[range].added - a[range].added)
+            .forEach(c => {
+                const stats = c[range];
+                const card = document.createElement('div');
+                card.className = 'contributor-card';
+                card.innerHTML = `
+                    <a class="contributor-name" href="${c.profileUrl}" target="_blank" rel="noopener">
+                        <img class="contributor-avatar" src="${c.avatarUrl}" alt="${c.login}" loading="lazy">
+                        ${c.login}
+                    </a>
+                    <div class="contributor-metrics">
+                        <div class="contributor-metric">
+                            <span class="contributor-metric-value added">${stats.added}</span>
+                            <span class="contributor-metric-label" data-i18n="stat_contributor_added">Zeilen hinzugefügt</span>
+                        </div>
+                        <div class="contributor-metric">
+                            <span class="contributor-metric-value removed">${stats.removed}</span>
+                            <span class="contributor-metric-label" data-i18n="stat_contributor_removed">Zeilen entfernt</span>
+                        </div>
+                        <div class="contributor-metric">
+                            <span class="contributor-metric-value">${stats.commits}</span>
+                            <span class="contributor-metric-label" data-i18n="stat_contributor_commits">Commits</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+        grid.querySelectorAll('.contributor-metric-value').forEach(animateNumber);
+        applyContributorTranslations();
+    }
+
+    Promise.all(CONTRIBUTOR_REPOS.map(r => fetchContributorStats(r.owner, r.repo)))
+        .then(perRepoEntries => {
+            const contributors = mergeRepoStats(perRepoEntries);
+            document.getElementById('contributor-loading').style.display = 'none';
+
+            let currentRange = 'recent';
+            renderContributors(contributors, currentRange);
+
+            document.querySelectorAll('#contributor-toggle .contributor-toggle-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    currentRange = btn.dataset.range;
+                    document.querySelectorAll('#contributor-toggle .contributor-toggle-btn')
+                        .forEach(b => b.classList.toggle('active', b === btn));
+                    renderContributors(contributors, currentRange);
+                });
+            });
+
+            document.addEventListener('schneaggchat:languagechanged', () => renderContributors(contributors, currentRange));
+        })
+        .catch(() => {
+            document.getElementById('contributor-loading').style.display = 'none';
+            document.getElementById('contributor-toggle').style.display = 'none';
+            document.getElementById('contributor-grid').style.display = 'none';
+        });
 </script>
 </body>
 </html>
