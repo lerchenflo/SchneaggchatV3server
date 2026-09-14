@@ -17,6 +17,11 @@
 }
 
 html {
+    /* `overflow-x: hidden` on body below prevents its background from
+       propagating to the canvas, so give html its own background too -
+       otherwise the browser's overscroll/rubber-band area (top on iOS,
+       bottom on Android) shows through as a white bar. */
+    background: linear-gradient(135deg, #080c08 0%, #0d150d 100%);
     scroll-behavior: smooth;
     scroll-padding-top: 90px;
 }
