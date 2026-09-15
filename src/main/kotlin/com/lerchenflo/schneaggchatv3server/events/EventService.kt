@@ -175,16 +175,33 @@ class EventService(
 
         val response = eventsLookupService.save(event).toResponse(creatorName = userLookupService.getUsername(upsertingUser))
 
-        notificationService.notifyEventUpdate(
-            eventResponse = response,
-            newEntry = existing == null,
-            deleted = false
-        )
+        // Content-diff so a no-op resubmission triggers neither the client notification nor the
+        // group system message - only a real change (or a brand-new event) should notify anyone.
+        val contentChanged = existing == null
+                || existing.type != event.type
+                || existing.title != event.title
+                || existing.description != event.description
+                || existing.location != event.location
+                || existing.startDate != event.startDate
+                || existing.closeDate != event.closeDate
+                || existing.invitedUsers != event.invitedUsers
+                || existing.visibility != event.visibility
+                || existing.maxUsers != event.maxUsers
+                || existing.groupDeleteDelay != event.groupDeleteDelay
+
+        if (contentChanged) {
+            notificationService.notifyEventUpdate(
+                eventResponse = response,
+                newEntry = existing == null,
+                deleted = false
+            )
+        }
 
         // Only for an actual update on an event that already had a group - a brand-new group
         // (whether from a new event or a groupless event gaining one now) already gets its own
-        // GROUP_CREATED system message from groupService.createGroup above.
-        if (existing?.groupId != null) {
+        // GROUP_CREATED system message from groupService.createGroup above. And only if the
+        // event's content actually changed - a no-op resubmission must not spam the group chat.
+        if (existing?.groupId != null && contentChanged) {
             systemMessageService.groupEvent(
                 groupId = existing.groupId,
                 eventType = SystemEventType.EVENT_CHANGED,
