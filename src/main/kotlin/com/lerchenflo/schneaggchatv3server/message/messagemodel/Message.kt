@@ -76,8 +76,8 @@ data class Message(
     /**
      * Client-generated idempotency key for a send (not for edit/react/vote/delete). Stable
      * across retries of the same logical message - enforced unique per sender by the
-     * `sender_client_message_idx` partial index above. Never echoed back in [MessageResponse];
-     * inbound-only.
+     * `sender_client_message_idx` partial index above. Echoed back in [MessageResponse] only to
+     * the sender themselves (see [toMessageResponse]) - every other viewer gets `null`.
      */
     val clientMessageId: String? = null,
 )
@@ -121,6 +121,7 @@ fun Message.toMessageResponse(requestingUserId: ObjectId) : MessageResponse {
         version = this.version,
         readers = this.readers.map { it.toReaderResponse() },
         reactions = this.reactions.map { it.toReactionResponse() },
+        clientMessageId = if (this.senderId == requestingUserId) this.clientMessageId else null,
     )
 }
 

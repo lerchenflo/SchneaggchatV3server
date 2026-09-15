@@ -17,6 +17,15 @@ data class MessageResponse(
     val version: Long,
     val readers: List<ReaderResponse>,
     val reactions: List<ReactionResponse>,
+
+    /**
+     * Only populated when the requesting user is this message's own sender - see
+     * [com.lerchenflo.schneaggchatv3server.message.messagemodel.toMessageResponse]. Lets the
+     * sender's own client reconcile a still-in-flight send against a `/messages/sync`/socket
+     * pull of the same message that raced ahead of the send's HTTP response, without exposing
+     * the key to any other viewer.
+     */
+    val clientMessageId: String? = null,
 )
 
 
