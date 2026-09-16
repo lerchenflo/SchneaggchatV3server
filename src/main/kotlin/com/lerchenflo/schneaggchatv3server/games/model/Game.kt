@@ -6,6 +6,11 @@ import org.springframework.data.domain.Sort
 enum class Game(
     val higherScoreWins: Boolean,
     val lowerTimeWins: Boolean,
+    // Offline party games keep their own boards but never feed the cross-game ranking
+    val countsForGlobalRanking: Boolean = true,
+    // Win-counting games: every submission is one win (score = 1) and the board ranks the sum
+    // per user instead of the best single submission
+    val sumsWins: Boolean = false,
 ) {
     TETRIS(higherScoreWins = true, lowerTimeWins = true),
     TOWERSTACK(higherScoreWins = true, lowerTimeWins = true),
@@ -17,7 +22,18 @@ enum class Game(
 
     // Pure race: clients always submit score = 0, so the time tiebreaker ranks the board.
     // Difficulty encodes the puzzle language (LOW = German, HIGH = English), not hardness.
-    CROSSWORD(higherScoreWins = true, lowerTimeWins = true);
+    CROSSWORD(higherScoreWins = true, lowerTimeWins = true),
+
+    // Offline games played on one phone; the host submits every player's result via /games/upsertbatch.
+    // Final score of a finished game; timeMillis is always 0.
+    YATZI(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false),
+
+    // Three-dart average x100 of a finished game; timeMillis is always 0.
+    // Difficulty encodes the countdown (LOW = 301, HIGH = 501), not hardness.
+    DART_COUNTER(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false),
+
+    // One submission per winning player (score = 1); the board shows the number of wins. timeMillis is always 0.
+    UNDERCOVER(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, sumsWins = true);
 
     /** Best result first: score, then time as tiebreaker, earliest submission wins full ties. */
     fun leaderboardSort(): Sort = Sort.by(

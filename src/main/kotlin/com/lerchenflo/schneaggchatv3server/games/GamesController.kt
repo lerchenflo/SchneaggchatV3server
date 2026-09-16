@@ -11,7 +11,11 @@ import com.lerchenflo.schneaggchatv3server.games.model.toGameScoreResponse
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
+import org.bson.types.ObjectId
 import org.springframework.web.bind.annotation.*
+
+private const val MAX_BATCH_SCORES = 20
 
 @RestController
 @RequestMapping("/games")
@@ -42,6 +46,46 @@ class GamesController(
             timeMillis = request.timeMillis,
             requesterId = requesterId,
         ).toGameScoreResponse()
+    }
+
+    data class BatchScoreEntry(
+        @field:NotBlank(message = "User id must not be blank")
+        val userId: String,
+        @field:Min(0, message = "Score must not be negative")
+        val score: Long,
+        @field:Min(0, message = "Time must not be negative")
+        val timeMillis: Long = 0,
+    )
+
+    data class SubmitBatchScoreRequest(
+        @field:NotBlank(message = "Game id must not be blank")
+        val gameId: String,
+        // Games without a difficulty setting can omit this
+        val difficulty: String = Difficulty.MEDIUM.name,
+        @field:Valid
+        @field:Size(min = 1, max = MAX_BATCH_SCORES, message = "Between 1 and $MAX_BATCH_SCORES scores per request")
+        val scores: List<BatchScoreEntry>,
+    )
+
+    /**
+     * Results of a game several people played on one device. Only allowed for games that are
+     * excluded from the global ranking, and only for the requester and their accepted friends.
+     */
+    @PostMapping("/upsertbatch")
+    fun submitBatchScores(@Valid @RequestBody request: SubmitBatchScoreRequest): List<GameScoreResponse> {
+        val requesterId = requireAuth()
+        val game = requireNotNull(Game.fromId(request.gameId)) { "Unknown game id: ${request.gameId}" }
+        val difficulty = requireNotNull(Difficulty.fromId(request.difficulty)) { "Unknown difficulty: ${request.difficulty}" }
+        val scores = request.scores.map { entry ->
+            require(ObjectId.isValid(entry.userId)) { "Invalid user id: ${entry.userId}" }
+            GamesService.BatchScore(userId = ObjectId(entry.userId), score = entry.score, timeMillis = entry.timeMillis)
+        }
+        return gamesService.submitBatchScores(
+            game = game,
+            difficulty = difficulty,
+            scores = scores,
+            requesterId = requesterId,
+        ).map { it.toGameScoreResponse() }
     }
 
     @GetMapping("/highscores")

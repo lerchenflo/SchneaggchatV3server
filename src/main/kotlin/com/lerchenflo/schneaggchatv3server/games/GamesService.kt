@@ -12,13 +12,16 @@ import com.lerchenflo.schneaggchatv3server.games.model.HighscoresResponse
 import com.lerchenflo.schneaggchatv3server.games.model.LeaderboardPeriod
 import com.lerchenflo.schneaggchatv3server.repository.GameScoreRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
+import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import org.bson.types.ObjectId
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.aggregation.Aggregation
 import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.web.server.ResponseStatusException
 import kotlin.math.roundToLong
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -31,6 +34,7 @@ class GamesService(
     private val mongoTemplate: MongoTemplate,
     private val userLookupService: UserLookupService,
     private val loggingService: LoggingService,
+    private val friendsLookupService: FriendsLookupService,
 ) {
 
     /** One user's best result for a game, reduced from the full submission history. */
@@ -89,6 +93,7 @@ class GamesService(
     }
 
     fun submitScore(game: Game, difficulty: Difficulty, score: Long, timeMillis: Long, requesterId: ObjectId): GameScore {
+        requireValidWinScore(game, score)
         val saved = gameScoreRepository.save(
             GameScore(
                 userId = requesterId,
@@ -102,22 +107,83 @@ class GamesService(
         return saved
     }
 
-    /** One user's best result per (game, difficulty) board, best first. */
+    /** One player's result inside a batch submission. */
+    data class BatchScore(
+        val userId: ObjectId,
+        val score: Long,
+        val timeMillis: Long,
+    )
+
+    /**
+     * Saves the results of a game played by several people on the requester's device. Restricted to
+     * games outside the global ranking (nobody can boost someone's global points this way) and to
+     * the requester plus accepted friends. Validation happens before anything is saved.
+     */
+    fun submitBatchScores(game: Game, difficulty: Difficulty, scores: List<BatchScore>, requesterId: ObjectId): List<GameScore> {
+        if (game.countsForGlobalRanking) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Batch submission is not allowed for ${game.name}")
+        }
+        require(scores.map { it.userId }.toSet().size == scores.size) { "Each player may only appear once per batch" }
+        scores.forEach { requireValidWinScore(game, it.score) }
+
+        val friends = friendsLookupService.getFriends(requesterId).toSet()
+        val unauthorized = scores.map { it.userId }.filter { it != requesterId && it !in friends }
+        if (unauthorized.isNotEmpty()) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Scores can only be submitted for yourself and your friends")
+        }
+
+        val saved = gameScoreRepository.saveAll(
+            scores.map {
+                GameScore(
+                    userId = it.userId,
+                    game = game,
+                    difficulty = difficulty,
+                    score = it.score,
+                    timeMillis = it.timeMillis,
+                )
+            }
+        )
+        loggingService.log(
+            userId = requesterId,
+            logType = LogType.GAME_SCORE_SUBMITTED,
+            message = "${game.name} (${difficulty.name}), batch of ${scores.size}",
+        )
+        return saved
+    }
+
+    /** Win-counting games only accept single wins, so a board can't be inflated with one request. */
+    private fun requireValidWinScore(game: Game, score: Long) {
+        require(!game.sumsWins || score == 1L) { "${game.name} only accepts a score of 1 per win" }
+    }
+
+    /** One user's best result (or total wins, see [Game.sumsWins]) per (game, difficulty) board, best first. */
     private fun rankedBests(game: Game, difficulty: Difficulty, cutoffEpochSeconds: Long?): List<UserBestScore> {
         // kotlin.time.Instant is stored as a nested {epochSeconds, nanosecondsOfSecond} doc,
         // so the period cutoff has to match on the epochSeconds field.
         var criteria = Criteria.where("game").`is`(game.name).and("difficulty").`is`(difficulty.name)
         cutoffEpochSeconds?.let { criteria = criteria.and("createdAt.epochSeconds").gte(it) }
 
-        val aggregation = Aggregation.newAggregation(
-            Aggregation.match(criteria),
-            Aggregation.sort(game.leaderboardSort()),
-            Aggregation.group("userId")
-                .first("userId").`as`("userId")
-                .first("score").`as`("score")
-                .first("timeMillis").`as`("timeMillis")
-                .first("createdAt").`as`("achievedAt"),
-        )
+        val aggregation = if (game.sumsWins) {
+            // Total wins in the period; achievedAt is the latest win
+            Aggregation.newAggregation(
+                Aggregation.match(criteria),
+                Aggregation.group("userId")
+                    .first("userId").`as`("userId")
+                    .sum("score").`as`("score")
+                    .sum("timeMillis").`as`("timeMillis")
+                    .max("createdAt").`as`("achievedAt"),
+            )
+        } else {
+            Aggregation.newAggregation(
+                Aggregation.match(criteria),
+                Aggregation.sort(game.leaderboardSort()),
+                Aggregation.group("userId")
+                    .first("userId").`as`("userId")
+                    .first("score").`as`("score")
+                    .first("timeMillis").`as`("timeMillis")
+                    .first("createdAt").`as`("achievedAt"),
+            )
+        }
         return mongoTemplate.aggregate(aggregation, "gamescores", UserBestScore::class.java)
             .mappedResults
             .sortedWith(game.leaderboardComparator())
@@ -156,7 +222,7 @@ class GamesService(
 
     fun getGlobalRanking(period: LeaderboardPeriod, requesterId: ObjectId): GlobalRankingResponse {
         val cutoff = period.startEpochSeconds()
-        val boards = Game.entries.flatMap { game ->
+        val boards = Game.entries.filter { it.countsForGlobalRanking }.flatMap { game ->
             Difficulty.entries.map { difficulty -> game to rankedBests(game, difficulty, cutoff) }
         }
         val ranked = accumulateGlobalPoints(boards)
