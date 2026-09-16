@@ -117,12 +117,20 @@ class AuthService(
         clientInfo: LoginClientInfo = LoginClientInfo(),
     ) : TokenPair {
 
-        requireLoginAttemptsRemaining(username)
+        val attempt = "Login attempt: username=${username.take(100)} ip=$ip device=$deviceName ($devicetype)"
+
+        try {
+            requireLoginAttemptsRemaining(username)
+        } catch (e: ResponseStatusException) {
+            AppLogger.warn("$attempt | FAILED: ${e.reason}")
+            throw e
+        }
 
         //A missing user and a wrong password are one path: both are a failed attempt against this
         //username, and both must answer the same way so the caller can't enumerate accounts.
         val user = userLookupService.findByUsername(username)
         if (user == null || !hashEncoder.matches(password, user.hashedPassword)) {
+            AppLogger.warn("$attempt | FAILED: ${if (user == null) "unknown username" else "wrong password"}")
             recordFailedLogin(username, user?.id, ip)
             throw BadCredentialsException("Invalid credentials")
         }
@@ -161,6 +169,8 @@ class AuthService(
                 devicetype = devicetype,
             )
         }
+
+        AppLogger.success("$attempt | SUCCESS${if (existing == null) " (new device)" else ""}")
 
         //Tell the owner about the sign-in. @Async, so this returns at once; the mail itself is
         //best-effort and must never turn a valid login into an error.

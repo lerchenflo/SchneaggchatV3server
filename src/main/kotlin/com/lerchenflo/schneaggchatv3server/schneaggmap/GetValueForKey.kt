@@ -152,6 +152,7 @@ fun LocationData.getValueByKey(key: AttributeKey): AttributeValue? = when (this)
         else -> null
     }
     is LocationData.FoodGreek -> null
+    is LocationData.FoodAustrian -> null
     is LocationData.FoodOther -> when (key) {
         AttributeKey.FOOD_OTHER_CUISINE -> foodOtherCuisine
         else -> null

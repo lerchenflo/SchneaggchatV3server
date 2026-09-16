@@ -63,6 +63,7 @@ import org.springframework.data.annotation.TypeAlias
     JsonSubTypes.Type(value = LocationData.FoodIce::class,         name = "food_ice"),
     JsonSubTypes.Type(value = LocationData.FoodAsian::class,       name = "food_asian"),
     JsonSubTypes.Type(value = LocationData.FoodGreek::class,       name = "food_greek"),
+    JsonSubTypes.Type(value = LocationData.FoodAustrian::class,    name = "food_austrian"),
     JsonSubTypes.Type(value = LocationData.FoodOther::class,       name = "food_other"),
     JsonSubTypes.Type(value = LocationData.Climbingspot::class,    name = "climbingspot"),
     JsonSubTypes.Type(value = LocationData.FoodCafeBakery::class,  name = "food_cafe_bakery"),
@@ -377,6 +378,11 @@ sealed class LocationData {
 
     @TypeAlias("food_greek")
     class FoodGreek : LocationData() {
+        override fun schema() = emptyList<AttributeDefinition>()
+    }
+
+    @TypeAlias("food_austrian")
+    class FoodAustrian : LocationData() {
         override fun schema() = emptyList<AttributeDefinition>()
     }
 
