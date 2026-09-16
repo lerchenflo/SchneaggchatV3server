@@ -37,8 +37,7 @@ fun LocationData.getValueByKey(key: AttributeKey): AttributeValue? = when (this)
     }
     is LocationData.OffroadMotorcycle -> when (key) {
         AttributeKey.OFFROAD_MOTORCYCLE_LEGAL     -> offroadMotorcycleLegal
-        AttributeKey.OFFROAD_MOTORCYCLE_MOTOCROSS -> offroadMotorcycleMotocross
-        AttributeKey.OFFROAD_MOTORCYCLE_ENDURO    -> offroadMotorcycleEnduro
+        AttributeKey.OFFROAD_MOTORCYCLE_DISCIPLINE -> offroadMotorcycleDiscipline
         else -> null
     }
     is LocationData.Viewpoint -> when (key) {
@@ -48,14 +47,14 @@ fun LocationData.getValueByKey(key: AttributeKey): AttributeValue? = when (this)
 
     // Nature & Activities
     is LocationData.Camping -> when (key) {
-        AttributeKey.CAMPING_OFFICIAL           -> campingOfficial
+        AttributeKey.CAMPING_KIND           -> campingKind
         AttributeKey.CAMPING_WATER_DISTANCE      -> campingWaterDistance
         AttributeKey.CAMPING_SITTING_POSSIBILITY -> campingSittingPossibility
         AttributeKey.CAMPING_GRILL_POSSIBILITY   -> campingGrillPossibility
         else -> null
     }
     is LocationData.SwimmingLocation -> when (key) {
-        AttributeKey.SWIMMING_INDOOR           -> swimmingIndoor
+        AttributeKey.SWIMMING_SETTING           -> swimmingSetting
         AttributeKey.SWIMMING_JUMP_SPOT        -> swimmingJumpSpot
         AttributeKey.SWIMMING_LIE_DOWN_FRIENDLY -> swimmingLieDownFriendly
         AttributeKey.SWIMMING_PRICE            -> swimmingPrice
@@ -63,7 +62,7 @@ fun LocationData.getValueByKey(key: AttributeKey): AttributeValue? = when (this)
     }
     is LocationData.Climbingspot -> when (key) {
         AttributeKey.CLIMBINGSPOT_VIA_FERRATA -> climbingspotViaFerrata
-        AttributeKey.CLIMBINGSPOT_OUTDOOR     -> climbingspotOutdoor
+        AttributeKey.CLIMBINGSPOT_SETTING     -> climbingspotSetting
         AttributeKey.CLIMBINGSPOT_PRICE       -> climbingspotPrice
         else -> null
     }
@@ -72,7 +71,7 @@ fun LocationData.getValueByKey(key: AttributeKey): AttributeValue? = when (this)
     is LocationData.Volleyball -> when (key) {
         AttributeKey.VOLLEYBALL_GOOD_NET   -> volleyballGoodNet
         AttributeKey.VOLLEYBALL_GOOD_FIELD -> volleyballGoodField
-        AttributeKey.VOLLEYBALL_OUTDOOR    -> volleyballOutdoor
+        AttributeKey.VOLLEYBALL_SETTING    -> volleyballSetting
         else -> null
     }
     is LocationData.Bicycle -> when (key) {

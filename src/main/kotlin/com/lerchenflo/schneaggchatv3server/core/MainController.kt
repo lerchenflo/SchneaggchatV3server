@@ -2,6 +2,7 @@
 
 package com.lerchenflo.schneaggchatv3server.core
 
+import com.fasterxml.jackson.core.type.TypeReference
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.website.donations.model.Donation
@@ -14,12 +15,15 @@ import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
 import com.lerchenflo.schneaggchatv3server.repository.DonationRepository
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.SchneaggmapService
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.BicycleUndergroundType
+import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.PersonalUserSettings
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRole
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
+import com.lerchenflo.schneaggchatv3server.util.Json
 import com.lerchenflo.schneaggchatv3server.util.SyncCollection
 import com.lerchenflo.schneaggchatv3server.util.VersionCounterService
 import com.mongodb.MongoNamespace
@@ -40,6 +44,7 @@ import org.springframework.data.mongodb.core.query.Update
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.ExperimentalTime
 
 /**
@@ -88,6 +93,7 @@ class MainController(
         migrateReactionTimestamps()
         migrateMessageVersions()
         migrateMapAttributeKeys()
+        migrateMapAttributeTypes()
         migrateGroupDeletedFlag()
         migrateDetachEventsFromDeletedGroups()
         migrateUserRole()
@@ -736,6 +742,177 @@ class MainController(
         } else {
             AppLogger.success("Migration check: All map attribute keys already migrated")
         }
+    }
+
+    /**
+     * Converts stored map attribute values to the enum / price / distance definitions:
+     * - camping `campingOfficial` (bool) -> `campingKind` (OFFICIAL_SITE / WILD_CAMPING)
+     * - swimming / climbingspot / volleyball indoor-outdoor bools -> `*Setting` (INDOOR / OUTDOOR)
+     * - offroad `motocross` + `enduro` bools -> `offroadMotorcycleDiscipline` (MOTOCROSS / ENDURO / BOTH)
+     * - bicycle free-text underground type -> [BicycleUndergroundType] name (unmatched -> OTHER)
+     * - swimming / climbingspot price and camping water distance int -> double
+     *
+     * Runs over `map_entries` and over the `locationData` JSON snapshots in `map_entry_versions`, so
+     * reverting a pre-migration change can't bring the old shape back. Must run after
+     * [migrateMapAttributeKeys] and before any typed [MapEntry] read. Migrated entries get `updatedAt`
+     * bumped by 1ms so clients re-sync them without visibly changing the edit time. Idempotent - an
+     * element is only touched while it still has an old field or old value type.
+     */
+    fun migrateMapAttributeTypes() {
+        AppLogger.info("Running map attribute type migration...")
+
+        val entries = mongoTemplate.getCollection("map_entries")
+        var migratedEntries = 0
+
+        entries.find().forEach { doc ->
+            val locationDataList = doc.getList("locationData", org.bson.Document::class.java) ?: return@forEach
+            var changed = false
+            locationDataList.forEach { element ->
+                if (migrateLocationDataElementTypes(element)) changed = true
+            }
+
+            if (changed) {
+                val id = doc.getObjectId("_id")
+                entries.replaceOne(org.bson.Document("_id", id), doc)
+                // Bump through the typed mapping so updatedAt keeps the BSON shape Spring Data uses for Instant
+                mongoTemplate.findById(id, MapEntry::class.java)?.let { entry ->
+                    mongoTemplate.save(entry.copy(updatedAt = entry.updatedAt + 1.milliseconds))
+                }
+                migratedEntries++
+            }
+        }
+
+        val versions = mongoTemplate.getCollection("map_entry_versions")
+        var migratedVersions = 0
+
+        versions.find(org.bson.Document("changes.field", "locationData")).forEach { doc ->
+            val changes = doc.getList("changes", org.bson.Document::class.java) ?: return@forEach
+            var changed = false
+
+            changes.filter { it.getString("field") == "locationData" }.forEach { change ->
+                for (side in listOf("oldValue", "newValue")) {
+                    val rawJson = change.getString(side) ?: continue
+                    val elements = try {
+                        Json.mapper.readValue(rawJson, object : TypeReference<List<MutableMap<String, Any?>>>() {})
+                    } catch (e: Exception) {
+                        AppLogger.warn("Map attribute type migration: skipping unreadable snapshot in version ${doc.getObjectId("_id")}: ${e.message}")
+                        continue
+                    }
+
+                    var sideChanged = false
+                    elements.forEach { element ->
+                        if (migrateLocationDataElementTypes(element)) sideChanged = true
+                    }
+                    if (sideChanged) {
+                        change[side] = Json.mapper.writeValueAsString(elements)
+                        changed = true
+                    }
+                }
+            }
+
+            if (changed) {
+                versions.replaceOne(org.bson.Document("_id", doc.getObjectId("_id")), doc)
+                migratedVersions++
+            }
+        }
+
+        if (migratedEntries > 0 || migratedVersions > 0) {
+            AppLogger.success("Migration completed: Converted map attribute types in $migratedEntries map entries and $migratedVersions change log versions")
+        } else {
+            AppLogger.success("Migration check: All map attribute types already migrated")
+        }
+    }
+
+    /**
+     * Migrates one raw `locationData[]` element in place (a BSON document from `map_entries` or a
+     * Jackson map from a change log snapshot - both are plain mutable maps with `{_class, value}`
+     * attribute values). Returns true if anything changed. See [migrateMapAttributeTypes].
+     */
+    private fun migrateLocationDataElementTypes(element: MutableMap<String, Any?>): Boolean {
+        var changed = false
+
+        fun attributeValue(type: String, value: Any) = org.bson.Document("_class", type).append("value", value)
+        fun attributeOf(field: String) = element[field] as? Map<*, *>
+        fun boolOf(field: String) = attributeOf(field)?.get("value") as? Boolean
+
+        fun intToDouble(field: String) {
+            val attribute = attributeOf(field) ?: return
+            if (attribute["_class"] != "int") return
+            val number = attribute["value"] as? Number ?: return
+            element[field] = attributeValue("double", number.toDouble())
+            changed = true
+        }
+
+        fun boolToEnum(oldField: String, newField: String, ifTrue: String, ifFalse: String, ifMissing: String? = null) {
+            if (!element.containsKey(oldField)) return
+            val enumName = when (boolOf(oldField)) {
+                true -> ifTrue
+                false -> ifFalse
+                null -> ifMissing
+            }
+            element.remove(oldField)
+            if (element[newField] == null && enumName != null) {
+                element[newField] = attributeValue("string", enumName)
+            }
+            changed = true
+        }
+
+        when (element["_class"]) {
+            "camping" -> {
+                boolToEnum("campingOfficial", "campingKind", ifTrue = "OFFICIAL_SITE", ifFalse = "WILD_CAMPING", ifMissing = "OFFICIAL_SITE")
+                intToDouble("campingWaterDistance")
+            }
+            "swimming" -> {
+                boolToEnum("swimmingIndoor", "swimmingSetting", ifTrue = "INDOOR", ifFalse = "OUTDOOR")
+                intToDouble("swimmingPrice")
+            }
+            "climbingspot" -> {
+                boolToEnum("climbingspotOutdoor", "climbingspotSetting", ifTrue = "OUTDOOR", ifFalse = "INDOOR")
+                intToDouble("climbingspotPrice")
+            }
+            "volleyball" -> {
+                boolToEnum("volleyballOutdoor", "volleyballSetting", ifTrue = "OUTDOOR", ifFalse = "INDOOR")
+            }
+            "offroad_motorcycle" -> {
+                if (element.containsKey("offroadMotorcycleMotocross") || element.containsKey("offroadMotorcycleEnduro")) {
+                    val motocross = boolOf("offroadMotorcycleMotocross") == true
+                    val enduro = boolOf("offroadMotorcycleEnduro") == true
+                    element.remove("offroadMotorcycleMotocross")
+                    element.remove("offroadMotorcycleEnduro")
+                    val discipline = when {
+                        motocross && enduro -> "BOTH"
+                        motocross -> "MOTOCROSS"
+                        enduro -> "ENDURO"
+                        else -> null
+                    }
+                    if (element["offroadMotorcycleDiscipline"] == null && discipline != null) {
+                        element["offroadMotorcycleDiscipline"] = attributeValue("string", discipline)
+                    }
+                    changed = true
+                }
+            }
+            "bicycle" -> {
+                val text = attributeOf("bicycleUndergroundType")?.get("value") as? String
+                if (text != null && BicycleUndergroundType.entries.none { it.name == text }) {
+                    element["bicycleUndergroundType"] = if (text.isBlank()) {
+                        null
+                    } else {
+                        val normalized = text.lowercase()
+                        val type = when {
+                            "asphalt" in normalized || "teer" in normalized -> BicycleUndergroundType.ASPHALT
+                            "schotter" in normalized || "kies" in normalized || "gravel" in normalized -> BicycleUndergroundType.GRAVEL
+                            "dirt" in normalized || "erde" in normalized -> BicycleUndergroundType.DIRT
+                            "trail" in normalized -> BicycleUndergroundType.TRAIL
+                            else -> BicycleUndergroundType.OTHER
+                        }
+                        attributeValue("string", type.name)
+                    }
+                    changed = true
+                }
+            }
+        }
+
+        return changed
     }
 
 
