@@ -61,6 +61,8 @@ import org.springframework.data.annotation.TypeAlias
     JsonSubTypes.Type(value = LocationData.FoodOther::class,       name = "food_other"),
     JsonSubTypes.Type(value = LocationData.Climbingspot::class,    name = "climbingspot"),
     JsonSubTypes.Type(value = LocationData.FoodCafeBakery::class,  name = "food_cafe_bakery"),
+    JsonSubTypes.Type(value = LocationData.HorseRiding::class,     name = "horse_riding"),
+    JsonSubTypes.Type(value = LocationData.BikeServiceStation::class, name = "bike_service_station"),
 )
 
 sealed class LocationData {
@@ -239,6 +241,26 @@ sealed class LocationData {
     ) : LocationData() {
         override fun schema() = listOf(
             AttributeDefinition.BoolDef(key = AttributeKey.TENNIS_PADDLE, required = false),
+        )
+    }
+
+    @TypeAlias("horse_riding")
+    data class HorseRiding(
+        val horseRidingNextTournament: AttributeValue?,
+        val horseRidingPrivate: AttributeValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.LongDef(key = AttributeKey.HORSE_RIDING_NEXT_TOURNAMENT, required = false),
+            AttributeDefinition.BoolDef(key = AttributeKey.HORSE_RIDING_PRIVATE,         required = false),
+        )
+    }
+
+    @TypeAlias("bike_service_station")
+    data class BikeServiceStation(
+        val bikeServiceStationMostlyWorking: AttributeValue?,
+    ) : LocationData() {
+        override fun schema() = listOf(
+            AttributeDefinition.BoolDef(key = AttributeKey.BIKE_SERVICE_STATION_MOSTLY_WORKING, required = false),
         )
     }
 
