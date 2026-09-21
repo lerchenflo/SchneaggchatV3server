@@ -448,6 +448,8 @@ class UserService(
         mergeMapUsers: Boolean?,
         mapStyle: String?,
         pinnedChats: List<PinnedChat>?,
+        quickReactions: List<String>?,
+        resetQuickReactions: Boolean?,
         developerSettings: Boolean?,
         lastContributePopupShown: Long?,
     ) {
@@ -459,7 +461,23 @@ class UserService(
             require(ValidationUtils.validateObjectId(it.chatId)) { "Invalid pinned chat ID" }
         }
 
+        require(quickReactions == null || quickReactions.size <= 200) { "Too many quick reactions" }
+        quickReactions?.forEach {
+            //Same bound the reaction endpoint itself enforces, so a stored quick reaction is always sendable
+            require(ValidationUtils.validateReactionContent(it)) { "Invalid quick reaction" }
+        }
+        require(quickReactions == null || quickReactions.distinct().size == quickReactions.size) { "Duplicate quick reaction" }
+
         val current = user.settings
+
+        // Spelled out instead of the `?:` the other fields use: null is already taken here
+        // ("leave unchanged"), so clearing the list back to the app defaults needs its own flag.
+        val newQuickReactions = when {
+            resetQuickReactions == true -> null
+            quickReactions != null -> quickReactions
+            else -> current.quickReactions
+        }
+
         val newSettings = current.copy(
             mdFormat = mdFormat ?: current.mdFormat,
             highlightTodaysMessageTimestamp = highlightTodaysMessageTimestamp
@@ -470,6 +488,7 @@ class UserService(
             mergeMapUsers = mergeMapUsers ?: current.mergeMapUsers,
             mapStyle = mapStyle ?: current.mapStyle,
             pinnedChats = pinnedChats ?: current.pinnedChats,
+            quickReactions = newQuickReactions,
             developerSettings = developerSettings ?: current.developerSettings,
             lastContributePopupShown = lastContributePopupShown ?: current.lastContributePopupShown,
         )

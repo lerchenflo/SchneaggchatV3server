@@ -17,7 +17,11 @@ enum class Game(
 
     // Pure race: clients always submit score = 0, so the time tiebreaker ranks the board.
     // Difficulty encodes the puzzle language (LOW = German, HIGH = English), not hardness.
-    CROSSWORD(higherScoreWins = true, lowerTimeWins = true);
+    CROSSWORD(higherScoreWins = true, lowerTimeWins = true),
+
+    // Score is the number of tries left over (6 = solved on the first guess, 1 = on the last),
+    // time breaks ties. Difficulty encodes the word language (LOW = German, HIGH = English).
+    WORDLE(higherScoreWins = true, lowerTimeWins = true);
 
     /** Best result first: score, then time as tiebreaker, earliest submission wins full ties. */
     fun leaderboardSort(): Sort = Sort.by(
