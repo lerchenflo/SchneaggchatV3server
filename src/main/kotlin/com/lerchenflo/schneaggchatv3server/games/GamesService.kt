@@ -93,7 +93,7 @@ class GamesService(
     }
 
     fun submitScore(game: Game, difficulty: Difficulty, score: Long, timeMillis: Long, requesterId: ObjectId): GameScore {
-        requireValidWinScore(game, score)
+        requireValidScore(game, score)
         val saved = gameScoreRepository.save(
             GameScore(
                 userId = requesterId,
@@ -124,7 +124,7 @@ class GamesService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Batch submission is not allowed for ${game.name}")
         }
         require(scores.map { it.userId }.toSet().size == scores.size) { "Each player may only appear once per batch" }
-        scores.forEach { requireValidWinScore(game, it.score) }
+        scores.forEach { requireValidScore(game, it.score) }
 
         val friends = friendsLookupService.getFriends(requesterId).toSet()
         val unauthorized = scores.map { it.userId }.filter { it != requesterId && it !in friends }
@@ -151,9 +151,16 @@ class GamesService(
         return saved
     }
 
-    /** Win-counting games only accept single wins, so a board can't be inflated with one request. */
-    private fun requireValidWinScore(game: Game, score: Long) {
+    /**
+     * Rejects scores the game cannot actually produce. Win-counting games only accept single wins,
+     * and every game with a known ceiling ([Game.maxScore]) refuses anything above it, so a patched
+     * client cannot own a board with an impossible submission.
+     */
+    private fun requireValidScore(game: Game, score: Long) {
         require(!game.sumsWins || score == 1L) { "${game.name} only accepts a score of 1 per win" }
+        game.maxScore?.let { max ->
+            require(score <= max) { "${game.name} scores cannot exceed $max" }
+        }
     }
 
     /** One user's best result (or total wins, see [Game.sumsWins]) per (game, difficulty) board, best first. */

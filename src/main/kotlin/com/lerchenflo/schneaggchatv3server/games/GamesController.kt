@@ -8,6 +8,7 @@ import com.lerchenflo.schneaggchatv3server.games.model.GlobalRankingResponse
 import com.lerchenflo.schneaggchatv3server.games.model.HighscoresResponse
 import com.lerchenflo.schneaggchatv3server.games.model.LeaderboardPeriod
 import com.lerchenflo.schneaggchatv3server.games.model.toGameScoreResponse
+import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
@@ -77,7 +78,7 @@ class GamesController(
         val game = requireNotNull(Game.fromId(request.gameId)) { "Unknown game id: ${request.gameId}" }
         val difficulty = requireNotNull(Difficulty.fromId(request.difficulty)) { "Unknown difficulty: ${request.difficulty}" }
         val scores = request.scores.map { entry ->
-            require(ObjectId.isValid(entry.userId)) { "Invalid user id: ${entry.userId}" }
+            require(ValidationUtils.validateObjectId(entry.userId)) { "Invalid user id: ${entry.userId}" }
             GamesService.BatchScore(userId = ObjectId(entry.userId), score = entry.score, timeMillis = entry.timeMillis)
         }
         return gamesService.submitBatchScores(

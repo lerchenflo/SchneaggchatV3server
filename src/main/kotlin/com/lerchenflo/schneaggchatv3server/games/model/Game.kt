@@ -11,6 +11,9 @@ enum class Game(
     // Win-counting games: every submission is one win (score = 1) and the board ranks the sum
     // per user instead of the best single submission
     val sumsWins: Boolean = false,
+    // Highest score this game can possibly produce; anything above it is a forged submission.
+    // null = no known upper bound (endless games).
+    val maxScore: Long? = null,
 ) {
     TETRIS(higherScoreWins = true, lowerTimeWins = true),
     TOWERSTACK(higherScoreWins = true, lowerTimeWins = true),
@@ -26,14 +29,16 @@ enum class Game(
 
     // Offline games played on one phone; the host submits every player's result via /games/upsertbatch.
     // Final score of a finished game; timeMillis is always 0.
-    YATZI(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false),
+    // Theoretical maximum of this variant is 424 (105 upper + 35 bonus + 284 lower); the cap leaves headroom.
+    YATZI(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, maxScore = 1000),
 
     // Three-dart average x100 of a finished game; timeMillis is always 0.
     // Difficulty encodes the countdown (LOW = 301, HIGH = 501), not hardness.
-    DART_COUNTER(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false),
+    // A three-dart average can never exceed 180.00, so 18000 is the hard ceiling.
+    DART_COUNTER(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, maxScore = 18000),
 
     // One submission per winning player (score = 1); the board shows the number of wins. timeMillis is always 0.
-    UNDERCOVER(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, sumsWins = true);
+    UNDERCOVER(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, sumsWins = true, maxScore = 1);
 
     /** Best result first: score, then time as tiebreaker, earliest submission wins full ties. */
     fun leaderboardSort(): Sort = Sort.by(
