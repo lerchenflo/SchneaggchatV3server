@@ -15,13 +15,14 @@ enum class Game(
     ODDONEOUT(higherScoreWins = true, lowerTimeWins = true),
     GAME_2048(higherScoreWins = true, lowerTimeWins = true),
 
-    // Pure race: clients always submit score = 0, so the time tiebreaker ranks the board.
+    // Puzzles are drawn at random and differ in size, so the score is the number of letters the
+    // grid took to fill - a denser grid is worth more, the solve time ranks equal grids.
     // Difficulty encodes the puzzle language (LOW = German, HIGH = English), not hardness.
     CROSSWORD(higherScoreWins = true, lowerTimeWins = true),
 
-    // Score is the number of tries left over (6 = solved on the first guess, 1 = on the last),
-    // time breaks ties. Difficulty encodes the word language (LOW = German, HIGH = English).
-    WORDLE(higherScoreWins = true, lowerTimeWins = true);
+    // Score is the number of letters typed to solve it (5 on the first guess, 30 on the sixth),
+    // so FEWER wins here; time breaks ties. Difficulty encodes the word language.
+    WORDLE(higherScoreWins = false, lowerTimeWins = true);
 
     /** Best result first: score, then time as tiebreaker, earliest submission wins full ties. */
     fun leaderboardSort(): Sort = Sort.by(
