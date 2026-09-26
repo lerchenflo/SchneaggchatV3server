@@ -228,6 +228,12 @@ class UserController(
         @field:Size(max = 40, message = "Map style too long")
         val mapStyle: String? = null,
         val pinnedChats: List<PinnedChat>? = null,
+        // Whole list, replaced wholesale like [pinnedChats]. Element length/count are checked in
+        // the service, since bean validation can't reach the elements of a List<String>.
+        val quickReactions: List<String>? = null,
+        // Explicit "back to the app defaults" switch. Needed because a null [quickReactions] already
+        // means "leave unchanged" here, while a null stored value means "use the defaults".
+        val resetQuickReactions: Boolean? = null,
         val developerSettings: Boolean? = null,
         val lastContributePopupShown: Long? = null,
     )
@@ -248,6 +254,8 @@ class UserController(
             mergeMapUsers = request.mergeMapUsers,
             mapStyle = request.mapStyle,
             pinnedChats = request.pinnedChats,
+            quickReactions = request.quickReactions,
+            resetQuickReactions = request.resetQuickReactions,
             developerSettings = request.developerSettings,
             lastContributePopupShown = request.lastContributePopupShown,
         )
