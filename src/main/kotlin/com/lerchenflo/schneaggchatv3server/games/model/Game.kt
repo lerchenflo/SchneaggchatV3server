@@ -23,7 +23,8 @@ enum class Game(
     ODDONEOUT(higherScoreWins = true, lowerTimeWins = true),
     GAME_2048(higherScoreWins = true, lowerTimeWins = true),
 
-    // Pure race: clients always submit score = 0, so the time tiebreaker ranks the board.
+    // Puzzles are drawn at random and differ in size, so the score is the number of letters the
+    // grid took to fill - a denser grid is worth more, the solve time ranks equal grids.
     // Difficulty encodes the puzzle language (LOW = German, HIGH = English), not hardness.
     CROSSWORD(higherScoreWins = true, lowerTimeWins = true),
 
