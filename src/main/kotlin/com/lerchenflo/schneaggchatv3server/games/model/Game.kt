@@ -14,6 +14,12 @@ enum class Game(
     // Highest score this game can possibly produce; anything above it is a forged submission.
     // null = no known upper bound (endless games).
     val maxScore: Long? = null,
+    // Lowest score this game can produce. Only matters for boards ranked ascending
+    // (higherScoreWins = false), where a forged small score would otherwise top the board.
+    val minScore: Long = 0,
+    // Most points a run can earn per second of its reported timeMillis (plus one second of grace);
+    // for endless games whose ceiling depends on how long the run lasted. null = no rate limit.
+    val maxPointsPerSecond: Long? = null,
 ) {
     TETRIS(higherScoreWins = true, lowerTimeWins = true),
     TOWERSTACK(higherScoreWins = true, lowerTimeWins = true),
@@ -27,6 +33,17 @@ enum class Game(
     // grid took to fill - a denser grid is worth more, the solve time ranks equal grids.
     // Difficulty encodes the puzzle language (LOW = German, HIGH = English), not hardness.
     CROSSWORD(higherScoreWins = true, lowerTimeWins = true),
+
+    // Score is the number of letters typed to solve it (5 on the first guess, 30 on the sixth),
+    // so FEWER wins here; time breaks ties. Difficulty encodes the word language.
+    // Ranked ascending, so the floor is what needs guarding, not just the ceiling.
+    WORDLE(higherScoreWins = false, lowerTimeWins = true, minScore = 5, maxScore = 30),
+
+    // Endless runner without a difficulty setting (always MEDIUM). More points win; on equal points
+    // the shorter run wins. Points are distance / 10 (at most 18 per second at top speed) plus 25 per
+    // lassoed snail (one throw per 0.8 s at most, so at most 31.25 per second) - 50 per second of run
+    // time is out of reach. The flat cap equals ~2.8 hours at that impossible pace.
+    SCHNEAGG_RODEO(higherScoreWins = true, lowerTimeWins = true, maxScore = 500_000, maxPointsPerSecond = 50),
 
     // Offline games played on one phone; the host submits every player's result via /games/upsertbatch.
     // Final score of a finished game; timeMillis is always 0.

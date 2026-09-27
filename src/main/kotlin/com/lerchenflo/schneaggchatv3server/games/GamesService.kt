@@ -93,7 +93,7 @@ class GamesService(
     }
 
     fun submitScore(game: Game, difficulty: Difficulty, score: Long, timeMillis: Long, requesterId: ObjectId): GameScore {
-        requireValidScore(game, score)
+        requireValidScore(game, score, timeMillis)
         val saved = gameScoreRepository.save(
             GameScore(
                 userId = requesterId,
@@ -124,7 +124,7 @@ class GamesService(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Batch submission is not allowed for ${game.name}")
         }
         require(scores.map { it.userId }.toSet().size == scores.size) { "Each player may only appear once per batch" }
-        scores.forEach { requireValidScore(game, it.score) }
+        scores.forEach { requireValidScore(game, it.score, it.timeMillis) }
 
         val friends = friendsLookupService.getFriends(requesterId).toSet()
         val unauthorized = scores.map { it.userId }.filter { it != requesterId && it !in friends }
@@ -153,13 +153,21 @@ class GamesService(
 
     /**
      * Rejects scores the game cannot actually produce. Win-counting games only accept single wins,
-     * and every game with a known ceiling ([Game.maxScore]) refuses anything above it, so a patched
-     * client cannot own a board with an impossible submission.
+     * every game with a known ceiling ([Game.maxScore]) refuses anything above it, and games with a
+     * scoring rate ([Game.maxPointsPerSecond]) refuse more points than [timeMillis] allows, so a
+     * patched client cannot own a board with an impossible submission.
      */
-    private fun requireValidScore(game: Game, score: Long) {
+    private fun requireValidScore(game: Game, score: Long, timeMillis: Long) {
         require(!game.sumsWins || score == 1L) { "${game.name} only accepts a score of 1 per win" }
+        require(score >= game.minScore) { "${game.name} scores cannot be below ${game.minScore}" }
         game.maxScore?.let { max ->
             require(score <= max) { "${game.name} scores cannot exceed $max" }
+        }
+        game.maxPointsPerSecond?.let { rate ->
+            // One second of grace for rounding; timeMillis / 1000 is at most ~9.2e15, so with the
+            // small rates used here the product stays far below Long.MAX_VALUE
+            val allowed = (timeMillis / 1000 + 1) * rate
+            require(score <= allowed) { "${game.name} scores cannot exceed $rate points per second of run time" }
         }
     }
 
