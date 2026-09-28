@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.website.donations.model.Donation
 import com.lerchenflo.schneaggchatv3server.website.faq.FaqSeedService
+import com.lerchenflo.schneaggchatv3server.feedback.FeedbackSeedService
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
@@ -72,6 +73,8 @@ class MainController(
 
     private val faqSeedService: FaqSeedService,
 
+    private val feedbackSeedService: FeedbackSeedService,
+
     @Value("\${apns.debug}") private val debug: Boolean,
 
     ){
@@ -101,6 +104,7 @@ class MainController(
         migrateDonations()
 
         faqSeedService.seedMissingEntries()
+        feedbackSeedService.seedMissingEntries()
 
         if (debug) {
             //Create test account for google play & Apple
