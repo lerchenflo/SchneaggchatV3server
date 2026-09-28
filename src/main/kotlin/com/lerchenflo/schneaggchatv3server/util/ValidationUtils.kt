@@ -423,4 +423,22 @@ object ValidationUtils {
     fun validateFaqSortOrder(sortOrder: Int): Boolean {
         return sortOrder in 0..10_000
     }
+
+    // ─── Feedback board ─────────────────────────────────────────────────────────
+    // All feedback checks run on the already-trimmed value.
+
+    fun validateFeedbackTitle(title: String): Boolean = title.length in 3..100
+
+    fun validateFeedbackDescription(description: String): Boolean = description.length in 1..2000
+
+    fun validateFeedbackTags(tagCount: Int, distinctCount: Int): Boolean =
+        tagCount in 1..3 && distinctCount == tagCount
+
+    fun validateFeedbackLocation(location: String?): Boolean = location == null || location.length <= 200
+
+    fun validateFeedbackComment(text: String): Boolean = text.length in 1..1000
+
+    fun validateFeedbackAppVersion(appVersion: String?): Boolean = appVersion == null || appVersion.length <= 30
+
+    fun validateFeedbackPlatform(platform: String?): Boolean = platform == null || platform.length <= 20
 }

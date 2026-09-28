@@ -1,0 +1,205 @@
+[
+  {
+    "seedKey": "language-vorarlbergerisch",
+    "title": "Vorarlbergerisch als App-Sprache",
+    "description": "Die ganze App gibt es auch auf Vorarlbergerisch – zusätzlich zu Englisch, Deutsch und Italienisch.",
+    "tags": ["SETTINGS", "UI"],
+    "location": "Einstellungen → Darstellung → Sprache"
+  },
+  {
+    "seedKey": "polls-custom-answers",
+    "title": "Umfragen mit eigenen Antworten und Stimmenlimit",
+    "description": "Umfragen in jedem Chat erstellen. Mitglieder können eigene Optionen hinzufügen, und du kannst begrenzen, wie viele Stimmen jede Person oder Option bekommt. Markdown funktioniert im Umfragetext.",
+    "tags": ["CHAT"],
+    "location": "Chat → + neben dem Textfeld → Umfrage"
+  },
+  {
+    "seedKey": "user-descriptions",
+    "title": "Userbeschreibungen von Freunden",
+    "description": "Freunde können gemeinsam einen Text über dich schreiben, der in deinem Profil angezeigt wird.",
+    "tags": ["CHAT"],
+    "location": "Chat → oben auf den Namen tippen → Beschreibung"
+  },
+  {
+    "seedKey": "message-reactions",
+    "title": "Nachrichten-Reaktionen (auch mit Text)",
+    "description": "Reagiere auf jede Nachricht mit einem Emoji oder einem kurzen Text. Wer wann reagiert hat, siehst du in den Nachrichtendetails.",
+    "tags": ["CHAT"],
+    "location": "Chat → Nachricht lange gedrückt halten"
+  },
+  {
+    "seedKey": "quick-reactions",
+    "title": "Anpassbare Schnellreaktionen",
+    "description": "Wähle und sortiere die Emojis, die beim langen Drücken auf eine Nachricht angeboten werden.",
+    "tags": ["CHAT", "SETTINGS"],
+    "location": "Einstellungen → Darstellung → Schnellreaktionen"
+  },
+  {
+    "seedKey": "birthdays",
+    "title": "Geburtstagserinnerungen und Geburtstagsliste",
+    "description": "Geburtstage deiner Freunde werden in der Chatauswahl, in einer Geburtstagsliste und im Event-Kalender angezeigt, und am Tag selbst bekommst du eine Benachrichtigung.",
+    "tags": ["NOTIFICATIONS", "EVENTS"],
+    "location": "Chatauswahl (Geburtstagsanzeige) und Events → Kalenderansicht"
+  },
+  {
+    "seedKey": "location-sharing",
+    "title": "Live-Standort mit Verlauf teilen",
+    "description": "Teile deinen Standort mit ausgewählten Freunden und sieh auf der Schneaggmap, wo sie sind – inklusive Kompass mit Richtung und Entfernung.",
+    "tags": ["MAP"],
+    "location": "Einstellungen → Schneaggmap → Standort teilen"
+  },
+  {
+    "seedKey": "schneaggmap-places",
+    "title": "Bearbeitbare Karte mit öffentlichen Orten",
+    "description": "Alle können Orte auf der Schneaggmap hinzufügen und bearbeiten (Eis, WLAN, Sportplätze und vieles mehr), nach Typ gruppiert und durchsuchbar.",
+    "tags": ["MAP"],
+    "location": "Untere Navigation → Karte"
+  },
+  {
+    "seedKey": "annotations",
+    "title": "@Annotations für User, Orte, Spiele und Events",
+    "description": "Erwähne User, Orte auf der Karte, Spiele und Events in Nachrichten und Umfragen mit @ – ein Tipp darauf öffnet das verlinkte Element.",
+    "tags": ["CHAT"],
+    "location": "Chat → @ im Textfeld eingeben"
+  },
+  {
+    "seedKey": "wake-feature",
+    "title": "Freunde aufwecken",
+    "description": "Spiele einen Weckton auf dem Handy eines Freundes ab, auch wenn es auf lautlos ist. Nur Freunde, die du ausdrücklich erlaubst, können dich wecken.",
+    "tags": ["NOTIFICATIONS"],
+    "location": "Einstellungen → Benachrichtigungen → Wecker"
+  },
+  {
+    "seedKey": "events",
+    "title": "Events mit Kalenderansicht",
+    "description": "Erstelle Events, lade Freunde ein, sieh wer zu- oder abgesagt hat und behalte alles in der Wochen- oder Monatsansicht im Blick. Events können in den Handykalender übernommen werden.",
+    "tags": ["EVENTS"],
+    "location": "Untere Navigation → Events"
+  },
+  {
+    "seedKey": "games",
+    "title": "Spiele mit Bestenlisten und Gesamtranking",
+    "description": "Viele Einzel- und Mehrspieler-Spiele plus Werkzeuge, mit Bestenlisten pro Spiel und einem Ranking über alle Spiele.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele"
+  },
+  {
+    "seedKey": "voice-messages",
+    "title": "Sprachnachrichten",
+    "description": "Sprachnachrichten in jedem Chat aufnehmen und senden.",
+    "tags": ["CHAT"],
+    "location": "Chat → Mikrofon-Knopf gedrückt halten"
+  },
+  {
+    "seedKey": "image-messages",
+    "title": "Bilder senden und in Schneaggchat teilen",
+    "description": "Sende Bilder in Chats und teile Bilder aus anderen Apps direkt in einen Schneaggchat-Chat.",
+    "tags": ["CHAT"],
+    "location": "Chat → + neben dem Textfeld"
+  },
+  {
+    "seedKey": "shared-content",
+    "title": "Geteilte Bilder und Links pro Chat",
+    "description": "Sieh alle Bilder und Links, die jemals in einem Chat geteilt wurden, und spring zur ursprünglichen Nachricht.",
+    "tags": ["CHAT"],
+    "location": "Chat → oben auf den Namen tippen → Bilder / Links"
+  },
+  {
+    "seedKey": "message-search",
+    "title": "Nachrichtensuche",
+    "description": "Durchsuche Nachrichten, Bildunterschriften und Umfragen in allen Chats.",
+    "tags": ["CHAT"],
+    "location": "Chatauswahl → Suchfeld"
+  },
+  {
+    "seedKey": "drafts",
+    "title": "Nachrichtenentwürfe",
+    "description": "Nicht gesendeter Text bleibt als Entwurf erhalten, wenn du einen Chat verlässt.",
+    "tags": ["CHAT"],
+    "location": "Chat → Textfeld"
+  },
+  {
+    "seedKey": "nicknames",
+    "title": "Spitznamen",
+    "description": "Gib deinen Freunden Spitznamen, die nur du siehst.",
+    "tags": ["CHAT"],
+    "location": "Chat → oben auf den Namen tippen"
+  },
+  {
+    "seedKey": "groups",
+    "title": "Gruppen mit Admins, Bildern und Lösch-Countdown",
+    "description": "Erstelle Gruppen, benenne sie um, ändere das Bild, verwalte Admins und lass eine Gruppe optional nach einem Countdown löschen.",
+    "tags": ["GROUPS"],
+    "location": "Chatauswahl → neuer Chat → Gruppe erstellen"
+  },
+  {
+    "seedKey": "system-messages",
+    "title": "Systemnachrichten im Chat",
+    "description": "Gruppenereignisse wie hinzugefügte Mitglieder, geänderte Namen oder vergebene Admin-Rechte werden direkt im Chat angezeigt.",
+    "tags": ["CHAT", "GROUPS"],
+    "location": "In jedem Gruppenchat"
+  },
+  {
+    "seedKey": "read-receipts",
+    "title": "Lesebestätigungen in Gruppen",
+    "description": "Sieh, wer eine Nachricht in einer Gruppe gelesen hat.",
+    "tags": ["CHAT", "GROUPS"],
+    "location": "Chat → Nachricht lange gedrückt halten → Details"
+  },
+  {
+    "seedKey": "online-status",
+    "title": "Online-Status in Echtzeit",
+    "description": "Sieh live, wann deine Freunde online sind.",
+    "tags": ["CHAT"],
+    "location": "Chatauswahl und Chat-Kopfzeile"
+  },
+  {
+    "seedKey": "themes",
+    "title": "Designs",
+    "description": "Wähle zwischen mehreren Farbdesigns für die ganze App.",
+    "tags": ["UI", "SETTINGS"],
+    "location": "Einstellungen → Darstellung → Design"
+  },
+  {
+    "seedKey": "phone-number-sharing",
+    "title": "Telefonnummer optional teilen",
+    "description": "Teile deine Telefonnummer mit Freunden, wenn du willst, und ruf sie direkt aus ihrem Profil an.",
+    "tags": ["SETTINGS"],
+    "location": "Einstellungen → Account"
+  },
+  {
+    "seedKey": "settings-sync",
+    "title": "Einstellungen auf allen Geräten synchron",
+    "description": "Deine App-Einstellungen werden am Server gespeichert und sind auf jedem Gerät verfügbar, auf dem du dich anmeldest.",
+    "tags": ["SETTINGS"],
+    "location": "Automatisch"
+  },
+  {
+    "seedKey": "native-notifications",
+    "title": "Native Benachrichtigungen mit „Als gelesen markieren“",
+    "description": "Benachrichtigungen mit hoher Priorität auf Android und iOS. Öffne einen Chat direkt aus der Benachrichtigung oder markiere ihn als gelesen, ohne die App zu öffnen.",
+    "tags": ["NOTIFICATIONS"],
+    "location": "Einstellungen → Benachrichtigungen"
+  },
+  {
+    "seedKey": "changelog-popup",
+    "title": "Changelog nach Updates",
+    "description": "Nach einem Update siehst du, was sich in der neuen Version geändert hat.",
+    "tags": ["UI"],
+    "location": "Wird nach einem Update automatisch angezeigt"
+  },
+  {
+    "seedKey": "feature-tour",
+    "title": "Geführte Feature-Tour",
+    "description": "Eine kurze Einführung, die zeigt, wo die wichtigsten Features zu finden sind.",
+    "tags": ["UI"],
+    "location": "Einstellungen → Miscellaneous → Tour zurücksetzen"
+  },
+  {
+    "seedKey": "android-auto",
+    "title": "Android Auto Support",
+    "description": "Nachrichten über Android Auto lesen und beantworten.",
+    "tags": ["NOTIFICATIONS"],
+    "location": "Automatisch, sobald Android Auto verbunden ist"
+  }
+]
