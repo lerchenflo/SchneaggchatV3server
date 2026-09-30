@@ -69,8 +69,9 @@ class GamesController(
     )
 
     /**
-     * Results of a game several people played on one device. Only allowed for games that are
-     * excluded from the global ranking, and only for the requester and their accepted friends.
+     * Results of a game several people played on one device, or of a friend riding along in the
+     * requester's run. Only allowed for games that are excluded from the global ranking or allow
+     * friend scores (Game.allowsFriendScores), and only for the requester and their accepted friends.
      */
     @PostMapping("/upsertbatch")
     fun submitBatchScores(@Valid @RequestBody request: SubmitBatchScoreRequest): List<GameScoreResponse> {

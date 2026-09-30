@@ -115,12 +115,13 @@ class GamesService(
     )
 
     /**
-     * Saves the results of a game played by several people on the requester's device. Restricted to
-     * games outside the global ranking (nobody can boost someone's global points this way) and to
-     * the requester plus accepted friends. Validation happens before anything is saved.
+     * Saves the results of a game played by several people on the requester's device, or of a
+     * friend riding along in the requester's run ([Game.allowsFriendScores]). Restricted to games
+     * outside the global ranking or explicitly allowing friend scores, and to the requester plus
+     * accepted friends. Validation happens before anything is saved.
      */
     fun submitBatchScores(game: Game, difficulty: Difficulty, scores: List<BatchScore>, requesterId: ObjectId): List<GameScore> {
-        if (game.countsForGlobalRanking) {
+        if (game.countsForGlobalRanking && !game.allowsFriendScores) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Batch submission is not allowed for ${game.name}")
         }
         require(scores.map { it.userId }.toSet().size == scores.size) { "Each player may only appear once per batch" }

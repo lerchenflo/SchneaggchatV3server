@@ -20,6 +20,10 @@ enum class Game(
     // Most points a run can earn per second of its reported timeMillis (plus one second of grace);
     // for endless games whose ceiling depends on how long the run lasted. null = no rate limit.
     val maxPointsPerSecond: Long? = null,
+    // Online games whose client may also submit a score for a friend of the player through
+    // /games/upsertbatch (Schneagg Rodeo: a lassoed friend rides along and gets the run's score),
+    // even though the game counts for the global ranking.
+    val allowsFriendScores: Boolean = false,
 ) {
     TETRIS(higherScoreWins = true, lowerTimeWins = true),
     TOWERSTACK(higherScoreWins = true, lowerTimeWins = true),
@@ -43,7 +47,9 @@ enum class Game(
     // the shorter run wins. Points are distance / 10 (at most 18 per second at top speed) plus 25 per
     // lassoed snail (one throw per 0.8 s at most, so at most 31.25 per second) - 50 per second of run
     // time is out of reach. The flat cap equals ~2.8 hours at that impossible pace.
-    SCHNEAGG_RODEO(higherScoreWins = true, lowerTimeWins = true, maxScore = 500_000, maxPointsPerSecond = 50),
+    // A friend lassoed during a run rides along; the client submits the run's score for them too
+    // via /games/upsertbatch (allowsFriendScores), with the same limits.
+    SCHNEAGG_RODEO(higherScoreWins = true, lowerTimeWins = true, maxScore = 500_000, maxPointsPerSecond = 50, allowsFriendScores = true),
 
     // Offline games played on one phone; the host submits every player's result via /games/upsertbatch.
     // Final score of a finished game; timeMillis is always 0.
