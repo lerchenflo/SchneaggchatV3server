@@ -259,6 +259,7 @@ class MessageService(
 
             //Throw if the message is not a poll
             require(message.msgType == MessageType.POLL && message.poll != null) { "This is not a poll message" }
+            require(!message.deleted) { "This poll was deleted" }
 
             //Validate pollrequest
 
@@ -306,6 +307,13 @@ class MessageService(
 
             //Block new selections on a full entry (unselecting your own claim is always allowed)
             val targetOption = poll.voteOptions.find { it.id == pollVoteRequest.id }
+
+            //A repeated select (double tap, network retry) or an unselect of an option the user never
+            //picked changes nothing - return before the answer limit below drops the user's oldest
+            //vote (and with it their sub poll answers) for no reason
+            if (targetOption != null && pollVoteRequest.selected == targetOption.hasVoter(requestingUserId)) {
+                return@withOptimisticRetry message
+            }
             if (pollVoteRequest.selected && targetOption?.maxVoters != null) {
                 val claimedByOthers = targetOption.voters.count { it.userId != requestingUserId }
                 require(claimedByOthers < targetOption.maxVoters) { "This entry is full" }
@@ -451,6 +459,7 @@ class MessageService(
             )
 
             require(message.msgType == MessageType.POLL && message.poll != null) { "This is not a poll message" }
+            require(!message.deleted) { "This poll was deleted" }
 
             val rootPoll = message.poll
 
