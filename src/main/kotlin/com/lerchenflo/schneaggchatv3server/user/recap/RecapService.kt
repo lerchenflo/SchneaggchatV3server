@@ -3,19 +3,22 @@
 package com.lerchenflo.schneaggchatv3server.user.recap
 
 import com.lerchenflo.schneaggchatv3server.games.GamesService
-import com.lerchenflo.schneaggchatv3server.games.model.Difficulty
-import com.lerchenflo.schneaggchatv3server.games.model.Game
 import com.lerchenflo.schneaggchatv3server.games.model.LeaderboardPeriod
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.PollMessage
+import com.lerchenflo.schneaggchatv3server.notifications.websocket.connectiontimelogger.ConnectionTimeLogger
 import com.lerchenflo.schneaggchatv3server.user.recap.model.AccountRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.BetaTesterRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.BetaTesterRow
 import com.lerchenflo.schneaggchatv3server.user.recap.model.DayCount
+import com.lerchenflo.schneaggchatv3server.user.recap.model.DurationDayCount
+import com.lerchenflo.schneaggchatv3server.user.recap.model.DurationMonthCount
 import com.lerchenflo.schneaggchatv3server.user.recap.model.EmojiCount
-import com.lerchenflo.schneaggchatv3server.user.recap.model.GameRecapEntry
+import com.lerchenflo.schneaggchatv3server.user.recap.model.GamesLeaderboardRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.GamesLeaderboardRow
 import com.lerchenflo.schneaggchatv3server.user.recap.model.GroupActivity
 import com.lerchenflo.schneaggchatv3server.user.recap.model.GroupsRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.LeaderboardRecap
@@ -33,6 +36,7 @@ import com.lerchenflo.schneaggchatv3server.user.recap.model.PollsRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.ReactionsRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.RecapResponse
 import com.lerchenflo.schneaggchatv3server.user.recap.model.SocialRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.UsageTimeRecap
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.repository.LogRepository
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryVersionRepository
@@ -56,6 +60,7 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 private const val LEADERBOARD_SIZE = 20
+private const val GAMES_LEADERBOARD_SIZE = 10
 private val RECAP_ZONE: ZoneId = ZoneId.of("Europe/Vienna")
 
 @Service
@@ -68,6 +73,7 @@ class RecapService(
     private val gamesService: GamesService,
     private val logRepository: LogRepository,
     private val mapEntryVersionRepository: MapEntryVersionRepository,
+    private val connectionTimeLogger: ConnectionTimeLogger,
     private val mongoTemplate: MongoTemplate,
 ) {
 
@@ -108,15 +114,68 @@ class RecapService(
             account = buildAccountRecap(self, requesterId, yearStart, yearEnd),
             messaging = buildMessagingRecap(allMessages, yearMessages, requesterId, nameFor, groupNameFor),
             reactions = buildReactionsRecap(allMessages, yearMessages, requesterId),
-            polls = buildPollsRecap(allMessages, requesterId),
+            polls = buildPollsRecap(allMessages, yearMessages, requesterId, yearStart, yearEnd),
             social = buildSocialRecap(requesterId, yearStart, yearEnd),
             topPartners = buildTopPartners(yearMessages, requesterId, nameFor, groupNameFor),
             globalLeaderboard = buildLeaderboard(requesterId, yearStart, yearEnd),
             groups = buildGroupsRecap(requesterId, yearMessages, groupNameFor),
             map = buildMapRecap(requesterId, yearStart, yearEnd),
-            games = buildGamesRecap(requesterId),
+            gamesLeaderboard = buildGamesLeaderboard(requesterId, year),
             betaTester = buildBetaTesterRecap(requesterId),
             passwordResets = buildPasswordResetRecap(requesterId, yearStart, yearEnd),
+            usageTime = buildUsageTimeRecap(requesterId, yearStart, yearEnd),
+        )
+    }
+
+    private fun kotlin.time.Instant.zoned() =
+        Instant.ofEpochSecond(epochSeconds, nanosecondsOfSecond.toLong()).atZone(RECAP_ZONE)
+
+    // One session per WebSocket connection. Parallel sessions (phone + desktop) are deliberately
+    // NOT merged - each device's online time counts on its own. A session is attributed to the
+    // day/month/hour it started in.
+    private fun buildUsageTimeRecap(requesterId: ObjectId, yearStart: Long, yearEnd: Long): UsageTimeRecap {
+        val sessions = connectionTimeLogger.getUserSessions(requesterId)
+            .map { it.startTime to (it.endTime - it.startTime).inWholeMilliseconds }
+            .filter { (_, millis) -> millis > 0 }
+        val yearSessions = sessions.filter { (start, _) -> start.epochSeconds in yearStart until yearEnd }
+
+        val totalThisYear = yearSessions.sumOf { it.second }
+        val longest = yearSessions.maxByOrNull { it.second }
+
+        val busiestDay = yearSessions
+            .groupBy({ it.first.zoned().toLocalDate() }, { it.second })
+            .mapValues { it.value.sum() }
+            .maxByOrNull { it.value }
+            ?.let { DurationDayCount(date = it.key.toString(), millis = it.value) }
+
+        val busiestHour = yearSessions
+            .groupBy({ it.first.zoned().hour }, { it.second })
+            .mapValues { it.value.sum() }
+            .maxByOrNull { it.value }
+            ?.key
+
+        val perMonth = (1..12).map { month ->
+            DurationMonthCount(
+                month = month,
+                millis = yearSessions.filter { it.first.zoned().monthValue == month }.sumOf { it.second },
+            )
+        }
+
+        return UsageTimeRecap(
+            totalMillisThisYear = totalThisYear,
+            totalMillisAllTime = sessions.sumOf { it.second },
+            sessionCountThisYear = yearSessions.size.toLong(),
+            averageSessionMillis = if (yearSessions.isNotEmpty()) totalThisYear / yearSessions.size else 0L,
+            longestSessionMillis = longest?.second ?: 0L,
+            longestSessionAt = longest?.first?.toEpochMilliseconds(),
+            busiestDay = busiestDay,
+            busiestHourOfDay = busiestHour,
+            perMonth = perMonth,
+            // Coarsened to the first of the month: the exact value is one real user's connect time
+            trackingSince = connectionTimeLogger.getTrackingStart()?.let {
+                Instant.ofEpochSecond(it.epochSeconds).atZone(RECAP_ZONE).toLocalDate().withDayOfMonth(1)
+                    .atStartOfDay(RECAP_ZONE).toInstant().toEpochMilli()
+            },
         )
     }
 
@@ -252,9 +311,20 @@ class RecapService(
         )
     }
 
-    private fun buildPollsRecap(allMessages: List<Message>, requesterId: ObjectId): PollsRecap {
-        val pollsCreated = allMessages.count { it.msgType == MessageType.POLL && it.senderId == requesterId }
-        val votesCast = allMessages.sumOf { (it.poll?.getVoteCountForUser(requesterId) ?: 0).toLong() }
+    private fun buildPollsRecap(
+        allMessages: List<Message>,
+        yearMessages: List<Message>,
+        requesterId: ObjectId,
+        yearStart: Long,
+        yearEnd: Long,
+    ): PollsRecap {
+        val pollsCreated = yearMessages.count { it.msgType == MessageType.POLL && it.senderId == requesterId }
+        // A vote counts in the year it was cast, even on an older poll; sub polls count too.
+        fun PollMessage.votesInYear(): Long = voteOptions.sumOf { option ->
+            option.voters.count { it.userId == requesterId && it.votedAt.epochSeconds in yearStart until yearEnd }.toLong() +
+                (option.subPoll?.votesInYear() ?: 0L)
+        }
+        val votesCast = allMessages.sumOf { it.poll?.votesInYear() ?: 0L }
         return PollsRecap(pollsCreated = pollsCreated.toLong(), pollVotesCast = votesCast)
     }
 
@@ -315,6 +385,7 @@ class RecapService(
         val aggregation = Aggregation.newAggregation(
             Aggregation.match(
                 Criteria.where("deleted").`is`(false)
+                    .and("msgType").ne(MessageType.SYSTEM)
                     .and("sendDate.epochSeconds").gte(yearStart).lt(yearEnd)
             ),
             Aggregation.group("senderId")
@@ -414,26 +485,29 @@ class RecapService(
         )
     }
 
-    // Iterates every game/difficulty pair, reusing GamesService.getHighscores (which already carries the
-    // requester's true rank) - explicitly not optimized for cost per product decision.
-    private fun buildGamesRecap(requesterId: ObjectId): List<GameRecapEntry> {
+    // Reuses the public global ranking from the games screen. It can only rank from a start date up to
+    // now, so the current year uses YEARLY and an older recap year falls back to ALL_TIME.
+    private fun buildGamesLeaderboard(requesterId: ObjectId, year: Int): GamesLeaderboardRecap {
+        val period = if (year == ZonedDateTime.now(RECAP_ZONE).year) LeaderboardPeriod.YEARLY else LeaderboardPeriod.ALL_TIME
+        val entries = gamesService.getGlobalRanking(period, requesterId).entries
         val requesterHex = requesterId.toHexString()
-        val entries = mutableListOf<GameRecapEntry>()
-        for (game in Game.entries) {
-            for (difficulty in Difficulty.entries) {
-                val mine = gamesService.getHighscores(game, difficulty, LeaderboardPeriod.ALL_TIME, requesterId).entries
-                    .find { it.userId == requesterHex } ?: continue
-                entries += GameRecapEntry(
-                    game = game.name,
-                    difficulty = difficulty.name,
-                    bestScore = mine.score,
-                    bestTimeMillis = mine.timeMillis,
-                    rank = mine.rank,
-                    achievedAt = mine.achievedAt,
+        val mine = entries.find { it.userId == requesterHex }
+        return GamesLeaderboardRecap(
+            top = entries.filter { it.rank <= GAMES_LEADERBOARD_SIZE }.map {
+                GamesLeaderboardRow(
+                    rank = it.rank,
+                    userId = it.userId,
+                    username = it.username,
+                    points = it.points,
+                    boardsPlayed = it.boardsPlayed,
+                    gamesPlayed = it.gamesPlayed,
                 )
-            }
-        }
-        return entries
+            },
+            myRank = mine?.rank,
+            myPoints = mine?.points ?: 0,
+            myBoardsPlayed = mine?.boardsPlayed ?: 0,
+            myGamesPlayed = mine?.gamesPlayed ?: 0,
+        )
     }
 
     private data class UserExceptionCount(val userId: ObjectId, val count: Long)
