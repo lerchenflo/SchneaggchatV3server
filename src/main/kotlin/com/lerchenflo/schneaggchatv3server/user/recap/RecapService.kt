@@ -3,8 +3,6 @@
 package com.lerchenflo.schneaggchatv3server.user.recap
 
 import com.lerchenflo.schneaggchatv3server.games.GamesService
-import com.lerchenflo.schneaggchatv3server.games.model.Difficulty
-import com.lerchenflo.schneaggchatv3server.games.model.Game
 import com.lerchenflo.schneaggchatv3server.games.model.LeaderboardPeriod
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
@@ -19,7 +17,8 @@ import com.lerchenflo.schneaggchatv3server.user.recap.model.DayCount
 import com.lerchenflo.schneaggchatv3server.user.recap.model.DurationDayCount
 import com.lerchenflo.schneaggchatv3server.user.recap.model.DurationMonthCount
 import com.lerchenflo.schneaggchatv3server.user.recap.model.EmojiCount
-import com.lerchenflo.schneaggchatv3server.user.recap.model.GameRecapEntry
+import com.lerchenflo.schneaggchatv3server.user.recap.model.GamesLeaderboardRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.GamesLeaderboardRow
 import com.lerchenflo.schneaggchatv3server.user.recap.model.GroupActivity
 import com.lerchenflo.schneaggchatv3server.user.recap.model.GroupsRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.LeaderboardRecap
@@ -61,6 +60,7 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 private const val LEADERBOARD_SIZE = 20
+private const val GAMES_LEADERBOARD_SIZE = 10
 private val RECAP_ZONE: ZoneId = ZoneId.of("Europe/Vienna")
 
 @Service
@@ -120,7 +120,7 @@ class RecapService(
             globalLeaderboard = buildLeaderboard(requesterId, yearStart, yearEnd),
             groups = buildGroupsRecap(requesterId, yearMessages, groupNameFor),
             map = buildMapRecap(requesterId, yearStart, yearEnd),
-            games = buildGamesRecap(requesterId),
+            gamesLeaderboard = buildGamesLeaderboard(requesterId, year),
             betaTester = buildBetaTesterRecap(requesterId),
             passwordResets = buildPasswordResetRecap(requesterId, yearStart, yearEnd),
             usageTime = buildUsageTimeRecap(requesterId, yearStart, yearEnd),
@@ -485,26 +485,29 @@ class RecapService(
         )
     }
 
-    // Iterates every game/difficulty pair, reusing GamesService.getHighscores (which already carries the
-    // requester's true rank) - explicitly not optimized for cost per product decision.
-    private fun buildGamesRecap(requesterId: ObjectId): List<GameRecapEntry> {
+    // Reuses the public global ranking from the games screen. It can only rank from a start date up to
+    // now, so the current year uses YEARLY and an older recap year falls back to ALL_TIME.
+    private fun buildGamesLeaderboard(requesterId: ObjectId, year: Int): GamesLeaderboardRecap {
+        val period = if (year == ZonedDateTime.now(RECAP_ZONE).year) LeaderboardPeriod.YEARLY else LeaderboardPeriod.ALL_TIME
+        val entries = gamesService.getGlobalRanking(period, requesterId).entries
         val requesterHex = requesterId.toHexString()
-        val entries = mutableListOf<GameRecapEntry>()
-        for (game in Game.entries) {
-            for (difficulty in Difficulty.entries) {
-                val mine = gamesService.getHighscores(game, difficulty, LeaderboardPeriod.ALL_TIME, requesterId).entries
-                    .find { it.userId == requesterHex } ?: continue
-                entries += GameRecapEntry(
-                    game = game.name,
-                    difficulty = difficulty.name,
-                    bestScore = mine.score,
-                    bestTimeMillis = mine.timeMillis,
-                    rank = mine.rank,
-                    achievedAt = mine.achievedAt,
+        val mine = entries.find { it.userId == requesterHex }
+        return GamesLeaderboardRecap(
+            top = entries.filter { it.rank <= GAMES_LEADERBOARD_SIZE }.map {
+                GamesLeaderboardRow(
+                    rank = it.rank,
+                    userId = it.userId,
+                    username = it.username,
+                    points = it.points,
+                    boardsPlayed = it.boardsPlayed,
+                    gamesPlayed = it.gamesPlayed,
                 )
-            }
-        }
-        return entries
+            },
+            myRank = mine?.rank,
+            myPoints = mine?.points ?: 0,
+            myBoardsPlayed = mine?.boardsPlayed ?: 0,
+            myGamesPlayed = mine?.gamesPlayed ?: 0,
+        )
     }
 
     private data class UserExceptionCount(val userId: ObjectId, val count: Long)

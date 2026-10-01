@@ -12,7 +12,10 @@ data class RecapResponse(
     val globalLeaderboard: LeaderboardRecap,
     val groups: GroupsRecap,
     val map: MapRecap,
-    val games: List<GameRecapEntry>,
+    // Always empty: per-board results were replaced by gamesLeaderboard. Kept so older clients,
+    // which require the field, still deserialize the response.
+    val games: List<Any> = emptyList(),
+    val gamesLeaderboard: GamesLeaderboardRecap,
     val betaTester: BetaTesterRecap,
     val passwordResets: PasswordResetRecap,
     val usageTime: UsageTimeRecap,
@@ -144,13 +147,23 @@ data class MapLeaderboardRecap(
     val myContributionCount: Long,
 )
 
-data class GameRecapEntry(
-    val game: String,
-    val difficulty: String,
-    val bestScore: Long,
-    val bestTimeMillis: Long,
+data class GamesLeaderboardRow(
     val rank: Int,
-    val achievedAt: Long,
+    val userId: String,
+    val username: String,
+    val points: Long,
+    val boardsPlayed: Int,
+    val gamesPlayed: Int,
+)
+
+// The public global games ranking (all games together, percentile points per board) - the same
+// list the games screen shows. Same top-N + own-true-rank shape as LeaderboardRecap.
+data class GamesLeaderboardRecap(
+    val top: List<GamesLeaderboardRow>,
+    val myRank: Int?,
+    val myPoints: Long,
+    val myBoardsPlayed: Int,
+    val myGamesPlayed: Int,
 )
 
 data class BetaTesterRow(
