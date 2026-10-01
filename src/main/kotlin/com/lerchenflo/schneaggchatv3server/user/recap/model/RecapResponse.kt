@@ -15,6 +15,7 @@ data class RecapResponse(
     val games: List<GameRecapEntry>,
     val betaTester: BetaTesterRecap,
     val passwordResets: PasswordResetRecap,
+    val usageTime: UsageTimeRecap,
 )
 
 data class AccountRecap(
@@ -170,4 +171,25 @@ data class BetaTesterRecap(
 data class PasswordResetRecap(
     val passwordResetEmailsSentThisYear: Long,
     val passwordResetEmailsSentAllTime: Long,
+)
+
+data class DurationDayCount(val date: String, val millis: Long)
+data class DurationMonthCount(val month: Int, val millis: Long)
+
+// Time connected over the WebSocket, from the `socketconnections` log. Every session counts on its
+// own: two devices online at the same time add up (intentionally not merged). Sessions are
+// attributed to the day/month/hour they started in.
+data class UsageTimeRecap(
+    val totalMillisThisYear: Long,
+    val totalMillisAllTime: Long,
+    val sessionCountThisYear: Long,
+    val averageSessionMillis: Long,
+    val longestSessionMillis: Long,
+    val longestSessionAt: Long?,
+    val busiestDay: DurationDayCount?,
+    val busiestHourOfDay: Int?,
+    val perMonth: List<DurationMonthCount>,
+    // Earliest session in the whole collection - connection logging only started mid-2026, so the
+    // client can tell the user that earlier usage is missing.
+    val trackingSince: Long?,
 )

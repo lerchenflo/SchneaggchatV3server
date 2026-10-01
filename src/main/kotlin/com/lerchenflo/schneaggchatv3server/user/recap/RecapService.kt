@@ -10,10 +10,14 @@ import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.PollMessage
+import com.lerchenflo.schneaggchatv3server.notifications.websocket.connectiontimelogger.ConnectionTimeLogger
 import com.lerchenflo.schneaggchatv3server.user.recap.model.AccountRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.BetaTesterRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.BetaTesterRow
 import com.lerchenflo.schneaggchatv3server.user.recap.model.DayCount
+import com.lerchenflo.schneaggchatv3server.user.recap.model.DurationDayCount
+import com.lerchenflo.schneaggchatv3server.user.recap.model.DurationMonthCount
 import com.lerchenflo.schneaggchatv3server.user.recap.model.EmojiCount
 import com.lerchenflo.schneaggchatv3server.user.recap.model.GameRecapEntry
 import com.lerchenflo.schneaggchatv3server.user.recap.model.GroupActivity
@@ -33,6 +37,7 @@ import com.lerchenflo.schneaggchatv3server.user.recap.model.PollsRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.ReactionsRecap
 import com.lerchenflo.schneaggchatv3server.user.recap.model.RecapResponse
 import com.lerchenflo.schneaggchatv3server.user.recap.model.SocialRecap
+import com.lerchenflo.schneaggchatv3server.user.recap.model.UsageTimeRecap
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.repository.LogRepository
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryVersionRepository
@@ -68,6 +73,7 @@ class RecapService(
     private val gamesService: GamesService,
     private val logRepository: LogRepository,
     private val mapEntryVersionRepository: MapEntryVersionRepository,
+    private val connectionTimeLogger: ConnectionTimeLogger,
     private val mongoTemplate: MongoTemplate,
 ) {
 
@@ -108,7 +114,7 @@ class RecapService(
             account = buildAccountRecap(self, requesterId, yearStart, yearEnd),
             messaging = buildMessagingRecap(allMessages, yearMessages, requesterId, nameFor, groupNameFor),
             reactions = buildReactionsRecap(allMessages, yearMessages, requesterId),
-            polls = buildPollsRecap(allMessages, requesterId),
+            polls = buildPollsRecap(allMessages, yearMessages, requesterId, yearStart, yearEnd),
             social = buildSocialRecap(requesterId, yearStart, yearEnd),
             topPartners = buildTopPartners(yearMessages, requesterId, nameFor, groupNameFor),
             globalLeaderboard = buildLeaderboard(requesterId, yearStart, yearEnd),
@@ -117,6 +123,59 @@ class RecapService(
             games = buildGamesRecap(requesterId),
             betaTester = buildBetaTesterRecap(requesterId),
             passwordResets = buildPasswordResetRecap(requesterId, yearStart, yearEnd),
+            usageTime = buildUsageTimeRecap(requesterId, yearStart, yearEnd),
+        )
+    }
+
+    private fun kotlin.time.Instant.zoned() =
+        Instant.ofEpochSecond(epochSeconds, nanosecondsOfSecond.toLong()).atZone(RECAP_ZONE)
+
+    // One session per WebSocket connection. Parallel sessions (phone + desktop) are deliberately
+    // NOT merged - each device's online time counts on its own. A session is attributed to the
+    // day/month/hour it started in.
+    private fun buildUsageTimeRecap(requesterId: ObjectId, yearStart: Long, yearEnd: Long): UsageTimeRecap {
+        val sessions = connectionTimeLogger.getUserSessions(requesterId)
+            .map { it.startTime to (it.endTime - it.startTime).inWholeMilliseconds }
+            .filter { (_, millis) -> millis > 0 }
+        val yearSessions = sessions.filter { (start, _) -> start.epochSeconds in yearStart until yearEnd }
+
+        val totalThisYear = yearSessions.sumOf { it.second }
+        val longest = yearSessions.maxByOrNull { it.second }
+
+        val busiestDay = yearSessions
+            .groupBy({ it.first.zoned().toLocalDate() }, { it.second })
+            .mapValues { it.value.sum() }
+            .maxByOrNull { it.value }
+            ?.let { DurationDayCount(date = it.key.toString(), millis = it.value) }
+
+        val busiestHour = yearSessions
+            .groupBy({ it.first.zoned().hour }, { it.second })
+            .mapValues { it.value.sum() }
+            .maxByOrNull { it.value }
+            ?.key
+
+        val perMonth = (1..12).map { month ->
+            DurationMonthCount(
+                month = month,
+                millis = yearSessions.filter { it.first.zoned().monthValue == month }.sumOf { it.second },
+            )
+        }
+
+        return UsageTimeRecap(
+            totalMillisThisYear = totalThisYear,
+            totalMillisAllTime = sessions.sumOf { it.second },
+            sessionCountThisYear = yearSessions.size.toLong(),
+            averageSessionMillis = if (yearSessions.isNotEmpty()) totalThisYear / yearSessions.size else 0L,
+            longestSessionMillis = longest?.second ?: 0L,
+            longestSessionAt = longest?.first?.toEpochMilliseconds(),
+            busiestDay = busiestDay,
+            busiestHourOfDay = busiestHour,
+            perMonth = perMonth,
+            // Coarsened to the first of the month: the exact value is one real user's connect time
+            trackingSince = connectionTimeLogger.getTrackingStart()?.let {
+                Instant.ofEpochSecond(it.epochSeconds).atZone(RECAP_ZONE).toLocalDate().withDayOfMonth(1)
+                    .atStartOfDay(RECAP_ZONE).toInstant().toEpochMilli()
+            },
         )
     }
 
@@ -252,9 +311,20 @@ class RecapService(
         )
     }
 
-    private fun buildPollsRecap(allMessages: List<Message>, requesterId: ObjectId): PollsRecap {
-        val pollsCreated = allMessages.count { it.msgType == MessageType.POLL && it.senderId == requesterId }
-        val votesCast = allMessages.sumOf { (it.poll?.getVoteCountForUser(requesterId) ?: 0).toLong() }
+    private fun buildPollsRecap(
+        allMessages: List<Message>,
+        yearMessages: List<Message>,
+        requesterId: ObjectId,
+        yearStart: Long,
+        yearEnd: Long,
+    ): PollsRecap {
+        val pollsCreated = yearMessages.count { it.msgType == MessageType.POLL && it.senderId == requesterId }
+        // A vote counts in the year it was cast, even on an older poll; sub polls count too.
+        fun PollMessage.votesInYear(): Long = voteOptions.sumOf { option ->
+            option.voters.count { it.userId == requesterId && it.votedAt.epochSeconds in yearStart until yearEnd }.toLong() +
+                (option.subPoll?.votesInYear() ?: 0L)
+        }
+        val votesCast = allMessages.sumOf { it.poll?.votesInYear() ?: 0L }
         return PollsRecap(pollsCreated = pollsCreated.toLong(), pollVotesCast = votesCast)
     }
 
@@ -315,6 +385,7 @@ class RecapService(
         val aggregation = Aggregation.newAggregation(
             Aggregation.match(
                 Criteria.where("deleted").`is`(false)
+                    .and("msgType").ne(MessageType.SYSTEM)
                     .and("sendDate.epochSeconds").gte(yearStart).lt(yearEnd)
             ),
             Aggregation.group("senderId")
