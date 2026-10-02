@@ -42,6 +42,7 @@ class SocketConnectionHandler(
     @Lazy private val notificationService: NotificationService,
     // @Lazy breaks the cycle: AdminEventService -> SocketConnectionHandler (for the initial snapshot on registration).
     @Lazy private val adminEventService: AdminEventService,
+    private val pendingPushRegistry: PendingPushRegistry,
 ): TextWebSocketHandler() {
 
     companion object {
@@ -59,6 +60,9 @@ class SocketConnectionHandler(
 
         /** Outbound bytes allowed to pile up behind a slow send before the session is cut off. */
         private const val SEND_BUFFER_LIMIT_BYTES = 512 * 1024
+
+        /** Handshake header a client sets when it confirms new messages with `messageack`. */
+        const val ACK_SUPPORT_HEADER = "X-Socket-Acks"
     }
 
     var connections : CopyOnWriteArrayList<SocketConnection> = CopyOnWriteArrayList()
@@ -133,6 +137,45 @@ class SocketConnectionHandler(
         return delivered
     }
 
+    /**
+     * Like [sendMessage], for a new message whose recipient would otherwise get a push. Sessions of
+     * clients that confirm receipt only count once they ack: [push] is held in [PendingPushRegistry]
+     * and sent if none of them does. It is registered before writing, so an ack can never arrive
+     * ahead of its registration. A successful write to an older, non-acking session still counts
+     * as delivered, as before.
+     *
+     * @return true if the socket took over (delivered, or the push is pending/already handled);
+     * false if the user has no session at all and the caller has to push itself.
+     */
+    fun sendNewMessage(message: SocketConnectionMessage, receiverId: ObjectId, messageId: String, push: () -> Unit): Boolean {
+        val userConnections = connections.filter { it.userId == receiverId }
+        if (userConnections.isEmpty()) return false
+
+        val ackSessionIds = userConnections.filter { it.acksMessages }.map { it.sessionId }
+        if (ackSessionIds.isNotEmpty()) {
+            pendingPushRegistry.await(receiverId, messageId, ackSessionIds, push)
+        }
+
+        val jsonMessage = Json.mapper.writeValueAsString(message)
+        var deliveredToLegacy = false
+        for (connection in userConnections) {
+            try {
+                connection.session.sendMessage(TextMessage(jsonMessage))
+                if (!connection.acksMessages) deliveredToLegacy = true
+            } catch (e: Exception) {
+                if (!e.isPeerGone()) {
+                    AppLogger.error("Error sending socket message to user $receiverId (session ${connection.sessionId}): ${e.describe()}")
+                }
+                // Unregistering also releases this session's pending pushes right away
+                closeDeadConnection(connection)
+            }
+        }
+
+        if (deliveredToLegacy) pendingPushRegistry.ack(receiverId, messageId)
+
+        return deliveredToLegacy || ackSessionIds.isNotEmpty()
+    }
+
     override fun handleTextMessage(session: WebSocketSession, message: TextMessage) {
         val senderId = connections.find { it.sessionId == session.id }?.userId ?: return
 
@@ -156,6 +199,7 @@ class SocketConnectionHandler(
                     ),
                 )
             }
+            is SocketConnectionMessage.MessageAck -> pendingPushRegistry.ack(senderId, parsed.messageId)
             // All other message types are server -> client only; ignore if received inbound.
             else -> AppLogger.warn("Ignoring unsupported inbound socket message type from user $senderId")
         }
@@ -260,6 +304,7 @@ class SocketConnectionHandler(
                 sessionId = session.id,
                 userId = userId,
                 session = safeSession,
+                acksMessages = session.handshakeHeaders.getFirst(ACK_SUPPORT_HEADER) == "1",
             )
         }
 
@@ -305,6 +350,9 @@ class SocketConnectionHandler(
         }
 
         connectionToRemove ?: return
+
+        // Whatever this session had not confirmed yet will not be confirmed any more - push it
+        pendingPushRegistry.onSessionClosed(sessionId)
 
         connectionTimeLogger.upsertEntry(
             userId = connectionToRemove.userId,

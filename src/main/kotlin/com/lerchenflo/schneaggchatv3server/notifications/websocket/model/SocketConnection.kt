@@ -10,6 +10,13 @@ data class SocketConnection (
     val userId: ObjectId,
     val session: WebSocketSession,
 
+    /**
+     * The client confirms every new message it receives (`messageack`), so a write to this session
+     * is not delivery yet - see PendingPushRegistry. Announced in the handshake; older clients do
+     * not, and for them a successful write still counts as delivered.
+     */
+    val acksMessages: Boolean = false,
+
     val startedAt: Instant = Clock.System.now(),
 ) {
     /**
