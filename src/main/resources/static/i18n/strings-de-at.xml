@@ -47,7 +47,7 @@
     <string name="compare_pin_own">Unbegrenzt</string>
     <string name="compare_pin_snapchat">Nur mit Snapchat+ (kostet)</string>
     <string name="compare_pin_whatsapp">Maximal 3 Chats</string>
-    <string name="compare_polls_own">Eigene Optiona, Limit pro Antwort, Optiona löschbar</string>
+    <string name="compare_polls_own">Eigene Optiona, Limit pro Antwort, Unterumfroga, Optiona löschbar</string>
     <string name="compare_polls_snapchat">Nur Story-Sticker</string>
     <string name="compare_polls_whatsapp">Nur einfache Umfroga</string>
     <string name="compare_reactions_own">Freitext bis zu 10 Zeicha, ned nur Emojis</string>
@@ -147,7 +147,7 @@
     <string name="feature_map_title">Schneaggmap</string>
     <string name="feature_platform_text">Verwendbar uf jedam Gerät: Android, iOS und Desktop!</string>
     <string name="feature_platform_title">Multiplattform &amp; Open Source</string>
-    <string name="feature_polls_text">Füg eigene Antwortmöglichkeita dazua und verwend d Stimmenbegrenzung pro Option.</string>
+    <string name="feature_polls_text">Füg eigene Antwortmöglichkeita dazua, verwend d Stimmenbegrenzung pro Option und häng Unterumfroga a, die sich nur für alle öffnand, die dia Option wähland.</string>
     <string name="feature_polls_title">Umfroga</string>
     <string name="feature_security_text">Nochrichta sind bald Ende zu Ende verschlüsselt.</string>
     <string name="feature_security_badge">Bald verfügbar</string>
@@ -169,6 +169,115 @@
     <string name="nav_home">Huam</string>
     <string name="nav_privacy">Datenschutz</string>
     <string name="nav_stats">Stats</string>
+    <string name="privacy_header_intro">Mir nehmand da Schutz vo dina persönlicha Data sehr ernst. Do erfahrsch du, welche Data mir verarbeitand, warum, und welche Rechte du hosch.</string>
+    <string name="privacy_header_title">Datenschutzerklärung</string>
+    <string name="privacy_last_updated">S letzte mol aktualisiert: 26.08.2026</string>
+    <string name="privacy_s10_intro">Wenn du Froga zu derra Datenschutzerklärung hosch, kannsch du üs so erreicha:</string>
+    <string name="privacy_s10_title">Kontakt</string>
+    <string name="privacy_s1_text">Verantwortlicher im Sinn vo da DSGVO für d Verarbeitung vo dina Data in Schneaggchat isch Florian Lerchenmüller
+                (Kontakt: schneaggchat@gmail.com).
+                Schneaggchat isch a privats Projekt ohne kommerzielle Verwertung vo dina Data; an Datenschutzbeauftragta bruchts
+                gemäß Art. 37 DSGVO ned.</string>
+    <string name="privacy_s1_title">Verantwortlicher</string>
+    <string name="privacy_s2_footer">Es werrand kua Data für Werbung oda Analysa verarbeitet und kua Data verkoft.</string>
+    <string name="privacy_s2_item1">Kontodata
+                    Benutzernama, E-Mail-Adress (samt Verifizierungsstatus), Passwort (nur als Hash gspeichert, nia im Klartext),
+                    Profilbeschreibung, Status, Geburtsdatum, optional Telefonnummer, Profilbild, sowie Erstellungs- und letzte
+                    Online-Zit. Rechtsgrundlage: Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO). Speicherdauer: bis zur Kontolöschung.</string>
+    <string name="privacy_s2_item10">App-Einstellunga
+                    Einstellunga, die du sealba wählsch, wia Theme, Sproch und Kartastil, synchronisiert uf all dine Geräte.</string>
+    <string name="privacy_s2_item11">IP-Adress
+                    Wird kurz zur Missbrauchsabwehr (Rate-Limiting) verwendet, aber ned dauerhaft in da
+                    Datenbank gspeichert.</string>
+    <string name="privacy_s2_item2">Nochrichta und Media
+                    Text-, Bild- und Sprochnochrichta, Umfroga, Reaktiona und Lesebestätigunga. D Übertragung isch per TLS verschlüsselt,
+                    gspeichert wird ufam Server aber unverschlüsselt. Rechtsgrundlage: Vertragserfüllung.</string>
+    <string name="privacy_s2_item3">Standortdata
+                    Nur wenn du d Standortfreigab für einzelne Freunde aktiviersch (Opt-in), zusätzlich optional Gschwindigkeit,
+                    Richtung, Höhe und Akkustand, wenn din Gerät des liefert. Rechtsgrundlage: Einwilligung (Art. 6 Abs. 1 lit. a DSGVO),
+                    jederzit widerrufbar. Standortpunkte werrand noch 24 Stunda automatisch glöscht.</string>
+    <string name="privacy_s2_item4">Schneaggmap-Einträg
+                    Kartapunkte, die du erstellt oda bearbeitet hosch, samt Änderungsverlauf (inkl. dinam Benutzernama zum
+                    Zitpunkt vo da Änderung). Für alle User sichtbar. Rechtsgrundlage: berechtigts Interesse an na
+                    gmeinsam gpflegta Karta (Art. 6 Abs. 1 lit. f DSGVO).</string>
+    <string name="privacy_s2_item5">Gruppa und Events
+                    Gruppamitgliedschaft, und bei Events Titel, Beschreibung, Ort, Zitraum und d igladana User. Als
+                    "öffentlich" markierte Events sind für alle Freunde vom Ersteller sichtbar, o ohne Iladung.</string>
+    <string name="privacy_s2_item6">Spiele
+                    Erreichte Punkte inklusive Spielmodus und Zit. D Highscores zoagand din Benutzernama öffentlich für
+                    andre User.</string>
+    <string name="privacy_s2_item7">Push-Benachrichtigunga
+                    Geräte-Tokens für Firebase Cloud Messaging (Android) bzw. Apple Push Notification Service (iOS), luag
+                    Abschnitt „Empfänger" unta.</string>
+    <string name="privacy_s2_item8">Protokolldata
+                    Technische Ereignisprotokolle (z. B. Login, Nochricht gschickt, Passwort-Reset agfordert) und Zitpunkt
+                    und Dauer vo Verbindunga zum Server. Rechtsgrundlage: berechtigts Interesse an Betrieb und
+                    Fehleranalyse (Art. 6 Abs. 1 lit. f DSGVO).</string>
+    <string name="privacy_s2_item9">Login-Sitzunga
+                    Refresh-Tokens, damit du igloggt bliebsch, gültig für 30 Täg und danoch automatisch glöscht.</string>
+    <string name="privacy_s2_title">Welche Data mir verarbeitand</string>
+    <string name="privacy_s3_footer">Sus werrand kua Data an Dritte wittagia.</string>
+    <string name="privacy_s3_intro">Für da Betrieb vo Schneaggchat verwendand mir die folgenda externa Dienste (Auftragsverarbeiter bzw. eigenverantwortliche Dritte):</string>
+    <string name="privacy_s3_item1">Google Firebase Cloud Messaging und Apple Push Notification Service
+                    Kriagand din Geräte-Token, da Benutzernama vom Absender und Nochrichta-Metadata, zum Push-Benachrichtigunga
+                    zuastella. Da eigentliche Nochrichtainhalt wird vor da Übertragung verschlüsselt; da Anbieter und din
+                    Gerätehersteller kriagand ean ned im Klartext.</string>
+    <string name="privacy_s3_item2">Google Mail (Gmail SMTP)
+                    Wird zum Verschicka vo Verifizierungs-, Passwort-Reset- und Kontolöschungs-E-Mails verwendet und kriagt dafür
+                    dine E-Mail-Adress und da Mailinhalt.</string>
+    <string name="privacy_s3_item3">Cloudflare (cdnjs) und Google Fonts
+                    Wenn du die Website ufrufsch, werrand Schriftarta und Icons vo deana Anbieter glada. Dabei goht dine
+                    IP-Adress an ihre Server (teils ussahalb vo da EU, vor allem in d USA).</string>
+    <string name="privacy_s3_title">Empfänger vo dina Data</string>
+    <string name="privacy_s4_text">D Data werrand uf nam Server in 6850 Dornbirn, Österreich gspeichert. Die oba gnennta externa
+                Dienstleister verarbeitand Data teilweise außerhalb vo da EU/vom EWR.</string>
+    <string name="privacy_s4_title">Speicherort</string>
+    <string name="privacy_s5_footer">Du kannsch din Account jederzit sealbsch über d App oda über
+                dia Sitta löscha. Für alles andre schrieb üs
+                an schneaggchat@gmail.com.</string>
+    <string name="privacy_s5_intro">Bei dina persönlicha Data hosch du vor allem die folgenda Rechte:</string>
+    <string name="privacy_s5_item1">Auskunft über d Data, die mir verarbeitand (Art. 15 DSGVO)</string>
+    <string name="privacy_s5_item2">Berichtigung vo falscha Data (Art. 16 DSGVO)</string>
+    <string name="privacy_s5_item3">Löschung vo dina Data (Art. 17 DSGVO) — z. B. durch Löscha vo dinam Account</string>
+    <string name="privacy_s5_item4">Einschränkung vo da Verarbeitung (Art. 18 DSGVO)</string>
+    <string name="privacy_s5_item5">Datenübertragbarkeit (Art. 20 DSGVO)</string>
+    <string name="privacy_s5_item6">Widerspruch gega Verarbeitunga, die uf berechtigtam Interesse beruhand (Art. 21 DSGVO)</string>
+    <string name="privacy_s5_item7">Widerruf vo nar Einwilligung, die du gia hosch (z. B. Standortfreigab, Weckerfeature), mit Wirkung für d Zukunft</string>
+    <string name="privacy_s5_item8">Beschwerde bei na Aufsichtsbehörde, in Österreich bei da Datenschutzbehörde (Art. 77 DSGVO)</string>
+    <string name="privacy_s5_title">Dine Rechte</string>
+    <string name="privacy_s6_footer">Mir schaffand dra, dass o die restlicha Data in Zukunft automatisch bim Löscha vom Account entfernt bzw. anonymisiert werrand.</string>
+    <string name="privacy_s6_intro">Wenn du din Account löschesch, entfernand mir sofort:</string>
+    <string name="privacy_s6_notremoved1">Dine Beiträg zur Schneaggmap samt Änderungsverlauf (bliband unter dinam damaliga Benutzernama sichtbar)</string>
+    <string name="privacy_s6_notremoved2">Spiel-Punktestände, die du scho erreicht hosch</string>
+    <string name="privacy_s6_notremoved3">Technische Protokolldata (z. B. Login-Verlauf)</string>
+    <string name="privacy_s6_notremoved4">Regelmäßige Datenbank-Backups, bis se im normala Zyklus überschrieba werrand</string>
+    <string name="privacy_s6_notremoved_intro">Us technischa Gründ werrand derzit no ned glöscht:</string>
+    <string name="privacy_s6_removed1">Din Account samt Zugangsdata und Login-Sitzunga</string>
+    <string name="privacy_s6_removed2">All dine Freundschafta und Gruppamitgliedschafta</string>
+    <string name="privacy_s6_removed3">All Nochrichta, die du gschickt oda kriagt hosch, samt Bild- und Sprochdateia</string>
+    <string name="privacy_s6_removed4">Din Profilbild</string>
+    <string name="privacy_s6_title">Was bim Löscha vo dinam Account passiert</string>
+    <string name="privacy_s7_footer">Trotz deana Maßnahma kann kua Datenübertragung oda -speicherung als absolut sicher garantiert werra.</string>
+    <string name="privacy_s7_intro">Mir verwendand unter anderem die folgenda technischa Schutzmaßnahma:</string>
+    <string name="privacy_s7_item1">Verschlüsselung vo da Datenübertragung (TLS)</string>
+    <string name="privacy_s7_item2">Passwörter werrand nur als Hash gspeichert, nia im Klartext</string>
+    <string name="privacy_s7_item3">Kurzlebige Zugriffs-Tokens (15 Minuta) mit nam separata, länger gültiga Refresh-Token</string>
+    <string name="privacy_s7_item4">Rate-Limiting gega automatisierte Agriff</string>
+    <string name="privacy_s7_item5">Verschlüsselung vo Push-Benachrichtigungsinhalt</string>
+    <string name="privacy_s7_item6">Zuagriffsbeschränkunga uf da Server</string>
+    <string name="privacy_s7_title">Üsre Sicherheitsmaßnahma</string>
+    <string name="privacy_s8_text">Schneaggchat richtet sich ned gezielt an Kinder. User söttand s Mindestalter erreicht ho, des noch gealtendem Recht
+                für d Zustimmung zur Datenverarbeitung nötig isch, oda d Zustimmung vo nam
+                Erziehungsberechtigta ihola.</string>
+    <string name="privacy_s8_title">Minderjährige</string>
+    <string name="privacy_s9_text">Mir bheband üs vor, die Datenschutzerklärung in Zukunft zum ändra.
+                Über alle Änderunga informierand mir di, indem mir die neue Datenschutzerklärung uf derra Sitta veröffentlichand.
+                Mir empfehland dir, die Datenschutzerklärung regelmäßig uf Änderunga zum überprüfa.
+                Änderunga vo derra Datenschutzerklärung werrand gültig, sobald se uf derra Sitta veröffentlicht sind.</string>
+    <string name="privacy_s9_title">Vorbehalt zur Änderung vo da Datenschutzerklärung</string>
+    <string name="privacy_warning_item1">Nochrichta sind ned Ende-zu-Ende-verschlüsselt — se sind während da Übertragung per TLS gschützt, liegand ufam Server aber unverschlüsselt.</string>
+    <string name="privacy_warning_item2">Beiträg zur Schneaggmap (Kartapunkte samt Änderungsverlauf) bliband o noch am Löscha vo dinam Account unter dinam damaliga Benutzernama sichtbar.</string>
+    <string name="privacy_warning_title">Zwoa Sacha, die du wissa söttsch</string>
     <string name="reset_button">Reset-Link afordra</string>
     <string name="reset_hint_1h">Da Link isch 1 Stund gültig</string>
     <string name="reset_info_1">Du kriagsch a E-Mail mit nam Reset-Link</string>
