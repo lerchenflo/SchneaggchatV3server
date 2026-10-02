@@ -47,7 +47,7 @@
     <string name="compare_pin_own">Unbegrenzt</string>
     <string name="compare_pin_snapchat">Nur mit Snapchat+ (kostet)</string>
     <string name="compare_pin_whatsapp">Maximal 3 Chats</string>
-    <string name="compare_polls_own">Eigene Optiona, Limit pro Antwort, Optiona löschbar</string>
+    <string name="compare_polls_own">Eigene Optiona, Limit pro Antwort, Unterumfroga, Optiona löschbar</string>
     <string name="compare_polls_snapchat">Nur Story-Sticker</string>
     <string name="compare_polls_whatsapp">Nur einfache Umfroga</string>
     <string name="compare_reactions_own">Freitext bis zu 10 Zeicha, ned nur Emojis</string>
@@ -147,7 +147,7 @@
     <string name="feature_map_title">Schneaggmap</string>
     <string name="feature_platform_text">Verwendbar uf jedam Gerät: Android, iOS und Desktop!</string>
     <string name="feature_platform_title">Multiplattform &amp; Open Source</string>
-    <string name="feature_polls_text">Füg eigene Antwortmöglichkeita dazua und verwend d Stimmenbegrenzung pro Option.</string>
+    <string name="feature_polls_text">Füg eigene Antwortmöglichkeita dazua, verwend d Stimmenbegrenzung pro Option und häng Unterumfroga a, die sich nur für alle öffnand, die dia Option wähland.</string>
     <string name="feature_polls_title">Umfroga</string>
     <string name="feature_security_text">Nochrichta sind bald Ende zu Ende verschlüsselt.</string>
     <string name="feature_security_badge">Bald verfügbar</string>
