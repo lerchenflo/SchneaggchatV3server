@@ -118,6 +118,7 @@ fun Message.toMessageResponse(requestingUserId: ObjectId) : MessageResponse {
         sendDate = this.sendDate.toEpochMilliseconds(),
         lastChanged = this.lastChanged.toEpochMilliseconds(),
         deleted = this.deleted,
+        edited = this.edited,
         version = this.version,
         readers = this.readers.map { it.toReaderResponse() },
         reactions = this.reactions.map { it.toReactionResponse() },
