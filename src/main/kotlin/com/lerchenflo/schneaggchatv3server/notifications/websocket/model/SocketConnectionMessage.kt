@@ -24,6 +24,7 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
     JsonSubTypes.Type(value = SocketConnectionMessage.FriendRequest::class, name = "friendrequest"),
     JsonSubTypes.Type(value = SocketConnectionMessage.MapChange::class, name = "mapchange"),
     JsonSubTypes.Type(value = SocketConnectionMessage.LocationUpdate::class, name = "locationupdate"),
+    JsonSubTypes.Type(value = SocketConnectionMessage.MessageAck::class, name = "messageack"),
     JsonSubTypes.Type(value = SocketConnectionMessage.FriendLocationChange::class, name = "friendlocationchange"),
     JsonSubTypes.Type(value = SocketConnectionMessage.FriendLocationsSnapshot::class, name = "friendlocationssnapshot"),
     JsonSubTypes.Type(value = SocketConnectionMessage.SnailTrailPointAdded::class, name = "snailtrailpointadded"),
@@ -43,6 +44,13 @@ sealed interface SocketConnectionMessage {
     data class FriendRequest(val requestingUser: String, val requestingUserName: String, val accepted: Boolean, ) : SocketConnectionMessage
 
     data class MapChange(val mapEntry: MapEntryResponse, val newEntry: Boolean, val deleted: Boolean) : SocketConnectionMessage
+
+    /**
+     * INBOUND (client -> server): the client received the new message [messageId] from a
+     * [MessageChange], so its held push fallback is not needed. Only sent by clients that
+     * announced it in the handshake - see `PendingPushRegistry`.
+     */
+    data class MessageAck(val messageId: String) : SocketConnectionMessage
 
     /**
      * INBOUND (client -> server): the sender's own current location. Only lat/long are mandatory;
