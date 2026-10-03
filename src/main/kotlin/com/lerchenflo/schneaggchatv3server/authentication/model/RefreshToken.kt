@@ -57,6 +57,13 @@ data class RefreshToken(
     val expiresAt: Instant,
     val createdAt: Instant = Clock.System.now(),
 
+    /**
+     * Last login or token refresh of this device - roughly "last active", since a running app
+     * refreshes every access token lifetime. Null on rows written before this field existed;
+     * readers fall back to [createdAt].
+     */
+    val lastUsedAt: Instant? = null,
+
     //Nullable since tokens issued before this field was added won't have it set
     val deviceName: String? = null,
     val deviceType: AuthController.DEVICETYPE? = null
