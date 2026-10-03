@@ -147,6 +147,18 @@ class GlobalExceptionHandler(
         logger.debug("Client disconnected during an async response: ${e.message}")
     }
 
+    /**
+     * Wrong username or password on login. Has to be a 401: the catch-all below answers 500, which
+     * the app shows as a server problem instead of "invalid credentials". Same answer for unknown
+     * user and wrong password, so accounts can't be enumerated. AuthService already logs the attempt.
+     */
+    @ExceptionHandler(BadCredentialsException::class)
+    fun handleBadCredentials(e: BadCredentialsException): ResponseEntity<String> {
+        return ResponseEntity
+            .status(HttpStatus.UNAUTHORIZED)
+            .body("Invalid credentials")
+    }
+
     // Catch-all handler for any unhandled exceptions
     @ExceptionHandler(Exception::class)
     fun handleGeneralException(e: Exception, request: HttpServletRequest): ResponseEntity<String> {
