@@ -55,7 +55,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
-.wrap { padding-inline: 16px; padding-block: 12px 40px; margin: 0 auto; display: grid; gap: 16px; }
+.wrap { padding-inline: 16px; padding-block: 16px 40px; max-width: 1600px; margin: 0 auto; display: grid; gap: 16px; }
 header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
 header.top h1 { font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 0; letter-spacing: 0.01em; text-wrap: balance; }
 header.top .sub { color: var(--muted); font-size: 13px; }
@@ -71,31 +71,18 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .status.ok { color: var(--ok); border-color: var(--ok); }
 .status.busy { color: var(--warn); border-color: var(--warn); }
 .status.bad { color: var(--bad); border-color: var(--bad); }
-.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
-.sheet { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; overflow: auto; height: calc(100vh - 110px); height: calc(100dvh - 110px); min-height: 360px; min-width: 0; position: relative;
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.sheet { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; overflow: auto; max-height: 78vh; min-width: 0; position: relative;
   background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 24px 24px; }
-svg#canvas { display: block; touch-action: none; user-select: none; cursor: grab; }
-svg#canvas.panning { cursor: grabbing; }
+svg#canvas { display: block; touch-action: none; user-select: none; }
 svg#canvas .box { cursor: grab; }
 svg#canvas .box.dragging { cursor: grabbing; }
-svg#canvas text { font-family: var(--font-mono); font-size: 14px; fill: var(--ink); }
-svg#canvas text.name { font-family: var(--font-display); font-size: 18px; font-weight: 600; }
-svg#canvas text.stereo { font-family: var(--font-body); font-size: 12px; fill: var(--muted); letter-spacing: 0.04em; }
-svg#canvas text.ref { fill: var(--focus); }
-svg#canvas text.subname { font-family: var(--font-body); font-size: 13px; font-weight: 600; fill: var(--ink); }
-svg#canvas text.more { font-family: var(--font-body); font-size: 12.5px; font-style: italic; fill: var(--muted); }
-svg#canvas text.rel { font-family: var(--font-body); font-size: 13px; fill: var(--muted); paint-order: stroke; stroke: var(--sheet); stroke-width: 4px; }
-svg#canvas text.rel.on { fill: var(--ink); font-weight: 600; }
-svg#canvas text.card { font-family: var(--font-body); font-size: 12.5px; fill: var(--muted); paint-order: stroke; stroke: var(--sheet); stroke-width: 4px; }
-svg#canvas text.card.on { fill: var(--accent); font-weight: 600; }
-svg#canvas .faded { opacity: 0.22; }
-svg#canvas .info { cursor: help; }
-svg#canvas .info circle { fill: var(--accent); }
-svg#canvas .info text { font-family: var(--font-display); font-size: 12px; font-weight: 600; fill: var(--accent-ink); text-anchor: middle; }
-.tip { position: fixed; z-index: 10; max-width: min(340px, calc(100vw - 32px)); background: var(--box); color: var(--ink); border: 1px solid var(--box-border); border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); pointer-events: none; display: grid; gap: 4px; }
-.tip[hidden] { display: none; }
-.tip b { font-family: var(--font-display); font-size: 15px; }
-.tip .k { color: var(--muted); font-size: 11.5px; margin-left: 6px; }
+svg#canvas text { font-family: var(--font-mono); font-size: 12px; fill: var(--ink); }
+svg#canvas text.name { font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+svg#canvas text.stereo { font-family: var(--font-body); font-size: 10.5px; fill: var(--muted); letter-spacing: 0.04em; }
+svg#canvas text.rel { font-family: var(--font-body); font-size: 11px; fill: var(--muted); }
+svg#canvas text.card { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
 svg#canvas text.empty { font-family: var(--font-body); font-size: 15px; fill: var(--muted); }
 aside.panel { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
 aside.panel h2, section.questions h2 { font-family: var(--font-display); font-size: 17px; font-weight: 600; margin: 0; }
@@ -118,22 +105,6 @@ ol.qs { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
 ol.qs li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--muted); }
 .banner { font-size: 13px; color: var(--warn); }
-.overview { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 14px; }
-.overview h2 { font-family: var(--font-display); font-size: 17px; font-weight: 600; margin: 0; }
-.ov-pkg { display: grid; gap: 8px; }
-.ov-pkg h3 { font-family: var(--font-display); font-size: 14px; font-weight: 600; margin: 0; padding: 2px 8px; border-radius: 4px; justify-self: start; text-transform: uppercase; letter-spacing: 0.06em; }
-.ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 10px; }
-.ov-card { background: var(--box); border: 1px solid var(--grid); border-radius: 6px; padding: 10px 12px; display: grid; gap: 6px; min-width: 0; }
-.ov-card b { font-family: var(--font-display); font-size: 15px; }
-.ov-card .kind { color: var(--muted); font-size: 11px; margin-left: 6px; }
-.ov-card p { margin: 0; font-size: 12.5px; color: var(--muted); }
-.ov-card code { font-family: var(--font-mono); font-size: 11.5px; overflow-wrap: anywhere; }
-.ov-card ul { margin: 0; padding-left: 16px; font-size: 12.5px; }
-.ov-sub { border: 1px dashed var(--line); border-radius: 6px; padding: 6px 8px; display: grid; gap: 4px; }
-.ov-sub .kind { margin-left: 0; margin-right: 6px; }
-.sheet3d { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; height: calc(100vh - 110px); height: calc(100dvh - 110px); min-height: 360px; position: relative; overflow: hidden; min-width: 0; }
-.sheet3d canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
-.hint3d { position: absolute; left: 12px; right: 12px; bottom: 8px; margin: 0; font-size: 12px; color: var(--muted); pointer-events: none; }
 @media (prefers-reduced-motion: no-preference) { button { transition: border-color .15s; } }
 </style>
 </head>
@@ -143,15 +114,13 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
   <header class="top">
     <div class="titleblock">
       <h1>Schneaggchat Domain Model</h1>
-      <span class="sub">Server entities (MongoDB documents of SchneaggchatV3server) and how they relate. Standard fields (id, createdAt, updatedAt, updatedBy, deleted) are hidden in the boxes; “Show all fields” lists them. Messages sync by a per-collection version counter, users, groups, events and map entries by updatedAt. Scroll or pinch to zoom, drag empty space to move around. Drag boxes, click one to edit. Edits are kept as a draft in this browser until you use “Save to file”.</span>
+      <span class="sub">Server entities (MongoDB documents) and how they relate. Drag boxes, click one to edit. Edits are kept as a draft in this browser until you use “Save to file”.</span>
     </div>
     <div class="toolbar">
       <button id="addClass" class="primary" type="button">Add class</button>
       <button id="addEnum" type="button">Add enum</button>
       <button id="zoomOut" type="button" aria-label="Zoom out">−</button>
       <button id="zoomIn" type="button" aria-label="Zoom in">+</button>
-      <button id="view3d" type="button" aria-pressed="false">3D view</button>
-      <button id="showAll" type="button" aria-pressed="false">Show all fields</button>
       <button id="saveFile" type="button" class="primary">Save to file</button>
       <button id="discard" type="button">Discard draft</button>
       <span id="status" class="status">Loaded from file</span>
@@ -161,15 +130,8 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
 
   <div class="layout">
     <div class="sheet" id="sheet"><svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg></div>
-    <div class="sheet3d" id="sheet3d" hidden><p class="hint3d">Each class is a block, each package its own floor. Drag to rotate, shift-drag or right-drag to move, scroll to zoom. Click a box to highlight its links. Editing works in the 2D view.</p></div>
     <aside class="panel" id="panel"></aside>
   </div>
-
-  <section class="overview">
-    <h2>At a glance</h2>
-    <p class="hint">Plain list of every collection: what it stores, its fields, and what it points at. Generated from the diagram above.</p>
-    <div id="overview"></div>
-  </section>
 
   <section class="questions">
     <h2>Open questions</h2>
@@ -181,16 +143,28 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     </form>
   </section>
 </div>
-<div id="tip" class="tip" role="tooltip" hidden></div>
 
 <script type="application/json" id="model">
 {
+ "packages": [
+  "user",
+  "friends",
+  "group",
+  "message",
+  "events",
+  "schneaggmap",
+  "authentication",
+  "notifications",
+  "games",
+  "website",
+  "util"
+ ],
  "entities": [
   {
    "id": "user",
    "name": "User",
-   "kind": "class",
    "pkg": "user",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "username: String",
@@ -209,64 +183,15 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "settings: PersonalUserSettings",
     "role: UserRole"
    ],
-   "note": "Collection users. username is unique (changeable via /users/changeusername), email indexed but not unique. lastSeen = when the user's last WebSocket session disconnected. allowWakeGlobal is the opt-in master switch for wake (plus FriendshipSetting.allowWake per friend). role is set by hand in MongoDB, never exposed on any UserResponse. Synced to clients by updatedAt as Simple/Friend/Self UserResponse depending on the friendship.",
-   "x": 30,
-   "y": 30
-  },
-  {
-   "id": "usersettings",
-   "name": "PersonalUserSettings",
-   "kind": "embedded",
-   "pkg": "user",
-   "fields": [
-    "mdFormat: Boolean",
-    "highlightTodaysMessageTimestamp: Boolean",
-    "theme: String",
-    "language: String",
-    "mergeMapLocations: Boolean",
-    "mergeMapUsers: Boolean",
-    "mapStyle: String",
-    "pinnedChats: List\u003cPinnedChat>",
-    "quickReactions: List\u003cString>?",
-    "developerSettings: Boolean",
-    "lastContributePopupShown: Long"
-   ],
-   "note": "Per-user app settings embedded in User, synced across all of the user's devices. theme/language/mapStyle are opaque strings mirroring client enums; the server never interprets them. quickReactions null = never customised (client default), empty list = deliberately none.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "pinned",
-   "name": "PinnedChat",
-   "kind": "embedded",
-   "pkg": "user",
-   "fields": [
-    "chatId: String",
-    "group: Boolean",
-    "pinTimePoint: Long"
-   ],
-   "note": "A pinned chat: user or group id, flag whether it is a group, pin time in epoch millis.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "role",
-   "name": "UserRole",
-   "kind": "enum",
-   "pkg": "user",
-   "fields": [
-    "USER",
-    "ADMIN"
-   ],
-   "note": "ADMIN unlocks the admin panel (chefdev). Never auto-granted.",
-   "x": 0,
-   "y": 0
+   "note": "Collection users. username is unique and the login; email is indexed but not unique. settings is an embedded PersonalUserSettings (theme, language, map style, pinned chats, ...). role USER/ADMIN is the global server admin flag.",
+   "x": 40,
+   "y": 40
   },
   {
    "id": "friendship",
    "name": "Friendship",
-   "kind": "class",
    "pkg": "friends",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "userId1: ObjectId",
@@ -276,30 +201,15 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "createdAt: Instant",
     "updatedAt: Instant"
    ],
-   "note": "Collection friendships. One row per user pair, unique on (userId1, userId2) with userId1 = smaller id. requesterId = who did the latest action.",
-   "x": 610,
-   "y": 30
-  },
-  {
-   "id": "fstatus",
-   "name": "FriendshipStatus",
-   "kind": "enum",
-   "pkg": "friends",
-   "fields": [
-    "PENDING",
-    "ACCEPTED",
-    "DECLINED",
-    "BLOCKED"
-   ],
-   "note": "State after the last change of a friendship.",
-   "x": 0,
-   "y": 0
+   "note": "Collection friendships. userId1 is always the smaller id, userId2 the bigger one; unique compound index on (userId1, userId2). Status PENDING / ACCEPTED / DECLINED / BLOCKED.",
+   "x": 40,
+   "y": 446
   },
   {
    "id": "fsetting",
    "name": "FriendshipSetting",
-   "kind": "class",
    "pkg": "friends",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "friendshipId: ObjectId",
@@ -314,51 +224,53 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "createdAt: Instant",
     "updatedAt: Instant"
    ],
-   "note": "Collection friendship_settings. One row per (friendship, user side), unique. What this user shares with the other one (location, last seen, speed/heading, 24 h snail trail), their nickname for the other, mute, and whether the other may wake them.",
-   "x": 610,
-   "y": 366
+   "note": "Collection friendship_settings. One row per user per friendship; unique on (friendshipId, userId).",
+   "x": 40,
+   "y": 690
   },
   {
-   "id": "refresh",
-   "name": "RefreshToken",
+   "id": "group",
+   "name": "Group",
+   "pkg": "group",
    "kind": "class",
-   "pkg": "authentication",
    "fields": [
     "id: ObjectId",
-    "userId: ObjectId",
-    "hashedToken: String",
-    "previousHashedToken: String?",
-    "rawToken: String?",
-    "expiresAt: Instant",
+    "name: String",
+    "description: String",
+    "updatedAt: Instant",
+    "profilePicUpdatedAt: Instant",
+    "expiresAt: Instant?",
+    "deleted: Boolean",
     "createdAt: Instant",
-    "lastUsedAt: Instant?",
-    "deviceName: String?",
-    "deviceType: DEVICETYPE?"
+    "creatorId: ObjectId"
    ],
-   "note": "Collection refreshTokens. One row per logged-in device, rotated in place on /auth/refresh: the old hash moves to previousHashedToken so a client that lost the response can replay and gets rawToken back. Login dedups on userId + deviceName + deviceType. The expireAfter TTL is inert (Instant is stored as a subdocument); DatabaseCleanupTask deletes expired rows. Web (admin panel) logins get no refresh token. Not synced to clients.",
-   "x": 1097,
-   "y": 30
+   "note": "Collection groups. expiresAt is set for event groups that delete themselves later.",
+   "x": 404,
+   "y": 40
   },
   {
-   "id": "devtype",
-   "name": "DEVICETYPE",
-   "kind": "enum",
-   "pkg": "authentication",
+   "id": "gmember",
+   "name": "GroupMember",
+   "pkg": "group",
+   "kind": "class",
    "fields": [
-    "ANDROID",
-    "IOS",
-    "DESKTOP",
-    "WEB"
+    "id: ObjectId",
+    "userid: ObjectId",
+    "groupId: ObjectId",
+    "joinedAt: Instant",
+    "admin: Boolean",
+    "color: Int",
+    "joinedAtVersion: Long"
    ],
-   "note": "AuthController.DEVICETYPE. WEB = admin panel in a browser.",
-   "x": 0,
-   "y": 0
+   "note": "Collection groupmembers. Unique on (userid, groupId). joinedAtVersion = message sync version at join time, so a new member receives the group's older messages.",
+   "x": 404,
+   "y": 320
   },
   {
    "id": "message",
    "name": "Message",
-   "kind": "class",
    "pkg": "message",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "senderId: ObjectId",
@@ -378,218 +290,15 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "reactions: List\u003cReaction>",
     "clientMessageId: String?"
    ],
-   "note": "Collection messages. receiverId is a user id, or a group id when groupMessage. For group SYSTEM messages senderId is the group id (the actor is systemEvent.actorId). answerId = message this one replies to. Version sync: every write (send, edit, react, vote, read, delete) stamps the next MESSAGES counter value; /messages/sync filters on version > since. clientMessageId makes send retries idempotent (unique per sender) and is only echoed back to the sender.",
-   "x": 1584,
-   "y": 30
-  },
-  {
-   "id": "reader",
-   "name": "Reader",
-   "kind": "embedded",
-   "pkg": "message",
-   "fields": [
-    "userId: ObjectId",
-    "readAt: Instant"
-   ],
-   "note": "Read receipt of one user.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "reaction",
-   "name": "Reaction",
-   "kind": "embedded",
-   "pkg": "message",
-   "fields": [
-    "userId: ObjectId",
-    "content: String",
-    "reactedAt: Instant"
-   ],
-   "note": "Emoji reaction (content max 10 chars) of one user.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "msgtype",
-   "name": "MessageType",
-   "kind": "enum",
-   "pkg": "message",
-   "fields": [
-    "TEXT",
-    "IMAGE",
-    "POLL",
-    "AUDIO",
-    "SYSTEM"
-   ],
-   "note": "IMAGE/AUDIO files live on disk (images_messages), not in MongoDB. SYSTEM messages carry a SystemEvent.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "poll",
-   "name": "PollMessage",
-   "kind": "embedded",
-   "pkg": "message",
-   "fields": [
-    "creatorId: ObjectId",
-    "title: String",
-    "description: String?",
-    "maxAnswers: Int?",
-    "customAnswersEnabled: Boolean",
-    "maxAllowedCustomAnswers: Int?",
-    "visibility: PollVisibility",
-    "closeDate: Instant?",
-    "voteOptions: List\u003cPollVoteOption>",
-    "allowDeleteOptions: Boolean",
-    "showCheckboxes: Boolean",
-    "visibleToAll: Boolean"
-   ],
-   "note": "Poll embedded in a POLL message. Options can carry a sub poll (a poll tree); sub polls inherit visibility and close date from the root. visibleToAll only matters on a sub poll: false = only the creator and voters of the parent option see it. null limits = unlimited.",
-   "x": 2139,
-   "y": 30
-  },
-  {
-   "id": "pollopt",
-   "name": "PollVoteOption",
-   "kind": "embedded",
-   "pkg": "message",
-   "fields": [
-    "id: String",
-    "text: String",
-    "custom: Boolean",
-    "creatorId: ObjectId",
-    "voters: List\u003cPollVoter>",
-    "maxVoters: Int?",
-    "subPoll: PollMessage?"
-   ],
-   "note": "One answer option. id is a server-generated hex string. custom = added by a voter. subPoll = follow-up poll for users who picked this option.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "pollvoter",
-   "name": "PollVoter",
-   "kind": "embedded",
-   "pkg": "message",
-   "fields": [
-    "userId: ObjectId",
-    "votedAt: Instant"
-   ],
-   "note": "A vote. Hidden from others when the poll is anonymous for the viewer.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "pollvis",
-   "name": "PollVisibility",
-   "kind": "enum",
-   "pkg": "message",
-   "fields": [
-    "PUBLIC",
-    "PRIVATE",
-    "ANONYMOUS"
-   ],
-   "note": "PUBLIC: everyone sees who voted. PRIVATE: only the creator does. ANONYMOUS: nobody does.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "sysevent",
-   "name": "SystemEvent",
-   "kind": "embedded",
-   "pkg": "message",
-   "fields": [
-    "eventType: SystemEventType",
-    "actorId: ObjectId",
-    "actorName: String",
-    "targets: List\u003cSystemEventParticipant>",
-    "text: String?",
-    "previousText: String?"
-   ],
-   "note": "Structured payload of a SYSTEM message. The client builds the localized sentence. Names are snapshotted so it still renders after someone left the group.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "sysparticipant",
-   "name": "SystemEventParticipant",
-   "kind": "embedded",
-   "pkg": "message",
-   "fields": [
-    "userId: ObjectId",
-    "userName: String"
-   ],
-   "note": "Target user of a system event, with name snapshot.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "syseventtype",
-   "name": "SystemEventType",
-   "kind": "enum",
-   "pkg": "message",
-   "fields": [
-    "GROUP_CREATED",
-    "GROUP_MEMBER_ADDED",
-    "GROUP_MEMBER_JOINED_EVENT",
-    "GROUP_MEMBER_REMOVED",
-    "GROUP_MEMBER_LEFT",
-    "GROUP_ADMIN_GRANTED",
-    "GROUP_ADMIN_REVOKED",
-    "GROUP_NAME_CHANGED",
-    "GROUP_DESCRIPTION_CHANGED",
-    "GROUP_PICTURE_CHANGED",
-    "EVENT_CHANGED",
-    "FRIENDSHIP_ACCEPTED",
-    "WAKE_SENT"
-   ],
-   "note": "Kinds of server-authored chat lines.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "group",
-   "name": "Group",
-   "kind": "class",
-   "pkg": "group",
-   "fields": [
-    "id: ObjectId",
-    "name: String",
-    "description: String",
-    "updatedAt: Instant",
-    "profilePicUpdatedAt: Instant",
-    "expiresAt: Instant?",
-    "deleted: Boolean",
-    "createdAt: Instant",
-    "creatorId: ObjectId"
-   ],
-   "note": "Collection groups. Soft deleted. expiresAt is set for event groups (event end + GroupDeleteDelay); the group is auto-deleted then. Synced by updatedAt.",
-   "x": 2640,
-   "y": 30
-  },
-  {
-   "id": "gmember",
-   "name": "GroupMember",
-   "kind": "class",
-   "pkg": "group",
-   "fields": [
-    "id: ObjectId",
-    "userid: ObjectId",
-    "groupId: ObjectId",
-    "joinedAt: Instant",
-    "admin: Boolean",
-    "color: Int",
-    "joinedAtVersion: Long"
-   ],
-   "note": "Collection groupmembers, unique on (userid, groupId). joinedAtVersion = MESSAGES counter at join time; /messages/sync uses it to send the group's full history to a member who just joined.",
-   "x": 2640,
-   "y": 300
+   "note": "Collection messages. receiverId is a user id when groupMessage = false and a group id when true. version comes from the counters collection and drives /messages/sync. Readers, reactions, poll and system event are embedded.",
+   "x": 404,
+   "y": 564
   },
   {
    "id": "event",
    "name": "Event",
-   "kind": "class",
    "pkg": "events",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "creatorId: ObjectId",
@@ -609,110 +318,15 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "updatedAt: Instant",
     "updatedBy: ObjectId"
    ],
-   "note": "Collection events. groupId = connected group chat (null = no chat). Ended = past closeDate, or past startDate when there is none. maxUsers null = unlimited. Synced by updatedAt.",
-   "x": 3098,
-   "y": 30
-  },
-  {
-   "id": "eventpart",
-   "name": "EventParticipation",
-   "kind": "embedded",
-   "pkg": "events",
-   "fields": [
-    "userId: ObjectId",
-    "status: EventParticipationStatus",
-    "updatedAt: Instant"
-   ],
-   "note": "One user's response, at most one per user. updatedAt is always stamped by the server.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "eventpartst",
-   "name": "EventParticipationStatus",
-   "kind": "enum",
-   "pkg": "events",
-   "fields": [
-    "SEEN",
-    "ACCEPTED",
-    "DISMISSED"
-   ],
-   "note": "A user's response to an event.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "eventtype",
-   "name": "EventType",
-   "kind": "enum",
-   "pkg": "events",
-   "fields": [
-    "SPORT",
-    "FOOD",
-    "BEER",
-    "DRIVING",
-    "HORSE_RIDING",
-    "PARTY",
-    "GAMING",
-    "MOVIE",
-    "TRIP",
-    "MEETUP",
-    "OUTDOOR",
-    "WORK",
-    "OTHER"
-   ],
-   "note": "Category of an event.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "eventvis",
-   "name": "EventVisibility",
-   "kind": "enum",
-   "pkg": "events",
-   "fields": [
-    "PUBLIC",
-    "FRIENDS_ONLY",
-    "INVITED_FRIENDS_ONLY"
-   ],
-   "note": "Who can see and join: all of the creator's friends (PUBLIC/FRIENDS_ONLY) or only invited users.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "gdd",
-   "name": "GroupDeleteDelay",
-   "kind": "enum",
-   "pkg": "events",
-   "fields": [
-    "NEVER",
-    "ONE_HOUR",
-    "ONE_DAY",
-    "THREE_DAYS",
-    "ONE_WEEK"
-   ],
-   "note": "How long after the event ends its group chat is deleted. Default ONE_DAY.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "latlong",
-   "name": "LatLong",
-   "kind": "embedded",
-   "pkg": "schneaggmap",
-   "fields": [
-    "lat: Double",
-    "long: Double"
-   ],
-   "note": "A coordinate. Used by MapEntry, UserLocation and Event.",
-   "x": 3658,
-   "y": 30
+   "note": "Collection events. Participations (userId, status SEEN / ACCEPTED / DISMISSED) are embedded. groupId points at the event's chat group, if one was created.",
+   "x": 753,
+   "y": 40
   },
   {
    "id": "mapentry",
    "name": "MapEntry",
-   "kind": "class",
    "pkg": "schneaggmap",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "coordinates: LatLong",
@@ -725,41 +339,15 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "updatedAt: Instant",
     "deleted: Boolean"
    ],
-   "note": "Collection map_entries. A shared place on the Schneaggmap, editable by every user. Soft deleted; every change is recorded in MapEntryVersion. Synced by updatedAt.",
-   "x": 3658,
-   "y": 212
+   "note": "Collection map_entries. Soft delete + updatedAt/updatedBy: the canonical synced-feature example.",
+   "x": 753,
+   "y": 464
   },
   {
-   "id": "locdata",
-   "name": "LocationData",
-   "kind": "embedded",
-   "pkg": "schneaggmap",
-   "fields": [
-    "«sealed» Radar, Police, MountainStreet, …",
-    "schema(): List\u003cAttributeDefinition>"
-   ],
-   "note": "Sealed class with one subtype per location kind (Radar, Police, Camping, SwimmingLocation, Wifi, FoodKebab, ... about 30). Each subtype holds AttributeValue properties and declares its schema; AttributeKey names map 1:1 to those properties.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "attrval",
-   "name": "AttributeValue",
-   "kind": "embedded",
-   "pkg": "schneaggmap",
-   "fields": [
-    "«sealed» StringValue | IntValue | DoubleValue | LongValue | BoolValue",
-    "value: Any"
-   ],
-   "note": "Typed value of one location attribute. Enum, datetime, price, distance, rating and secret attributes reuse these five value types.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "mapver",
+   "id": "mapversion",
    "name": "MapEntryVersion",
-   "kind": "class",
    "pkg": "schneaggmap",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "entryId: ObjectId",
@@ -771,44 +359,15 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "revertOfVersionId: ObjectId?",
     "revertNote: String?"
    ],
-   "note": "Collection map_entry_versions. Append-only history, one row per edit, storing only changed fields. revertOfVersionId set when undoing one version; revertNote for bulk reverts. Shown in the admin changelog.",
-   "x": 3658,
-   "y": 658
-  },
-  {
-   "id": "fieldchange",
-   "name": "FieldChange",
-   "kind": "embedded",
-   "pkg": "schneaggmap",
-   "fields": [
-    "field: String",
-    "oldValue: String?",
-    "newValue: String?"
-   ],
-   "note": "One changed field, values JSON-encoded. oldValue null on CREATE, newValue null on DELETE.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "mapchange",
-   "name": "MapChangeType",
-   "kind": "enum",
-   "pkg": "schneaggmap",
-   "fields": [
-    "CREATE",
-    "UPDATE",
-    "DELETE",
-    "RESTORE"
-   ],
-   "note": "Kind of map entry change.",
-   "x": 0,
-   "y": 0
+   "note": "Collection map_entry_versions. Edit history per map entry, used for reverts.",
+   "x": 753,
+   "y": 762
   },
   {
    "id": "userloc",
    "name": "UserLocation",
-   "kind": "class",
    "pkg": "schneaggmap",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "userId: ObjectId",
@@ -822,15 +381,79 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "distanceTraveled24hMeters: Double",
     "expiresAt: Instant"
    ],
-   "note": "Collection userlocations. One row per live position update; rows expire after 24 h (DatabaseCleanupTask), which caps the snail trail. Pushed to friends over WebSocket, gated by FriendshipSetting share flags. Not synced.",
-   "x": 4505,
-   "y": 30
+   "note": "Collection userlocations. Expires after the snail trail window (cleaned up by DatabaseCleanupTask).",
+   "x": 753,
+   "y": 1042
   },
   {
-   "id": "gamescore",
-   "name": "GameScore",
+   "id": "refresh",
+   "name": "RefreshToken",
+   "pkg": "authentication",
    "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId: ObjectId",
+    "hashedToken: String",
+    "previousHashedToken: String?",
+    "rawToken: String?",
+    "expiresAt: Instant",
+    "createdAt: Instant",
+    "deviceName: String?",
+    "deviceType: DEVICETYPE?"
+   ],
+   "note": "Collection refreshTokens. One row per device, rotated in place; previousHashedToken + rawToken allow replay recovery when a client lost a refresh response.",
+   "x": 1190,
+   "y": 40
+  },
+  {
+   "id": "apns",
+   "name": "ApnsToken",
+   "pkg": "notifications",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId: ObjectId",
+    "token: String"
+   ],
+   "note": "Collection apnstokens.",
+   "x": 1190,
+   "y": 320
+  },
+  {
+   "id": "fcm",
+   "name": "FirebaseToken",
+   "pkg": "notifications",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId: ObjectId",
+    "token: String"
+   ],
+   "note": "Collection firebasetokens.",
+   "x": 1190,
+   "y": 492
+  },
+  {
+   "id": "conn",
+   "name": "ConnectionLogEntry",
+   "pkg": "notifications",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId: ObjectId",
+    "startTime: Instant",
+    "endTime: Instant",
+    "duration: Duration"
+   ],
+   "note": "Collection socketconnections. WebSocket session durations.",
+   "x": 1190,
+   "y": 664
+  },
+  {
+   "id": "score",
+   "name": "GameScore",
    "pkg": "games",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "userId: ObjectId",
@@ -840,208 +463,15 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "timeMillis: Long",
     "createdAt: Instant"
    ],
-   "note": "Collection gamescores. One row per submitted run. Leaderboards rank by score then time (per Game rules) over a LeaderboardPeriod. Offline party games are submitted for every player by the host via /games/upsertbatch.",
-   "x": 5014,
-   "y": 30
-  },
-  {
-   "id": "game",
-   "name": "Game",
-   "kind": "enum",
-   "pkg": "games",
-   "fields": [
-    "TETRIS",
-    "TOWERSTACK",
-    "SCHNEAGGAHUS",
-    "MORSE",
-    "GRIDRUSH",
-    "ODDONEOUT",
-    "GAME_2048",
-    "CROSSWORD",
-    "WORDLE",
-    "SCHNEAGG_RODEO",
-    "YATZI",
-    "DART_COUNTER",
-    "UNDERCOVER"
-   ],
-   "note": "Each constant carries its ranking rules: higherScoreWins, lowerTimeWins, countsForGlobalRanking, sumsWins, min/maxScore, maxPointsPerSecond, allowsFriendScores.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "difficulty",
-   "name": "Difficulty",
-   "kind": "enum",
-   "pkg": "games",
-   "fields": [
-    "LOW",
-    "MEDIUM",
-    "HIGH"
-   ],
-   "note": "Separate board per difficulty. Some games reuse it for language (CROSSWORD, WORDLE) or variant (DART_COUNTER 301/501).",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "fbentry",
-   "name": "FeedbackEntry",
-   "kind": "class",
-   "pkg": "feedback",
-   "fields": [
-    "id: ObjectId",
-    "type: FeedbackType",
-    "title: String",
-    "description: String",
-    "tags: List\u003cFeedbackTag>",
-    "status: FeedbackStatus",
-    "location: String?",
-    "creatorId: ObjectId?",
-    "seedKey: String?",
-    "appVersion: String?",
-    "platform: String?",
-    "votes: Map\u003cString, FeedbackVote>",
-    "createdAt: Instant",
-    "deleted: Boolean",
-    "version: Long?"
-   ],
-   "note": "Collection feedback_entries. Feature request or bug report. Title, description and tags are immutable; status is admin-only. votes maps userId hex to vote. User entries are hard deleted; deleted is a tombstone for seeded entries only. version = optimistic locking. Not synced, fetched live.",
-   "x": 5509,
-   "y": 30
-  },
-  {
-   "id": "fbcomment",
-   "name": "FeedbackComment",
-   "kind": "class",
-   "pkg": "feedback",
-   "fields": [
-    "id: ObjectId",
-    "entryId: ObjectId",
-    "authorId: ObjectId",
-    "text: String",
-    "devComment: Boolean",
-    "appVersion: String?",
-    "platform: String?",
-    "createdAt: Instant"
-   ],
-   "note": "Collection feedback_comments. devComment = author was an admin at write time, set server-side.",
-   "x": 5509,
-   "y": 828
-  },
-  {
-   "id": "fbtype",
-   "name": "FeedbackType",
-   "kind": "enum",
-   "pkg": "feedback",
-   "fields": [
-    "FEATURE",
-    "BUG"
-   ],
-   "note": "Kind of feedback entry.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "fbstatus",
-   "name": "FeedbackStatus",
-   "kind": "enum",
-   "pkg": "feedback",
-   "fields": [
-    "REQUESTED",
-    "PLANNED",
-    "IMPLEMENTED",
-    "OPEN",
-    "CONFIRMED",
-    "FIXED"
-   ],
-   "note": "First three for FEATURE, last three for BUG. New entries start at REQUESTED / OPEN.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "fbtag",
-   "name": "FeedbackTag",
-   "kind": "enum",
-   "pkg": "feedback",
-   "fields": [
-    "CHAT",
-    "GROUPS",
-    "EVENTS",
-    "MAP",
-    "GAMES",
-    "SETTINGS",
-    "UI",
-    "NOTIFICATIONS",
-    "PERFORMANCE",
-    "OTHER"
-   ],
-   "note": "Area of the app an entry is about.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "fbvote",
-   "name": "FeedbackVote",
-   "kind": "enum",
-   "pkg": "feedback",
-   "fields": [
-    "UP",
-    "DOWN",
-    "DIDNT_KNOW",
-    "NONE"
-   ],
-   "note": "NONE only removes a vote and is never stored. DIDNT_KNOW only on implemented features.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "fcm",
-   "name": "FirebaseToken",
-   "kind": "class",
-   "pkg": "notifications",
-   "fields": [
-    "id: ObjectId",
-    "userId: ObjectId",
-    "token: String"
-   ],
-   "note": "Collection firebasetokens. FCM push token per device, unique on (userId, token).",
-   "x": 6004,
-   "y": 30
-  },
-  {
-   "id": "apns",
-   "name": "ApnsToken",
-   "kind": "class",
-   "pkg": "notifications",
-   "fields": [
-    "id: ObjectId",
-    "userId: ObjectId",
-    "token: String"
-   ],
-   "note": "Collection apnstokens. APNs push token per iOS device, unique on (userId, token).",
-   "x": 6004,
-   "y": 234
-  },
-  {
-   "id": "connlog",
-   "name": "ConnectionLogEntry",
-   "kind": "class",
-   "pkg": "notifications",
-   "fields": [
-    "id: ObjectId",
-    "userId: ObjectId",
-    "startTime: Instant",
-    "endTime: Instant",
-    "duration: Duration"
-   ],
-   "note": "Collection socketconnections. One row per closed WebSocket session, written by ConnectionTimeLogger.",
-   "x": 6004,
-   "y": 438
+   "note": "Collection gamescores.",
+   "x": 1539,
+   "y": 40
   },
   {
    "id": "donation",
    "name": "Donation",
-   "kind": "class",
    "pkg": "website",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "name: String",
@@ -1052,15 +482,15 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "updatedAt: Instant",
     "deleted: Boolean"
    ],
-   "note": "Collection donations. Shown on the public donations page, managed in the admin panel. Money in integer cents. Soft deleted.",
-   "x": 6386,
-   "y": 30
+   "note": "Collection donations.",
+   "x": 1539,
+   "y": 284
   },
   {
    "id": "faq",
    "name": "FaqEntry",
-   "kind": "class",
    "pkg": "website",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "category: FaqCategory",
@@ -1073,46 +503,28 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "updatedAt: Instant",
     "deleted: Boolean"
    ],
-   "note": "Collection faqentries. One question/answer on the public FAQ page, managed in the admin panel. German is mandatory (website fallback). seedKey set only on seeded entries. Soft deleted.",
-   "x": 6386,
-   "y": 278
+   "note": "Collection faqentries.",
+   "x": 1539,
+   "y": 546
   },
   {
-   "id": "faqtext",
-   "name": "FaqText",
-   "kind": "embedded",
-   "pkg": "website",
+   "id": "counter",
+   "name": "VersionCounter",
+   "pkg": "util",
+   "kind": "class",
    "fields": [
-    "question: String",
-    "answer: String"
+    "id: String",
+    "seq: Long"
    ],
-   "note": "Question and answer in one language.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "faqcat",
-   "name": "FaqCategory",
-   "kind": "enum",
-   "pkg": "website",
-   "fields": [
-    "GENERAL",
-    "ACCOUNT",
-    "CHATS",
-    "NOTIFICATIONS",
-    "MAP",
-    "PRIVACY",
-    "TECHNICAL"
-   ],
-   "note": "FAQ section; declaration order = order on the page.",
-   "x": 0,
-   "y": 0
+   "note": "Collection counters. One document per SyncCollection; atomic $inc hands out sync versions (VersionCounterService).",
+   "x": 1539,
+   "y": 844
   },
   {
    "id": "log",
    "name": "Log",
-   "kind": "class",
    "pkg": "util",
+   "kind": "class",
    "fields": [
     "id: ObjectId",
     "userId: ObjectId?",
@@ -1120,140 +532,23 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "message: String?",
     "timestamp: Instant"
    ],
-   "note": "Collection logs. Audit/event log written by LoggingService, shown in the admin log viewer.",
-   "x": 6873,
-   "y": 30
-  },
-  {
-   "id": "logtype",
-   "name": "LogType",
-   "kind": "enum",
-   "pkg": "util",
-   "fields": [
-    "USER_LOGIN",
-    "USER_LOGOUT",
-    "SERVER_START",
-    "MESSAGE_DELETED",
-    "POLL_OPTION_DELETED",
-    "GROUP_CREATED",
-    "GROUP_DELETED",
-    "FIREBASE_TOKEN_REGISTERED",
-    "APNS_TOKEN_REGISTERED",
-    "FRIEND_REQUEST_SENT",
-    "LOGIN_FAILED",
-    "EXCEPTION_THROWN",
-    "MESSAGE_SENT",
-    "ACCOUNT_CREATED",
-    "MAP_ENTRY_CREATED",
-    "MAP_ENTRY_EDITED",
-    "MAP_ENTRY_DELETED",
-    "MAP_ENTRY_REVERTED",
-    "GAME_SCORE_SUBMITTED",
-    "FEEDBACK_CREATED",
-    "FEEDBACK_DELETED",
-    "FEEDBACK_COMMENT_CREATED",
-    "FEEDBACK_COMMENT_DELETED",
-    "FEEDBACK_STATUS_CHANGED",
-    "ACCOUNT_DELETION_EMAIL_SENT",
-    "EMAIL_VERIFICATION_EMAIL_SENT",
-    "PASSWORD_RESET_EMAIL_SENT",
-    "WAKE_SENT"
-   ],
-   "note": "What a log row records.",
-   "x": 0,
-   "y": 0
-  },
-  {
-   "id": "counter",
-   "name": "VersionCounter",
-   "kind": "class",
-   "pkg": "util",
-   "fields": [
-    "id: String",
-    "seq: Long"
-   ],
-   "note": "Collection counters. One monotonic counter per SyncCollection (id = its key), atomically incremented by VersionCounterService to stamp Message.version.",
-   "x": 6873,
-   "y": 850
-  },
-  {
-   "id": "synccol",
-   "name": "SyncCollection",
-   "kind": "enum",
-   "pkg": "util",
-   "fields": [
-    "MESSAGES"
-   ],
-   "note": "Collections on version-based sync. Only MESSAGES so far; users, groups, events and map still sync by updatedAt.",
-   "x": 0,
-   "y": 0
-  }
- ],
- "packages": [
-  "user",
-  "friends",
-  "authentication",
-  "message",
-  "group",
-  "events",
-  "schneaggmap",
-  "games",
-  "feedback",
-  "notifications",
-  "website",
-  "util"
- ],
- "questions": [
-  {
-   "id": "q1",
-   "done": false,
-   "text": "Migrate users, groups, events and map entries from updatedAt sync to version sync (SyncCollection only has MESSAGES so far)?"
-  },
-  {
-   "id": "q2",
-   "done": false,
-   "text": "UserLocation.expiresAt and RefreshToken.expiresAt TTL indexes are inert (Instant stored as subdocument); keep relying on DatabaseCleanupTask or store BSON dates?"
+   "note": "Collection logs. Audit log; also the backbone of the email rate limits.",
+   "x": 1190,
+   "y": 872
   }
  ],
  "relations": [
   {
    "id": "r1",
-   "from": "user",
-   "to": "usersettings",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "1",
-   "kind": "comp"
-  },
-  {
-   "id": "r2",
-   "from": "usersettings",
-   "to": "pinned",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "*",
-   "kind": "comp"
-  },
-  {
-   "id": "r3",
-   "from": "user",
-   "to": "role",
-   "label": "role",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r4",
    "from": "friendship",
    "to": "user",
-   "label": "pair",
+   "label": "userId1 / userId2",
    "fromCard": "*",
    "toCard": "2",
    "kind": "assoc"
   },
   {
-   "id": "r5",
+   "id": "r2",
    "from": "friendship",
    "to": "user",
    "label": "requester",
@@ -1262,25 +557,16 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
    "kind": "assoc"
   },
   {
-   "id": "r6",
-   "from": "friendship",
-   "to": "fstatus",
-   "label": "status",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r7",
+   "id": "r3",
    "from": "fsetting",
    "to": "friendship",
-   "label": "side of",
+   "label": "",
    "fromCard": "*",
    "toCard": "1",
    "kind": "assoc"
   },
   {
-   "id": "r8",
+   "id": "r4",
    "from": "fsetting",
    "to": "user",
    "label": "owner",
@@ -1289,169 +575,7 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
    "kind": "assoc"
   },
   {
-   "id": "r9",
-   "from": "refresh",
-   "to": "user",
-   "label": "session of",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r10",
-   "from": "refresh",
-   "to": "devtype",
-   "label": "device",
-   "fromCard": "*",
-   "toCard": "0..1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r11",
-   "from": "message",
-   "to": "user",
-   "label": "sender",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r12",
-   "from": "message",
-   "to": "user",
-   "label": "receiver (direct)",
-   "fromCard": "*",
-   "toCard": "0..1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r13",
-   "from": "message",
-   "to": "group",
-   "label": "receiver (group)",
-   "fromCard": "*",
-   "toCard": "0..1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r14",
-   "from": "message",
-   "to": "message",
-   "label": "answers",
-   "fromCard": "*",
-   "toCard": "0..1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r15",
-   "from": "message",
-   "to": "msgtype",
-   "label": "type",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r16",
-   "from": "message",
-   "to": "reader",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "*",
-   "kind": "comp"
-  },
-  {
-   "id": "r17",
-   "from": "message",
-   "to": "reaction",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "*",
-   "kind": "comp"
-  },
-  {
-   "id": "r18",
-   "from": "message",
-   "to": "poll",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "0..1",
-   "kind": "comp"
-  },
-  {
-   "id": "r19",
-   "from": "message",
-   "to": "sysevent",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "0..1",
-   "kind": "comp"
-  },
-  {
-   "id": "r20",
-   "from": "poll",
-   "to": "pollopt",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "*",
-   "kind": "comp"
-  },
-  {
-   "id": "r21",
-   "from": "pollopt",
-   "to": "pollvoter",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "*",
-   "kind": "comp"
-  },
-  {
-   "id": "r22",
-   "from": "pollopt",
-   "to": "poll",
-   "label": "sub poll",
-   "fromCard": "1",
-   "toCard": "0..1",
-   "kind": "comp"
-  },
-  {
-   "id": "r23",
-   "from": "poll",
-   "to": "pollvis",
-   "label": "visibility",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r24",
-   "from": "sysevent",
-   "to": "sysparticipant",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "*",
-   "kind": "comp"
-  },
-  {
-   "id": "r25",
-   "from": "sysevent",
-   "to": "syseventtype",
-   "label": "type",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r26",
-   "from": "sysevent",
-   "to": "user",
-   "label": "actor",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r27",
+   "id": "r5",
    "from": "group",
    "to": "user",
    "label": "creator",
@@ -1460,25 +584,61 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
    "kind": "assoc"
   },
   {
-   "id": "r28",
+   "id": "r6",
    "from": "gmember",
-   "to": "group",
-   "label": "member of",
+   "to": "user",
+   "label": "member",
    "fromCard": "*",
    "toCard": "1",
    "kind": "assoc"
   },
   {
-   "id": "r29",
+   "id": "r7",
    "from": "gmember",
-   "to": "user",
+   "to": "group",
    "label": "",
    "fromCard": "*",
    "toCard": "1",
    "kind": "assoc"
   },
   {
-   "id": "r30",
+   "id": "r8",
+   "from": "message",
+   "to": "user",
+   "label": "sender",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r9",
+   "from": "message",
+   "to": "user",
+   "label": "receiver (direct)",
+   "fromCard": "*",
+   "toCard": "0..1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r10",
+   "from": "message",
+   "to": "group",
+   "label": "receiver (group)",
+   "fromCard": "*",
+   "toCard": "0..1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r11",
+   "from": "message",
+   "to": "message",
+   "label": "answer to",
+   "fromCard": "*",
+   "toCard": "0..1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r12",
    "from": "event",
    "to": "user",
    "label": "creator",
@@ -1487,305 +647,62 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
    "kind": "assoc"
   },
   {
-   "id": "r31",
+   "id": "r13",
    "from": "event",
    "to": "user",
-   "label": "invited",
+   "label": "invitedUsers",
    "fromCard": "*",
    "toCard": "*",
    "kind": "assoc"
   },
   {
-   "id": "r32",
+   "id": "r14",
    "from": "event",
    "to": "group",
-   "label": "chat",
+   "label": "chat group",
    "fromCard": "0..1",
    "toCard": "0..1",
    "kind": "assoc"
   },
   {
-   "id": "r33",
-   "from": "event",
-   "to": "eventpart",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "*",
-   "kind": "comp"
-  },
-  {
-   "id": "r34",
-   "from": "eventpart",
-   "to": "user",
-   "label": "",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r35",
-   "from": "eventpart",
-   "to": "eventpartst",
-   "label": "status",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r36",
-   "from": "event",
-   "to": "eventtype",
-   "label": "type",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r37",
-   "from": "event",
-   "to": "eventvis",
-   "label": "visibility",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r38",
-   "from": "event",
-   "to": "gdd",
-   "label": "group delete delay",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r39",
-   "from": "event",
-   "to": "latlong",
-   "label": "location",
-   "fromCard": "1",
-   "toCard": "0..1",
-   "kind": "comp"
-  },
-  {
-   "id": "r40",
+   "id": "r15",
    "from": "mapentry",
-   "to": "latlong",
-   "label": "coordinates",
-   "fromCard": "1",
-   "toCard": "1",
-   "kind": "comp"
-  },
-  {
-   "id": "r41",
-   "from": "mapentry",
-   "to": "locdata",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "*",
-   "kind": "comp"
-  },
-  {
-   "id": "r42",
-   "from": "locdata",
-   "to": "attrval",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "*",
-   "kind": "comp"
-  },
-  {
-   "id": "r43",
-   "from": "mapentry",
-   "to": "user",
-   "label": "created / updated by",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r44",
-   "from": "mapver",
-   "to": "mapentry",
-   "label": "history of",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r45",
-   "from": "mapver",
-   "to": "user",
-   "label": "edited by",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r46",
-   "from": "mapver",
-   "to": "fieldchange",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "*",
-   "kind": "comp"
-  },
-  {
-   "id": "r47",
-   "from": "mapver",
-   "to": "mapchange",
-   "label": "type",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r48",
-   "from": "mapver",
-   "to": "mapver",
-   "label": "reverts",
-   "fromCard": "*",
-   "toCard": "0..1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r49",
-   "from": "userloc",
-   "to": "user",
-   "label": "position of",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r50",
-   "from": "userloc",
-   "to": "latlong",
-   "label": "",
-   "fromCard": "1",
-   "toCard": "1",
-   "kind": "comp"
-  },
-  {
-   "id": "r51",
-   "from": "gamescore",
-   "to": "user",
-   "label": "player",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r52",
-   "from": "gamescore",
-   "to": "game",
-   "label": "game",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r53",
-   "from": "gamescore",
-   "to": "difficulty",
-   "label": "difficulty",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r54",
-   "from": "fbentry",
    "to": "user",
    "label": "creator",
    "fromCard": "*",
-   "toCard": "0..1",
+   "toCard": "1",
    "kind": "assoc"
   },
   {
-   "id": "r55",
-   "from": "fbentry",
+   "id": "r16",
+   "from": "mapversion",
+   "to": "mapentry",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r17",
+   "from": "mapversion",
    "to": "user",
-   "label": "voters",
-   "fromCard": "*",
-   "toCard": "*",
-   "kind": "assoc"
-  },
-  {
-   "id": "r56",
-   "from": "fbentry",
-   "to": "fbtype",
-   "label": "type",
+   "label": "editor",
    "fromCard": "*",
    "toCard": "1",
    "kind": "assoc"
   },
   {
-   "id": "r57",
-   "from": "fbentry",
-   "to": "fbstatus",
-   "label": "status",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r58",
-   "from": "fbentry",
-   "to": "fbtag",
-   "label": "tags",
-   "fromCard": "*",
-   "toCard": "*",
-   "kind": "assoc"
-  },
-  {
-   "id": "r59",
-   "from": "fbentry",
-   "to": "fbvote",
-   "label": "votes",
-   "fromCard": "*",
-   "toCard": "*",
-   "kind": "assoc"
-  },
-  {
-   "id": "r60",
-   "from": "fbcomment",
-   "to": "fbentry",
-   "label": "on",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r61",
-   "from": "fbcomment",
+   "id": "r18",
+   "from": "userloc",
    "to": "user",
-   "label": "author",
+   "label": "",
    "fromCard": "*",
    "toCard": "1",
    "kind": "assoc"
   },
   {
-   "id": "r62",
-   "from": "fcm",
-   "to": "user",
-   "label": "device of",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r63",
-   "from": "apns",
-   "to": "user",
-   "label": "device of",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r64",
-   "from": "connlog",
+   "id": "r19",
+   "from": "refresh",
    "to": "user",
    "label": "session of",
    "fromCard": "*",
@@ -1793,60 +710,52 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
    "kind": "assoc"
   },
   {
-   "id": "r65",
-   "from": "faq",
-   "to": "faqtext",
+   "id": "r20",
+   "from": "apns",
+   "to": "user",
    "label": "",
-   "fromCard": "1",
-   "toCard": "1..3",
-   "kind": "comp"
-  },
-  {
-   "id": "r66",
-   "from": "faq",
-   "to": "faqcat",
-   "label": "category",
    "fromCard": "*",
    "toCard": "1",
    "kind": "assoc"
   },
   {
-   "id": "r67",
+   "id": "r21",
+   "from": "fcm",
+   "to": "user",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r22",
+   "from": "conn",
+   "to": "user",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r23",
+   "from": "score",
+   "to": "user",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r24",
    "from": "log",
    "to": "user",
    "label": "",
    "fromCard": "*",
    "toCard": "0..1",
    "kind": "assoc"
-  },
-  {
-   "id": "r68",
-   "from": "log",
-   "to": "logtype",
-   "label": "type",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r69",
-   "from": "counter",
-   "to": "synccol",
-   "label": "key",
-   "fromCard": "*",
-   "toCard": "1",
-   "kind": "assoc"
-  },
-  {
-   "id": "r70",
-   "from": "counter",
-   "to": "message",
-   "label": "stamps version",
-   "fromCard": "1",
-   "toCard": "*",
-   "kind": "assoc"
   }
- ]
+ ],
+ "questions": []
 }
 </script>
 <script>
@@ -1857,13 +766,10 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
   const DRAFT_KEY = "domain-model-draft:" + location.pathname;
   const MODEL_OPEN = '<script type="application/json" id="model">';
   const TEMPLATE = document.documentElement.outerHTML;
-  const CHAR_W = 8.5, LINE_H = 22, HEAD_H = 54, PAD = 14;
+  const CHAR_W = 7.3, LINE_H = 18, HEAD_H = 46, PAD = 12;
 
   let state = { entities: [], relations: [], questions: [] };
   let selectedId = null;
-  let hoverId = null;
-  let showAll = false;
-  try { showAll = localStorage.getItem("domain-model-show-all") === "1"; } catch (_) {}
   let zoom = 1;
   const canWrite = true;
   let loaded = false, dirty = false;
@@ -1882,107 +788,13 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
 
   function entity(id) { return state.entities.find((e) => e.id === id); }
 
-  const STANDARD = /^(id|createdAt|updatedAt|updatedBy|deleted):/;
-  const CARD_WORDS = { "*": "many", "0..*": "many", "1": "one", "0..1": "0 or 1", "1..*": "1 or more", "2": "two" };
-  const cardWord = (c) => CARD_WORDS[c] || c || "";
-
-  function refTarget(name) {
-    const base = name.replace(/Ids?$/, "").toLowerCase();
-    let best = null;
-    state.entities.forEach((x) => {
-      if (x.kind !== "enum" && base.endsWith(x.name.toLowerCase()) && (!best || x.name.length > best.name.length)) best = x;
-    });
-    return best;
+  function boxSize(e) {
+    const lines = [e.name, ...(e.fields || [])];
+    const longest = lines.reduce((m, l) => Math.max(m, (l || "").length), 10);
+    const w = Math.max(190, Math.ceil(longest * CHAR_W) + PAD * 2);
+    const h = HEAD_H + Math.max(1, (e.fields || []).length) * LINE_H + PAD;
+    return { w, h };
   }
-
-  // "groupId: ObjectId" reads as "groupId → Group"; the stored field text stays unchanged.
-  function displayField(e, f) {
-    if (e.kind === "enum") return f;
-    const m = /^(\w+Ids?):\s*(List<ObjectId>|Set<ObjectId>|ObjectId)(\?)?$/.exec(f);
-    const t = m && refTarget(m[1]);
-    if (!t) return f;
-    const extra = m[2] !== "ObjectId" ? " (many)" : m[3] ? " (optional)" : "";
-    return `${m[1]} → ${t.name}${extra}`;
-  }
-
-  function boxLines(e) {
-    const all = e.fields || [];
-    if (e.kind === "enum" || showAll) return all.map((f) => displayField(e, f));
-    const shown = all.filter((f) => !STANDARD.test(f)).map((f) => displayField(e, f));
-    const hidden = all.length - shown.length;
-    if (hidden) shown.push(`+ ${hidden} standard fields`);
-    return shown;
-  }
-
-  const INNER = 10, SUB_HEAD = 28;
-
-  // Enums and embedded types held by exactly one class are drawn inside that class.
-  function nesting() {
-    const holders = {};
-    const add = (child, holder) => { if (child !== holder) (holders[child] = holders[child] || new Set()).add(holder); };
-    state.relations.forEach((r) => add(r.to, r.from));
-    state.entities.forEach((e) => (e.fields || []).forEach((f) => {
-      const type = f.split(":").slice(1).join(":");
-      state.entities.forEach((x) => { if (x.kind !== "class" && new RegExp(`\\b${x.name}\\b`).test(type)) add(x.id, e.id); });
-    }));
-    const parentOf = {};
-    state.entities.forEach((x) => {
-      const h = holders[x.id];
-      if (x.kind !== "class" && h && h.size === 1 && entity([...h][0])) parentOf[x.id] = [...h][0];
-    });
-    Object.keys(parentOf).forEach((id) => {
-      const seen = new Set([id]);
-      for (let q = parentOf[id]; q; q = parentOf[q]) { if (seen.has(q)) { delete parentOf[id]; break; } seen.add(q); }
-    });
-    return parentOf;
-  }
-
-  function wrapJoin(items, sep, max) {
-    const out = [];
-    let cur = "";
-    items.forEach((it) => {
-      const next = cur ? cur + sep + it : it;
-      if (cur && next.length > max) { out.push(cur); cur = it; } else cur = next;
-    });
-    if (cur) out.push(cur);
-    return out;
-  }
-
-  function layoutOf(e, nested, kids) {
-    const head = nested ? SUB_HEAD : HEAD_H;
-    const lines = nested && e.kind === "enum" ? wrapJoin(e.fields || [], " · ", 30) : boxLines(e);
-    const sub = (kids[e.id] || []).map((id) => layoutOf(entity(id), true, kids));
-    const title = nested ? `${KINDS[e.kind] || "class"} ${e.name}` : e.name;
-    const longest = [title, ...lines].reduce((m, l) => Math.max(m, l.length), 10);
-    const w = Math.max(nested ? 0 : 200, Math.ceil(longest * CHAR_W) + PAD * 2, ...sub.map((k) => k.w + INNER * 2));
-    let h = head + Math.max(nested ? 0 : 1, lines.length) * LINE_H + (nested ? 6 : PAD);
-    sub.forEach((k) => { k.dx = INNER; k.dy = h; h += k.h + INNER; });
-    return { e, nested, head, lines, kids: sub, w, h };
-  }
-
-  function stretch(L, w) { L.w = w; L.kids.forEach((k) => stretch(k, w - INNER * 2)); }
-
-  function computeLayout() {
-    const parentOf = nesting();
-    const kids = {};
-    state.entities.forEach((x) => { const p = parentOf[x.id]; if (p) (kids[p] = kids[p] || []).push(x.id); });
-    const tops = state.entities.filter((x) => !parentOf[x.id]);
-    const layouts = {}, rects = {}, topOf = {};
-    const place = (L, x, y, top) => {
-      rects[L.e.id] = { x, y, w: L.w, h: L.h };
-      topOf[L.e.id] = top;
-      L.kids.forEach((k) => place(k, x + k.dx, y + k.dy, top));
-    };
-    tops.forEach((x) => {
-      const L = layoutOf(x, false, kids);
-      stretch(L, L.w);
-      layouts[x.id] = L;
-      place(L, x.x, x.y, x.id);
-    });
-    return { tops, layouts, rects, topOf };
-  }
-
-  function lineClass(f) { return f.startsWith("+ ") ? "more" : f.includes(" → ") ? "ref" : null; }
 
   function el(tag, attrs, text) {
     const n = document.createElementNS(SVGNS, tag);
@@ -1998,55 +810,22 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     return { x: cx + dx * s, y: cy + dy * s };
   }
 
-  function infoIcon(id, cx, cy, r) {
-    const g = el("g", { class: "info", "data-info": id });
-    g.appendChild(el("circle", { cx, cy, r }));
-    g.appendChild(el("text", { x: cx, y: cy + 4 }, "i"));
-    return g;
-  }
-
-  const tip = $("tip");
-  function showTip(id, evt) {
-    const e = entity(id);
-    if (!e || !e.note) { hideTip(); return; }
-    tip.textContent = "";
-    const head = document.createElement("div");
-    const b = document.createElement("b"); b.textContent = e.name;
-    const k = document.createElement("span"); k.className = "k"; k.textContent = KINDS[e.kind] || "class";
-    head.append(b, k);
-    const body = document.createElement("div"); body.textContent = e.note;
-    tip.append(head, body);
-    tip.hidden = false;
-    const r = tip.getBoundingClientRect();
-    let x = evt.clientX + 14, y = evt.clientY + 14;
-    if (x + r.width > innerWidth - 8) x = evt.clientX - r.width - 14;
-    if (y + r.height > innerHeight - 8) y = evt.clientY - r.height - 14;
-    tip.style.left = Math.max(8, x) + "px";
-    tip.style.top = Math.max(8, y) + "px";
-  }
-  function hideTip() { tip.hidden = true; }
-
   function renderCanvas() {
     svg.textContent = "";
     const defs = el("defs", {});
-    const marker = (id, color) => {
-      const m = el("marker", { id, viewBox: "0 0 10 10", refX: "10", refY: "5", markerWidth: "9", markerHeight: "9", orient: "auto-start-reverse" });
-      m.appendChild(el("path", { d: "M0,0 L10,5 L0,10", fill: "none", style: `stroke: var(${color}); stroke-width:1.5` }));
-      return m;
-    };
-    const diamond = (id, color) => {
-      const m = el("marker", { id, viewBox: "0 0 16 10", refX: "0", refY: "5", markerWidth: "14", markerHeight: "9", orient: "auto" });
-      m.appendChild(el("path", { d: "M0,5 L8,0 L16,5 L8,10 Z", style: `fill: var(${color})` }));
-      return m;
-    };
-    defs.append(marker("arrow", "--line"), marker("arrowOn", "--accent"), diamond("diamond", "--line"), diamond("diamondOn", "--accent"));
+    const arrow = el("marker", { id: "arrow", viewBox: "0 0 10 10", refX: "10", refY: "5", markerWidth: "9", markerHeight: "9", orient: "auto-start-reverse" });
+    arrow.appendChild(el("path", { d: "M0,0 L10,5 L0,10", fill: "none", style: "stroke: var(--line); stroke-width:1.5" }));
+    const diamond = el("marker", { id: "diamond", viewBox: "0 0 16 10", refX: "0", refY: "5", markerWidth: "14", markerHeight: "9", orient: "auto" });
+    diamond.appendChild(el("path", { d: "M0,5 L8,0 L16,5 L8,10 Z", style: "fill: var(--line)" }));
+    defs.append(arrow, diamond);
     svg.appendChild(defs);
 
-    const { tops, layouts, rects, topOf } = computeLayout();
+    const sizes = {};
     let maxX = 600, maxY = 400;
-    tops.forEach((e) => {
-      maxX = Math.max(maxX, e.x + layouts[e.id].w + 60);
-      maxY = Math.max(maxY, e.y + layouts[e.id].h + 60);
+    state.entities.forEach((e) => {
+      sizes[e.id] = boxSize(e);
+      maxX = Math.max(maxX, e.x + sizes[e.id].w + 60);
+      maxY = Math.max(maxY, e.y + sizes[e.id].h + 60);
     });
     svg.setAttribute("viewBox", `0 0 ${maxX} ${maxY}`);
     svg.setAttribute("width", maxX * zoom);
@@ -2056,79 +835,47 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
       svg.appendChild(el("text", { x: 40, y: 60, class: "empty" }, loaded ? "No classes yet. Use “Add class” to start the model." : "No model in this file."));
     }
 
-    const focusRaw = drag ? null : hoverId || selectedId;
-    const focusId = focusRaw && topOf[focusRaw];
-    const linked = new Set();
-    if (focusId) {
-      linked.add(focusId);
-      state.relations.forEach((r) => {
-        if (topOf[r.from] === focusId) linked.add(topOf[r.to]);
-        if (topOf[r.to] === focusId) linked.add(topOf[r.from]);
-      });
-    }
-
     const relLayer = el("g", {});
-    const labelLayer = el("g", {});
     state.relations.forEach((r) => {
-      const ra = rects[r.from], rb = rects[r.to];
-      if (!ra || !rb || topOf[r.from] === topOf[r.to]) return;
-      const ac = { x: ra.x + ra.w / 2, y: ra.y + ra.h / 2 }, bc = { x: rb.x + rb.w / 2, y: rb.y + rb.h / 2 };
-      const p1 = edgePoint(ac.x, ac.y, bc.x, bc.y, ra.w, ra.h);
-      const p2 = edgePoint(bc.x, bc.y, ac.x, ac.y, rb.w, rb.h);
-      const on = focusId && (topOf[r.from] === focusId || topOf[r.to] === focusId);
-      const faded = focusId && !on;
-      const line = el("line", { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, class: faded ? "faded" : "",
-        style: `stroke: var(${on ? "--accent" : "--line"}); stroke-width: ${on ? 2.5 : 1.3}` });
-      if (r.kind === "comp") line.setAttribute("marker-start", `url(#${on ? "diamondOn" : "diamond"})`);
-      else line.setAttribute("marker-end", `url(#${on ? "arrowOn" : "arrow"})`);
+      const a = entity(r.from), b = entity(r.to);
+      if (!a || !b) return;
+      const sa = sizes[a.id], sb = sizes[b.id];
+      const ac = { x: a.x + sa.w / 2, y: a.y + sa.h / 2 }, bc = { x: b.x + sb.w / 2, y: b.y + sb.h / 2 };
+      const p1 = edgePoint(ac.x, ac.y, bc.x, bc.y, sa.w, sa.h);
+      const p2 = edgePoint(bc.x, bc.y, ac.x, ac.y, sb.w, sb.h);
+      const highlight = selectedId && (r.from === selectedId || r.to === selectedId);
+      const line = el("line", { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
+        style: `stroke: var(${highlight ? "--accent" : "--line"}); stroke-width: ${highlight ? 2 : 1.3}` });
+      if (r.kind === "comp") line.setAttribute("marker-start", "url(#diamond)");
+      else line.setAttribute("marker-end", "url(#arrow)");
       relLayer.appendChild(line);
-      if (faded) return;
       const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
-      if (r.label) labelLayer.appendChild(el("text", { x: mx + 6, y: my - 6, class: on ? "rel on" : "rel" }, r.label));
+      if (r.label) relLayer.appendChild(el("text", { x: mx + 4, y: my - 4, class: "rel" }, r.label));
       const card = (p, q, txt) => {
         if (!txt) return;
         const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
-        labelLayer.appendChild(el("text", { x: p.x + (dx / len) * 22 + 4, y: p.y + (dy / len) * 22 - 4, class: on ? "card on" : "card" }, txt));
+        relLayer.appendChild(el("text", { x: p.x + (dx / len) * 18 + 4, y: p.y + (dy / len) * 18 - 4, class: "card" }, txt));
       };
-      if (r.kind !== "comp") card(p1, p2, cardWord(r.fromCard));
-      card(p2, p1, cardWord(r.toCard));
+      card(p1, p2, r.fromCard);
+      card(p2, p1, r.toCard);
     });
     svg.appendChild(relLayer);
 
-    const drawLines = (g, L, x, y0) => L.lines.forEach((f, i) => {
-      const cls = lineClass(f);
-      g.appendChild(el("text", Object.assign({ x: x + PAD, y: y0 + i * LINE_H }, cls ? { class: cls } : {}), f));
-    });
-    const drawSub = (parent, L, x, y) => {
-      const e = L.e, on = e.id === selectedId;
-      const g = el("g", { "data-sub": e.id });
-      g.appendChild(el("rect", { x, y, width: L.w, height: L.h, rx: 5,
-        style: `fill: ${pkgColor(e.pkg)}; fill-opacity: 0.45; stroke: var(${on ? "--accent" : "--line"}); stroke-width: ${on ? 2 : 1}; stroke-dasharray: 5 3` }));
-      g.appendChild(el("text", { x: x + PAD, y: y + 19, class: "subname" }, `${KINDS[e.kind] || "class"} ${e.name}`));
-      if (e.note) g.appendChild(infoIcon(e.id, x + L.w - 14, y + 14, 8));
-      drawLines(g, L, x, y + L.head + 14);
-      L.kids.forEach((k) => drawSub(g, k, x + k.dx, y + k.dy));
-      parent.appendChild(g);
-    };
-
-    tops.forEach((e) => {
-      const L = layouts[e.id], w = L.w, h = L.h;
-      const g = el("g", { class: "box" + (focusId && !linked.has(e.id) ? " faded" : ""), transform: `translate(${e.x},${e.y})`, "data-id": e.id, tabindex: "0", role: "button", "aria-label": `Edit ${e.name}` });
-      const hi = e.id === selectedId || e.id === focusId;
-      g.appendChild(el("rect", { width: w, height: h, rx: 6,
-        style: `fill: var(--box); stroke: var(${hi ? "--accent" : "--box-border"}); stroke-width: ${hi ? 2.5 : 1.2}` }));
-      g.appendChild(el("rect", { width: w, height: HEAD_H - 6, rx: 6, style: `fill: ${pkgColor(e.pkg)}` }));
+    state.entities.forEach((e) => {
+      const { w, h } = sizes[e.id];
+      const g = el("g", { class: "box", transform: `translate(${e.x},${e.y})`, "data-id": e.id, tabindex: "0", role: "button", "aria-label": `Edit ${e.name}` });
+      const isSel = e.id === selectedId;
+      g.appendChild(el("rect", { width: w, height: h, rx: 5,
+        style: `fill: var(--box); stroke: var(${isSel ? "--accent" : "--box-border"}); stroke-width: ${isSel ? 2.5 : 1.2}` }));
+      g.appendChild(el("rect", { width: w, height: HEAD_H - 6, rx: 5, style: `fill: ${pkgColor(e.pkg)}` }));
       g.appendChild(el("rect", { y: HEAD_H - 12, width: w, height: 6, style: `fill: ${pkgColor(e.pkg)}` }));
       g.appendChild(el("line", { x1: 0, y1: HEAD_H - 6, x2: w, y2: HEAD_H - 6, style: "stroke: var(--box-border); stroke-width:1" }));
-      g.appendChild(el("text", { x: PAD, y: 18, class: "stereo" }, `${KINDS[e.kind] || "class"} · ${e.pkg || ""}`));
-      g.appendChild(el("text", { x: PAD, y: 39, class: "name" }, e.name));
-      drawLines(g, L, 0, HEAD_H + 12);
-      L.kids.forEach((k) => drawSub(g, k, k.dx, k.dy));
-      if (e.note) g.appendChild(infoIcon(e.id, w - 18, 18, 10));
+      g.appendChild(el("text", { x: PAD, y: 15, class: "stereo" }, `${KINDS[e.kind] || "class"} · ${e.pkg || ""}`));
+      g.appendChild(el("text", { x: PAD, y: 33, class: "name" }, e.name));
+      (e.fields || []).forEach((f, i) => g.appendChild(el("text", { x: PAD, y: HEAD_H + 8 + i * LINE_H }, f)));
+      if (e.note) g.appendChild(el("circle", { cx: w - 12, cy: 14, r: 4, style: "fill: var(--accent)" }));
       svg.appendChild(g);
     });
-    svg.appendChild(labelLayer);
-    schedule3d();
   }
 
   function svgPoint(evt) {
@@ -2143,8 +890,7 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     if (!g) return;
     const e = entity(g.dataset.id);
     const p = svgPoint(evt);
-    const sub = evt.target.closest("[data-sub]");
-    drag = { id: e.id, sub: sub ? sub.dataset.sub : null, dx: p.x - e.x, dy: p.y - e.y, moved: false, g };
+    drag = { id: e.id, dx: p.x - e.x, dy: p.y - e.y, moved: false, g };
     g.setPointerCapture(evt.pointerId);
     g.classList.add("dragging");
   });
@@ -2161,17 +907,8 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
   const endDrag = () => {
     if (!drag) return;
     const d = drag; drag = null;
-    if (d.moved) { changed(); } else { select(d.sub || d.id); }
+    if (d.moved) { changed(); } else { select(d.id); }
   };
-  svg.addEventListener("pointermove", (evt) => {
-    if (drag || pan) { hideTip(); return; }
-    const info = evt.target.closest && evt.target.closest("[data-info]");
-    if (info) showTip(info.dataset.info, evt); else hideTip();
-    const g = evt.target.closest && evt.target.closest(".box");
-    const id = g ? g.dataset.id : null;
-    if (id !== hoverId) { hoverId = id; renderCanvas(); }
-  });
-  svg.addEventListener("pointerleave", () => { hideTip(); if (hoverId) { hoverId = null; renderCanvas(); } });
   svg.addEventListener("pointerup", endDrag);
   svg.addEventListener("pointercancel", endDrag);
   svg.addEventListener("keydown", (evt) => {
@@ -2215,10 +952,7 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
 
   function relText(r) {
     const a = entity(r.from), b = entity(r.to);
-    const an = a ? a.name : "?", bn = b ? b.name : "?";
-    const label = r.label ? " · " + r.label : "";
-    if (r.kind === "comp") return `${an} contains ${cardWord(r.toCard)} ${bn}${label}`;
-    return `${an} (${cardWord(r.fromCard)}) → ${bn} (${cardWord(r.toCard)})${label}`;
+    return `${a ? a.name : "?"} ${r.fromCard || ""} ${r.kind === "comp" ? "◆—" : "→"} ${r.toCard || ""} ${b ? b.name : "?"}${r.label ? " (" + r.label + ")" : ""}`.replace(/\s+/g, " ");
   }
 
   function renderPanel() {
@@ -2235,7 +969,7 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
       pkgList().forEach((p) => { const c = document.createElement("span"); c.className = "chip"; c.style.background = pkgColor(p); c.textContent = p; chips.appendChild(c); });
       lg.append(ll, chips);
       const p2 = document.createElement("p"); p2.className = "hint";
-      p2.textContent = "Arrow: reference by id (one document points at another). Diamond: embedded inside the owning document. Standard fields (id, createdAt, updatedAt, updatedBy, deleted) are hidden unless “Show all fields” is on.";
+      p2.textContent = "Arrow: reference by id (one document points at another). Diamond: embedded inside the owning document. Every synced entity also carries updatedAt, updatedBy and deleted for offline sync.";
       panel.append(h, p, lg, p2);
       return;
     }
@@ -2346,301 +1080,10 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     });
   }
 
-  const view3d = { on: false, ready: null, pending: false, boxes: [] };
-  const LAYER = 260, DEPTH = 40;
-  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
-  function loadThree() {
-    if (!view3d.ready) view3d.ready = new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
-      s.onload = resolve;
-      s.onerror = () => { view3d.ready = null; reject(new Error("Could not load three.js for the 3D view. Check the internet connection.")); };
-      document.head.appendChild(s);
-    });
-    return view3d.ready;
-  }
-
-  function init3d() {
-    const host = $("sheet3d");
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-    host.prepend(renderer.domElement);
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 10, 30000);
-    const group = new THREE.Group();
-    scene.add(group);
-    Object.assign(view3d, { host, renderer, scene, camera, group, yaw: 0, pitch: 0.75, dist: 2600, target: new THREE.Vector3() });
-    const resize = () => {
-      const w = host.clientWidth, h = host.clientHeight;
-      if (!w || !h) return;
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      draw3d();
-    };
-    new ResizeObserver(resize).observe(host);
-    resize();
-
-    const cv = renderer.domElement;
-    let drag = null;
-    cv.addEventListener("contextmenu", (e) => e.preventDefault());
-    cv.addEventListener("pointerdown", (e) => {
-      drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, pan: e.shiftKey || e.button === 2 };
-      cv.setPointerCapture(e.pointerId);
-    });
-    cv.addEventListener("pointermove", (e) => {
-      if (!drag) return;
-      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-      drag.x = e.clientX; drag.y = e.clientY;
-      if (drag.pan) {
-        const s = view3d.dist / 900;
-        const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
-        const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
-        view3d.target.addScaledVector(right, -dx * s).addScaledVector(up, dy * s);
-      } else {
-        view3d.yaw -= dx * 0.005;
-        view3d.pitch = Math.max(-1.5, Math.min(1.5, view3d.pitch + dy * 0.005));
-      }
-      draw3d();
-    });
-    cv.addEventListener("pointerup", (e) => {
-      const d = drag; drag = null;
-      if (d && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 4) pick3d(e);
-    });
-    cv.addEventListener("pointercancel", () => { drag = null; });
-    cv.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      view3d.dist = Math.max(250, Math.min(12000, view3d.dist * Math.exp(e.deltaY * 0.001)));
-      draw3d();
-    }, { passive: false });
-    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (view3d.on) build3d(); });
-  }
-
-  function texture(w, h, paint) {
-    const S = 3;
-    const c = document.createElement("canvas");
-    c.width = Math.ceil(w * S); c.height = Math.ceil(h * S);
-    const g = c.getContext("2d");
-    g.scale(S, S);
-    paint(g);
-    const t = new THREE.CanvasTexture(c);
-    t.anisotropy = view3d.renderer.capabilities.getMaxAnisotropy();
-    return t;
-  }
-
-  function boxTexture(L, color) {
-    const drawLines = (g, lines, x, y0) => lines.forEach((f, i) => {
-      const cls = lineClass(f);
-      g.fillStyle = css(cls === "more" ? "--muted" : cls === "ref" ? "--focus" : "--ink");
-      g.font = cls === "more" ? `italic 12.5px ${css("--font-body")}` : `14px ${css("--font-mono")}`;
-      g.fillText(f, x + PAD, y0 + i * LINE_H);
-    });
-    const drawSub = (g, K, x, y) => {
-      g.save();
-      g.globalAlpha = 0.45; g.fillStyle = color(K.e.pkg); g.fillRect(x, y, K.w, K.h);
-      g.globalAlpha = 1; g.setLineDash([5, 3]); g.strokeStyle = css("--line"); g.lineWidth = 1; g.strokeRect(x + 0.5, y + 0.5, K.w - 1, K.h - 1);
-      g.restore();
-      g.fillStyle = css("--ink"); g.font = `600 13px ${css("--font-body")}`;
-      g.fillText(`${KINDS[K.e.kind] || "class"} ${K.e.name}`, x + PAD, y + 19);
-      drawLines(g, K.lines, x, y + K.head + 14);
-      K.kids.forEach((k) => drawSub(g, k, x + k.dx, y + k.dy));
-    };
-    const e = L.e, w = L.w, h = L.h;
-    return texture(w, h, (g) => {
-      g.fillStyle = css("--box"); g.fillRect(0, 0, w, h);
-      g.fillStyle = color(e.pkg); g.fillRect(0, 0, w, HEAD_H - 6);
-      g.strokeStyle = css("--box-border"); g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
-      g.beginPath(); g.moveTo(0, HEAD_H - 6); g.lineTo(w, HEAD_H - 6); g.lineWidth = 1; g.stroke();
-      g.fillStyle = css("--muted"); g.font = `12px ${css("--font-body")}`;
-      g.fillText(`${KINDS[e.kind] || "class"} · ${e.pkg || ""}`, PAD, 18);
-      g.fillStyle = css("--ink"); g.font = `600 18px ${css("--font-display")}`;
-      g.fillText(e.name, PAD, 39);
-      drawLines(g, L.lines, 0, HEAD_H + 12);
-      L.kids.forEach((k) => drawSub(g, k, k.dx, k.dy));
-    });
-  }
-
-  function dispose3d(o) {
-    o.children.slice().forEach(dispose3d);
-    if (o.parent) o.parent.remove(o);
-    if (o.geometry) o.geometry.dispose();
-    [].concat(o.material || []).forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); });
-  }
-
-  function build3d() {
-    const { group, scene } = view3d;
-    group.children.slice().forEach(dispose3d);
-    scene.background = new THREE.Color(css("--sheet"));
-    view3d.boxes = [];
-    if (!state.entities.length) { draw3d(); return; }
-
-    const pk = pkgList();
-    const level = (e) => Math.max(0, pk.indexOf(e.pkg)) * LAYER;
-    const color = (p) => css(`--pkg-${Math.max(0, pk.indexOf(p)) % 10}`);
-    const { tops, layouts: sizes, rects, topOf } = computeLayout();
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    tops.forEach((e) => {
-      const s = sizes[e.id];
-      minX = Math.min(minX, e.x); minY = Math.min(minY, e.y);
-      maxX = Math.max(maxX, e.x + s.w); maxY = Math.max(maxY, e.y + s.h);
-    });
-    const cx = (minX + maxX) / 2, cz = (minY + maxY) / 2;
-    const at = (x, y, lv) => new THREE.Vector3(x - cx, lv, y - cz);
-
-    const selTop = selectedId && topOf[selectedId];
-    const linked = new Set();
-    if (selTop) {
-      linked.add(selTop);
-      state.relations.forEach((r) => {
-        if (topOf[r.from] === selTop) linked.add(topOf[r.to]);
-        if (topOf[r.to] === selTop) linked.add(topOf[r.from]);
-      });
-    }
-    const dim = (id) => selTop && !linked.has(id);
-
-    pk.forEach((p) => {
-      const items = tops.filter((e) => e.pkg === p);
-      if (!items.length) return;
-      const P = 28;
-      const x0 = Math.min(...items.map((e) => e.x)) - P, y0 = Math.min(...items.map((e) => e.y)) - P - 30;
-      const x1 = Math.max(...items.map((e) => e.x + sizes[e.id].w)) + P, y1 = Math.max(...items.map((e) => e.y + sizes[e.id].h)) + P;
-      const w = x1 - x0, h = y1 - y0;
-      const map = texture(w, h, (g) => {
-        g.fillStyle = color(p); g.globalAlpha = 0.45; g.fillRect(0, 0, w, h);
-        g.globalAlpha = 1; g.strokeStyle = css("--line"); g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
-        g.fillStyle = css("--ink"); g.font = `600 20px ${css("--font-display")}`;
-        g.fillText(p.toUpperCase(), 14, 28);
-      });
-      const plate = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false, side: THREE.DoubleSide, opacity: selTop ? 0.5 : 1 }));
-      plate.rotation.x = -Math.PI / 2;
-      plate.position.copy(at(x0 + w / 2, y0 + h / 2, level(items[0]) - 2));
-      group.add(plate);
-    });
-
-    tops.forEach((e) => {
-      const L = sizes[e.id], w = L.w, h = L.h;
-      const op = dim(e.id) ? 0.3 : 1;
-      const base = new THREE.Color(color(e.pkg));
-      const side = (k) => new THREE.MeshBasicMaterial({ color: base.clone().multiplyScalar(k), transparent: true, opacity: op });
-      const top = new THREE.MeshBasicMaterial({ map: boxTexture(L, color), transparent: true, opacity: op });
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, DEPTH, h), [side(0.8), side(0.8), top, side(0.6), side(0.7), side(0.7)]);
-      m.position.copy(at(e.x + w / 2, e.y + h / 2, level(e) + DEPTH / 2));
-      m.userData.id = e.id;
-      m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),
-        new THREE.LineBasicMaterial({ color: new THREE.Color(css(e.id === selTop ? "--accent" : "--box-border")), transparent: true, opacity: op })));
-      group.add(m);
-      view3d.boxes.push(m);
-    });
-
-    state.relations.forEach((r) => {
-      const ra = rects[r.from], rb = rects[r.to];
-      if (!ra || !rb || topOf[r.from] === topOf[r.to]) return;
-      const ta = entity(topOf[r.from]), tb = entity(topOf[r.to]);
-      const ac = { x: ra.x + ra.w / 2, y: ra.y + ra.h / 2 }, bc = { x: rb.x + rb.w / 2, y: rb.y + rb.h / 2 };
-      const p1 = edgePoint(ac.x, ac.y, bc.x, bc.y, ra.w, ra.h), p2 = edgePoint(bc.x, bc.y, ac.x, ac.y, rb.w, rb.h);
-      const v1 = at(p1.x, p1.y, level(ta) + DEPTH / 2), v2 = at(p2.x, p2.y, level(tb) + DEPTH / 2);
-      const hl = selTop && (topOf[r.from] === selTop || topOf[r.to] === selTop);
-      const col = new THREE.Color(css(hl ? "--accent" : "--line"));
-      const op = selTop && !hl ? 0.15 : 1;
-      group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([v1, v2]), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op })));
-      const dot = new THREE.Mesh(new THREE.SphereGeometry(r.kind === "comp" ? 7 : 5, 12, 8), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op }));
-      dot.position.copy(r.kind === "comp" ? v1 : v2);
-      group.add(dot);
-    });
-
-    if (!view3d.placed) {
-      view3d.placed = true;
-      view3d.target.set(0, (pk.length - 1) * LAYER / 2, 0);
-      view3d.dist = Math.max(1600, (maxX - minX) * 1.3);
-    }
-    draw3d();
-  }
-
-  function draw3d() {
-    if (!view3d.renderer) return;
-    const { camera, target, dist, yaw, pitch } = view3d;
-    camera.position.set(target.x + dist * Math.cos(pitch) * Math.sin(yaw), target.y + dist * Math.sin(pitch), target.z + dist * Math.cos(pitch) * Math.cos(yaw));
-    camera.lookAt(target);
-    view3d.renderer.render(view3d.scene, camera);
-  }
-
-  function pick3d(evt) {
-    const rect = view3d.renderer.domElement.getBoundingClientRect();
-    const ndc = new THREE.Vector2(((evt.clientX - rect.left) / rect.width) * 2 - 1, -((evt.clientY - rect.top) / rect.height) * 2 + 1);
-    const ray = new THREE.Raycaster();
-    ray.setFromCamera(ndc, view3d.camera);
-    const hit = ray.intersectObjects(view3d.boxes)[0];
-    select(hit ? hit.object.userData.id : null);
-  }
-
-  function schedule3d() {
-    if (!view3d.on || !view3d.renderer || view3d.pending) return;
-    view3d.pending = true;
-    requestAnimationFrame(() => { view3d.pending = false; build3d(); });
-  }
-
-  $("view3d").addEventListener("click", async () => {
-    view3d.on = !view3d.on;
-    const btn = $("view3d");
-    btn.setAttribute("aria-pressed", String(view3d.on));
-    btn.textContent = view3d.on ? "2D view" : "3D view";
-    $("sheet").hidden = view3d.on;
-    $("sheet3d").hidden = !view3d.on;
-    ["addClass", "addEnum", "zoomIn", "zoomOut"].forEach((id) => { $(id).disabled = view3d.on; });
-    if (!view3d.on) return;
-    try {
-      await loadThree();
-      await document.fonts.ready;
-      if (!view3d.renderer) init3d();
-      build3d();
-    } catch (err) {
-      showBanner(err.message);
-    }
-  });
-
-  function renderOverview() {
-    const root = $("overview");
-    root.textContent = "";
-    const mk = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
-    const { tops, layouts, topOf } = computeLayout();
-    pkgList().forEach((p) => {
-      const items = tops.filter((e) => e.pkg === p);
-      if (!items.length) return;
-      const box = mk("div", "ov-pkg");
-      const h = mk("h3", null, p); h.style.background = pkgColor(p);
-      const grid = mk("div", "ov-grid");
-      const fill = (c, L) => {
-        const e = L.e;
-        if (e.note) c.appendChild(mk("p", null, e.note));
-        c.appendChild(mk("code", null, (L.nested && e.kind === "enum" ? e.fields || [] : L.lines).join(e.kind === "enum" ? " | " : " · ")));
-        const rels = state.relations.filter((r) => r.from === e.id && topOf[r.to] !== topOf[e.id]);
-        if (rels.length) { const ul = mk("ul"); rels.forEach((r) => ul.appendChild(mk("li", null, relText(r)))); c.appendChild(ul); }
-        L.kids.forEach((k) => {
-          const sub = mk("div", "ov-sub");
-          const t = mk("div"); t.append(mk("span", "kind", KINDS[k.e.kind] || "class"), mk("b", null, k.e.name));
-          sub.appendChild(t);
-          fill(sub, k);
-          c.appendChild(sub);
-        });
-      };
-      items.forEach((e) => {
-        const c = mk("div", "ov-card");
-        const t = mk("div"); t.append(mk("b", null, e.name), mk("span", "kind", KINDS[e.kind] || "class"));
-        c.appendChild(t);
-        fill(c, layouts[e.id]);
-        grid.appendChild(c);
-      });
-      box.append(h, grid);
-      root.appendChild(box);
-    });
-  }
-
-  function renderAll() { renderCanvas(); renderPanel(); renderQuestions(); renderOverview(); }
+  function renderAll() { renderCanvas(); renderPanel(); renderQuestions(); }
 
   function changed() {
     renderCanvas();
-    renderOverview();
     dirty = true;
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify(state)); } catch (_) {}
     setStatus("Unsaved draft", "busy");
@@ -2693,68 +1136,8 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
 
   $("addClass").addEventListener("click", () => addEntity("class"));
   $("addEnum").addEventListener("click", () => addEntity("enum"));
-  function syncShowAll() {
-    const b = $("showAll");
-    b.setAttribute("aria-pressed", String(showAll));
-    b.textContent = showAll ? "Hide standard fields" : "Show all fields";
-  }
-  syncShowAll();
-  $("showAll").addEventListener("click", () => {
-    showAll = !showAll;
-    try { localStorage.setItem("domain-model-show-all", showAll ? "1" : "0"); } catch (_) {}
-    syncShowAll(); renderCanvas(); renderOverview();
-  });
-  const sheet = $("sheet");
-  // Keeps the diagram point under (mx, my) in place while the zoom changes.
-  function zoomTo(next, mx = sheet.clientWidth / 2, my = sheet.clientHeight / 2) {
-    next = Math.min(2.5, Math.max(0.25, next));
-    if (next === zoom) return;
-    const cx = (sheet.scrollLeft + mx) / zoom, cy = (sheet.scrollTop + my) / zoom;
-    zoom = next;
-    renderCanvas();
-    sheet.scrollLeft = cx * zoom - mx;
-    sheet.scrollTop = cy * zoom - my;
-  }
-  $("zoomIn").addEventListener("click", () => zoomTo(zoom * 1.15));
-  $("zoomOut").addEventListener("click", () => zoomTo(zoom / 1.15));
-  sheet.addEventListener("wheel", (evt) => {
-    evt.preventDefault();
-    const r = sheet.getBoundingClientRect();
-    zoomTo(zoom * Math.exp(-evt.deltaY * (evt.ctrlKey ? 0.01 : 0.0015)), evt.clientX - r.left, evt.clientY - r.top);
-  }, { passive: false });
-  let gestureZoom = 1;
-  sheet.addEventListener("gesturestart", (evt) => { evt.preventDefault(); gestureZoom = zoom; });
-  sheet.addEventListener("gesturechange", (evt) => {
-    evt.preventDefault();
-    const r = sheet.getBoundingClientRect();
-    zoomTo(gestureZoom * evt.scale, evt.clientX - r.left, evt.clientY - r.top);
-  });
-  let pan = null;
-  svg.addEventListener("pointerdown", (evt) => {
-    if (evt.target.closest(".box")) return;
-    pan = { x: evt.clientX, y: evt.clientY, left: sheet.scrollLeft, top: sheet.scrollTop, moved: false };
-    svg.setPointerCapture(evt.pointerId);
-    svg.classList.add("panning");
-  });
-  svg.addEventListener("pointermove", (evt) => {
-    if (!pan) return;
-    if (Math.hypot(evt.clientX - pan.x, evt.clientY - pan.y) > 3) pan.moved = true;
-    sheet.scrollLeft = pan.left - (evt.clientX - pan.x);
-    sheet.scrollTop = pan.top - (evt.clientY - pan.y);
-  });
-  const endPan = (evt) => {
-    if (!pan) return;
-    const clicked = evt.type === "pointerup" && !pan.moved;
-    pan = null;
-    svg.classList.remove("panning");
-    if (clicked && selectedId) select(null);
-  };
-  svg.addEventListener("pointerup", endPan);
-  svg.addEventListener("pointercancel", endPan);
-  sheet.addEventListener("wheel", hideTip, { passive: true });
-  document.addEventListener("keydown", (evt) => {
-    if (evt.key === "Escape" && selectedId && !(evt.target.closest && evt.target.closest("input, textarea, select"))) select(null);
-  });
+  $("zoomIn").addEventListener("click", () => { zoom = Math.min(2, +(zoom + 0.15).toFixed(2)); renderCanvas(); });
+  $("zoomOut").addEventListener("click", () => { zoom = Math.max(0.4, +(zoom - 0.15).toFixed(2)); renderCanvas(); });
   $("addQuestionForm").addEventListener("submit", (evt) => {
     evt.preventDefault();
     const v = $("newQuestion").value.trim();

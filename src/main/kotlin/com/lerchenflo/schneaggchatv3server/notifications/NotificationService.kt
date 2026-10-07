@@ -72,43 +72,47 @@ class NotificationService(
                 //Exclude the changing user
                 if (member.userid == changingUserId) return@forEach
 
-                if (socketConnectionHandler.sendMessage(
-                        message = SocketConnectionMessage.MessageChange(
-                            message = message.toMessageResponse(member.userid),
-                            deleted = deleted,
-                            newMessage = newMessage,
-                        ),
+                val socketMessage = SocketConnectionMessage.MessageChange(
+                    message = message.toMessageResponse(member.userid),
+                    deleted = deleted,
+                    newMessage = newMessage,
+                )
+                val pushNewMessage = {
+                    firebaseMessagingService.sendNewMessageNotificationToUser(
+                        senderId = message.senderId,
                         receiverId = member.userid,
-                    )) {
-                    deliveredOverSocket += member.userid
-                } else {
+                        messageType = message.msgType,
+                        messageContent = message.content,
+                        msgId = message.id.toHexString(),
+                        groupMessage = true,
+                        groupName = groupName,
+                        groupId = message.receiverId,
+                        sendDate = message.sendDate.toEpochMilliseconds(),
+                        answerId = message.answerId?.toHexString(),
+                    )
+                    apnsService.sendNewMessageNotificationToUser(
+                        senderId = message.senderId,
+                        receiverId = member.userid,
+                        messageType = message.msgType,
+                        messageContent = message.content,
+                        msgId = message.id.toHexString(),
+                        groupMessage = true,
+                        groupName = groupName,
+                        groupId = message.receiverId,
+                        sendDate = message.sendDate.toEpochMilliseconds(),
+                        answerId = message.answerId?.toHexString(),
+                    )
+                }
 
-                    if (newMessage) {
-                        firebaseMessagingService.sendNewMessageNotificationToUser(
-                            senderId = message.senderId,
-                            receiverId = member.userid,
-                            messageType = message.msgType,
-                            messageContent = message.content,
-                            msgId = message.id.toHexString(),
-                            groupMessage = true,
-                            groupName = groupName,
-                            groupId = message.receiverId,
-                            sendDate = message.sendDate.toEpochMilliseconds(),
-                            answerId = message.answerId?.toHexString(),
-                        )
-                        apnsService.sendNewMessageNotificationToUser(
-                            senderId = message.senderId,
-                            receiverId = member.userid,
-                            messageType = message.msgType,
-                            messageContent = message.content,
-                            msgId = message.id.toHexString(),
-                            groupMessage = true,
-                            groupName = groupName,
-                            groupId = message.receiverId,
-                            sendDate = message.sendDate.toEpochMilliseconds(),
-                            answerId = message.answerId?.toHexString(),
-                        )
+                if (newMessage) {
+                    //Socket first; the push is held until the client acks, or sent right away if there is no socket
+                    if (socketConnectionHandler.sendNewMessage(socketMessage, member.userid, message.id.toHexString(), pushNewMessage)) {
+                        deliveredOverSocket += member.userid
+                    } else {
+                        pushNewMessage()
                     }
+                } else if (socketConnectionHandler.sendMessage(message = socketMessage, receiverId = member.userid)) {
+                    deliveredOverSocket += member.userid
                 }
 
             }
@@ -119,43 +123,45 @@ class NotificationService(
             //Notify the user which did not change the message
             val recipient = if (message.senderId == changingUserId) message.receiverId else message.senderId
 
-            //Try sending via socketconnection
-            if (socketConnectionHandler.sendMessage(
-                    SocketConnectionMessage.MessageChange(
-                        message = message.toMessageResponse(message.receiverId),
-                        deleted = deleted,
-                        newMessage = newMessage,
-                    ),
-                    receiverId = recipient,
-                )) {
-                deliveredOverSocket += recipient
-            } else {
+            val socketMessage = SocketConnectionMessage.MessageChange(
+                message = message.toMessageResponse(message.receiverId),
+                deleted = deleted,
+                newMessage = newMessage,
+            )
+            val pushNewMessage = {
+                firebaseMessagingService.sendNewMessageNotificationToUser(
+                    senderId = message.senderId,
+                    receiverId = message.receiverId,
+                    messageType = message.msgType,
+                    messageContent = message.content,
+                    msgId = message.id.toHexString(),
+                    groupMessage = false,
+                    groupName = null,
+                    sendDate = message.sendDate.toEpochMilliseconds(),
+                    answerId = message.answerId?.toHexString(),
+                )
+                apnsService.sendNewMessageNotificationToUser(
+                    senderId = message.senderId,
+                    receiverId = message.receiverId,
+                    messageType = message.msgType,
+                    messageContent = message.content,
+                    msgId = message.id.toHexString(),
+                    groupMessage = false,
+                    groupName = null,
+                    sendDate = message.sendDate.toEpochMilliseconds(),
+                    answerId = message.answerId?.toHexString(),
+                )
+            }
 
-                if (newMessage) {
-                    firebaseMessagingService.sendNewMessageNotificationToUser(
-                        senderId = message.senderId,
-                        receiverId = message.receiverId,
-                        messageType = message.msgType,
-                        messageContent = message.content,
-                        msgId = message.id.toHexString(),
-                        groupMessage = false,
-                        groupName = null,
-                        sendDate = message.sendDate.toEpochMilliseconds(),
-                        answerId = message.answerId?.toHexString(),
-                    )
-                    apnsService.sendNewMessageNotificationToUser(
-                        senderId = message.senderId,
-                        receiverId = message.receiverId,
-                        messageType = message.msgType,
-                        messageContent = message.content,
-                        msgId = message.id.toHexString(),
-                        groupMessage = false,
-                        groupName = null,
-                        sendDate = message.sendDate.toEpochMilliseconds(),
-                        answerId = message.answerId?.toHexString(),
-                    )
+            if (newMessage) {
+                //Socket first; the push is held until the client acks, or sent right away if there is no socket
+                if (socketConnectionHandler.sendNewMessage(socketMessage, recipient, message.id.toHexString(), pushNewMessage)) {
+                    deliveredOverSocket += recipient
+                } else {
+                    pushNewMessage()
                 }
-
+            } else if (socketConnectionHandler.sendMessage(socketMessage, receiverId = recipient)) {
+                deliveredOverSocket += recipient
             }
         }
 
