@@ -56,6 +56,7 @@ class AuthService(
 
     data class TokenPair(
         val accessToken: String,
+        /** Empty only for an admin panel (WEB) login, which gets no session - see [login]. */
         val refreshToken: String,
     )
 
@@ -148,6 +149,16 @@ class AuthService(
         )
 
         val newAccessToken = jwtService.generateAccessToken(user.id.toHexString())
+
+        //The admin panel keeps only the access token in memory and logs in again once it expires
+        //(see chefdev.js), so it gets no refresh token and no session row: nothing long-lived is
+        //issued that it would only throw away, and it never shows up in the device list.
+        if (devicetype == AuthController.DEVICETYPE.WEB) {
+            AppLogger.success("$attempt | SUCCESS (access token only)")
+            sendLoginAlert(user, deviceName, devicetype, newDevice = false, ip, clientInfo, previousLoginAt)
+            return TokenPair(accessToken = newAccessToken, refreshToken = "")
+        }
+
         val newRefreshToken = jwtService.generateRefreshToken(user.id.toHexString())
 
         // Login dedup: reuse this device's existing session row (rotate it in place) instead of
@@ -174,15 +185,34 @@ class AuthService(
 
         AppLogger.success("$attempt | SUCCESS${if (existing == null) " (new device)" else ""}")
 
-        //Tell the owner about the sign-in. @Async, so this returns at once; the mail itself is
-        //best-effort and must never turn a valid login into an error.
+        sendLoginAlert(user, deviceName, devicetype, newDevice = existing == null, ip, clientInfo, previousLoginAt)
+
+        return TokenPair(
+            accessToken = newAccessToken,
+            refreshToken = newRefreshToken
+        )
+    }
+
+    /**
+     * Tells the owner about the sign-in. @Async, so this returns at once; the mail itself is
+     * best-effort and must never turn a valid login into an error.
+     */
+    private fun sendLoginAlert(
+        user: User,
+        deviceName: String,
+        devicetype: AuthController.DEVICETYPE,
+        newDevice: Boolean,
+        ip: String?,
+        clientInfo: LoginClientInfo,
+        previousLoginAt: Instant?,
+    ) {
         runCatching {
             emailService.sendLoginAlertEmail(
                 LoginAlert(
                     user = user,
                     deviceName = deviceName,
                     deviceType = devicetype,
-                    newDevice = existing == null,
+                    newDevice = newDevice,
                     ip = ip,
                     userAgent = clientInfo.userAgent,
                     acceptLanguage = clientInfo.acceptLanguage,
@@ -191,11 +221,6 @@ class AuthService(
                 )
             )
         }.onFailure { AppLogger.warn("Could not schedule login alert mail for ${user.username}: ${it.message}") }
-
-        return TokenPair(
-            accessToken = newAccessToken,
-            refreshToken = newRefreshToken
-        )
     }
 
     /**
