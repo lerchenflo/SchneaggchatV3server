@@ -253,6 +253,8 @@ class UserService(
             val imageName = imageManager.getProfilePicFileName(userId.toHexString(), false)
             imageManager.loadProfilePicFromFile(imageName)
         } catch (e: IllegalArgumentException) {
+            //Every account gets a profile pic at registration, so a missing file is a lost image
+            AppLogger.warn("Profile pic of user $userId missing: ${e.message}")
             null
         }
     }

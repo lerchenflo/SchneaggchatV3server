@@ -62,7 +62,11 @@ enum class Game(
     DART_COUNTER(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, maxScore = 18000),
 
     // One submission per winning player (score = 1); the board shows the number of wins. timeMillis is always 0.
-    UNDERCOVER(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, sumsWins = true, maxScore = 1);
+    UNDERCOVER(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, sumsWins = true, maxScore = 1),
+
+    // Daily C puzzle without a difficulty (always MEDIUM): 100 / 60 / 30 points for solving on the
+    // first / second / third try, failed runs submit nothing. The solve time ranks equal points.
+    C_CHALLENGE(higherScoreWins = true, lowerTimeWins = true, maxScore = 100);
 
     /** Best result first: score, then time as tiebreaker, earliest submission wins full ties. */
     fun leaderboardSort(): Sort = Sort.by(
