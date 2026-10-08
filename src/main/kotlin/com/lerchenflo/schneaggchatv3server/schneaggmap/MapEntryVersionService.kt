@@ -12,6 +12,7 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapChangeType
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntryVersion
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
 import com.lerchenflo.schneaggchatv3server.util.withOptimisticRetry
 import org.bson.types.ObjectId
@@ -422,6 +423,7 @@ class MapEntryVersionService(
                 else -> rawJson
             }
         } catch (e: Exception) {
+            AppLogger.warn("Map change log: could not read stored $field value, showing raw JSON: ${e.message}")
             rawJson
         }
     }

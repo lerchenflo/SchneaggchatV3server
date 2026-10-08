@@ -32,10 +32,12 @@ class GlobalExceptionHandler(
 
     private fun logWithUserInfo(message: String, ip: String?) {
         val requestingUserId = SecurityContextHolder.getContext().authentication?.principal as? String
-        val username = if (requestingUserId != null) {
+        //Anonymous requests carry a non-id principal ("anonymousUser") - nothing to look up there
+        val username = if (requestingUserId != null && ObjectId.isValid(requestingUserId)) {
             try {
                 userRepository.findById(ObjectId(requestingUserId)).getOrNull()?.username
             } catch (e: Exception) {
+                AppLogger.warn("Could not resolve username of $requestingUserId for error log: ${e.message}")
                 null
             }
         } else {
