@@ -32,10 +32,12 @@ class GlobalExceptionHandler(
 
     private fun logWithUserInfo(message: String, ip: String?) {
         val requestingUserId = SecurityContextHolder.getContext().authentication?.principal as? String
-        val username = if (requestingUserId != null) {
+        //Anonymous requests carry a non-id principal ("anonymousUser") - nothing to look up there
+        val username = if (requestingUserId != null && ObjectId.isValid(requestingUserId)) {
             try {
                 userRepository.findById(ObjectId(requestingUserId)).getOrNull()?.username
             } catch (e: Exception) {
+                AppLogger.warn("Could not resolve username of $requestingUserId for error log: ${e.message}")
                 null
             }
         } else {
@@ -145,6 +147,18 @@ class GlobalExceptionHandler(
     @ExceptionHandler(AsyncRequestNotUsableException::class)
     fun handleDisconnectedClient(e: AsyncRequestNotUsableException) {
         logger.debug("Client disconnected during an async response: ${e.message}")
+    }
+
+    /**
+     * Wrong username or password on login. Has to be a 401: the catch-all below answers 500, which
+     * the app shows as a server problem instead of "invalid credentials". Same answer for unknown
+     * user and wrong password, so accounts can't be enumerated. AuthService already logs the attempt.
+     */
+    @ExceptionHandler(BadCredentialsException::class)
+    fun handleBadCredentials(e: BadCredentialsException): ResponseEntity<String> {
+        return ResponseEntity
+            .status(HttpStatus.UNAUTHORIZED)
+            .body("Invalid credentials")
     }
 
     // Catch-all handler for any unhandled exceptions

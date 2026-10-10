@@ -47,11 +47,10 @@ class SchneaggmapService(
         val errors = mutableListOf<String>()
 
         for (def in data.schema()) {
-            if (!def.required) continue
-
+            // Optional attributes may be absent, but a present value is always type/range checked
             val value = data.getValueByKey(def.key)
             if (value == null) {
-                errors += "${def.key}: required field is missing"
+                if (def.required) errors += "${def.key}: required field is missing"
                 continue
             }
 
@@ -83,6 +82,43 @@ class SchneaggmapService(
                         ?: run { errors += "${def.key}: expected long"; continue }
                     def.min?.let { if (v < it) errors += "${def.key}: $v is below minimum $it" }
                     def.max?.let { if (v > it) errors += "${def.key}: $v exceeds maximum $it" }
+                }
+
+                is AttributeDefinition.EnumDef -> {
+                    val v = (value as? AttributeValue.StringValue)?.value
+                        ?: run { errors += "${def.key}: expected enum string"; continue }
+                    if (v !in def.options) errors += "${def.key}: '$v' is not one of ${def.options}"
+                }
+
+                is AttributeDefinition.DateTimeDef -> {
+                    if (value !is AttributeValue.LongValue)
+                        errors += "${def.key}: expected datetime (long)"
+                }
+
+                is AttributeDefinition.PriceDef -> {
+                    val v = (value as? AttributeValue.DoubleValue)?.value
+                        ?: run { errors += "${def.key}: expected price (double)"; continue }
+                    if (v < 0.0) errors += "${def.key}: $v is negative"
+                    def.max?.let { if (v > it) errors += "${def.key}: $v exceeds maximum $it" }
+                }
+
+                is AttributeDefinition.DistanceDef -> {
+                    val v = (value as? AttributeValue.DoubleValue)?.value
+                        ?: run { errors += "${def.key}: expected distance (double)"; continue }
+                    if (v < 0.0) errors += "${def.key}: $v is negative"
+                    def.max?.let { if (v > it) errors += "${def.key}: $v exceeds maximum $it" }
+                }
+
+                is AttributeDefinition.RatingDef -> {
+                    val v = (value as? AttributeValue.IntValue)?.value
+                        ?: run { errors += "${def.key}: expected rating (int)"; continue }
+                    if (v !in def.min..def.max) errors += "${def.key}: $v is not within ${def.min}..${def.max}"
+                }
+
+                is AttributeDefinition.SecretDef -> {
+                    val v = (value as? AttributeValue.StringValue)?.value
+                        ?: run { errors += "${def.key}: expected secret string"; continue }
+                    def.maxLength?.let { if (v.length > it) errors += "${def.key}: length ${v.length} exceeds maximum $it" }
                 }
             }
         }
@@ -295,7 +331,7 @@ class SchneaggmapService(
                 }
 
                 "Badespot" -> {
-                    locationData = LocationData.SwimmingLocation(swimmingIndoor = null, swimmingJumpSpot = null, swimmingLieDownFriendly = null, swimmingPrice = null)
+                    locationData = LocationData.SwimmingLocation(swimmingSetting = null, swimmingJumpSpot = null, swimmingLieDownFriendly = null, swimmingPrice = null)
                     name        = beschreibung.ifBlank { "Badespot" }
                     description = ""
                 }
@@ -356,7 +392,8 @@ fun fixEncoding(s: String): String {
     repeat(5) {
         val fixed = try {
             String(current.toByteArray(cp1252), Charsets.UTF_8)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLogger.warn("Legacy map import: could not fix encoding of '$current': ${e.message}")
             return current
         }
 

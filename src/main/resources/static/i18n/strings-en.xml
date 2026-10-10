@@ -47,7 +47,7 @@
     <string name="compare_pin_own">Unlimited</string>
     <string name="compare_pin_snapchat">Only with Snapchat+ (paid)</string>
     <string name="compare_pin_whatsapp">Maximum 3 chats</string>
-    <string name="compare_polls_own">Custom options, limit per answer, options deletable</string>
+    <string name="compare_polls_own">Custom options, limit per answer, sub polls, options deletable</string>
     <string name="compare_polls_snapchat">Only story stickers</string>
     <string name="compare_polls_whatsapp">Only simple polls</string>
     <string name="compare_reactions_own">Free text up to 10 characters, not just emojis</string>
@@ -147,7 +147,7 @@
     <string name="feature_map_title">Schneaggmap</string>
     <string name="feature_platform_text">Use it on any device: Android, iOS and Desktop!</string>
     <string name="feature_platform_title">Cross-Platform &amp; Open Source</string>
-    <string name="feature_polls_text">Add your own answer options and cap the number of votes per option.</string>
+    <string name="feature_polls_text">Add your own answer options, cap the number of votes per option and attach sub polls that only open for people who pick that option.</string>
     <string name="feature_polls_title">Polls</string>
     <string name="feature_security_text">Messages will soon be end-to-end encrypted.</string>
     <string name="feature_security_badge">Coming soon</string>

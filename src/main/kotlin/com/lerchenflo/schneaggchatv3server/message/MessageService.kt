@@ -51,6 +51,55 @@ class MessageService(
     companion object {
         //Creation caps at 20 options; custom answers added later via votePoll may grow the poll up to this
         private const val POLL_MAX_TOTAL_OPTIONS = 50
+
+        //Sub polls: the root poll is depth 0, so at most this many poll levels in one message
+        private const val POLL_MAX_DEPTH = 5
+        //All options of the whole poll tree at creation / including custom answers added later
+        private const val POLL_MAX_CREATE_TREE_OPTIONS = 60
+        private const val POLL_MAX_TREE_OPTIONS = 150
+    }
+
+    /**
+     * Validates one poll level of a new poll and recurses into its sub polls. Close date and
+     * visibility are only checked on the root - sub polls inherit them.
+     */
+    private fun validatePoll(poll: PollMessage, depth: Int) {
+        require(ValidationUtils.validatePollTitle(poll.title)) { "Invalid poll title" }
+        require(ValidationUtils.validatePollDescription(poll.description)) { "Invalid poll description" }
+        require(poll.voteOptions.size <= 20) { "Poll can have at most 20 vote options" }
+        //A poll needs predefined options unless it's custom-answers-only
+        if (!poll.customAnswersEnabled) {
+            require(poll.voteOptions.isNotEmpty()) { "Poll must have at least 1 vote option unless custom answers are enabled" }
+        }
+        poll.maxAnswers?.let {
+            require(it in 1..20) { "Invalid maxAnswers" }
+            //Without custom answers, users can't select more distinct answers than exist
+            if (!poll.customAnswersEnabled) {
+                require(it <= poll.voteOptions.size) { "maxAnswers can't exceed the number of vote options" }
+            }
+        }
+        poll.maxAllowedCustomAnswers?.let {
+            require(poll.customAnswersEnabled) { "maxAllowedCustomAnswers set but custom answers disabled" }
+            require(it in 1..20) { "Invalid maxAllowedCustomAnswers" }
+        }
+
+        poll.voteOptions.forEach { voteOption ->
+            require(ValidationUtils.validatePollVoteText(voteOption.text)) {"Pollvote option text in wrong format"}
+        }
+
+        //A list-mode poll (no checkboxes) does not vote, so answer limits are meaningless
+        if (!poll.showCheckboxes) {
+            require(poll.maxAnswers == null) { "maxAnswers is not allowed on a list poll" }
+            require(poll.voteOptions.none { it.maxVoters != null }) { "maxVoters is not allowed on a list poll" }
+        }
+
+        poll.voteOptions.forEach { voteOption ->
+            val subPoll = voteOption.subPoll ?: return@forEach
+            //A sub poll opens by picking its option, which a list poll can't do
+            require(poll.showCheckboxes) { "Sub polls are not allowed on a list poll" }
+            require(depth + 1 < POLL_MAX_DEPTH) { "Sub polls are nested too deep" }
+            validatePoll(subPoll, depth + 1)
+        }
     }
 
     sealed class MessageContent {
@@ -96,38 +145,13 @@ class MessageService(
             POLL -> {
                 require(content is MessageContent.Poll) { "Pollmessage with empty poll" }
 
-                require(ValidationUtils.validatePollTitle(content.poll.title)) { "Invalid poll title" }
-                require(ValidationUtils.validatePollDescription(content.poll.description)) { "Invalid poll description" }
-                require(content.poll.voteOptions.size <= 20) { "Poll can have at most 20 vote options" }
-                //A poll needs predefined options unless it's custom-answers-only
-                if (!content.poll.customAnswersEnabled) {
-                    require(content.poll.voteOptions.isNotEmpty()) { "Poll must have at least 1 vote option unless custom answers are enabled" }
-                }
-                content.poll.maxAnswers?.let {
-                    require(it in 1..20) { "Invalid maxAnswers" }
-                    //Without custom answers, users can't select more distinct answers than exist
-                    if (!content.poll.customAnswersEnabled) {
-                        require(it <= content.poll.voteOptions.size) { "maxAnswers can't exceed the number of vote options" }
-                    }
-                }
-                content.poll.maxAllowedCustomAnswers?.let {
-                    require(content.poll.customAnswersEnabled) { "maxAllowedCustomAnswers set but custom answers disabled" }
-                    require(it in 1..20) { "Invalid maxAllowedCustomAnswers" }
-                }
-
                 if (content.poll.closeDate != null) {
                     require(content.poll.closeDate > Clock.System.now()) { "Poll closedate is in the past" }
                 }
 
-                content.poll.voteOptions.forEach { voteOption ->
-                    require(ValidationUtils.validatePollVoteText(voteOption.text)) {"Pollvote option text in wrong format"}
-                }
-
-                //A list-mode poll (no checkboxes) does not vote, so answer limits are meaningless
-                if (!content.poll.showCheckboxes) {
-                    require(content.poll.maxAnswers == null) { "maxAnswers is not allowed on a list poll" }
-                    require(content.poll.voteOptions.none { it.maxVoters != null }) { "maxVoters is not allowed on a list poll" }
-                }
+                //Pass depth specific to current poll
+                validatePoll(content.poll, depth = 0)
+                require(content.poll.totalOptionCount() <= POLL_MAX_CREATE_TREE_OPTIONS) { "Poll has too many options in total" }
             }
             AUDIO -> {
 
@@ -235,6 +259,7 @@ class MessageService(
 
             //Throw if the message is not a poll
             require(message.msgType == MessageType.POLL && message.poll != null) { "This is not a poll message" }
+            require(!message.deleted) { "This poll was deleted" }
 
             //Validate pollrequest
 
@@ -244,7 +269,24 @@ class MessageService(
             }
 
 
-            var poll = message.poll
+            val rootPoll = message.poll
+
+            //Resolve which poll level this request is about: the poll holding the voted option, or for a
+            //new custom option the sub poll of parentOptionId (null = root poll)
+            val votedPath = pollVoteRequest.id?.let { rootPoll.optionPath(it) }
+            val parentPath: List<PollVoteOption> = when {
+                votedPath != null -> votedPath.dropLast(1)
+                pollVoteRequest.parentOptionId != null -> rootPoll.optionPath(pollVoteRequest.parentOptionId)
+                    ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Parent vote option not found")
+                else -> emptyList()
+            }
+            val parentOptionId = parentPath.lastOrNull()?.id
+            var poll = parentPath.lastOrNull()?.let { parent ->
+                parent.subPoll ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "This option has no sub poll")
+            } ?: rootPoll
+
+            //A sub poll only takes answers from users who picked every option leading to it
+            require(parentPath.all { it.hasVoter(requestingUserId) }) { "Pick the parent option first" }
 
             val timeStamp = Clock.System.now()
 
@@ -258,13 +300,20 @@ class MessageService(
                 require(pollVoteRequest.id == null) { "This poll does not accept votes" }
             }
 
-            //Block answers after expiry
-            if (poll.closeDate != null) {
-                require(Clock.System.now() < poll.closeDate) { "Poll is closed" }
+            //Block answers after expiry - sub polls share the root poll's close date
+            if (rootPoll.closeDate != null) {
+                require(Clock.System.now() < rootPoll.closeDate) { "Poll is closed" }
             }
 
             //Block new selections on a full entry (unselecting your own claim is always allowed)
             val targetOption = poll.voteOptions.find { it.id == pollVoteRequest.id }
+
+            //A repeated select (double tap, network retry) or an unselect of an option the user never
+            //picked changes nothing - return before the answer limit below drops the user's oldest
+            //vote (and with it their sub poll answers) for no reason
+            if (targetOption != null && pollVoteRequest.selected == targetOption.hasVoter(requestingUserId)) {
+                return@withOptimisticRetry message
+            }
             if (pollVoteRequest.selected && targetOption?.maxVoters != null) {
                 val claimedByOthers = targetOption.voters.count { it.userId != requestingUserId }
                 require(claimedByOthers < targetOption.maxVoters) { "This entry is full" }
@@ -281,11 +330,12 @@ class MessageService(
                         .minByOrNull { (_, voter) -> voter.votedAt }
 
                     if (oldestVote != null) {
-                        val (optionToModify, voterToRemove) = oldestVote
+                        val (optionToModify, _) = oldestVote
+                        //Dropping the vote also drops the user's answers in that option's sub poll
                         poll = poll.copy(
                             voteOptions = poll.voteOptions.map { option ->
                                 if (option.id == optionToModify.id) {
-                                    option.copy(voters = option.voters - voterToRemove)
+                                    option.clearVotesOf(requestingUserId)
                                 } else {
                                     option
                                 }
@@ -309,6 +359,7 @@ class MessageService(
 
                 //Hard cap on total options regardless of per-user limits
                 require(poll.voteOptions.size < POLL_MAX_TOTAL_OPTIONS) { "This poll has reached the maximum number of options" }
+                require(rootPoll.totalOptionCount() < POLL_MAX_TREE_OPTIONS) { "This poll has reached the maximum number of options" }
 
                 //If atleast one of the options has a limit set, the user can set a limit for voters on his custom entry
                 val newPollOptionMaxAnswers = if (poll.voteOptions.any { it.maxVoters != null }) {
@@ -353,10 +404,8 @@ class MessageService(
                                 }
                             } else {
 
-                                //User unselected this option, remove him as voter if he exists
-                                option.copy(
-                                    voters = option.voters.filter { it.userId != requestingUserId }
-                                )
+                                //User unselected this option, remove him as voter (and his sub poll answers)
+                                option.clearVotesOf(requestingUserId)
                             }
                         } else {
                             option
@@ -364,6 +413,9 @@ class MessageService(
                     }
                 )
             }
+
+            val updatedPoll = poll
+            val newRootPoll = rootPoll.updatePoll(parentOptionId) { updatedPoll }
 
             val query = Query(
                 Criteria.where("_id").`is`(message.id)
@@ -374,7 +426,7 @@ class MessageService(
             val savedMessage = versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
                 val update = Update()
                     .set("lastChanged", timeStamp)
-                    .set("poll", poll)
+                    .set("poll", newRootPoll)
                     .set("version", version)
 
                 mongoTemplate.findAndModify(
@@ -407,17 +459,22 @@ class MessageService(
             )
 
             require(message.msgType == MessageType.POLL && message.poll != null) { "This is not a poll message" }
+            require(!message.deleted) { "This poll was deleted" }
 
-            val poll = message.poll
+            val rootPoll = message.poll
+
+            //The option may sit in a sub poll - its own poll level decides whether deleting is allowed
+            val path = rootPoll.optionPath(request.optionId)
+                ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Vote option not found")
+            val option = path.last()
+            val parentOptionId = path.dropLast(1).lastOrNull()?.id
+            val poll = path.dropLast(1).lastOrNull()?.subPoll ?: rootPoll
 
             require(poll.allowDeleteOptions) { "Deleting options is not allowed for this poll" }
 
-            if (poll.closeDate != null) {
-                require(Clock.System.now() < poll.closeDate) { "Poll is closed" }
+            if (rootPoll.closeDate != null) {
+                require(Clock.System.now() < rootPoll.closeDate) { "Poll is closed" }
             }
-
-            val option = poll.voteOptions.find { it.id == request.optionId }
-                ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Vote option not found")
 
             requireOrLog(
                 poll.canUserDeleteOption(requestingUserId, option),
@@ -425,7 +482,10 @@ class MessageService(
             ) { "You can only delete options you created" }
 
             val timeStamp = Clock.System.now()
-            val newPoll = poll.copy(voteOptions = poll.voteOptions.filterNot { it.id == request.optionId })
+            //Removing the option removes its sub poll with it
+            val newPoll = rootPoll.updatePoll(parentOptionId) { level ->
+                level.copy(voteOptions = level.voteOptions.filterNot { it.id == request.optionId })
+            }
 
             val query = Query(
                 Criteria.where("_id").`is`(message.id)

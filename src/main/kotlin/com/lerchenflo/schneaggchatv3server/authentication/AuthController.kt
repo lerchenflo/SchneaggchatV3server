@@ -124,7 +124,6 @@ class AuthController(
         require(ValidationUtils.validateLoginInput(loginRequest.password)) { "Invalid password" }
 
         val ip = clientIpResolver.resolve(request)
-        AppLogger.info("Login attempt: username=${loginRequest.username.trim().lowercase(getDefault())} ip=$ip")
 
         return authService.login(
             username = loginRequest.username.trim().lowercase(getDefault()),

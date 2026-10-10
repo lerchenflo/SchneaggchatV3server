@@ -4,6 +4,8 @@ package com.lerchenflo.schneaggchatv3server.authentication
 
 import com.lerchenflo.schneaggchatv3server.authentication.model.LoginAlert
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
+import com.lerchenflo.schneaggchatv3server.authentication.model.SessionResponse
+import com.lerchenflo.schneaggchatv3server.authentication.model.toSessionResponse
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitProperties
@@ -54,6 +56,7 @@ class AuthService(
 
     data class TokenPair(
         val accessToken: String,
+        /** Empty only for an admin panel (WEB) login, which gets no session - see [login]. */
         val refreshToken: String,
     )
 
@@ -117,12 +120,20 @@ class AuthService(
         clientInfo: LoginClientInfo = LoginClientInfo(),
     ) : TokenPair {
 
-        requireLoginAttemptsRemaining(username)
+        val attempt = "Login attempt: username=${username.take(100)} ip=$ip device=$deviceName ($devicetype)"
+
+        try {
+            requireLoginAttemptsRemaining(username)
+        } catch (e: ResponseStatusException) {
+            AppLogger.warn("$attempt | FAILED: ${e.reason}")
+            throw e
+        }
 
         //A missing user and a wrong password are one path: both are a failed attempt against this
         //username, and both must answer the same way so the caller can't enumerate accounts.
         val user = userLookupService.findByUsername(username)
         if (user == null || !hashEncoder.matches(password, user.hashedPassword)) {
+            AppLogger.warn("$attempt | FAILED: ${if (user == null) "unknown username" else "wrong password"}")
             recordFailedLogin(username, user?.id, ip)
             throw BadCredentialsException("Invalid credentials")
         }
@@ -138,6 +149,16 @@ class AuthService(
         )
 
         val newAccessToken = jwtService.generateAccessToken(user.id.toHexString())
+
+        //The admin panel keeps only the access token in memory and logs in again once it expires
+        //(see chefdev.js), so it gets no refresh token and no session row: nothing long-lived is
+        //issued that it would only throw away, and it never shows up in the device list.
+        if (devicetype == AuthController.DEVICETYPE.WEB) {
+            AppLogger.success("$attempt | SUCCESS (access token only)")
+            sendLoginAlert(user, deviceName, devicetype, newDevice = false, ip, clientInfo, previousLoginAt)
+            return TokenPair(accessToken = newAccessToken, refreshToken = "")
+        }
+
         val newRefreshToken = jwtService.generateRefreshToken(user.id.toHexString())
 
         // Login dedup: reuse this device's existing session row (rotate it in place) instead of
@@ -162,15 +183,36 @@ class AuthService(
             )
         }
 
-        //Tell the owner about the sign-in. @Async, so this returns at once; the mail itself is
-        //best-effort and must never turn a valid login into an error.
+        AppLogger.success("$attempt | SUCCESS${if (existing == null) " (new device)" else ""}")
+
+        sendLoginAlert(user, deviceName, devicetype, newDevice = existing == null, ip, clientInfo, previousLoginAt)
+
+        return TokenPair(
+            accessToken = newAccessToken,
+            refreshToken = newRefreshToken
+        )
+    }
+
+    /**
+     * Tells the owner about the sign-in. @Async, so this returns at once; the mail itself is
+     * best-effort and must never turn a valid login into an error.
+     */
+    private fun sendLoginAlert(
+        user: User,
+        deviceName: String,
+        devicetype: AuthController.DEVICETYPE,
+        newDevice: Boolean,
+        ip: String?,
+        clientInfo: LoginClientInfo,
+        previousLoginAt: Instant?,
+    ) {
         runCatching {
             emailService.sendLoginAlertEmail(
                 LoginAlert(
                     user = user,
                     deviceName = deviceName,
                     deviceType = devicetype,
-                    newDevice = existing == null,
+                    newDevice = newDevice,
                     ip = ip,
                     userAgent = clientInfo.userAgent,
                     acceptLanguage = clientInfo.acceptLanguage,
@@ -179,11 +221,6 @@ class AuthService(
                 )
             )
         }.onFailure { AppLogger.warn("Could not schedule login alert mail for ${user.username}: ${it.message}") }
-
-        return TokenPair(
-            accessToken = newAccessToken,
-            refreshToken = newRefreshToken
-        )
     }
 
     /**
@@ -210,7 +247,16 @@ class AuthService(
         val validRefreshToken = refreshToken?.takeIf { jwtService.validateRefreshToken(it) }
         val tokenUserId = validRefreshToken?.let { ObjectId(jwtService.getUserIdFromToken(it)) }
 
-        val userId = tokenUserId ?: authenticatedUserId ?: return
+        val userId = tokenUserId ?: authenticatedUserId ?: run {
+            //No credential left - typically a device whose session was ended from another device's
+            //device list, logging itself out after its refresh got rejected. Its push token still
+            //has to go, or it keeps receiving notifications for an account it is no longer in.
+            if (notificationToken != null && isAndroid != null) {
+                if (isAndroid) firebaseService.deleteToken(notificationToken)
+                else apnsService.deleteToken(notificationToken)
+            }
+            return
+        }
 
         val endedSessions = when {
             allDevices -> refreshTokenRepository.deleteByUserId(userId)
@@ -230,6 +276,34 @@ class AuthService(
             userId = userId,
             logType = LogType.USER_LOGOUT,
             message = if (allDevices) "all devices | $endedSessions sessions ended" else null,
+        )
+    }
+
+    /**
+     * The user's logged-in devices (unexpired session rows), most recently active first.
+     */
+    fun getSessions(userId: ObjectId): List<SessionResponse> {
+        return refreshTokenRepository.findByUserIdAndExpiresAtAfterOrderByCreatedAtDesc(userId, Clock.System.now())
+            .map { it.toSessionResponse() }
+            .sortedByDescending { it.lastUsedAt }
+    }
+
+    /**
+     * Logs one of the user's devices out remotely. Only the refresh token dies here: the device
+     * keeps its current access token until it expires (see JwtService.accessTokenValidityMs), then
+     * its refresh is rejected and it logs itself out, removing its push token on the way (see
+     * [logout]). Answers 404 for a session that doesn't exist or belongs to someone else.
+     */
+    fun endSession(userId: ObjectId, sessionId: ObjectId) {
+        val deleted = refreshTokenRepository.deleteByIdAndUserId(sessionId, userId)
+        if (deleted == 0L) {
+            throw ResponseStatusException(HttpStatusCode.valueOf(404), "Session not found")
+        }
+
+        loggingService.log(
+            userId = userId,
+            logType = LogType.USER_LOGOUT,
+            message = "remote | session $sessionId ended from device list",
         )
     }
 
@@ -396,6 +470,7 @@ class AuthService(
             .set("expiresAt", Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds() + jwtService.refreshTokenValidityMs))
             .set("deviceName", deviceName)
             .set("deviceType", devicetype)
+            .set("lastUsedAt", Clock.System.now())
             // Transitional: a pre-migration soft-deleted row can still hold this hash as its
             // current token; claiming it revives it, so strip the legacy soft-delete markers or
             // MainController.migrateRefreshTokenChains would sweep the revived row. No-op on
@@ -426,6 +501,7 @@ class AuthService(
                 expiresAt = Instant.fromEpochMilliseconds(expiresAt),
                 deviceName = deviceName,
                 deviceType = devicetype,
+                lastUsedAt = Clock.System.now(),
             )
         )
     }

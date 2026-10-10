@@ -1,0 +1,1171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Schneaggchat Domain Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: drafting table. Toolbar on top, diagram sheet left, inspector right, open questions below. */
+:root {
+  --bg: #e9ece6;
+  --sheet: #f7f8f4;
+  --grid: #dde2d8;
+  --ink: #1d2a24;
+  --muted: #5b6b62;
+  --line: #9aa89f;
+  --accent: #7a4a23;
+  --accent-ink: #fffaf3;
+  --box: #ffffff;
+  --box-border: #4c5d54;
+  --focus: #2f6f9f;
+  --ok: #2e7d4f;
+  --warn: #a8631a;
+  --bad: #b23a33;
+  --pkg-0: #d9e6f2;
+  --pkg-1: #e4e0ef;
+  --pkg-2: #f1e3cf;
+  --pkg-3: #f2dde0;
+  --pkg-4: #dcebd9;
+  --pkg-5: #eef0cf;
+  --pkg-6: #d6ecea;
+  --pkg-7: #ece2d6;
+  --pkg-8: #e9e4c9;
+  --pkg-9: #dfe7ec;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151a17; --sheet: #1c2320; --grid: #26302b; --ink: #e3ebe5; --muted: #9db0a5; --line: #6f8278;
+    --accent: #d39a62; --accent-ink: #1a1410; --box: #222b27; --box-border: #8fa398; --focus: #7fb6df;
+    --ok: #6cc28f; --warn: #e0a35c; --bad: #ec7d74;
+    --pkg-0: #24384a; --pkg-1: #352f48; --pkg-2: #4a3922; --pkg-3: #4a2b31; --pkg-4: #26402a; --pkg-5: #3f4222; --pkg-6: #1f413e; --pkg-7: #43362a; --pkg-8: #3e3a22; --pkg-9: #2a3740;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151a17; --sheet: #1c2320; --grid: #26302b; --ink: #e3ebe5; --muted: #9db0a5; --line: #6f8278;
+  --accent: #d39a62; --accent-ink: #1a1410; --box: #222b27; --box-border: #8fa398; --focus: #7fb6df;
+  --ok: #6cc28f; --warn: #e0a35c; --bad: #ec7d74;
+  --pkg-0: #24384a; --pkg-1: #352f48; --pkg-2: #4a3922; --pkg-3: #4a2b31; --pkg-4: #26402a; --pkg-5: #3f4222; --pkg-6: #1f413e; --pkg-7: #43362a; --pkg-8: #3e3a22; --pkg-9: #2a3740;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
+.wrap { padding-inline: 16px; padding-block: 16px 40px; max-width: 1600px; margin: 0 auto; display: grid; gap: 16px; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+header.top h1 { font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 0; letter-spacing: 0.01em; text-wrap: balance; }
+header.top .sub { color: var(--muted); font-size: 13px; }
+.titleblock { display: grid; gap: 2px; min-width: 0; flex: 1 1 260px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button, .btn { font: inherit; font-size: 13px; font-weight: 500; border: 1px solid var(--box-border); background: var(--box); color: var(--ink); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.danger { color: var(--bad); border-color: var(--bad); background: transparent; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.status { font-family: var(--font-mono); font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.status.ok { color: var(--ok); border-color: var(--ok); }
+.status.busy { color: var(--warn); border-color: var(--warn); }
+.status.bad { color: var(--bad); border-color: var(--bad); }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.sheet { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; overflow: auto; max-height: 78vh; min-width: 0; position: relative;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 24px 24px; }
+svg#canvas { display: block; touch-action: none; user-select: none; }
+svg#canvas .box { cursor: grab; }
+svg#canvas .box.dragging { cursor: grabbing; }
+svg#canvas text { font-family: var(--font-mono); font-size: 12px; fill: var(--ink); }
+svg#canvas text.name { font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+svg#canvas text.stereo { font-family: var(--font-body); font-size: 10.5px; fill: var(--muted); letter-spacing: 0.04em; }
+svg#canvas text.rel { font-family: var(--font-body); font-size: 11px; fill: var(--muted); }
+svg#canvas text.card { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
+svg#canvas text.empty { font-family: var(--font-body); font-size: 15px; fill: var(--muted); }
+aside.panel { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
+aside.panel h2, section.questions h2 { font-family: var(--font-display); font-size: 17px; font-weight: 600; margin: 0; }
+.field { display: grid; gap: 4px; }
+.field label, .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+input[type=text], textarea, select { font: inherit; color: var(--ink); background: var(--box); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; min-width: 0; }
+textarea { font-family: var(--font-mono); font-size: 12.5px; resize: vertical; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row > * { min-width: 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+ul.rels { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+ul.rels li { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 12.5px; border: 1px solid var(--grid); border-radius: 6px; padding: 6px 8px; background: var(--box); }
+ul.rels li span { min-width: 0; overflow-wrap: anywhere; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 11.5px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--line); color: var(--ink); }
+.confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12.5px; }
+section.questions { background: var(--sheet); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 12px; }
+ol.qs { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+ol.qs li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--muted); }
+.banner { font-size: 13px; color: var(--warn); }
+@media (prefers-reduced-motion: no-preference) { button { transition: border-color .15s; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="titleblock">
+      <h1>Schneaggchat Domain Model</h1>
+      <span class="sub">Server entities (MongoDB documents) and how they relate. Drag boxes, click one to edit. Edits are kept as a draft in this browser until you use “Save to file”.</span>
+    </div>
+    <div class="toolbar">
+      <button id="addClass" class="primary" type="button">Add class</button>
+      <button id="addEnum" type="button">Add enum</button>
+      <button id="zoomOut" type="button" aria-label="Zoom out">−</button>
+      <button id="zoomIn" type="button" aria-label="Zoom in">+</button>
+      <button id="saveFile" type="button" class="primary">Save to file</button>
+      <button id="discard" type="button">Discard draft</button>
+      <span id="status" class="status">Loaded from file</span>
+    </div>
+  </header>
+  <p id="banner" class="banner" hidden></p>
+
+  <div class="layout">
+    <div class="sheet" id="sheet"><svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <aside class="panel" id="panel"></aside>
+  </div>
+
+  <section class="questions">
+    <h2>Open questions</h2>
+    <p class="hint">Decisions still to make before implementing. Tick one when it is decided and write the answer into the text.</p>
+    <ol class="qs" id="questions"></ol>
+    <form class="row" id="addQuestionForm">
+      <input type="text" id="newQuestion" placeholder="New question" style="flex:1 1 240px">
+      <button type="submit">Add question</button>
+    </form>
+  </section>
+</div>
+
+<script type="application/json" id="model">
+{
+ "packages": [
+  "user",
+  "friends",
+  "group",
+  "message",
+  "events",
+  "schneaggmap",
+  "authentication",
+  "notifications",
+  "games",
+  "website",
+  "util"
+ ],
+ "entities": [
+  {
+   "id": "user",
+   "name": "User",
+   "pkg": "user",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "username: String",
+    "hashedPassword: String",
+    "email: String",
+    "emailVerifiedAt: Instant?",
+    "userDescription: String",
+    "userStatus: String",
+    "birthDate: String",
+    "phoneNumber: String?",
+    "createdAt: Instant",
+    "updatedAt: Instant",
+    "profilePicUpdatedAt: Instant",
+    "lastSeen: Instant",
+    "allowWakeGlobal: Boolean",
+    "settings: PersonalUserSettings",
+    "role: UserRole"
+   ],
+   "note": "Collection users. username is unique and the login; email is indexed but not unique. settings is an embedded PersonalUserSettings (theme, language, map style, pinned chats, ...). role USER/ADMIN is the global server admin flag.",
+   "x": 40,
+   "y": 40
+  },
+  {
+   "id": "friendship",
+   "name": "Friendship",
+   "pkg": "friends",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId1: ObjectId",
+    "userId2: ObjectId",
+    "requesterId: ObjectId",
+    "status: FriendshipStatus",
+    "createdAt: Instant",
+    "updatedAt: Instant"
+   ],
+   "note": "Collection friendships. userId1 is always the smaller id, userId2 the bigger one; unique compound index on (userId1, userId2). Status PENDING / ACCEPTED / DECLINED / BLOCKED.",
+   "x": 40,
+   "y": 446
+  },
+  {
+   "id": "fsetting",
+   "name": "FriendshipSetting",
+   "pkg": "friends",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "friendshipId: ObjectId",
+    "userId: ObjectId",
+    "shareLocation: Boolean",
+    "shareLastSeen: Boolean",
+    "shareSpeedHeading: Boolean",
+    "shareSnailTrail: Boolean",
+    "nickName: String?",
+    "muted: Boolean",
+    "allowWake: Boolean",
+    "createdAt: Instant",
+    "updatedAt: Instant"
+   ],
+   "note": "Collection friendship_settings. One row per user per friendship; unique on (friendshipId, userId).",
+   "x": 40,
+   "y": 690
+  },
+  {
+   "id": "group",
+   "name": "Group",
+   "pkg": "group",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "name: String",
+    "description: String",
+    "updatedAt: Instant",
+    "profilePicUpdatedAt: Instant",
+    "expiresAt: Instant?",
+    "deleted: Boolean",
+    "createdAt: Instant",
+    "creatorId: ObjectId"
+   ],
+   "note": "Collection groups. expiresAt is set for event groups that delete themselves later.",
+   "x": 404,
+   "y": 40
+  },
+  {
+   "id": "gmember",
+   "name": "GroupMember",
+   "pkg": "group",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userid: ObjectId",
+    "groupId: ObjectId",
+    "joinedAt: Instant",
+    "admin: Boolean",
+    "color: Int",
+    "joinedAtVersion: Long"
+   ],
+   "note": "Collection groupmembers. Unique on (userid, groupId). joinedAtVersion = message sync version at join time, so a new member receives the group's older messages.",
+   "x": 404,
+   "y": 320
+  },
+  {
+   "id": "message",
+   "name": "Message",
+   "pkg": "message",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "senderId: ObjectId",
+    "receiverId: ObjectId",
+    "groupMessage: Boolean",
+    "msgType: MessageType",
+    "answerId: ObjectId?",
+    "content: String",
+    "poll: PollMessage?",
+    "systemEvent: SystemEvent?",
+    "sendDate: Instant",
+    "lastChanged: Instant",
+    "deleted: Boolean",
+    "edited: Boolean",
+    "version: Long",
+    "readers: List\u003cReader>",
+    "reactions: List\u003cReaction>",
+    "clientMessageId: String?"
+   ],
+   "note": "Collection messages. receiverId is a user id when groupMessage = false and a group id when true. version comes from the counters collection and drives /messages/sync. Readers, reactions, poll and system event are embedded.",
+   "x": 404,
+   "y": 564
+  },
+  {
+   "id": "event",
+   "name": "Event",
+   "pkg": "events",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "creatorId: ObjectId",
+    "type: EventType",
+    "title: String",
+    "description: String",
+    "groupId: ObjectId?",
+    "location: LatLong?",
+    "startDate: Instant",
+    "closeDate: Instant?",
+    "invitedUsers: List\u003cObjectId>",
+    "participations: List\u003cEventParticipation>",
+    "visibility: EventVisibility",
+    "maxUsers: Int?",
+    "groupDeleteDelay: GroupDeleteDelay",
+    "createdAt: Instant",
+    "updatedAt: Instant",
+    "updatedBy: ObjectId"
+   ],
+   "note": "Collection events. Participations (userId, status SEEN / ACCEPTED / DISMISSED) are embedded. groupId points at the event's chat group, if one was created.",
+   "x": 753,
+   "y": 40
+  },
+  {
+   "id": "mapentry",
+   "name": "MapEntry",
+   "pkg": "schneaggmap",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "coordinates: LatLong",
+    "name: String",
+    "description: String",
+    "locationData: List\u003cLocationData>",
+    "createdBy: ObjectId",
+    "createdAt: Instant",
+    "updatedBy: ObjectId",
+    "updatedAt: Instant",
+    "deleted: Boolean"
+   ],
+   "note": "Collection map_entries. Soft delete + updatedAt/updatedBy: the canonical synced-feature example.",
+   "x": 753,
+   "y": 464
+  },
+  {
+   "id": "mapversion",
+   "name": "MapEntryVersion",
+   "pkg": "schneaggmap",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "entryId: ObjectId",
+    "editedBy: ObjectId",
+    "editedByUsername: String",
+    "editedAt: Instant",
+    "changeType: MapChangeType",
+    "changes: List\u003cFieldChange>",
+    "revertOfVersionId: ObjectId?",
+    "revertNote: String?"
+   ],
+   "note": "Collection map_entry_versions. Edit history per map entry, used for reverts.",
+   "x": 753,
+   "y": 762
+  },
+  {
+   "id": "userloc",
+   "name": "UserLocation",
+   "pkg": "schneaggmap",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId: ObjectId",
+    "location: LatLong",
+    "locationTime: Instant",
+    "speed: Double?",
+    "heading: Double?",
+    "altitude: Double?",
+    "batteryLevel: Int?",
+    "distanceFromPreviousMeters: Double",
+    "distanceTraveled24hMeters: Double",
+    "expiresAt: Instant"
+   ],
+   "note": "Collection userlocations. Expires after the snail trail window (cleaned up by DatabaseCleanupTask).",
+   "x": 753,
+   "y": 1042
+  },
+  {
+   "id": "refresh",
+   "name": "RefreshToken",
+   "pkg": "authentication",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId: ObjectId",
+    "hashedToken: String",
+    "previousHashedToken: String?",
+    "rawToken: String?",
+    "expiresAt: Instant",
+    "createdAt: Instant",
+    "deviceName: String?",
+    "deviceType: DEVICETYPE?"
+   ],
+   "note": "Collection refreshTokens. One row per device, rotated in place; previousHashedToken + rawToken allow replay recovery when a client lost a refresh response.",
+   "x": 1190,
+   "y": 40
+  },
+  {
+   "id": "apns",
+   "name": "ApnsToken",
+   "pkg": "notifications",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId: ObjectId",
+    "token: String"
+   ],
+   "note": "Collection apnstokens.",
+   "x": 1190,
+   "y": 320
+  },
+  {
+   "id": "fcm",
+   "name": "FirebaseToken",
+   "pkg": "notifications",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId: ObjectId",
+    "token: String"
+   ],
+   "note": "Collection firebasetokens.",
+   "x": 1190,
+   "y": 492
+  },
+  {
+   "id": "conn",
+   "name": "ConnectionLogEntry",
+   "pkg": "notifications",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId: ObjectId",
+    "startTime: Instant",
+    "endTime: Instant",
+    "duration: Duration"
+   ],
+   "note": "Collection socketconnections. WebSocket session durations.",
+   "x": 1190,
+   "y": 664
+  },
+  {
+   "id": "score",
+   "name": "GameScore",
+   "pkg": "games",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId: ObjectId",
+    "game: Game",
+    "difficulty: Difficulty",
+    "score: Long",
+    "timeMillis: Long",
+    "createdAt: Instant"
+   ],
+   "note": "Collection gamescores.",
+   "x": 1539,
+   "y": 40
+  },
+  {
+   "id": "donation",
+   "name": "Donation",
+   "pkg": "website",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "name: String",
+    "amountCents: Long",
+    "donatedAt: Instant",
+    "message: String?",
+    "createdAt: Instant",
+    "updatedAt: Instant",
+    "deleted: Boolean"
+   ],
+   "note": "Collection donations.",
+   "x": 1539,
+   "y": 284
+  },
+  {
+   "id": "faq",
+   "name": "FaqEntry",
+   "pkg": "website",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "category: FaqCategory",
+    "sortOrder: Int",
+    "seedKey: String?",
+    "german: FaqText",
+    "austrian: FaqText?",
+    "english: FaqText?",
+    "createdAt: Instant",
+    "updatedAt: Instant",
+    "deleted: Boolean"
+   ],
+   "note": "Collection faqentries.",
+   "x": 1539,
+   "y": 546
+  },
+  {
+   "id": "counter",
+   "name": "VersionCounter",
+   "pkg": "util",
+   "kind": "class",
+   "fields": [
+    "id: String",
+    "seq: Long"
+   ],
+   "note": "Collection counters. One document per SyncCollection; atomic $inc hands out sync versions (VersionCounterService).",
+   "x": 1539,
+   "y": 844
+  },
+  {
+   "id": "log",
+   "name": "Log",
+   "pkg": "util",
+   "kind": "class",
+   "fields": [
+    "id: ObjectId",
+    "userId: ObjectId?",
+    "logType: LogType",
+    "message: String?",
+    "timestamp: Instant"
+   ],
+   "note": "Collection logs. Audit log; also the backbone of the email rate limits.",
+   "x": 1190,
+   "y": 872
+  }
+ ],
+ "relations": [
+  {
+   "id": "r1",
+   "from": "friendship",
+   "to": "user",
+   "label": "userId1 / userId2",
+   "fromCard": "*",
+   "toCard": "2",
+   "kind": "assoc"
+  },
+  {
+   "id": "r2",
+   "from": "friendship",
+   "to": "user",
+   "label": "requester",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r3",
+   "from": "fsetting",
+   "to": "friendship",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r4",
+   "from": "fsetting",
+   "to": "user",
+   "label": "owner",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r5",
+   "from": "group",
+   "to": "user",
+   "label": "creator",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r6",
+   "from": "gmember",
+   "to": "user",
+   "label": "member",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r7",
+   "from": "gmember",
+   "to": "group",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r8",
+   "from": "message",
+   "to": "user",
+   "label": "sender",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r9",
+   "from": "message",
+   "to": "user",
+   "label": "receiver (direct)",
+   "fromCard": "*",
+   "toCard": "0..1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r10",
+   "from": "message",
+   "to": "group",
+   "label": "receiver (group)",
+   "fromCard": "*",
+   "toCard": "0..1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r11",
+   "from": "message",
+   "to": "message",
+   "label": "answer to",
+   "fromCard": "*",
+   "toCard": "0..1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r12",
+   "from": "event",
+   "to": "user",
+   "label": "creator",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r13",
+   "from": "event",
+   "to": "user",
+   "label": "invitedUsers",
+   "fromCard": "*",
+   "toCard": "*",
+   "kind": "assoc"
+  },
+  {
+   "id": "r14",
+   "from": "event",
+   "to": "group",
+   "label": "chat group",
+   "fromCard": "0..1",
+   "toCard": "0..1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r15",
+   "from": "mapentry",
+   "to": "user",
+   "label": "creator",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r16",
+   "from": "mapversion",
+   "to": "mapentry",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r17",
+   "from": "mapversion",
+   "to": "user",
+   "label": "editor",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r18",
+   "from": "userloc",
+   "to": "user",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r19",
+   "from": "refresh",
+   "to": "user",
+   "label": "session of",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r20",
+   "from": "apns",
+   "to": "user",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r21",
+   "from": "fcm",
+   "to": "user",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r22",
+   "from": "conn",
+   "to": "user",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r23",
+   "from": "score",
+   "to": "user",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "1",
+   "kind": "assoc"
+  },
+  {
+   "id": "r24",
+   "from": "log",
+   "to": "user",
+   "label": "",
+   "fromCard": "*",
+   "toCard": "0..1",
+   "kind": "assoc"
+  }
+ ],
+ "questions": []
+}
+</script>
+<script>
+(function () {
+  const pkgList = () => state.packages && state.packages.length ? state.packages : [...new Set(state.entities.map((e) => e.pkg).filter(Boolean))];
+  const pkgColor = (p) => `var(--pkg-${Math.max(0, pkgList().indexOf(p)) % 10})`;
+  const KINDS = { class: "class", enum: "«enum»", embedded: "«embedded»" };
+  const DRAFT_KEY = "domain-model-draft:" + location.pathname;
+  const MODEL_OPEN = '<script type="application/json" id="model">';
+  const TEMPLATE = document.documentElement.outerHTML;
+  const CHAR_W = 7.3, LINE_H = 18, HEAD_H = 46, PAD = 12;
+
+  let state = { entities: [], relations: [], questions: [] };
+  let selectedId = null;
+  let zoom = 1;
+  const canWrite = true;
+  let loaded = false, dirty = false;
+  let confirmDeleteId = null;
+
+  const $ = (id) => document.getElementById(id);
+  const svg = $("canvas");
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const uid = () => Math.random().toString(36).slice(2, 10);
+
+  function setStatus(text, cls) {
+    const el = $("status");
+    el.textContent = text;
+    el.className = "status" + (cls ? " " + cls : "");
+  }
+
+  function entity(id) { return state.entities.find((e) => e.id === id); }
+
+  function boxSize(e) {
+    const lines = [e.name, ...(e.fields || [])];
+    const longest = lines.reduce((m, l) => Math.max(m, (l || "").length), 10);
+    const w = Math.max(190, Math.ceil(longest * CHAR_W) + PAD * 2);
+    const h = HEAD_H + Math.max(1, (e.fields || []).length) * LINE_H + PAD;
+    return { w, h };
+  }
+
+  function el(tag, attrs, text) {
+    const n = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function edgePoint(cx, cy, tx, ty, w, h) {
+    const dx = tx - cx, dy = ty - cy;
+    if (dx === 0 && dy === 0) return { x: cx, y: cy };
+    const s = 1 / Math.max(Math.abs(dx) / (w / 2), Math.abs(dy) / (h / 2));
+    return { x: cx + dx * s, y: cy + dy * s };
+  }
+
+  function renderCanvas() {
+    svg.textContent = "";
+    const defs = el("defs", {});
+    const arrow = el("marker", { id: "arrow", viewBox: "0 0 10 10", refX: "10", refY: "5", markerWidth: "9", markerHeight: "9", orient: "auto-start-reverse" });
+    arrow.appendChild(el("path", { d: "M0,0 L10,5 L0,10", fill: "none", style: "stroke: var(--line); stroke-width:1.5" }));
+    const diamond = el("marker", { id: "diamond", viewBox: "0 0 16 10", refX: "0", refY: "5", markerWidth: "14", markerHeight: "9", orient: "auto" });
+    diamond.appendChild(el("path", { d: "M0,5 L8,0 L16,5 L8,10 Z", style: "fill: var(--line)" }));
+    defs.append(arrow, diamond);
+    svg.appendChild(defs);
+
+    const sizes = {};
+    let maxX = 600, maxY = 400;
+    state.entities.forEach((e) => {
+      sizes[e.id] = boxSize(e);
+      maxX = Math.max(maxX, e.x + sizes[e.id].w + 60);
+      maxY = Math.max(maxY, e.y + sizes[e.id].h + 60);
+    });
+    svg.setAttribute("viewBox", `0 0 ${maxX} ${maxY}`);
+    svg.setAttribute("width", maxX * zoom);
+    svg.setAttribute("height", maxY * zoom);
+
+    if (!state.entities.length) {
+      svg.appendChild(el("text", { x: 40, y: 60, class: "empty" }, loaded ? "No classes yet. Use “Add class” to start the model." : "No model in this file."));
+    }
+
+    const relLayer = el("g", {});
+    state.relations.forEach((r) => {
+      const a = entity(r.from), b = entity(r.to);
+      if (!a || !b) return;
+      const sa = sizes[a.id], sb = sizes[b.id];
+      const ac = { x: a.x + sa.w / 2, y: a.y + sa.h / 2 }, bc = { x: b.x + sb.w / 2, y: b.y + sb.h / 2 };
+      const p1 = edgePoint(ac.x, ac.y, bc.x, bc.y, sa.w, sa.h);
+      const p2 = edgePoint(bc.x, bc.y, ac.x, ac.y, sb.w, sb.h);
+      const highlight = selectedId && (r.from === selectedId || r.to === selectedId);
+      const line = el("line", { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
+        style: `stroke: var(${highlight ? "--accent" : "--line"}); stroke-width: ${highlight ? 2 : 1.3}` });
+      if (r.kind === "comp") line.setAttribute("marker-start", "url(#diamond)");
+      else line.setAttribute("marker-end", "url(#arrow)");
+      relLayer.appendChild(line);
+      const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+      if (r.label) relLayer.appendChild(el("text", { x: mx + 4, y: my - 4, class: "rel" }, r.label));
+      const card = (p, q, txt) => {
+        if (!txt) return;
+        const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
+        relLayer.appendChild(el("text", { x: p.x + (dx / len) * 18 + 4, y: p.y + (dy / len) * 18 - 4, class: "card" }, txt));
+      };
+      card(p1, p2, r.fromCard);
+      card(p2, p1, r.toCard);
+    });
+    svg.appendChild(relLayer);
+
+    state.entities.forEach((e) => {
+      const { w, h } = sizes[e.id];
+      const g = el("g", { class: "box", transform: `translate(${e.x},${e.y})`, "data-id": e.id, tabindex: "0", role: "button", "aria-label": `Edit ${e.name}` });
+      const isSel = e.id === selectedId;
+      g.appendChild(el("rect", { width: w, height: h, rx: 5,
+        style: `fill: var(--box); stroke: var(${isSel ? "--accent" : "--box-border"}); stroke-width: ${isSel ? 2.5 : 1.2}` }));
+      g.appendChild(el("rect", { width: w, height: HEAD_H - 6, rx: 5, style: `fill: ${pkgColor(e.pkg)}` }));
+      g.appendChild(el("rect", { y: HEAD_H - 12, width: w, height: 6, style: `fill: ${pkgColor(e.pkg)}` }));
+      g.appendChild(el("line", { x1: 0, y1: HEAD_H - 6, x2: w, y2: HEAD_H - 6, style: "stroke: var(--box-border); stroke-width:1" }));
+      g.appendChild(el("text", { x: PAD, y: 15, class: "stereo" }, `${KINDS[e.kind] || "class"} · ${e.pkg || ""}`));
+      g.appendChild(el("text", { x: PAD, y: 33, class: "name" }, e.name));
+      (e.fields || []).forEach((f, i) => g.appendChild(el("text", { x: PAD, y: HEAD_H + 8 + i * LINE_H }, f)));
+      if (e.note) g.appendChild(el("circle", { cx: w - 12, cy: 14, r: 4, style: "fill: var(--accent)" }));
+      svg.appendChild(g);
+    });
+  }
+
+  function svgPoint(evt) {
+    const pt = svg.createSVGPoint();
+    pt.x = evt.clientX; pt.y = evt.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  let drag = null;
+  svg.addEventListener("pointerdown", (evt) => {
+    const g = evt.target.closest(".box");
+    if (!g) return;
+    const e = entity(g.dataset.id);
+    const p = svgPoint(evt);
+    drag = { id: e.id, dx: p.x - e.x, dy: p.y - e.y, moved: false, g };
+    g.setPointerCapture(evt.pointerId);
+    g.classList.add("dragging");
+  });
+  svg.addEventListener("pointermove", (evt) => {
+    if (!drag || !canWrite) return;
+    const e = entity(drag.id);
+    const p = svgPoint(evt);
+    const nx = Math.max(0, Math.round(p.x - drag.dx)), ny = Math.max(0, Math.round(p.y - drag.dy));
+    if (!drag.moved && Math.hypot(nx - e.x, ny - e.y) < 3) return;
+    drag.moved = true;
+    e.x = nx; e.y = ny;
+    renderCanvas();
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (d.moved) { changed(); } else { select(d.id); }
+  };
+  svg.addEventListener("pointerup", endDrag);
+  svg.addEventListener("pointercancel", endDrag);
+  svg.addEventListener("keydown", (evt) => {
+    const g = evt.target.closest && evt.target.closest(".box");
+    if (g && (evt.key === "Enter" || evt.key === " ")) { evt.preventDefault(); select(g.dataset.id); }
+  });
+
+  function select(id) {
+    selectedId = id;
+    confirmDeleteId = null;
+    renderCanvas();
+    renderPanel();
+  }
+
+  function fieldInput(label, id, value, multiline, rows) {
+    const wrap = document.createElement("div");
+    wrap.className = "field";
+    const l = document.createElement("label");
+    l.htmlFor = id; l.textContent = label;
+    const input = document.createElement(multiline ? "textarea" : "input");
+    if (!multiline) input.type = "text";
+    if (rows) input.rows = rows;
+    input.id = id; input.value = value || "";
+    input.disabled = !canWrite;
+    wrap.append(l, input);
+    return { wrap, input };
+  }
+
+  function selectInput(label, id, options, value) {
+    const wrap = document.createElement("div");
+    wrap.className = "field";
+    const l = document.createElement("label");
+    l.htmlFor = id; l.textContent = label;
+    const s = document.createElement("select");
+    s.id = id; s.disabled = !canWrite;
+    options.forEach(([v, t]) => { const o = document.createElement("option"); o.value = v; o.textContent = t; s.appendChild(o); });
+    s.value = value;
+    wrap.append(l, s);
+    return { wrap, input: s };
+  }
+
+  function relText(r) {
+    const a = entity(r.from), b = entity(r.to);
+    return `${a ? a.name : "?"} ${r.fromCard || ""} ${r.kind === "comp" ? "◆—" : "→"} ${r.toCard || ""} ${b ? b.name : "?"}${r.label ? " (" + r.label + ")" : ""}`.replace(/\s+/g, " ");
+  }
+
+  function renderPanel() {
+    const panel = $("panel");
+    panel.textContent = "";
+    const e = selectedId && entity(selectedId);
+    if (!e) {
+      const h = document.createElement("h2"); h.textContent = "Inspector";
+      const p = document.createElement("p"); p.className = "hint";
+      p.textContent = "Click a box to edit its name, package, fields and notes, or to add and remove relations. Fields use one line each, written as name: Type. A dot in a box's corner means it carries a note.";
+      const lg = document.createElement("div"); lg.className = "field";
+      const ll = document.createElement("span"); ll.className = "label"; ll.textContent = "Packages";
+      const chips = document.createElement("div"); chips.className = "legend";
+      pkgList().forEach((p) => { const c = document.createElement("span"); c.className = "chip"; c.style.background = pkgColor(p); c.textContent = p; chips.appendChild(c); });
+      lg.append(ll, chips);
+      const p2 = document.createElement("p"); p2.className = "hint";
+      p2.textContent = "Arrow: reference by id (one document points at another). Diamond: embedded inside the owning document. Every synced entity also carries updatedAt, updatedBy and deleted for offline sync.";
+      panel.append(h, p, lg, p2);
+      return;
+    }
+
+    const h = document.createElement("h2"); h.textContent = e.name || "Untitled";
+    panel.appendChild(h);
+
+    const name = fieldInput("Name", "f-name", e.name);
+    name.input.addEventListener("input", () => { e.name = name.input.value; h.textContent = e.name || "Untitled"; changed(); });
+    const two = document.createElement("div"); two.className = "grid2";
+    const pkg = fieldInput("Package", "f-pkg", e.pkg);
+    const dl = document.createElement("datalist"); dl.id = "pkg-options";
+    pkgList().forEach((p) => { const o = document.createElement("option"); o.value = p; dl.appendChild(o); });
+    pkg.input.setAttribute("list", "pkg-options"); pkg.wrap.appendChild(dl);
+    pkg.input.addEventListener("change", () => {
+      e.pkg = pkg.input.value.trim();
+      if (e.pkg && state.packages && !state.packages.includes(e.pkg)) state.packages.push(e.pkg);
+      changed(); renderPanel();
+    });
+    const kind = selectInput("Kind", "f-kind", [["class", "class"], ["enum", "enum"], ["embedded", "embedded"]], e.kind || "class");
+    kind.input.addEventListener("change", () => { e.kind = kind.input.value; changed(); });
+    two.append(pkg.wrap, kind.wrap);
+    const fields = fieldInput(e.kind === "enum" ? "Values (one per line)" : "Fields (name: Type, one per line)", "f-fields", (e.fields || []).join("\n"), true, Math.min(16, Math.max(4, (e.fields || []).length + 1)));
+    fields.input.addEventListener("input", () => { e.fields = fields.input.value.split("\n").map((s) => s.trimEnd()).filter((s) => s.trim()); changed(); });
+    const note = fieldInput("Note", "f-note", e.note, true, 3);
+    note.input.addEventListener("input", () => { e.note = note.input.value; changed(); });
+    panel.append(name.wrap, two, fields.wrap, note.wrap);
+
+    const relHead = document.createElement("span"); relHead.className = "label"; relHead.textContent = "Relations";
+    const ul = document.createElement("ul"); ul.className = "rels";
+    const mine = state.relations.filter((r) => r.from === e.id || r.to === e.id);
+    if (!mine.length) { const li = document.createElement("li"); li.textContent = "No relations yet."; ul.appendChild(li); }
+    mine.forEach((r) => {
+      const li = document.createElement("li");
+      const s = document.createElement("span"); s.textContent = relText(r);
+      const b = document.createElement("button"); b.type = "button"; b.className = "danger"; b.textContent = "Remove"; b.disabled = !canWrite;
+      b.addEventListener("click", () => { state.relations = state.relations.filter((x) => x.id !== r.id); changed(); renderPanel(); });
+      li.append(s, b); ul.appendChild(li);
+    });
+    panel.append(relHead, ul);
+
+    if (canWrite) {
+      const form = document.createElement("form"); form.className = "field";
+      const fl = document.createElement("span"); fl.className = "label"; fl.textContent = "Add relation from " + (e.name || "this class");
+      const others = state.entities.filter((x) => x.id !== e.id).map((x) => [x.id, x.name]);
+      const to = selectInput("To", "r-to", others, others[0] ? others[0][0] : "");
+      const g2 = document.createElement("div"); g2.className = "grid2";
+      const fc = fieldInput("From multiplicity", "r-fc", "*");
+      const tc = fieldInput("To multiplicity", "r-tc", "1");
+      g2.append(fc.wrap, tc.wrap);
+      const g3 = document.createElement("div"); g3.className = "grid2";
+      const lbl = fieldInput("Label", "r-label", "");
+      const rk = selectInput("Type", "r-kind", [["assoc", "reference"], ["comp", "embedded"]], "assoc");
+      g3.append(lbl.wrap, rk.wrap);
+      const add = document.createElement("button"); add.type = "submit"; add.textContent = "Add relation";
+      form.append(fl, to.wrap, g2, g3, add);
+      form.addEventListener("submit", (evt) => {
+        evt.preventDefault();
+        if (!to.input.value) return;
+        state.relations.push({ id: uid(), from: e.id, to: to.input.value, label: lbl.input.value.trim(), fromCard: fc.input.value.trim(), toCard: tc.input.value.trim(), kind: rk.input.value });
+        changed(); renderPanel();
+      });
+      panel.appendChild(form);
+
+      const del = document.createElement("div"); del.className = "confirm";
+      if (confirmDeleteId === e.id) {
+        const t = document.createElement("span"); t.textContent = `Delete ${e.name} and its relations?`;
+        const yes = document.createElement("button"); yes.type = "button"; yes.className = "danger"; yes.textContent = "Delete";
+        yes.addEventListener("click", () => {
+          state.entities = state.entities.filter((x) => x.id !== e.id);
+          state.relations = state.relations.filter((r) => r.from !== e.id && r.to !== e.id);
+          selectedId = null; confirmDeleteId = null; changed(); renderPanel();
+        });
+        const no = document.createElement("button"); no.type = "button"; no.textContent = "Keep";
+        no.addEventListener("click", () => { confirmDeleteId = null; renderPanel(); });
+        del.append(t, yes, no);
+      } else {
+        const b = document.createElement("button"); b.type = "button"; b.className = "danger"; b.textContent = "Delete class";
+        b.addEventListener("click", () => { confirmDeleteId = e.id; renderPanel(); });
+        const close = document.createElement("button"); close.type = "button"; close.textContent = "Close";
+        close.addEventListener("click", () => select(null));
+        del.append(close, b);
+      }
+      panel.appendChild(del);
+    }
+  }
+
+  function renderQuestions() {
+    const ol = $("questions");
+    ol.textContent = "";
+    if (!state.questions.length) {
+      const li = document.createElement("li"); li.className = "hint"; li.textContent = "No open questions.";
+      ol.appendChild(li);
+    }
+    state.questions.forEach((q) => {
+      const li = document.createElement("li");
+      if (q.done) li.classList.add("done");
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = !!q.done; cb.disabled = !canWrite; cb.id = "q-done-" + q.id;
+      cb.setAttribute("aria-label", "Decided");
+      cb.addEventListener("change", () => { q.done = cb.checked; li.classList.toggle("done", q.done); changed(); });
+      const t = document.createElement("input"); t.type = "text"; t.value = q.text; t.disabled = !canWrite; t.id = "q-text-" + q.id;
+      t.setAttribute("aria-label", "Question");
+      t.addEventListener("input", () => { q.text = t.value; changed(); });
+      const rm = document.createElement("button"); rm.type = "button"; rm.className = "danger"; rm.textContent = "Remove"; rm.disabled = !canWrite;
+      rm.addEventListener("click", () => { state.questions = state.questions.filter((x) => x.id !== q.id); changed(); renderQuestions(); });
+      li.append(cb, t, rm);
+      ol.appendChild(li);
+    });
+  }
+
+  function renderAll() { renderCanvas(); renderPanel(); renderQuestions(); }
+
+  function changed() {
+    renderCanvas();
+    dirty = true;
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(state)); } catch (_) {}
+    setStatus("Unsaved draft", "busy");
+  }
+
+  function buildFile() {
+    const json = JSON.stringify({ packages: state.packages || pkgList(), entities: state.entities, relations: state.relations, questions: state.questions }, null, 1).replace(/</g, "\\u003c");
+    const start = TEMPLATE.indexOf(MODEL_OPEN) + MODEL_OPEN.length;
+    const end = TEMPLATE.indexOf("</" + "script>", start);
+    return "<!doctype html>\n" + TEMPLATE.slice(0, start) + "\n" + json + "\n" + TEMPLATE.slice(end);
+  }
+
+  let fileHandle = null;
+  async function saveFile() {
+    const html = buildFile();
+    try {
+      if (window.showSaveFilePicker) {
+        if (!fileHandle) fileHandle = await window.showSaveFilePicker({ suggestedName: "domain-model.html", types: [{ description: "HTML", accept: { "text/html": [".html"] } }] });
+        const w = await fileHandle.createWritable();
+        await w.write(html); await w.close();
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+        a.download = "domain-model.html";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      }
+      dirty = false;
+      try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
+      setStatus("Saved to file", "ok");
+    } catch (err) {
+      if (err && err.name === "AbortError") return;
+      setStatus("Save failed", "bad");
+      showBanner("Could not write the file: " + (err && err.message ? err.message : err));
+    }
+  }
+
+  function showBanner(text) { const b = $("banner"); b.textContent = text; b.hidden = false; }
+
+
+  function addEntity(kind) {
+    const n = state.entities.length;
+    const e = { id: uid(), name: kind === "enum" ? "NewEnum" : "NewClass", kind, pkg: pkgList()[0] || "core", x: 40 + (n % 5) * 40, y: 40 + (n % 5) * 40,
+      fields: kind === "enum" ? ["VALUE_A", "VALUE_B"] : ["id: ObjectId"], note: "" };
+    state.entities.push(e);
+    selectedId = e.id;
+    changed(); renderPanel();
+    const s = $("sheet"); s.scrollTo({ left: 0, top: 0 });
+  }
+
+  $("addClass").addEventListener("click", () => addEntity("class"));
+  $("addEnum").addEventListener("click", () => addEntity("enum"));
+  $("zoomIn").addEventListener("click", () => { zoom = Math.min(2, +(zoom + 0.15).toFixed(2)); renderCanvas(); });
+  $("zoomOut").addEventListener("click", () => { zoom = Math.max(0.4, +(zoom - 0.15).toFixed(2)); renderCanvas(); });
+  $("addQuestionForm").addEventListener("submit", (evt) => {
+    evt.preventDefault();
+    const v = $("newQuestion").value.trim();
+    if (!v || !canWrite) return;
+    state.questions.push({ id: uid(), text: v, done: false });
+    $("newQuestion").value = "";
+    changed(); renderQuestions();
+  });
+
+  renderAll();
+
+  state = JSON.parse(document.getElementById("model").textContent);
+  loaded = true;
+  try {
+    const draft = localStorage.getItem(DRAFT_KEY);
+    if (draft) { state = JSON.parse(draft); dirty = true; setStatus("Unsaved draft", "busy"); showBanner("Showing your unsaved draft from this browser. Save to file to keep it, or discard it."); }
+  } catch (_) {}
+  $("saveFile").addEventListener("click", saveFile);
+  $("discard").addEventListener("click", () => {
+    try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
+    state = JSON.parse(document.getElementById("model").textContent);
+    dirty = false; selectedId = null; $("banner").hidden = true;
+    setStatus("Loaded from file", ""); renderAll();
+  });
+  window.addEventListener("beforeunload", (evt) => { if (dirty) { evt.preventDefault(); evt.returnValue = ""; } });
+  renderAll();
+})();
+</script>
+
+</body>
+</html>
