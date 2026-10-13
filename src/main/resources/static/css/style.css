@@ -3382,3 +3382,370 @@ header.scrolled {
     margin-top: 1rem;
     min-height: 1.5em;
 }
+
+/* ── Admin monitoring dashboard ─────────────────────────────────────────── */
+
+.mon-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.mon-segmented {
+    display: flex;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.mon-segmented button {
+    padding: 0.5rem 0.9rem;
+    background: rgba(13, 21, 13, 0.5);
+    border: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.mon-segmented button:last-child {
+    border-right: none;
+}
+
+.mon-segmented button:hover {
+    color: var(--light);
+}
+
+.mon-segmented button.active {
+    color: var(--light);
+    background: rgba(46, 119, 204, 0.25);
+}
+
+.mon-updated {
+    font-size: 0.8rem;
+}
+
+.mon-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.mon-status {
+    margin-bottom: 1.5rem;
+}
+
+.mon-kpi,
+.mon-panel {
+    background: rgba(19, 31, 19, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 1rem 1.25rem;
+    min-width: 0;
+}
+
+.mon-panel {
+    margin-bottom: 1rem;
+}
+
+.mon-kpi-label,
+.mon-panel-title {
+    color: #94a3b8;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.mon-panel-title {
+    margin-bottom: 0.75rem;
+}
+
+.mon-kpi-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-top: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mon-status .mon-kpi-value {
+    font-size: 1.1rem;
+}
+
+.mon-kpi-trend {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 0.15rem;
+}
+
+.mon-kpi-trend.is-bad {
+    color: #ef4444;
+}
+
+.mon-kpi-trend.is-good {
+    color: var(--success);
+}
+
+.mon-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.mon-panel-header .mon-panel-title {
+    margin-bottom: 0;
+}
+
+.mon-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.mon-grid > .mon-panel {
+    margin-bottom: 0;
+}
+
+.mon-grid + .mon-grid,
+.mon-grid + .mon-panel {
+    margin-top: 1rem;
+}
+
+.mon-grid-2 {
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+}
+
+.mon-grid-3 {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    margin-bottom: 1rem;
+}
+
+.mon-heading {
+    margin: 2rem 0 1rem;
+}
+
+.mon-chart {
+    width: 100%;
+    min-width: 0;
+}
+
+.mon-chart-svg {
+    display: block;
+}
+
+.mon-grid-line {
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 1;
+}
+
+.mon-axis-label {
+    fill: #64748b;
+    font-size: 10px;
+    font-family: 'Poppins', sans-serif;
+}
+
+.mon-legend {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.mon-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.mon-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.mon-tooltip {
+    position: fixed;
+    z-index: 300;
+    pointer-events: none;
+    background: var(--surface-elevated);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.8rem;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.mon-tooltip-time {
+    color: #94a3b8;
+    margin-bottom: 0.25rem;
+}
+
+.mon-tooltip-line {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+}
+
+.mon-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.mon-bar-row {
+    display: grid;
+    grid-template-columns: 3rem 1fr 4rem;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.mon-bar-track {
+    height: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.mon-bar {
+    height: 100%;
+    border-radius: 4px;
+}
+
+.mon-bar-value {
+    text-align: right;
+    color: #94a3b8;
+}
+
+.mon-table-flat {
+    background: transparent;
+    backdrop-filter: none;
+}
+
+.mon-table-compact {
+    min-width: 0;
+}
+
+.mon-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8rem;
+    word-break: break-all;
+}
+
+.mon-sub {
+    font-size: 0.75rem;
+    margin-top: 0.15rem;
+    max-width: 420px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mon-count {
+    font-weight: 700;
+}
+
+.mon-nowrap {
+    white-space: nowrap;
+}
+
+.mon-spark-cell {
+    width: 220px;
+    min-width: 160px;
+}
+
+.mon-clickable {
+    cursor: pointer;
+}
+
+.mon-level-error {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.mon-level-warn {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.mon-level-info {
+    background: rgba(46, 119, 204, 0.2);
+    color: var(--accent);
+}
+
+.mon-level-debug {
+    background: rgba(168, 85, 247, 0.2);
+    color: #a855f7;
+}
+
+.mon-kind {
+    margin-left: 0.35rem;
+}
+
+.mon-explorer-filters {
+    margin-bottom: 1rem;
+}
+
+.mon-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--accent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.mon-detail-row td {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.mon-stack {
+    margin: 0;
+    padding: 0.75rem;
+    max-height: 320px;
+    overflow: auto;
+    font-size: 0.75rem;
+    color: #cbd5e1;
+    white-space: pre;
+}
+
+.mon-trace-card {
+    max-width: 960px;
+}
+
+.mon-trace-rows {
+    max-height: 60vh;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.mon-trace-line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .mon-grid-2,
+    .mon-grid-3 {
+        grid-template-columns: 1fr;
+    }
+}

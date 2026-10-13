@@ -97,6 +97,7 @@ class FriendsService(
         }
 
         requireOrLog(
+            "accept_friend_request_not_recipient",
             friendship.requesterId == requesterId,
             { "Unauthorized friend request action - user: ${userLookupService.getUsername(acceptingUserId)}, action: ACCEPT, requester: ${userLookupService.getUsername(requesterId)}: Not the recipient" }
         ) { "Only the recipient can accept a friend request" }
@@ -138,6 +139,7 @@ class FriendsService(
 
         //You can only deny friend requests from the other user, or cancel your own
         requireOrLog(
+            "decline_friend_request_not_involved",
             friendship.requesterId == requesterId /* Decline request from others*/
                 || friendship.requesterId == decliningUserId /* Decline your own request (you requested and you decline)*/,
             { "Unauthorized friend request action - user: ${userLookupService.getUsername(decliningUserId)}, action: DECLINE, requester: ${userLookupService.getUsername(requesterId)}: Not the recipient" }

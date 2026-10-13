@@ -245,6 +245,7 @@ class UserService(
                     .isNotEmpty()
 
         requireOrLog(
+            "get_user_profilepic_not_allowed",
             allowed,
             { "Unauthorized profile pic access - user: ${userLookupService.getUsername(requestingUserId)}, target: ${userLookupService.getUsername(userId)}: No non-blocked friendship and no common group" }
         ) { "You are not allowed to view this profile picture" }
@@ -254,7 +255,7 @@ class UserService(
             imageManager.loadProfilePicFromFile(imageName)
         } catch (e: IllegalArgumentException) {
             //Every account gets a profile pic at registration, so a missing file is a lost image
-            AppLogger.warn("Profile pic of user $userId missing: ${e.message}")
+            AppLogger.warn("Profile pic of user $userId missing: ${e.message}", tag = "get_user_profilepic_missing")
             null
         }
     }
@@ -335,6 +336,7 @@ class UserService(
             //Change something about another user
 
             requireOrLog(
+                "change_friend_settings_not_friends",
                 friendsLookupService.areFriends(requestingUser.id, user.id),
                 { "Unauthorized user action - user: ${userLookupService.getUsername(requestingUser.id)} is not friends with: ${userLookupService.getUsername(user.id)}" }
             ) { "You are not friends with this user" }

@@ -4,6 +4,7 @@ package com.lerchenflo.schneaggchatv3server.util
 
 import com.lerchenflo.schneaggchatv3server.authentication.AuthController
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
+import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetrics
 import com.lerchenflo.schneaggchatv3server.repository.LogRepository
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryRepository
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
@@ -125,6 +126,7 @@ class LoggingService(
 
 
     fun log(userId: ObjectId?, logType: LogType, message: String? = null) {
+        if (logType == LogType.USER_LOGIN) ServerMetrics.logins.incrementAndGet()
         logRepository.save(
             Log(
                 userId = userId,

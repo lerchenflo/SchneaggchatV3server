@@ -86,7 +86,7 @@ class SocketConnectionHandler(
             try {
                 connection.session.close(CloseStatus.NORMAL)
             } catch (e: Exception) {
-                if (!e.isPeerGone()) AppLogger.error("Error force-closing socket for user $userId: ${e.describe()}")
+                if (!e.isPeerGone()) AppLogger.error("Error force-closing socket for user $userId: ${e.describe()}", tag = "force_close_socket_failed")
             }
         }
     }
@@ -98,7 +98,7 @@ class SocketConnectionHandler(
             try {
                 connection.session.sendMessage(TextMessage(json))
             } catch (e: Exception) {
-                if (!e.isPeerGone()) AppLogger.error("Error broadcasting to user ${connection.userId}: ${e.describe()}")
+                if (!e.isPeerGone()) AppLogger.error("Error broadcasting to user ${connection.userId}: ${e.describe()}", tag = "broadcast_socket_failed")
                 closeDeadConnection(connection)
             }
         }
@@ -125,7 +125,7 @@ class SocketConnectionHandler(
                 delivered = true
             } catch (e: Exception) {
                 if (!e.isPeerGone()) {
-                    AppLogger.error("Error sending socket message to user $receiverId (session ${connection.sessionId}): ${e.describe()}")
+                    AppLogger.error("Error sending socket message to user $receiverId (session ${connection.sessionId}): ${e.describe()}", tag = "send_socket_message_failed")
                 }
                 closeDeadConnection(connection)
             }
@@ -139,7 +139,7 @@ class SocketConnectionHandler(
         val parsed = try {
             Json.mapper.readValue(message.payload, SocketConnectionMessage::class.java)
         } catch (e: Exception) {
-            AppLogger.warn("Could not parse inbound socket message from user $senderId: ${e.message}")
+            AppLogger.warn("Could not parse inbound socket message from user $senderId: ${e.message}", tag = "parse_socket_message_failed")
             return
         }
 
@@ -157,7 +157,7 @@ class SocketConnectionHandler(
                 )
             }
             // All other message types are server -> client only; ignore if received inbound.
-            else -> AppLogger.warn("Ignoring unsupported inbound socket message type from user $senderId")
+            else -> AppLogger.warn("Ignoring unsupported inbound socket message type from user $senderId", tag = "handle_socket_unsupported_type")
         }
     }
 
@@ -169,7 +169,7 @@ class SocketConnectionHandler(
     override fun handleTransportError(session: WebSocketSession, exception: Throwable) {
         // The container closes the session after this and afterConnectionClosed does the bookkeeping.
         if (exception.isPeerGone()) return
-        AppLogger.warn("Socket transport error on session ${session.id}: ${exception.describe()}")
+        AppLogger.warn("Socket transport error on session ${session.id}: ${exception.describe()}", tag = "socket_transport_error")
     }
 
     /**
@@ -189,7 +189,7 @@ class SocketConnectionHandler(
         for (connection in connections) {
             val silentFor = now - connection.lastPongAt
             if (silentFor > PONG_TIMEOUT) {
-                AppLogger.warn("Socket of user ${connection.userId} (session ${connection.sessionId}) silent for $silentFor, closing as dead")
+                AppLogger.warn("Socket of user ${connection.userId} (session ${connection.sessionId}) silent for $silentFor, closing as dead", tag = "close_silent_socket")
                 closeDeadConnection(connection)
                 continue
             }
@@ -197,7 +197,7 @@ class SocketConnectionHandler(
                 connection.session.sendMessage(PingMessage())
             } catch (e: Exception) {
                 if (!e.isPeerGone()) {
-                    AppLogger.warn("Keepalive ping to user ${connection.userId} (session ${connection.sessionId}) failed: ${e.describe()}")
+                    AppLogger.warn("Keepalive ping to user ${connection.userId} (session ${connection.sessionId}) failed: ${e.describe()}", tag = "send_socket_ping_failed")
                 }
                 closeDeadConnection(connection)
             }
@@ -213,7 +213,7 @@ class SocketConnectionHandler(
         try {
             connection.session.close(CloseStatus.SESSION_NOT_RELIABLE)
         } catch (e: Exception) {
-            if (!e.isPeerGone()) AppLogger.error("Error closing dead socket of user ${connection.userId}: ${e.describe()}")
+            if (!e.isPeerGone()) AppLogger.error("Error closing dead socket of user ${connection.userId}: ${e.describe()}", tag = "close_dead_socket_failed")
         }
         unregister(connection.sessionId)
     }
@@ -235,7 +235,7 @@ class SocketConnectionHandler(
 
 
         requestingUserId ?: run {
-                AppLogger.warn("Socket connection not authenticated")
+                AppLogger.warn("Socket connection not authenticated", tag = "auth_socket_failed")
                 throw ResponseStatusException(
                     /* status = */ HttpStatus.FORBIDDEN,
                     /* reason = */ "Not logged in"
