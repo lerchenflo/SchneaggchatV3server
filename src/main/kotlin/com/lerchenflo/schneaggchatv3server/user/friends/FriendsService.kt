@@ -44,22 +44,34 @@ class FriendsService(
 
         if (existing != null) {
             return when (existing.status) {
-                FriendshipStatus.ACCEPTED -> existing // Already friends
+                FriendshipStatus.ACCEPTED -> {
+                    // Already friends. Nothing changes, but the requesting device evidently has a
+                    // stale view - push it the real one.
+                    notificationService.notifyRelationChange(recipientId = fromUserId, otherUserId = toUserId)
+                    existing
+                }
                 FriendshipStatus.PENDING -> {
                     // If the other user already sent a request, auto-accept
                     if (existing.requesterId == toUserId) {
                         acceptFriendRequest(fromUserId, toUserId)
                     } else {
-                        existing // Request already sent
+                        // Request already sent - same stale-view case as above
+                        notificationService.notifyRelationChange(recipientId = fromUserId, otherUserId = toUserId)
+                        existing
                     }
                 }
                 FriendshipStatus.DECLINED -> {
-                    // Resend request - update existing record
-                    existing.apply {
-                        status = FriendshipStatus.PENDING
-                        updatedAt = Clock.System.now()
+                    // Resend request - update existing record. The requester must become the
+                    // sender: keeping the old one would let the user who declined send a request
+                    // and then "accept" it themselves on their next addfriend call.
+                    val resent = existing.copy(
+                        requesterId = fromUserId,
+                        status = FriendshipStatus.PENDING,
+                        updatedAt = Clock.System.now(),
+                    )
+                    friendsLookupService.saveFriendship(resent).also {
+                        notifyNewFriendRequest(fromUserId, toUserId)
                     }
-                    friendsLookupService.saveFriendship(existing)
                 }
                 FriendshipStatus.BLOCKED ->
                     throw IllegalStateException("Cannot send friend request - user is blocked")
@@ -74,14 +86,26 @@ class FriendsService(
             status = FriendshipStatus.PENDING
         )
 
+        val saved = friendsLookupService.saveFriendship(friendship)
+
+        notifyNewFriendRequest(fromUserId, toUserId)
+
+        return saved
+    }
+
+    /**
+     * Pushes a just-saved pending request to both users. Runs after the save: the receiver's
+     * client runs a sync as soon as the FriendRequest event arrives, and must find the request.
+     */
+    private fun notifyNewFriendRequest(fromUserId: ObjectId, toUserId: ObjectId) {
+        notificationService.notifyRelationChange(recipientId = fromUserId, otherUserId = toUserId)
+        notificationService.notifyRelationChange(recipientId = toUserId, otherUserId = fromUserId)
 
         notificationService.notifyFriendRequest(
             requestingUser = fromUserId,
             receivingUser = toUserId,
             accepted = false
         )
-
-        return friendsLookupService.saveFriendship(friendship)
     }
 
     /**
@@ -104,15 +128,19 @@ class FriendsService(
         friendship.status = FriendshipStatus.ACCEPTED
         friendship.updatedAt = Clock.System.now()
 
+        val saved = friendsLookupService.saveFriendship(friendship)
+
         AppLogger.info("New friendship saved")
+
+        //After the save, like notifyNewFriendRequest: the requester's client syncs on FriendRequest
+        notificationService.notifyRelationChange(recipientId = acceptingUserId, otherUserId = requesterId)
+        notificationService.notifyRelationChange(recipientId = requesterId, otherUserId = acceptingUserId)
 
         notificationService.notifyFriendRequest(
             requestingUser = acceptingUserId,
             receivingUser = requesterId,
             accepted = true,
         )
-
-        val saved = friendsLookupService.saveFriendship(friendship)
 
         systemMessageService.friendshipAccepted(
             acceptingUserId = acceptingUserId,
@@ -155,6 +183,10 @@ class FriendsService(
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Friendship not found")
 
         deleteFriendship(friendship)
+
+        //No row left, so both sides get the other user as deleted
+        notificationService.notifyRelationChange(recipientId = userId, otherUserId = friendId)
+        notificationService.notifyRelationChange(recipientId = friendId, otherUserId = userId)
     }
 
     /**
@@ -239,14 +271,9 @@ class FriendsService(
 
         friendsSettingsService.saveFriendshipSetting(updatedSetting)
 
-        //Notify the friend only when the location-sharing flag itself changed
-        if (share != existingSetting.shareLocation) {
-            notificationService.notifyLocationSharingChange(
-                changingUserId = userId,
-                friendId = friendId,
-                shareLocation = share
-            )
-        }
+        //Only the changing user's own devices need the new flags - the friend's row on their side
+        //does not carry what the changing user shares with them.
+        notificationService.notifyRelationChange(recipientId = userId, otherUserId = friendId)
     }
 
     /**
@@ -280,12 +307,9 @@ class FriendsService(
             )
         )
 
-        //Only the changing user's own devices need to know - the friend's view is unaffected.
-        notificationService.notifyWakePermissionChange(
-            changingUserId = userId,
-            friendId = friendId,
-            allowWake = allowWake
-        )
+        //Only the changing user's own devices need to know - the friend's view is unaffected, and
+        //they have no business knowing whether someone allows them to wake them until they try.
+        notificationService.notifyRelationChange(recipientId = userId, otherUserId = friendId)
     }
 
 }

@@ -115,6 +115,7 @@ class GroupController(
         @RequestParam("groupid") groupid: String,
         @RequestBody newName: String
     ) {
+        require(ValidationUtils.validateObjectId(groupid)) { "Invalid group ID" }
         val requestingUserId = requireAuth()
 
 

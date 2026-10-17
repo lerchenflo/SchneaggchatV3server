@@ -7,6 +7,8 @@ import org.springframework.data.mongodb.core.mapping.Document
 /**
  * One monotonic counter per [SyncCollection], atomically incremented by [VersionCounterService].
  * `id` is [SyncCollection.key], not the enum name, so the stored value survives an enum rename.
+ * The collection also holds the announcement number counter, see
+ * [com.lerchenflo.schneaggchatv3server.announcement.AnnouncementLookupService.nextId].
  */
 @TypeAlias("counter")
 @Document("counters")

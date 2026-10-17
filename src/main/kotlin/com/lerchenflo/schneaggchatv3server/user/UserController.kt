@@ -236,6 +236,7 @@ class UserController(
         val resetQuickReactions: Boolean? = null,
         val developerSettings: Boolean? = null,
         val lastContributePopupShown: Long? = null,
+        val lastDismissedAnnouncementId: Long? = null,
     )
 
     @PostMapping("/settings")
@@ -258,6 +259,7 @@ class UserController(
             resetQuickReactions = request.resetQuickReactions,
             developerSettings = request.developerSettings,
             lastContributePopupShown = request.lastContributePopupShown,
+            lastDismissedAnnouncementId = request.lastDismissedAnnouncementId,
         )
     }
 

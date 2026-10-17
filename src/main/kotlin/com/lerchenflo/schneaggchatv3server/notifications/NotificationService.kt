@@ -18,10 +18,10 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.Frien
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.SnailTrailPointPayload
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
-import com.lerchenflo.schneaggchatv3server.user.friends.FriendsSettingsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
-import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.toSelfUserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.toUserResponseFor
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
 import kotlin.time.ExperimentalTime
@@ -42,7 +42,6 @@ class NotificationService(
     private val userLookupService: UserLookupService,
     private val groupLookupService: GroupLookupService,
     private val friendsLookupService: FriendsLookupService,
-    private val friendsSettingsService: FriendsSettingsService
 ) {
 
     
@@ -198,7 +197,12 @@ class NotificationService(
         }
     }
 
-    @OptIn(ExperimentalTime::class)
+    /**
+     * Push a change of [user] to every device of the user themselves and of everyone with a
+     * friendship row towards them, each in the shape `/users/sync` would give them: friends get the
+     * friend row with their own settings towards [user], pending / blocked counterparts the simple
+     * row (it carries the username and the picture timestamp too).
+     */
     fun notifyUserUpdate(user: User, deleted: Boolean) {
         // Notify the user themselves
         socketConnectionHandler.sendMessage(
@@ -211,107 +215,54 @@ class NotificationService(
             receiverId = user.id
         )
 
-        // Notify friends
-        friendsLookupService.getFriendsForUserUpdate(user.id).forEach { (friendId, requesterId, nickName, shareLocation) ->
+        friendsLookupService.getCounterpartInteractions(user.id).forEach { (counterpartId, interaction) ->
             socketConnectionHandler.sendMessage(
                 SocketConnectionMessage.UserChange(
-                    user = UserResponse.FriendUserResponse(
-                        id = user.id.toHexString(),
-                        username = user.username,
-                        updatedAt = user.updatedAt.toEpochMilliseconds(),
-                        profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
-                        requesterId = requesterId.toHexString(),
-                        birthDate = user.birthDate,
-                        phoneNumber = user.phoneNumber,
-                        userDescription = user.userDescription,
-                        userStatus = user.userStatus,
-                        nickName = nickName,
-                        shareLocation = shareLocation,
-                        lastSeen = user.lastSeen.toEpochMilliseconds()
-                    ),
+                    user = user.toUserResponseFor(interaction),
                     deleted = deleted
                 ),
-                receiverId = friendId
+                receiverId = counterpartId
             )
         }
     }
 
     /**
-     * Notify the changing user's own devices that they updated whether they share
-     * their location with a specific friend. The friend's view of the relationship
-     * is unaffected by this change, so only the changing user is pushed to.
-     * @param changingUserId the user who changed their own sharing setting
-     * @param friendId the friend this setting applies to
-     * @param shareLocation the new sharing value (changingUserId -> friendId)
+     * Push [recipientId]'s current view of [otherUserId] to every device of [recipientId], read
+     * from the database the way `/users/sync` builds it: the friend row for an accepted friendship,
+     * the simple row for a pending one, and a deleted [SocketConnectionMessage.UserChange] once no
+     * friendship row is left (request declined, friend removed).
+     *
+     * Call it for each side whose view changed after every friendship mutation - the acting user
+     * included, because the client no longer syncs after its own change and its other devices
+     * would not learn about it at all.
      */
-    @OptIn(ExperimentalTime::class)
-    fun notifyLocationSharingChange(changingUserId: ObjectId, friendId: ObjectId, shareLocation: Boolean) {
-        val friend = userLookupService.findById(friendId) ?: return
-        val friendship = friendsLookupService.findFriendship(changingUserId, friendId) ?: return
-        //changingUserId's own nickname for the friend
-        val nickName = friendsSettingsService.getFriendshipSetting(friendship.id, changingUserId)?.nickName
+    fun notifyRelationChange(recipientId: ObjectId, otherUserId: ObjectId) {
+        val interaction = friendsLookupService.getInteraction(viewerId = recipientId, otherUserId = otherUserId)
 
-        socketConnectionHandler.sendMessage(
+        val socketMessage = if (interaction == null) {
             SocketConnectionMessage.UserChange(
-                user = UserResponse.FriendUserResponse(
-                    id = friend.id.toHexString(),
-                    username = friend.username,
-                    updatedAt = friend.updatedAt.toEpochMilliseconds(),
-                    profilePicUpdatedAt = friend.profilePicUpdatedAt.toEpochMilliseconds(),
-                    requesterId = friendship.requesterId.toHexString(),
-                    birthDate = friend.birthDate,
-                    phoneNumber = friend.phoneNumber,
-                    userDescription = friend.userDescription,
-                    userStatus = friend.userStatus,
-                    nickName = nickName,
-                    shareLocation = shareLocation,
-                    lastSeen = friend.lastSeen.toEpochMilliseconds()
+                //No relationship left, so no user data either: the client only reads the id of a
+                //deleted user. requesterId must still be non-null - the client declares it so and
+                //would drop the whole message as unparsable.
+                user = UserResponse.SimpleUserResponse(
+                    id = otherUserId.toHexString(),
+                    username = "",
+                    updatedAt = 0,
+                    profilePicUpdatedAt = 0,
+                    friendShipStatus = null,
+                    requesterId = recipientId.toHexString(),
                 ),
-                deleted = false
-            ),
-            receiverId = changingUserId
-        )
-    }
-
-    /**
-     * Push a wake-permission change to the changing user's OWN devices for multi-device sync.
-     * The friend is deliberately not notified - they have no business knowing whether someone
-     * allows them to wake them until they actually try.
-     * @param changingUserId the user who changed who may wake them
-     * @param friendId the friend the permission applies to
-     * @param allowWake the new value (friendId may wake changingUserId)
-     */
-    @OptIn(ExperimentalTime::class)
-    fun notifyWakePermissionChange(changingUserId: ObjectId, friendId: ObjectId, allowWake: Boolean) {
-        val friend = userLookupService.findById(friendId) ?: return
-        val friendship = friendsLookupService.findFriendship(changingUserId, friendId) ?: return
-        //changingUserId's own settings row towards the friend. Send every field it carries - the
-        //client replaces the whole user row, so omitting one would silently reset it.
-        val setting = friendsSettingsService.getFriendshipSetting(friendship.id, changingUserId)
-
-        socketConnectionHandler.sendMessage(
+                deleted = true
+            )
+        } else {
+            val otherUser = userLookupService.findById(otherUserId) ?: return
             SocketConnectionMessage.UserChange(
-                user = UserResponse.FriendUserResponse(
-                    id = friend.id.toHexString(),
-                    username = friend.username,
-                    updatedAt = friend.updatedAt.toEpochMilliseconds(),
-                    profilePicUpdatedAt = friend.profilePicUpdatedAt.toEpochMilliseconds(),
-                    requesterId = friendship.requesterId.toHexString(),
-                    birthDate = friend.birthDate,
-                    phoneNumber = friend.phoneNumber,
-                    userDescription = friend.userDescription,
-                    userStatus = friend.userStatus,
-                    nickName = setting?.nickName,
-                    shareLocation = setting?.shareLocation ?: false,
-                    shareSpeedHeading = setting?.shareSpeedHeading ?: false,
-                    shareSnailTrail = setting?.shareSnailTrail ?: false,
-                    allowWake = allowWake,
-                    lastSeen = friend.lastSeen.toEpochMilliseconds()
-                ),
+                user = otherUser.toUserResponseFor(interaction),
                 deleted = false
-            ),
-            receiverId = changingUserId
-        )
+            )
+        }
+
+        socketConnectionHandler.sendMessage(socketMessage, receiverId = recipientId)
     }
 
     /**
@@ -348,7 +299,12 @@ class NotificationService(
         )
     }
 
-    fun notifyGroupUpdate(groupResponse: GroupResponse, deleted: Boolean) {
+    /**
+     * @param removedMemberIds users who just left or got removed. They are no longer in
+     * [GroupResponse.members], but every device of theirs has to drop the group (and its messages),
+     * so they get the group as deleted.
+     */
+    fun notifyGroupUpdate(groupResponse: GroupResponse, deleted: Boolean, removedMemberIds: Collection<ObjectId> = emptyList()) {
 
         //Only for socket connected users
         groupResponse.members.forEach { member ->
@@ -358,6 +314,16 @@ class NotificationService(
                     deleted = deleted
                 ),
                 receiverId = ObjectId(member.userid),
+            )
+        }
+
+        removedMemberIds.forEach { removedMemberId ->
+            socketConnectionHandler.sendMessage(
+                SocketConnectionMessage.GroupChange(
+                    group = groupResponse,
+                    deleted = true
+                ),
+                receiverId = removedMemberId,
             )
         }
     }

@@ -69,6 +69,7 @@ class GlobalExceptionHandler(
             .body(mapOf("errors" to errors))
     }
 
+    //Require exceptions etc
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgumentException(e: IllegalArgumentException, request: HttpServletRequest): ResponseEntity<String> {
         val ip = clientIpResolver.resolve(request)

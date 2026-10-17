@@ -5,6 +5,10 @@ import java.time.LocalDate
 import java.time.Period
 import java.time.format.DateTimeParseException
 import java.util.Locale.getDefault
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 object ValidationUtils {
 
@@ -422,5 +426,22 @@ object ValidationUtils {
     /** Position of a FAQ entry inside its category. */
     fun validateFaqSortOrder(sortOrder: Int): Boolean {
         return sortOrder in 0..10_000
+    }
+
+    /** Admin-entered announcement title, shown as the banner headline in the app. Pass it trimmed. */
+    fun validateAnnouncementTitle(title: String): Boolean {
+        if (title.isBlank()) return false
+        return title.length <= 80
+    }
+
+    /** Optional announcement text below the title. Plain text, may be empty. Pass it trimmed. */
+    fun validateAnnouncementBody(body: String): Boolean {
+        return body.length <= 500
+    }
+
+    /** An announcement's expiry: in the future and at most 365 days ahead, on create and on edit. */
+    @OptIn(ExperimentalTime::class)
+    fun validateAnnouncementExpiry(expiresAt: Instant, now: Instant = Clock.System.now()): Boolean {
+        return expiresAt > now && expiresAt <= now + 365.days
     }
 }

@@ -16,7 +16,9 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.PinnedChat
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.toFriendUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.toSelfUserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.toSimpleUserResponse
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
@@ -55,8 +57,13 @@ class UserService(
 
     ) {
 
+    companion object {
+        /** Username of the Google Play / App Store review account, see [ensureTestaccount]. */
+        const val TESTACCOUNT_USERNAME = "testaccount"
+    }
+
     fun ensureTestaccount(): User {
-        val username = "testaccount"
+        val username = TESTACCOUNT_USERNAME
         return userLookupService.findByUsername(username) ?: run {
 
             val now = Clock.System.now()
@@ -232,6 +239,15 @@ class UserService(
         )
         userRepository.save(updatedUser)
         notificationService.notifyUserUpdate(updatedUser, deleted = false)
+
+        //Group co-members who are not friends only know this user by GroupMemberResponse.memberName.
+        //Bumping updatedAt also brings the new name to members who are offline right now, on their
+        //next /groups/sync.
+        groupLookupService.getUserGroupIds(requestingUserId).forEach { groupId ->
+            val group = groupLookupService.getGroupById(groupId) ?: return@forEach
+            groupLookupService.saveGroup(group.copy(updatedAt = updatedUser.updatedAt))
+            notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), deleted = false)
+        }
     }
 
     fun getProfilePic(requestingUserId: ObjectId, userId: ObjectId): ByteArray? {
@@ -452,6 +468,7 @@ class UserService(
         resetQuickReactions: Boolean?,
         developerSettings: Boolean?,
         lastContributePopupShown: Long?,
+        lastDismissedAnnouncementId: Long?,
     ) {
         val user = userLookupService.findById(userId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
@@ -491,6 +508,12 @@ class UserService(
             quickReactions = newQuickReactions,
             developerSettings = developerSettings ?: current.developerSettings,
             lastContributePopupShown = lastContributePopupShown ?: current.lastContributePopupShown,
+            // Only ever moves up: a device with an outdated number must not bring back an
+            // announcement that was already dismissed elsewhere.
+            lastDismissedAnnouncementId = maxOf(
+                current.lastDismissedAnnouncementId,
+                lastDismissedAnnouncementId ?: current.lastDismissedAnnouncementId,
+            ),
         )
 
         if (newSettings == current) return
@@ -537,34 +560,23 @@ class UserService(
 
         //User requests friends data
         else if (friendshipStatus == FriendshipStatus.ACCEPTED) {
-            return UserResponse.FriendUserResponse(
-                id = user.id.toString(),
-                username = user.username,
-                userDescription = user.userDescription,
-                userStatus = user.userStatus,
-                updatedAt = lastChangedAt ?: user.updatedAt.toEpochMilliseconds(),
-                birthDate = user.birthDate,
-                phoneNumber = user.phoneNumber,
-                requesterId = requesterId?.toHexString(),
-                profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
+            return user.toFriendUserResponse(
+                requesterId = requesterId,
                 nickName = nickName,
                 shareLocation = shareLocation,
                 shareSpeedHeading = shareSpeedHeading,
                 shareSnailTrail = shareSnailTrail,
                 allowWake = allowWake,
-                lastSeen = user.lastSeen.toEpochMilliseconds(),
+                updatedAt = lastChangedAt,
             )
         }
 
         //User requests random other users data
         else {
-            return UserResponse.SimpleUserResponse(
-                id = user.id.toString(),
-                username = user.username,
-                updatedAt = lastChangedAt ?: user.updatedAt.toEpochMilliseconds(),
+            return user.toSimpleUserResponse(
                 friendShipStatus = friendshipStatus,
-                requesterId = requesterId?.toHexString(),
-                profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
+                requesterId = requesterId,
+                updatedAt = lastChangedAt,
             )
         }
     }

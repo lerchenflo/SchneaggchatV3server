@@ -375,6 +375,10 @@ class GroupService(
         // so the added member knows the group before they are told they are attending its event.
         var pendingEventUpdate: Event? = null
 
+        // A member who left or got removed is no longer in the group response, but still has to
+        // drop the group on every device of theirs.
+        var removedMemberId: ObjectId? = null
+
         when (userAction) {
             GroupMemberAction.ADD_USER -> {
                 requireOrLog(
@@ -467,6 +471,7 @@ class GroupService(
                 // Remove the member
                 val focusedMember = groupMembers.first { it.userid == groupMember }
                 groupMemberRepository.delete(focusedMember)
+                removedMemberId = groupMember
 
                 pendingEvent = if (requestingUser == groupMember) {
                     SystemEventType.GROUP_MEMBER_LEFT
@@ -524,7 +529,11 @@ class GroupService(
         //No error, update group last changed
         groupLookupService.saveGroup(group.copy(updatedAt = now))
 
-        notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+        notificationService.notifyGroupUpdate(
+            groupResponse = groupLookupService.getGroupAsGroupResponse(groupId),
+            deleted = false,
+            removedMemberIds = listOfNotNull(removedMemberId),
+        )
 
         pendingEventUpdate?.let { event ->
             notificationService.notifyEventUpdate(

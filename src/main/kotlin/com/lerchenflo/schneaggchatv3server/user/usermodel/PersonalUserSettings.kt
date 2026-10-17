@@ -32,6 +32,11 @@ data class PersonalUserSettings(
     // 0 means never seeded - a fresh account gets this filled in at registration, and
     // MainController.migrateContributePopupShown backfills accounts created before this field existed.
     val lastContributePopupShown: Long = 0L,
+
+    // Number of the newest announcement this user dismissed on any device. 0 = none yet (also for
+    // documents written before this field existed). Only ever raised, see UserService.updateSettings.
+    // /announcements/latest only returns announcements above it.
+    val lastDismissedAnnouncementId: Long = 0L,
 )
 
 data class PinnedChat(
