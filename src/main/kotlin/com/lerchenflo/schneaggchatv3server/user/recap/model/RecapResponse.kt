@@ -12,9 +12,13 @@ data class RecapResponse(
     val globalLeaderboard: LeaderboardRecap,
     val groups: GroupsRecap,
     val map: MapRecap,
-    val games: List<GameRecapEntry>,
+    // Always empty: per-board results were replaced by gamesLeaderboard. Kept so older clients,
+    // which require the field, still deserialize the response.
+    val games: List<Any> = emptyList(),
+    val gamesLeaderboard: GamesLeaderboardRecap,
     val betaTester: BetaTesterRecap,
     val passwordResets: PasswordResetRecap,
+    val usageTime: UsageTimeRecap,
 )
 
 data class AccountRecap(
@@ -143,13 +147,23 @@ data class MapLeaderboardRecap(
     val myContributionCount: Long,
 )
 
-data class GameRecapEntry(
-    val game: String,
-    val difficulty: String,
-    val bestScore: Long,
-    val bestTimeMillis: Long,
+data class GamesLeaderboardRow(
     val rank: Int,
-    val achievedAt: Long,
+    val userId: String,
+    val username: String,
+    val points: Long,
+    val boardsPlayed: Int,
+    val gamesPlayed: Int,
+)
+
+// The public global games ranking (all games together, percentile points per board) - the same
+// list the games screen shows. Same top-N + own-true-rank shape as LeaderboardRecap.
+data class GamesLeaderboardRecap(
+    val top: List<GamesLeaderboardRow>,
+    val myRank: Int?,
+    val myPoints: Long,
+    val myBoardsPlayed: Int,
+    val myGamesPlayed: Int,
 )
 
 data class BetaTesterRow(
@@ -170,4 +184,25 @@ data class BetaTesterRecap(
 data class PasswordResetRecap(
     val passwordResetEmailsSentThisYear: Long,
     val passwordResetEmailsSentAllTime: Long,
+)
+
+data class DurationDayCount(val date: String, val millis: Long)
+data class DurationMonthCount(val month: Int, val millis: Long)
+
+// Time connected over the WebSocket, from the `socketconnections` log. Every session counts on its
+// own: two devices online at the same time add up (intentionally not merged). Sessions are
+// attributed to the day/month/hour they started in.
+data class UsageTimeRecap(
+    val totalMillisThisYear: Long,
+    val totalMillisAllTime: Long,
+    val sessionCountThisYear: Long,
+    val averageSessionMillis: Long,
+    val longestSessionMillis: Long,
+    val longestSessionAt: Long?,
+    val busiestDay: DurationDayCount?,
+    val busiestHourOfDay: Int?,
+    val perMonth: List<DurationMonthCount>,
+    // Earliest session in the whole collection - connection logging only started mid-2026, so the
+    // client can tell the user that earlier usage is missing.
+    val trackingSince: Long?,
 )

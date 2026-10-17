@@ -73,7 +73,7 @@ class EmailService(
             mailSender.send(mail)
             loggingService.log(userId, LogType.EMAIL_VERIFICATION_EMAIL_SENT, user.email)
         } catch (e: Exception) {
-            println("Mail not sent, error")
+            AppLogger.warn("Email verification mail to ${user.email} not sent: ${e.message}")
         }
     }
 
@@ -135,7 +135,7 @@ class EmailService(
             mailSender.send(mail)
             loggingService.log(userId, LogType.ACCOUNT_DELETION_EMAIL_SENT)
         } catch (e: Exception) {
-            println("Mail not sent, error")
+            AppLogger.warn("Account deletion mail to $email not sent: ${e.message}")
         }
     }
 
@@ -197,7 +197,7 @@ class EmailService(
             mailSender.send(mail)
             loggingService.log(userId, LogType.PASSWORD_RESET_EMAIL_SENT)
         } catch (e: Exception) {
-            println("Mail not sent, error")
+            AppLogger.warn("Password reset mail to $email not sent: ${e.message}")
         }
     }
 
@@ -323,6 +323,7 @@ class EmailService(
             address.canonicalHostName.takeIf { it != ip && it != address.hostAddress }
         }
     } catch (e: Exception) {
+        AppLogger.warn("Login alert: reverse DNS lookup for $ip failed: ${e.message}")
         null
     }
 

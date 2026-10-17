@@ -137,6 +137,29 @@ class EventService(
                 ).id
             } else null
 
+        // A groupless event that gains a group on edit: everyone who already accepted it goes
+        // straight into the new group, so they stay part of the event instead of having to join
+        // again. No friendship check, same as a regular join.
+        if (existing != null && existing.groupId == null && groupId != null) {
+            val acceptedUsers = existing.participations
+                .filter { it.status == EventParticipationStatus.ACCEPTED && it.userId != existing.creatorId }
+                .map { it.userId }
+                .distinct()
+
+            if (acceptedUsers.isNotEmpty()) {
+                acceptedUsers.forEach { userId ->
+                    if (!groupLookupService.isUserInGroup(userId, groupId)) {
+                        groupService.addUserToGroup(groupId = groupId, memberId = userId)
+                    }
+                }
+                groupService.touchGroup(groupId)
+                notificationService.notifyGroupUpdate(
+                    groupResponse = groupLookupService.getGroupAsGroupResponse(groupId),
+                    deleted = false
+                )
+            }
+        }
+
         // Re-sync the group's timer only when the creator changed something it is derived from
         // (dates or delay). A title-only edit must not silently overwrite a timer a group admin
         // set by hand in the chat, but a real change of the delay - including away from NEVER, or

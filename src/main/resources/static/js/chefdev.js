@@ -7,7 +7,7 @@
 /* ---------------------------------------------------------------------- */
 
 // The access token lives in this variable and nowhere else - no sessionStorage, no localStorage, and
-// the refresh token from the login response is deliberately discarded. Closing the tab ends the
+// the server issues no refresh token for this WEB login at all. Closing the tab ends the
 // session, and once the access token expires the admin logs in again. Nothing an XSS on this origin
 // could steal outlives the page.
 let accessToken = null;
