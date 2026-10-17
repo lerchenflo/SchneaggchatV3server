@@ -360,6 +360,16 @@ class FirebaseService(
                     MessagingErrorCode.INVALID_ARGUMENT,
                     MessagingErrorCode.SENDER_ID_MISMATCH
                 ) -> {
+                    AppLogger.warn("[Firebase] Removing invalid token (Code: $errorCode): $token")
+                    deleteToken(token)
+                    false
+                }
+
+                // FCM could not authenticate with APNs, so this is an iOS FCM token. iOS registers its APNs
+                // token directly since the APNs split, and Firebase has no APNs key, so these leftovers from
+                // the old iOS app can never be delivered again.
+                MessagingErrorCode.THIRD_PARTY_AUTH_ERROR -> {
+                    AppLogger.warn("[Firebase] Removing leftover iOS token (Code: $errorCode): $token")
                     deleteToken(token)
                     false
                 }
