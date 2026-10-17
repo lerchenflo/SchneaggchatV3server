@@ -370,12 +370,10 @@ class FirebaseService(
                     false
                 }
 
-                // FCM could not authenticate with APNs, so this is an iOS FCM token. iOS registers its APNs
-                // token directly since the APNs split, and Firebase has no APNs key, so these leftovers from
-                // the old iOS app can never be delivered again.
+                // Documented as an APNs/web push credential error, but fresh Android tokens get it too, so it
+                // says nothing about the token: never delete on it.
                 MessagingErrorCode.THIRD_PARTY_AUTH_ERROR -> {
-                    AppLogger.warn("[Firebase] Removing leftover iOS token of ${describeUser(firebaseToken.userId)} (Code: $errorCode): $token")
-                    deleteToken(token)
+                    AppLogger.warn("[Firebase] Third party auth error for token of ${describeUser(firebaseToken.userId)} (Code: $errorCode, HTTP: ${e.httpResponse?.statusCode}): $token")
                     false
                 }
 
