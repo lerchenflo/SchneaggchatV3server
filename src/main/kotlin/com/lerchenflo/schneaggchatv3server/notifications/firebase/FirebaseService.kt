@@ -272,7 +272,7 @@ class FirebaseService(
                             firebaseToken = firebaseToken.token,
                             data = dataMap
                         )
-                        safeSend(message = message, token = firebaseToken.token)
+                        safeSend(message = message, firebaseToken = firebaseToken)
                     } catch (e: Exception) {
                         AppLogger.error("Error sending to token ${firebaseToken.token}: ${e.message}")
                         e.printStackTrace()
@@ -317,7 +317,7 @@ class FirebaseService(
                             data = dataMap,
                             timeToLiveSeconds = 0
                         )
-                        safeSend(message = message, token = firebaseToken.token)
+                        safeSend(message = message, firebaseToken = firebaseToken)
                     } catch (e: Exception) {
                         AppLogger.error("Error sending wake to token ${firebaseToken.token}: ${e.message}")
                     }
@@ -336,7 +336,12 @@ class FirebaseService(
     }
 
 
-    private fun safeSend(message: Message, token: String): Boolean {
+    /** "username (id)" for logs; the id stays in, so a renamed or deleted user can still be traced. */
+    private fun describeUser(userId: ObjectId): String =
+        "${userLookupService.getUsername(userId)} (${userId.toHexString()})"
+
+    private fun safeSend(message: Message, firebaseToken: FirebaseToken): Boolean {
+        val token = firebaseToken.token
         try {
             val response = FirebaseMessaging.getInstance().send(message)
             return true
@@ -360,13 +365,29 @@ class FirebaseService(
                     MessagingErrorCode.INVALID_ARGUMENT,
                     MessagingErrorCode.SENDER_ID_MISMATCH
                 ) -> {
+                    AppLogger.warn("[Firebase] Removing invalid token of ${describeUser(firebaseToken.userId)} (Code: $errorCode): $token")
                     deleteToken(token)
+                    false
+                }
+
+                // FCM tried to reach APNs for this token, so it is an iOS FCM token from before the APNs split.
+                // The iOS app is gone from the Firebase project, so these can never be delivered again. The
+                // ApnsError detail proves the token went to Apple, so an Android token is never removed here.
+                MessagingErrorCode.THIRD_PARTY_AUTH_ERROR if e.httpResponse?.content?.contains("ApnsError") == true -> {
+                    AppLogger.warn("[Firebase] Removing leftover iOS token of ${describeUser(firebaseToken.userId)} (Code: $errorCode): $token")
+                    deleteToken(token)
+                    false
+                }
+
+                // Without the APNs detail it is unclear which push service failed, so the token stays
+                MessagingErrorCode.THIRD_PARTY_AUTH_ERROR -> {
+                    AppLogger.warn("[Firebase] Third party auth error for token of ${describeUser(firebaseToken.userId)} (Code: $errorCode, HTTP: ${e.httpResponse?.statusCode}): $token")
                     false
                 }
 
                 // Null error code — fall back to raw string check
                 null if rawErrorCode in invalidTokenRawCodes -> {
-                    AppLogger.warn("[Firebase] Removing invalid token via raw error code '$rawErrorCode': $token")
+                    AppLogger.warn("[Firebase] Removing invalid token of ${describeUser(firebaseToken.userId)} via raw error code '$rawErrorCode': $token")
                     deleteToken(token)
                     false
                 }
