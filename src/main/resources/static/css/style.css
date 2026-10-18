@@ -238,8 +238,6 @@ header {
     transform: translateY(-50%);
     width: 24%;
     max-width: 300px;
-    max-height: 78vh;
-    aspect-ratio: 0.485;
 }
 
 /* Features Section */
@@ -358,20 +356,64 @@ header {
     background: rgba(46, 119, 204, 0.08);
 }
 
-/* Interactive hero screenshot stack - click either phone to bring the
-   other to the front. Both frames keep a fixed aspect-ratio so animating
-   `width` also animates height smoothly, without transitioning `height`. */
+/* Interactive hero screenshot stack - one phone in front, the next one behind
+   it; a click cycles through all screens. The frames keep a fixed aspect-ratio
+   (screen 600x1339 plus the bezel) so animating `width` also animates height
+   smoothly, without transitioning `height`. */
+.hero-stack {
+    position: relative;
+    width: min(100%, calc(68vh * 0.465));
+    margin: 0 auto;
+    aspect-ratio: 0.465;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.hero-stack:focus-visible {
+    outline: none;
+}
+
+.hero-stack:focus-visible .slot-front {
+    box-shadow: 0 0 0 3px var(--accent), 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+}
+
 .phone-frame {
     position: absolute;
-    aspect-ratio: 0.485;
-    border-radius: 32px;
-    padding: 12px;
-    background: linear-gradient(160deg, #223822 0%, #0a120a 100%);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(30, 216, 96, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-    cursor: pointer;
+    aspect-ratio: 0.465;
+    border-radius: 13% / 6%;
+    padding: 3.2%;
+    background: linear-gradient(160deg, #1d2a1d 0%, #070b07 100%);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(30, 216, 96, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
     transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1), left 0.45s cubic-bezier(0.4, 0, 0.2, 1),
         bottom 0.45s cubic-bezier(0.4, 0, 0.2, 1), transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
-        box-shadow 0.45s ease;
+        opacity 0.35s ease, box-shadow 0.45s ease;
+}
+
+/* Punch-hole camera, centred over the status bar (the screenshots leave that spot empty) */
+.phone-frame::before {
+    content: '';
+    position: absolute;
+    top: 4.6%;
+    left: 50%;
+    width: 4.2%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: #050705;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    z-index: 1;
+}
+
+/* Power button on the right edge */
+.phone-frame::after {
+    content: '';
+    position: absolute;
+    top: 22%;
+    right: -1.2%;
+    width: 1.4%;
+    height: 9%;
+    border-radius: 0 3px 3px 0;
+    background: #1d2a1d;
 }
 
 .phone-frame img {
@@ -380,7 +422,7 @@ header {
     height: 100%;
     object-fit: cover;
     object-position: top;
-    border-radius: 22px;
+    border-radius: 10% / 4.6%;
     pointer-events: none;
     user-select: none;
     -webkit-user-drag: none;
@@ -391,6 +433,7 @@ header {
     left: 0;
     bottom: 0;
     z-index: 2;
+    opacity: 1;
     transform: rotate(0deg);
 }
 
@@ -399,8 +442,96 @@ header {
     left: -32%;
     bottom: -6%;
     z-index: 1;
+    opacity: 1;
     transform: rotate(-8deg);
     box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(30, 216, 96, 0.12);
+}
+
+/* Waiting further back: same spot as the back phone, invisible */
+.phone-frame.slot-hidden {
+    width: 50%;
+    left: -36%;
+    bottom: -4%;
+    z-index: 0;
+    opacity: 0;
+    transform: rotate(-14deg);
+    pointer-events: none;
+}
+
+.hero-shot-meta {
+    margin-top: 2.2rem;
+    text-align: center;
+}
+
+/* All captions share one grid cell, so the box keeps the height of the longest one */
+.hero-shot-caption {
+    display: grid;
+    margin: 0 0 0.8rem;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.hero p.hero-shot-caption {
+    font-size: 0.95rem;
+    margin-bottom: 0.8rem;
+}
+
+.hero-shot-caption span {
+    grid-area: 1 / 1;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+}
+
+.hero-shot-caption span.is-active {
+    opacity: 1;
+}
+
+.hero-shot-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+/* Small dot, bigger touch target */
+.hero-shot-dots button {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+
+.hero-shot-dots button::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    transition: background 0.25s ease, width 0.25s ease;
+}
+
+.hero-shot-dots button[aria-current='true']::before {
+    width: 18px;
+    border-radius: 4px;
+    background: var(--primary);
+}
+
+.hero-shot-dots button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .phone-frame,
+    .hero-shot-caption span,
+    .hero-shot-dots button::before {
+        transition: none;
+    }
 }
 
 /* Download section */

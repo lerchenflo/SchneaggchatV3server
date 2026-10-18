@@ -161,6 +161,13 @@
     <string name="hero_cta_compare">Why Schneaggchat?</string>
     <string name="hero_cta_download">Download now</string>
     <string name="hero_cta_features">See all features</string>
+    <string name="hero_shot_chats">Your chat. Made in Vorarlberg.</string>
+    <string name="hero_shot_compass">Find your people – even in a crowd.</string>
+    <string name="hero_shot_events">From chat to meetup.</string>
+    <string name="hero_shot_games">Daily puzzles, games and high scores.</string>
+    <string name="hero_shot_groups">Groups, reactions, polls and more.</string>
+    <string name="hero_shot_map">Share your live location – only with friends.</string>
+    <string name="hero_shot_polls">Vote instead of endless discussions.</string>
     <string name="hero_subtitle">Schneaggchat is a free, ad-free messenger for Android, iOS and Desktop – with a live map, events, polls, mini-games and the Vorarlberg dialect as a language option.</string>
     <string name="hero_title">The messenger for you and your friends</string>
     <string name="hero_trust">Free · Open Source · No ads · Great support</string>
