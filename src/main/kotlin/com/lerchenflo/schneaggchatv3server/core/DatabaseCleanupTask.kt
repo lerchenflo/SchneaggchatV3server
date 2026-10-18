@@ -1,6 +1,8 @@
 package com.lerchenflo.schneaggchatv3server.core
 
 import com.lerchenflo.schneaggchatv3server.group.GroupService
+import com.lerchenflo.schneaggchatv3server.monitoring.AppLogService
+import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetricsService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserLocationRepository
 import org.springframework.scheduling.annotation.Scheduled
@@ -12,6 +14,8 @@ class DatabaseCleanupTask(
     private val refreshTokenRepository: RefreshTokenRepository,
     private val userLocationRepository: UserLocationRepository,
     private val groupService: GroupService,
+    private val appLogService: AppLogService,
+    private val serverMetricsService: ServerMetricsService,
 ) {
 
     /**
@@ -35,5 +39,9 @@ class DatabaseCleanupTask(
         }*/
 
         groupService.deleteExpiredGroups()
+
+        //Monitoring dashboard data (31 days)
+        appLogService.deleteExpired()
+        serverMetricsService.deleteExpired()
     }
 }

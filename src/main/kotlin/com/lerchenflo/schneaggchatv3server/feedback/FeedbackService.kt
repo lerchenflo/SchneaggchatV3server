@@ -338,7 +338,7 @@ class FeedbackService(
         val probe = try {
             rateLimitService.tryConsume(key, tier)
         } catch (e: Exception) {
-            AppLogger.warn("RATELIMIT ${tier.name} unavailable, failing open (user=${userId.toHexString()}): ${e.message}")
+            AppLogger.warn("RATELIMIT ${tier.name} unavailable, failing open (user=${userId.toHexString()}): ${e.message}", tag = "check_feedback_rate_limit_unavailable")
             return
         }
 
@@ -346,7 +346,8 @@ class FeedbackService(
             val limit = rateLimitProperties.tierConfig(tier)
             AppLogger.warn(
                 "RATELIMIT ${tier.name} exceeded (more than ${limit.capacity} per ${limit.refillPeriod}), " +
-                        "429 | user=${userId.toHexString()}"
+                        "429 | user=${userId.toHexString()}",
+                tag = "exceed_feedback_rate_limit",
             )
             throw ResponseStatusException(HttpStatusCode.valueOf(429), "Too many requests. Please try again later.")
         }

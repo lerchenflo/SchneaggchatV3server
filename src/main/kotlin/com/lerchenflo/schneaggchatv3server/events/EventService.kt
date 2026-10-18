@@ -111,6 +111,7 @@ class EventService(
 
         if (existing != null) {
             requireOrLog(
+                "edit_event_not_creator",
                 upsertingUser == existing.creatorId,
                 { "Unauthorized event action - user: ${userLookupService.getUsername(upsertingUser)}, eventId: ${existing.id.toHexString()}, creator: ${userLookupService.getUsername(existing.creatorId)}" }
             ) { "You can not edit this event, you are not the creator" }
@@ -245,6 +246,7 @@ class EventService(
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found")
 
         requireOrLog(
+            "detach_event_not_creator",
             requestingUser == event.creatorId,
             { "Unauthorized event action - user: ${userLookupService.getUsername(requestingUser)}, eventId: ${event.id.toHexString()}, creator: ${userLookupService.getUsername(event.creatorId)}" }
         ) { "You can not change this event, you are not the creator" }
@@ -283,6 +285,7 @@ class EventService(
 
         //Check if can access event
         requireOrLog(
+            "join_event_no_access",
             canAccessEvent(requesterId = joiningUser, event = event),
             { "Unauthorized event action - user: ${userLookupService.getUsername(joiningUser)}, eventId: ${event.id.toHexString()}: Cannot access event" }
         ) { "You can not access this event" }
@@ -349,6 +352,7 @@ class EventService(
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found")
 
         requireOrLog(
+            "set_event_participation_no_access",
             canAccessEvent(requesterId = requestingUser, event = event),
             { "Unauthorized event action - user: ${userLookupService.getUsername(requestingUser)}, eventId: ${event.id.toHexString()}: Cannot access event" }
         ) { "You can not access this event" }

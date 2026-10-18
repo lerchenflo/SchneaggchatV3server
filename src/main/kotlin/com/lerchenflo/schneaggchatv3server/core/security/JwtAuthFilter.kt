@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.core.security
 
+import com.lerchenflo.schneaggchatv3server.util.RequestLogContext
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -29,6 +30,9 @@ class JwtAuthFilter(
 
                 val auth = UsernamePasswordAuthenticationToken(userId, null, emptyList())
                 SecurityContextHolder.getContext().authentication = auth
+                //Kept on the log context too: Spring Security clears its own context before
+                //RequestLogFilter writes the failed-request row.
+                RequestLogContext.current()?.userId = userId
 
             }
         }
