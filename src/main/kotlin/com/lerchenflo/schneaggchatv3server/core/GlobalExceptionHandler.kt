@@ -2,7 +2,10 @@ package com.lerchenflo.schneaggchatv3server.core
 
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.ClientIpResolver
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
+import com.lerchenflo.schneaggchatv3server.util.AppLogLevel
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
+import com.lerchenflo.schneaggchatv3server.util.RequestLogContext
+import com.lerchenflo.schneaggchatv3server.util.TaggedRequireException
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import jakarta.servlet.http.HttpServletRequest
@@ -30,14 +33,26 @@ class GlobalExceptionHandler(
 ) {
     private val logger = LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
 
-    private fun logWithUserInfo(message: String, ip: String?) {
+    /**
+     * Console + monitoring store. Also hands [tag] and the message to the request's log context,
+     * so the failed-request row written by RequestLogFilter says why the request failed.
+     */
+    private fun logWithUserInfo(
+        message: String,
+        ip: String?,
+        level: AppLogLevel,
+        tag: String,
+        throwable: Throwable? = null,
+    ) {
+        markRequestFailure(tag, message)
+
         val requestingUserId = SecurityContextHolder.getContext().authentication?.principal as? String
         //Anonymous requests carry a non-id principal ("anonymousUser") - nothing to look up there
         val username = if (requestingUserId != null && ObjectId.isValid(requestingUserId)) {
             try {
                 userRepository.findById(ObjectId(requestingUserId)).getOrNull()?.username
             } catch (e: Exception) {
-                AppLogger.warn("Could not resolve username of $requestingUserId for error log: ${e.message}")
+                AppLogger.warn("Could not resolve username of $requestingUserId for error log: ${e.message}", tag = "resolve_error_username_failed")
                 null
             }
         } else {
@@ -54,7 +69,19 @@ class GlobalExceptionHandler(
             }
         }
 
-        AppLogger.error("${if (userInfo.isNotEmpty()) userInfo else ""} $message")
+        val line = "${if (userInfo.isNotEmpty()) userInfo else ""} $message"
+        if (level == AppLogLevel.ERROR) {
+            AppLogger.error(line, tag = tag, throwable = throwable)
+        } else {
+            AppLogger.warn(line, tag = tag)
+        }
+    }
+
+    private fun markRequestFailure(tag: String, reason: String?) {
+        RequestLogContext.current()?.let {
+            it.failureTag = tag
+            it.failureReason = reason?.take(500)
+        }
     }
 
     //Exception handling for annotations (For example Registerrequest: Email)
@@ -64,7 +91,7 @@ class GlobalExceptionHandler(
         val errors = e.bindingResult.allErrors.map {
             it.defaultMessage ?: "Invalid value"
         }
-        logWithUserInfo("Validation Error happened: ${errors.joinToString(", ")}", ip)
+        logWithUserInfo("Validation Error happened: ${errors.joinToString(", ")}", ip, AppLogLevel.WARN, AppLogger.autoTag(e))
         //logError(e, ip)
         return ResponseEntity
             .status(400)
@@ -74,8 +101,13 @@ class GlobalExceptionHandler(
     //Require exceptions etc
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgumentException(e: IllegalArgumentException, request: HttpServletRequest): ResponseEntity<String> {
-        val ip = clientIpResolver.resolve(request)
-        logWithUserInfo("Illegal argument Error happened: ${e.message}", ip)
+        if (e is TaggedRequireException) {
+            // requireOrLog already logged it with its call-site tag
+            markRequestFailure(e.tag, e.message)
+        } else {
+            val ip = clientIpResolver.resolve(request)
+            logWithUserInfo("Illegal argument Error happened: ${e.message}", ip, AppLogLevel.WARN, AppLogger.autoTag(e))
+        }
         val error = e.message
         //logError(e, ip)
         return ResponseEntity
@@ -86,12 +118,17 @@ class GlobalExceptionHandler(
     @ExceptionHandler(ResponseStatusException::class)
     fun handleResponseStatusException(e: ResponseStatusException, request: HttpServletRequest): ResponseEntity<String> {
         val ip = clientIpResolver.resolve(request)
-        logWithUserInfo("ResponseStatus Error happened: ${e.message}", ip)
+        val serverError = e.statusCode.value() >= 500
+        // 500s with full stack trace
+        logWithUserInfo(
+            "ResponseStatus Error happened: ${e.message}", ip,
+            level = if (serverError) AppLogLevel.ERROR else AppLogLevel.WARN,
+            tag = AppLogger.autoTag(e),
+            throwable = if (serverError) e else null,
+        )
         val error = e.message
 
-        // Log 500 errors with full stack trace
-        if (e.statusCode.value() >= 500) {
-            logger.error("Server error (${e.statusCode.value()}): ${e.message}", e)
+        if (serverError) {
             logError(e, request, ip)
         }
 
@@ -103,7 +140,7 @@ class GlobalExceptionHandler(
     @ExceptionHandler(NoResourceFoundException::class)
     fun handleNoResourceFoundException(e: NoResourceFoundException, request: HttpServletRequest): ResponseEntity<String> {
         val ip = clientIpResolver.resolve(request)
-        logWithUserInfo("NoResourceFound Error happened: ${e.message}", ip)
+        logWithUserInfo("NoResourceFound Error happened: ${e.message}", ip, AppLogLevel.WARN, AppLogger.autoTag(e))
         val resourcePath = e.resourcePath
 
         //logError(e, ip)
@@ -116,7 +153,7 @@ class GlobalExceptionHandler(
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
     fun handleMethodNotSupported(e: HttpRequestMethodNotSupportedException, request: HttpServletRequest): ResponseEntity<String> {
         val ip = clientIpResolver.resolve(request)
-        logWithUserInfo("Wrong request method: ${e.method} not supported for endpoint ${request.requestURI}", ip)
+        logWithUserInfo("Wrong request method: ${e.method} not supported for endpoint ${request.requestURI}", ip, AppLogLevel.WARN, AppLogger.autoTag(e))
 
         return ResponseEntity
             .status(HttpStatus.METHOD_NOT_ALLOWED)
@@ -132,7 +169,9 @@ class GlobalExceptionHandler(
     fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException, request: HttpServletRequest): ResponseEntity<Map<String, String>> {
         val ip = clientIpResolver.resolve(request)
         val cause = e.mostSpecificCause.message?.lineSequence()?.firstOrNull() ?: "unreadable body"
-        logger.warn("Unreadable request body on ${request.method} ${request.requestURI} (ip=$ip): $cause")
+        val message = "Unreadable request body on ${request.method} ${request.requestURI} (ip=$ip): $cause"
+        markRequestFailure(AppLogger.autoTag(e), message)
+        AppLogger.warn(message, tag = AppLogger.autoTag(e))
 
         return ResponseEntity
             .badRequest()
@@ -157,6 +196,7 @@ class GlobalExceptionHandler(
      */
     @ExceptionHandler(BadCredentialsException::class)
     fun handleBadCredentials(e: BadCredentialsException): ResponseEntity<String> {
+        markRequestFailure("login_failed", "Invalid credentials")
         return ResponseEntity
             .status(HttpStatus.UNAUTHORIZED)
             .body("Invalid credentials")
@@ -169,8 +209,10 @@ class GlobalExceptionHandler(
 
         //No stack trace printing for badcredentials (Someone used a wrong username)
         if (e !is BadCredentialsException){
-            logger.error("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", e)
-            logWithUserInfo("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", ip)
+            logWithUserInfo(
+                "Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", ip,
+                AppLogLevel.ERROR, AppLogger.autoTag(e), e,
+            )
 
             logError(e, request, ip)
         }

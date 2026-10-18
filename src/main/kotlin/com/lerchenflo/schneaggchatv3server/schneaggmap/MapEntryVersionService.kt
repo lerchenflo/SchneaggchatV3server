@@ -423,7 +423,7 @@ class MapEntryVersionService(
                 else -> rawJson
             }
         } catch (e: Exception) {
-            AppLogger.warn("Map change log: could not read stored $field value, showing raw JSON: ${e.message}")
+            AppLogger.warn("Map change log: could not read stored $field value, showing raw JSON: ${e.message}", tag = "read_map_version_value_failed")
             rawJson
         }
     }

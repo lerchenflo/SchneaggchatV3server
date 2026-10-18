@@ -68,7 +68,10 @@
             </div>
             <nav class="admin-tabs">
                 <!-- Read-only views first, everything that changes data after the separator. -->
-                <button id="admin-tab-connected" class="admin-tab active">
+                <button id="admin-tab-monitoring" class="admin-tab active">
+                    <i class="fa-solid fa-chart-column"></i> Monitoring
+                </button>
+                <button id="admin-tab-connected" class="admin-tab">
                     <i class="fa-solid fa-circle-nodes"></i> Verbundene Nutzer
                     <span id="connected-users-count" class="admin-tab-badge">0</span>
                 </button>
@@ -106,6 +109,141 @@
         </header>
 
         <main class="admin-main">
+
+            <!-- Monitoring dashboard: technical logs (app_logs) + per-minute server metrics -->
+            <section id="admin-section-monitoring" class="admin-section hidden">
+                <div class="admin-section-header">
+                    <h2>Monitoring</h2>
+                    <div class="mon-toolbar">
+                        <div id="mon-range" class="mon-segmented" role="group" aria-label="Zeitraum">
+                            <button type="button" data-range="HOUR_1">1 h</button>
+                            <button type="button" data-range="HOURS_12">12 h</button>
+                            <button type="button" data-range="HOURS_24" class="active">24 h</button>
+                            <button type="button" data-range="DAYS_3">3 Tage</button>
+                            <button type="button" data-range="WEEK_1">1 Woche</button>
+                            <button type="button" data-range="MONTH_1">1 Monat</button>
+                        </div>
+                        <button type="button" id="mon-refresh" class="admin-zoom-button" aria-label="Aktualisieren">
+                            <i class="fa-solid fa-rotate"></i>
+                        </button>
+                        <span id="mon-updated" class="admin-muted mon-updated"></span>
+                    </div>
+                </div>
+
+                <div id="mon-kpis" class="mon-kpis"></div>
+                <div id="mon-status" class="mon-kpis mon-status"></div>
+
+                <div class="mon-grid mon-grid-2">
+                    <div class="mon-panel">
+                        <div class="mon-panel-title">Fehler &amp; Warnungen</div>
+                        <div id="mon-chart-levels" class="mon-chart mon-chart-big"></div>
+                    </div>
+                    <div class="mon-panel">
+                        <div class="mon-panel-title">Fehlgeschlagene Requests</div>
+                        <div id="mon-chart-requests" class="mon-chart mon-chart-big"></div>
+                    </div>
+                </div>
+
+                <div class="mon-grid mon-grid-2">
+                    <div class="mon-panel">
+                        <div class="mon-panel-title">Statuscodes</div>
+                        <div id="mon-status-codes" class="mon-bars"></div>
+                    </div>
+                    <div class="mon-panel">
+                        <div class="mon-panel-title">Endpunkte mit den meisten Fehlern</div>
+                        <div class="admin-table-scroll mon-table-flat">
+                            <table class="admin-table mon-table-compact">
+                                <thead>
+                                    <tr>
+                                        <th>Endpunkt</th>
+                                        <th>Status</th>
+                                        <th>Anzahl</th>
+                                        <th>Zuletzt</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mon-endpoint-rows"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Errors by type -->
+                <div class="mon-panel">
+                    <div class="mon-panel-header">
+                        <div class="mon-panel-title">Fehlertypen</div>
+                        <div class="admin-filter-row">
+                            <select id="mon-errors-level" class="admin-select">
+                                <option value="WARN,ERROR">Fehler + Warnungen</option>
+                                <option value="ERROR">Nur Fehler</option>
+                                <option value="WARN">Nur Warnungen</option>
+                            </select>
+                            <input type="search" id="mon-errors-search" class="admin-select" placeholder="Typ suchen...">
+                        </div>
+                    </div>
+                    <div class="admin-table-scroll mon-table-flat">
+                        <table class="admin-table">
+                            <thead>
+                                <tr id="mon-errors-header">
+                                    <th class="admin-sortable" data-sort="tag">Typ</th>
+                                    <th class="admin-sortable" data-sort="level">Level</th>
+                                    <th class="admin-sortable" data-sort="count">Anzahl</th>
+                                    <th class="admin-sortable" data-sort="affectedUsers">Nutzer</th>
+                                    <th class="admin-sortable" data-sort="lastSeen">Zuletzt</th>
+                                    <th>Verlauf</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mon-errors-rows"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Server status -->
+                <h3 class="mon-heading">Serverstatus</h3>
+                <div id="mon-metrics" class="mon-grid mon-grid-3"></div>
+
+                <!-- Log explorer -->
+                <div class="mon-panel" id="mon-explorer">
+                    <div class="mon-panel-header">
+                        <div class="mon-panel-title">Log-Explorer</div>
+                    </div>
+                    <div class="admin-filter-row mon-explorer-filters">
+                        <select id="mon-log-level" class="admin-select">
+                            <option value="">Alle Level</option>
+                            <option value="ERROR">Fehler</option>
+                            <option value="WARN,ERROR">Warnungen + Fehler</option>
+                            <option value="WARN">Warnungen</option>
+                            <option value="INFO">Info</option>
+                            <option value="DEBUG">Debug</option>
+                        </select>
+                        <select id="mon-log-kind" class="admin-select">
+                            <option value="">Logs + Requests</option>
+                            <option value="LOG">Nur Logs</option>
+                            <option value="REQUEST">Nur fehlgeschlagene Requests</option>
+                        </select>
+                        <input type="search" id="mon-log-tag" class="admin-select" placeholder="Tag (z.B. join_event_no_access)">
+                        <input type="search" id="mon-log-user" class="admin-select" placeholder="Nutzername oder ID">
+                        <input type="search" id="mon-log-q" class="admin-select" placeholder="Text suchen...">
+                    </div>
+                    <div class="admin-table-scroll mon-table-flat">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Zeitpunkt</th>
+                                    <th>Level</th>
+                                    <th>Tag</th>
+                                    <th>Nutzer</th>
+                                    <th>Nachricht</th>
+                                    <th>Request</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mon-log-rows"></tbody>
+                        </table>
+                    </div>
+                    <button id="mon-log-load-more" type="button" class="secondary-button hidden admin-load-more">
+                        Mehr laden
+                    </button>
+                </div>
+            </section>
 
             <!-- Map change log -->
             <section id="admin-section-changelog" class="admin-section hidden">
@@ -497,6 +635,19 @@
             </div>
         </form>
     </div>
+
+    <!-- Request trace modal (monitoring) -->
+    <div id="mon-trace-modal" class="admin-modal-overlay hidden">
+        <div class="admin-modal-card admin-modal-card-wide mon-trace-card">
+            <h3>Request <span id="mon-trace-id" class="admin-user-id"></span></h3>
+            <div id="mon-trace-rows" class="mon-trace-rows"></div>
+            <div class="admin-modal-actions">
+                <button type="button" id="mon-trace-close" class="secondary-button">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mon-tooltip" class="mon-tooltip hidden"></div>
 
     <script src="/js/chefdev.js"></script>
 </body>
