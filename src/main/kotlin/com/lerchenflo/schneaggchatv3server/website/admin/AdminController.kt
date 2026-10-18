@@ -410,14 +410,14 @@ class AdminController(
     fun requestServerUpdate() {
         val adminId = adminGuard.requireAdmin()
         redisTemplate.opsForValue().set(SERVER_UPDATE_KEY, "1")
-        AppLogger.info("ADMIN: Server update requested by $adminId")
+        AppLogger.info("ADMIN: Server update requested", user = adminId)
     }
 
     @DeleteMapping("/server/update")
     fun cancelServerUpdate() {
         val adminId = adminGuard.requireAdmin()
         redisTemplate.delete(SERVER_UPDATE_KEY)
-        AppLogger.info("ADMIN: Server update request cancelled by $adminId")
+        AppLogger.info("ADMIN: Server update request cancelled", user = adminId)
     }
 
     companion object {

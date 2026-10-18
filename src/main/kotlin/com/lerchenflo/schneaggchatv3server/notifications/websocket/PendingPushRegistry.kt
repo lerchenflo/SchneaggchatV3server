@@ -50,7 +50,7 @@ class PendingPushRegistry {
     /** Hold [push] for [userId] until one of [sessionIds] acks [messageId], or fire it as described above. */
     fun await(userId: ObjectId, messageId: String, sessionIds: Collection<String>, push: () -> Unit) {
         if (sessionIds.isEmpty()) {
-            scheduler.execute { runPush(push) }
+            scheduler.execute { runPush(push, userId) }
             return
         }
         val key = Key(userId, messageId)
@@ -79,14 +79,14 @@ class PendingPushRegistry {
 
     /** Sends [entry]'s push unless an ack or a racing fire already took it out of [pending]. */
     private fun fire(key: Key, entry: Pending) {
-        if (pending.remove(key, entry)) runPush(entry.push)
+        if (pending.remove(key, entry)) runPush(entry.push, key.userId)
     }
 
-    private fun runPush(push: () -> Unit) {
+    private fun runPush(push: () -> Unit, userId: ObjectId) {
         try {
             push()
         } catch (e: Exception) {
-            AppLogger.error("Fallback push failed: ${e.message}")
+            AppLogger.error("Fallback push failed: ${e.message}", user = userId, error = e)
         }
     }
 

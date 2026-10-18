@@ -90,7 +90,7 @@ class SocketConnectionHandler(
             try {
                 connection.session.close(CloseStatus.NORMAL)
             } catch (e: Exception) {
-                if (!e.isPeerGone()) AppLogger.error("Error force-closing socket for user $userId: ${e.describe()}")
+                if (!e.isPeerGone()) AppLogger.error("Error force-closing socket: ${e.describe()}", user = userId)
             }
         }
     }
@@ -102,7 +102,7 @@ class SocketConnectionHandler(
             try {
                 connection.session.sendMessage(TextMessage(json))
             } catch (e: Exception) {
-                if (!e.isPeerGone()) AppLogger.error("Error broadcasting to user ${connection.userId}: ${e.describe()}")
+                if (!e.isPeerGone()) AppLogger.error("Error broadcasting: ${e.describe()}", user = connection.userId)
                 closeDeadConnection(connection)
             }
         }
@@ -129,7 +129,7 @@ class SocketConnectionHandler(
                 delivered = true
             } catch (e: Exception) {
                 if (!e.isPeerGone()) {
-                    AppLogger.error("Error sending socket message to user $receiverId (session ${connection.sessionId}): ${e.describe()}")
+                    AppLogger.error("Error sending socket message (session ${connection.sessionId}): ${e.describe()}", user = receiverId)
                 }
                 closeDeadConnection(connection)
             }
@@ -164,7 +164,7 @@ class SocketConnectionHandler(
                 if (!connection.acksMessages) deliveredToLegacy = true
             } catch (e: Exception) {
                 if (!e.isPeerGone()) {
-                    AppLogger.error("Error sending socket message to user $receiverId (session ${connection.sessionId}): ${e.describe()}")
+                    AppLogger.error("Error sending socket message (session ${connection.sessionId}): ${e.describe()}", user = receiverId)
                 }
                 // Unregistering also releases this session's pending pushes right away
                 closeDeadConnection(connection)
@@ -182,7 +182,7 @@ class SocketConnectionHandler(
         val parsed = try {
             Json.mapper.readValue(message.payload, SocketConnectionMessage::class.java)
         } catch (e: Exception) {
-            AppLogger.warn("Could not parse inbound socket message from user $senderId: ${e.message}")
+            AppLogger.warn("Could not parse inbound socket message: ${e.message}", user = senderId)
             return
         }
 
@@ -201,7 +201,7 @@ class SocketConnectionHandler(
             }
             is SocketConnectionMessage.MessageAck -> pendingPushRegistry.ack(senderId, parsed.messageId)
             // All other message types are server -> client only; ignore if received inbound.
-            else -> AppLogger.warn("Ignoring unsupported inbound socket message type from user $senderId")
+            else -> AppLogger.warn("Ignoring unsupported inbound socket message type", user = senderId)
         }
     }
 
@@ -213,7 +213,7 @@ class SocketConnectionHandler(
     override fun handleTransportError(session: WebSocketSession, exception: Throwable) {
         // The container closes the session after this and afterConnectionClosed does the bookkeeping.
         if (exception.isPeerGone()) return
-        AppLogger.warn("Socket transport error on session ${session.id}: ${exception.describe()}")
+        AppLogger.warn("Socket transport error on session ${session.id}: ${exception.describe()}", user = connections.find { it.sessionId == session.id }?.userId)
     }
 
     /**
@@ -233,7 +233,7 @@ class SocketConnectionHandler(
         for (connection in connections) {
             val silentFor = now - connection.lastPongAt
             if (silentFor > PONG_TIMEOUT) {
-                AppLogger.warn("Socket of user ${connection.userId} (session ${connection.sessionId}) silent for $silentFor, closing as dead")
+                AppLogger.warn("Socket (session ${connection.sessionId}) silent for $silentFor, closing as dead", user = connection.userId)
                 closeDeadConnection(connection)
                 continue
             }
@@ -241,7 +241,7 @@ class SocketConnectionHandler(
                 connection.session.sendMessage(PingMessage())
             } catch (e: Exception) {
                 if (!e.isPeerGone()) {
-                    AppLogger.warn("Keepalive ping to user ${connection.userId} (session ${connection.sessionId}) failed: ${e.describe()}")
+                    AppLogger.warn("Keepalive ping (session ${connection.sessionId}) failed: ${e.describe()}", user = connection.userId)
                 }
                 closeDeadConnection(connection)
             }
@@ -257,7 +257,7 @@ class SocketConnectionHandler(
         try {
             connection.session.close(CloseStatus.SESSION_NOT_RELIABLE)
         } catch (e: Exception) {
-            if (!e.isPeerGone()) AppLogger.error("Error closing dead socket of user ${connection.userId}: ${e.describe()}")
+            if (!e.isPeerGone()) AppLogger.error("Error closing dead socket: ${e.describe()}", user = connection.userId)
         }
         unregister(connection.sessionId)
     }

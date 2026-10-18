@@ -170,7 +170,7 @@ class SchneaggmapService(
                 updatedAt    = now,
             )
 
-            AppLogger.info("MAP: ENTRY \"$name\" ${if (existing != null) "updated" else "created"} by ${userLookupService.getUsername(requesterId)}")
+            AppLogger.info("MAP: ENTRY \"$name\" ${if (existing != null) "updated" else "created"}", user = requesterId)
 
             loggingService.log(
                 userId = requesterId,

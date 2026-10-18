@@ -33,7 +33,7 @@ class RateLimitFilter(
 
         val ip = clientIpResolver.resolve(request)
         val userId = SecurityContextHolder.getContext().authentication?.principal as? String
-        val requestDescription = "${request.method} ${request.servletPath} ip=$ip user=${userId ?: "-"}"
+        val requestDescription = "${request.method} ${request.servletPath} ip=$ip"
 
         if (request.servletPath.startsWith(properties.authPathPrefix)) {
             val refreshing = request.servletPath == properties.refreshPath

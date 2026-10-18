@@ -73,7 +73,7 @@ class EmailService(
             mailSender.send(mail)
             loggingService.log(userId, LogType.EMAIL_VERIFICATION_EMAIL_SENT, user.email)
         } catch (e: Exception) {
-            AppLogger.warn("Email verification mail to ${user.email} not sent: ${e.message}")
+            AppLogger.warn("Email verification mail to ${user.email} not sent: ${e.message}", user = userId)
         }
     }
 
@@ -90,12 +90,12 @@ class EmailService(
 
         val user = userLookupService.findByEmail(email)
         if (user == null) {
-            AppLogger.warn("Email verification failed: no user found for email $email (userId=$userId)")
+            AppLogger.warn("Email verification failed: no user found for email $email", user = userId)
             return false
         }
 
         if (user.id != userId) {
-            AppLogger.warn("Email verification failed: token userId $userId does not match user ${user.id} for email $email")
+            AppLogger.warn("Email verification failed: token does not match ${AppLogger.nameOf(user.id)}, the owner of $email", user = userId)
             return false
         }
 
@@ -107,7 +107,7 @@ class EmailService(
         )
         userLookupService.save(updatedUser)
         notificationService.notifyUserUpdate(updatedUser, deleted = false)
-        AppLogger.info("Email verified successfully for user ${user.username}: (${user.email})")
+        AppLogger.info("Email verified successfully (${user.email})", user = user.id)
         return true
     }
 
@@ -135,7 +135,7 @@ class EmailService(
             mailSender.send(mail)
             loggingService.log(userId, LogType.ACCOUNT_DELETION_EMAIL_SENT)
         } catch (e: Exception) {
-            AppLogger.warn("Account deletion mail to $email not sent: ${e.message}")
+            AppLogger.warn("Account deletion mail to $email not sent: ${e.message}", user = userId)
         }
     }
 
@@ -161,7 +161,7 @@ class EmailService(
         if (user.id != userId) return false
         
         userService.deleteAccount(user.id)
-        println("Account with name ${user.username} has been deleted")
+        AppLogger.info("Account ${user.username} has been deleted")
 
         return true
     }
@@ -176,7 +176,7 @@ class EmailService(
 
         // Only send if email is verified
         if (user.emailVerifiedAt == null) {
-            println("Password reset requested for unverified email $email")
+            AppLogger.info("Password reset requested for unverified email $email", user = userId)
             //return (Allow unverified email passwort resets)
         }
 
@@ -197,7 +197,7 @@ class EmailService(
             mailSender.send(mail)
             loggingService.log(userId, LogType.PASSWORD_RESET_EMAIL_SENT)
         } catch (e: Exception) {
-            AppLogger.warn("Password reset mail to $email not sent: ${e.message}")
+            AppLogger.warn("Password reset mail to $email not sent: ${e.message}", user = userId)
         }
     }
 
@@ -247,7 +247,7 @@ class EmailService(
         val sessions = try {
             refreshTokenRepository.findByUserIdAndExpiresAtAfterOrderByCreatedAtDesc(user.id, now)
         } catch (e: Exception) {
-            AppLogger.warn("Login alert: could not list sessions of ${user.username}: ${e.message}")
+            AppLogger.warn("Login alert: could not list sessions: ${e.message}", user = user.id)
             emptyList()
         }
 
@@ -291,7 +291,7 @@ class EmailService(
         try {
             mailSender.send(mail)
         } catch (e: Exception) {
-            AppLogger.warn("Login alert mail to ${user.username} not sent: ${e.message}")
+            AppLogger.warn("Login alert mail not sent: ${e.message}", user = user.id)
         }
     }
 

@@ -935,9 +935,9 @@ class MainController(
             return
         }
 
-        println("\n╔════════════════════════════════════════════════════════════════════════════════╗")
-        println("║                              ALL GROUPS REPORT                                 ║")
-        println("╠════════════════════════════════════════════════════════════════════════════════╣")
+        AppLogger.info("╔════════════════════════════════════════════════════════════════════════════════╗")
+        AppLogger.info("║                              ALL GROUPS REPORT                                 ║")
+        AppLogger.info("╠════════════════════════════════════════════════════════════════════════════════╣")
 
         groups.forEach { group ->
             val members = groupLookupService.getGroupMembers(group.id)

@@ -2,6 +2,7 @@ package com.lerchenflo.schneaggchatv3server.user
 
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -16,6 +17,11 @@ import kotlin.jvm.optionals.getOrNull
 class UserLookupService(
     private val userRepository: UserRepository,
 ) {
+    init {
+        // Lets every log line show the username next to the id
+        AppLogger.usernameLookup = { userId -> userRepository.findById(userId).getOrNull()?.username }
+    }
+
     fun checkExistingUser(username: String, email: String) {
         val usernameexists = userRepository.findByUsername(username)
         if (usernameexists != null) {

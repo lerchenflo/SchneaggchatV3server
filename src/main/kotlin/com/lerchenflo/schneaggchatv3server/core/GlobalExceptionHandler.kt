@@ -1,13 +1,11 @@
 package com.lerchenflo.schneaggchatv3server.core
 
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.ClientIpResolver
-import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import jakarta.servlet.http.HttpServletRequest
 import org.bson.types.ObjectId
-import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -20,41 +18,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.servlet.resource.NoResourceFoundException
-import kotlin.jvm.optionals.getOrNull
 
 @RestControllerAdvice
 class GlobalExceptionHandler(
     private val loggingService: LoggingService,
     private val clientIpResolver: ClientIpResolver,
-    private val userRepository: UserRepository,
 ) {
-    private val logger = LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
 
-    private fun logWithUserInfo(message: String, ip: String?) {
-        val requestingUserId = SecurityContextHolder.getContext().authentication?.principal as? String
-        //Anonymous requests carry a non-id principal ("anonymousUser") - nothing to look up there
-        val username = if (requestingUserId != null && ObjectId.isValid(requestingUserId)) {
-            try {
-                userRepository.findById(ObjectId(requestingUserId)).getOrNull()?.username
-            } catch (e: Exception) {
-                AppLogger.warn("Could not resolve username of $requestingUserId for error log: ${e.message}")
-                null
-            }
-        } else {
-            null
-        }
-
-        val userInfo = buildString {
-            if (username != null) {
-                append("username=$username")
-            }
-            if (ip != null) {
-                if (isNotEmpty()) append(" | ")
-                append("ip=$ip")
-            }
-        }
-
-        AppLogger.error("${if (userInfo.isNotEmpty()) userInfo else ""} $message")
+    /** AppLogger adds the requesting user itself. Pass [error] to print the stack trace. */
+    private fun logRequestError(message: String, ip: String?, error: Throwable? = null) {
+        AppLogger.error(if (ip != null) "$message | ip=$ip" else message, error = error)
     }
 
     //Exception handling for annotations (For example Registerrequest: Email)
@@ -64,7 +37,7 @@ class GlobalExceptionHandler(
         val errors = e.bindingResult.allErrors.map {
             it.defaultMessage ?: "Invalid value"
         }
-        logWithUserInfo("Validation Error happened: ${errors.joinToString(", ")}", ip)
+        logRequestError("Validation Error happened: ${errors.joinToString(", ")}", ip)
         //logError(e, ip)
         return ResponseEntity
             .status(400)
@@ -75,7 +48,7 @@ class GlobalExceptionHandler(
     @ExceptionHandler(IllegalArgumentException::class)
     fun handleIllegalArgumentException(e: IllegalArgumentException, request: HttpServletRequest): ResponseEntity<String> {
         val ip = clientIpResolver.resolve(request)
-        logWithUserInfo("Illegal argument Error happened: ${e.message}", ip)
+        logRequestError("Illegal argument Error happened: ${e.message}", ip)
         val error = e.message
         //logError(e, ip)
         return ResponseEntity
@@ -86,13 +59,14 @@ class GlobalExceptionHandler(
     @ExceptionHandler(ResponseStatusException::class)
     fun handleResponseStatusException(e: ResponseStatusException, request: HttpServletRequest): ResponseEntity<String> {
         val ip = clientIpResolver.resolve(request)
-        logWithUserInfo("ResponseStatus Error happened: ${e.message}", ip)
         val error = e.message
 
         // Log 500 errors with full stack trace
         if (e.statusCode.value() >= 500) {
-            logger.error("Server error (${e.statusCode.value()}): ${e.message}", e)
+            logRequestError("Server error (${e.statusCode.value()}): ${e.message}", ip, error = e)
             logError(e, request, ip)
+        } else {
+            logRequestError("ResponseStatus Error happened: ${e.message}", ip)
         }
 
         return ResponseEntity
@@ -103,7 +77,7 @@ class GlobalExceptionHandler(
     @ExceptionHandler(NoResourceFoundException::class)
     fun handleNoResourceFoundException(e: NoResourceFoundException, request: HttpServletRequest): ResponseEntity<String> {
         val ip = clientIpResolver.resolve(request)
-        logWithUserInfo("NoResourceFound Error happened: ${e.message}", ip)
+        logRequestError("NoResourceFound Error happened: ${e.message}", ip)
         val resourcePath = e.resourcePath
 
         //logError(e, ip)
@@ -116,7 +90,7 @@ class GlobalExceptionHandler(
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
     fun handleMethodNotSupported(e: HttpRequestMethodNotSupportedException, request: HttpServletRequest): ResponseEntity<String> {
         val ip = clientIpResolver.resolve(request)
-        logWithUserInfo("Wrong request method: ${e.method} not supported for endpoint ${request.requestURI}", ip)
+        logRequestError("Wrong request method: ${e.method} not supported for endpoint ${request.requestURI}", ip)
 
         return ResponseEntity
             .status(HttpStatus.METHOD_NOT_ALLOWED)
@@ -132,7 +106,7 @@ class GlobalExceptionHandler(
     fun handleHttpMessageNotReadable(e: HttpMessageNotReadableException, request: HttpServletRequest): ResponseEntity<Map<String, String>> {
         val ip = clientIpResolver.resolve(request)
         val cause = e.mostSpecificCause.message?.lineSequence()?.firstOrNull() ?: "unreadable body"
-        logger.warn("Unreadable request body on ${request.method} ${request.requestURI} (ip=$ip): $cause")
+        AppLogger.warn("Unreadable request body on ${request.method} ${request.requestURI} (ip=$ip): $cause")
 
         return ResponseEntity
             .badRequest()
@@ -147,7 +121,7 @@ class GlobalExceptionHandler(
      */
     @ExceptionHandler(AsyncRequestNotUsableException::class)
     fun handleDisconnectedClient(e: AsyncRequestNotUsableException) {
-        logger.debug("Client disconnected during an async response: ${e.message}")
+        // Nothing to log: a client going away is normal
     }
 
     /**
@@ -169,8 +143,7 @@ class GlobalExceptionHandler(
 
         //No stack trace printing for badcredentials (Someone used a wrong username)
         if (e !is BadCredentialsException){
-            logger.error("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", e)
-            logWithUserInfo("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", ip)
+            logRequestError("Unhandled server error: ${e.javaClass.simpleName} - ${e.message}", ip, error = e)
 
             logError(e, request, ip)
         }

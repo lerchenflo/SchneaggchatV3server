@@ -270,7 +270,7 @@ class UserService(
             imageManager.loadProfilePicFromFile(imageName)
         } catch (e: IllegalArgumentException) {
             //Every account gets a profile pic at registration, so a missing file is a lost image
-            AppLogger.warn("Profile pic of user $userId missing: ${e.message}")
+            AppLogger.warn("Profile pic missing: ${e.message}", user = userId)
             null
         }
     }
@@ -323,7 +323,7 @@ class UserService(
 
             if (userRequest.newEmail != null) {
                 require(ValidationUtils.validateEmail(userRequest.newEmail)) { "New email is invalid" }
-                AppLogger.info("Setting new Email for ${user.username}: ${userRequest.newEmail}")
+                AppLogger.info("Setting new Email: ${userRequest.newEmail}", user = user.id)
             }
 
             if (userRequest.newBirthDate != null) {

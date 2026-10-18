@@ -220,7 +220,7 @@ class AuthService(
                     previousLoginAt = previousLoginAt,
                 )
             )
-        }.onFailure { AppLogger.warn("Could not schedule login alert mail for ${user.username}: ${it.message}") }
+        }.onFailure { AppLogger.warn("Could not schedule login alert mail: ${it.message}", user = user.id) }
     }
 
     /**
@@ -433,7 +433,7 @@ class AuthService(
         ).maxByOrNull { it.createdAt }
 
         if (recovery?.rawToken != null) {
-            AppLogger.success("TOKENREFRESH replay: returned current token for user ${user.username}")
+            AppLogger.success("TOKENREFRESH replay: returned current token", user = user.id)
 
             return TokenPair(
                 accessToken = jwtService.generateAccessToken(userId),
@@ -441,7 +441,7 @@ class AuthService(
             )
         }
 
-        AppLogger.warn("TOKENREFRESH: Unknown token for user ${user.username}")
+        AppLogger.warn("TOKENREFRESH: Unknown token", user = user.id)
         throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
     }
 

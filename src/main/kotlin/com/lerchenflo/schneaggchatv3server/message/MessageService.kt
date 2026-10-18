@@ -695,7 +695,7 @@ class MessageService(
             // For group messages: find all messages sent to this group
             // that the user hasn't read yet
             if (!groupLookupService.isUserInGroup(readingUser, chat)) {
-                AppLogger.warn("User $readingUser is not a member of group $chat")
+                AppLogger.warn("Not a member of group $chat", user = readingUser)
                 return
             }
             

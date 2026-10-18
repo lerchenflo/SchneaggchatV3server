@@ -100,7 +100,7 @@ class SystemMessageService(
                 readerIds = listOf(acceptingUserId, requesterId),
             )
         }.onFailure { e ->
-            AppLogger.error("Failed to write friendship-accepted system message ($acceptingUserId <-> $requesterId): ${e.message}")
+            AppLogger.error("Failed to write friendship-accepted system message with ${AppLogger.nameOf(requesterId)}: ${e.message}", user = acceptingUserId)
         }
     }
 
@@ -123,7 +123,7 @@ class SystemMessageService(
                 readerIds = listOf(senderId, targetId),
             )
         }.onFailure { e ->
-            AppLogger.error("Failed to write wake system message ($senderId -> $targetId): ${e.message}")
+            AppLogger.error("Failed to write wake system message to ${AppLogger.nameOf(targetId)}: ${e.message}", user = senderId)
         }
     }
 

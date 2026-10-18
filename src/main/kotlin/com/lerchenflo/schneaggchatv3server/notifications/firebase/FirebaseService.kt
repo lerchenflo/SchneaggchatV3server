@@ -83,7 +83,7 @@ class FirebaseService(
 
             //println("Firebasetoken saved successfully")
         } catch (e: DuplicateKeyException) {
-            AppLogger.warn("Firebase Duplicate key already exists")
+            AppLogger.warn("[Firebase] Duplicate token already exists", user = userId)
         }
     }
 
@@ -151,8 +151,7 @@ class FirebaseService(
                 sendNotificationToUser(receiverId, notification)
 
             } catch (e: Exception) {
-                AppLogger.error("Error in Firebase notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = receiverId, error = e)
                 loggingService.log(
                     userId = receiverId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -200,8 +199,7 @@ class FirebaseService(
                 sendNotificationToUser(receiverId, notification)
 
             } catch (e: Exception) {
-                AppLogger.error("Error in Firebase reaction notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[Firebase] Error in reaction notification coroutine: ${e.message}", user = receiverId, error = e)
                 loggingService.log(
                     userId = receiverId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -241,8 +239,7 @@ class FirebaseService(
                 sendNotificationToUser(receivingUserId, notification)
 
             } catch (e: Exception) {
-                AppLogger.error("Error in Firebase notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = receivingUserId, error = e)
                 loggingService.log(
                     userId = senderId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -274,13 +271,11 @@ class FirebaseService(
                         )
                         safeSend(message = message, firebaseToken = firebaseToken)
                     } catch (e: Exception) {
-                        AppLogger.error("Error sending to token ${firebaseToken.token}: ${e.message}")
-                        e.printStackTrace()
+                        AppLogger.error("[Firebase] Error sending to token ${firebaseToken.token}: ${e.message}", user = userId, error = e)
                     }
                 }
             } catch (e: Exception) {
-                AppLogger.error("Error in Firebase notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = userId, error = e)
                 loggingService.log(
                     userId = userId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -319,11 +314,11 @@ class FirebaseService(
                         )
                         safeSend(message = message, firebaseToken = firebaseToken)
                     } catch (e: Exception) {
-                        AppLogger.error("Error sending wake to token ${firebaseToken.token}: ${e.message}")
+                        AppLogger.error("[Firebase] Error sending wake to token ${firebaseToken.token}: ${e.message}", user = userId)
                     }
                 }
             } catch (e: Exception) {
-                AppLogger.error("Error in Firebase wake coroutine: ${e.message}")
+                AppLogger.error("[Firebase] Error in wake coroutine: ${e.message}", user = userId)
                 loggingService.log(
                     userId = userId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -335,10 +330,6 @@ class FirebaseService(
         return tokens.size
     }
 
-
-    /** "username (id)" for logs; the id stays in, so a renamed or deleted user can still be traced. */
-    private fun describeUser(userId: ObjectId): String =
-        "${userLookupService.getUsername(userId)} (${userId.toHexString()})"
 
     private fun safeSend(message: Message, firebaseToken: FirebaseToken): Boolean {
         val token = firebaseToken.token
@@ -365,7 +356,7 @@ class FirebaseService(
                     MessagingErrorCode.INVALID_ARGUMENT,
                     MessagingErrorCode.SENDER_ID_MISMATCH
                 ) -> {
-                    AppLogger.warn("[Firebase] Removing invalid token of ${describeUser(firebaseToken.userId)} (Code: $errorCode): $token")
+                    AppLogger.warn("[Firebase] Removing invalid token (Code: $errorCode): $token", user = firebaseToken.userId)
                     deleteToken(token)
                     false
                 }
@@ -374,20 +365,20 @@ class FirebaseService(
                 // The iOS app is gone from the Firebase project, so these can never be delivered again. The
                 // ApnsError detail proves the token went to Apple, so an Android token is never removed here.
                 MessagingErrorCode.THIRD_PARTY_AUTH_ERROR if e.httpResponse?.content?.contains("ApnsError") == true -> {
-                    AppLogger.warn("[Firebase] Removing leftover iOS token of ${describeUser(firebaseToken.userId)} (Code: $errorCode): $token")
+                    AppLogger.warn("[Firebase] Removing leftover iOS token (Code: $errorCode): $token", user = firebaseToken.userId)
                     deleteToken(token)
                     false
                 }
 
                 // Without the APNs detail it is unclear which push service failed, so the token stays
                 MessagingErrorCode.THIRD_PARTY_AUTH_ERROR -> {
-                    AppLogger.warn("[Firebase] Third party auth error for token of ${describeUser(firebaseToken.userId)} (Code: $errorCode, HTTP: ${e.httpResponse?.statusCode}): $token")
+                    AppLogger.warn("[Firebase] Third party auth error (Code: $errorCode, HTTP: ${e.httpResponse?.statusCode}): $token", user = firebaseToken.userId)
                     false
                 }
 
                 // Null error code — fall back to raw string check
                 null if rawErrorCode in invalidTokenRawCodes -> {
-                    AppLogger.warn("[Firebase] Removing invalid token of ${describeUser(firebaseToken.userId)} via raw error code '$rawErrorCode': $token")
+                    AppLogger.warn("[Firebase] Removing invalid token via raw error code '$rawErrorCode': $token", user = firebaseToken.userId)
                     deleteToken(token)
                     false
                 }
@@ -398,20 +389,19 @@ class FirebaseService(
                     MessagingErrorCode.INTERNAL,
                     MessagingErrorCode.QUOTA_EXCEEDED
                 ) -> {
-                    AppLogger.warn("[Firebase] Transient error for token: $token (Code: $errorCode)")
+                    AppLogger.warn("[Firebase] Transient error for token: $token (Code: $errorCode)", user = firebaseToken.userId)
                     false
                 }
 
                 // Everything else (including null with unknown raw code) — log both codes
                 else -> {
-                    AppLogger.warn("[Firebase] Unhandled error for token: $token (Code: $errorCode, Raw: $rawErrorCode, HTTP: ${e.httpResponse?.statusCode})")
+                    AppLogger.warn("[Firebase] Unhandled error for token: $token (Code: $errorCode, Raw: $rawErrorCode, HTTP: ${e.httpResponse?.statusCode})", user = firebaseToken.userId)
                     false
                 }
             }
         } catch (e: Exception) {
-            AppLogger.error("[Firebase] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}")
-            e.printStackTrace()
-            loggingService.log(userId = null, logType = LogType.EXCEPTION_THROWN)
+            AppLogger.error("[Firebase] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}", user = firebaseToken.userId, error = e)
+            loggingService.log(userId = firebaseToken.userId, logType = LogType.EXCEPTION_THROWN)
             return false
         }
     }

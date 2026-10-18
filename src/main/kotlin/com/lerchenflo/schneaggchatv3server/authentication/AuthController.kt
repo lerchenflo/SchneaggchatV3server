@@ -228,7 +228,7 @@ class AuthController(
             return
         }
 
-        AppLogger.info("Email delete request for $email")
+        AppLogger.info("Email delete request for $email", user = user.id)
         emailService.sendDelAccEmail(user.id, email)
     }
 
@@ -355,7 +355,7 @@ class AuthController(
             return
         }
 
-        AppLogger.info("Password reset request for $email")
+        AppLogger.info("Password reset request for $email", user = user.id)
         emailService.sendPasswordResetEmail(user.id, email)
     }
 
