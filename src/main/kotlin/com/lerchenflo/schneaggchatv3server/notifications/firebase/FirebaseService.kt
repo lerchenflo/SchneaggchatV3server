@@ -421,6 +421,12 @@ class FirebaseService(
         }
         result["type"] = typeName
 
+        // FCM rejects data over 4 KB with INVALID_ARGUMENT, which safeSend treats as a dead token and so
+        // deleted working tokens. Long texts go out without content: the client then shows "new messages"
+        // and the sync brings the full message.
+        val dataBytes = result.entries.sumOf { it.key.toByteArray().size + it.value.toByteArray().size }
+        if (dataBytes > MAX_DATA_BYTES && result.containsKey("content")) result["content"] = ""
+
         // cast to Map<String,String>
         return result.mapValues { it.value as String }
     }
@@ -457,5 +463,8 @@ class FirebaseService(
             .build()
     }
 
-
+    private companion object {
+        /** FCM's data limit is 4096 bytes; the rest is room for what FCM adds itself. */
+        const val MAX_DATA_BYTES = 3800
+    }
 }
