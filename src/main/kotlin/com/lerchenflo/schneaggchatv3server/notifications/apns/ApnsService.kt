@@ -218,7 +218,7 @@ class ApnsService(
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val notification = NotificationResponse.FriendRequestNotificationResponse(
-                    requesterId = receivingUserId.toHexString(),
+                    requesterId = senderId.toHexString(),
                     requesterName = sendingUserName,
                     accepted = accepted,
                 )

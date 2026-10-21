@@ -229,7 +229,7 @@ class FirebaseService(
 
                 // Build the NotificationResponse and delegate to generic sender
                 val notification = NotificationResponse.FriendRequestNotificationResponse(
-                    requesterId = receivingUserId.toHexString(),
+                    requesterId = senderId.toHexString(),
                     requesterName = sendingUserName,
                     accepted = accepted,
                 )
@@ -347,17 +347,27 @@ class FirebaseService(
                 "REGISTRATION_TOKEN_NOT_REGISTERED",
                 "INVALID_REGISTRATION_TOKEN",
                 "MISMATCHED_CREDENTIAL",
-                "INVALID_ARGUMENT",
             )
 
             return when (errorCode) {
                 in setOf(
                     MessagingErrorCode.UNREGISTERED,
-                    MessagingErrorCode.INVALID_ARGUMENT,
                     MessagingErrorCode.SENDER_ID_MISMATCH
                 ) -> {
                     AppLogger.warn("[Firebase] Removing invalid token (Code: $errorCode): $token", user = firebaseToken.userId)
                     deleteToken(token)
+                    false
+                }
+
+                MessagingErrorCode.INVALID_ARGUMENT if isInvalidTokenError(e) -> {
+                    AppLogger.warn("[Firebase] Removing invalid token (Code: $errorCode): $token", user = firebaseToken.userId)
+                    deleteToken(token)
+                    false
+                }
+
+                // A bad payload, not a bad token - the token stays
+                MessagingErrorCode.INVALID_ARGUMENT -> {
+                    AppLogger.warn("[Firebase] Invalid argument, token kept (${e.message}): $token", user = firebaseToken.userId)
                     false
                 }
 
@@ -377,7 +387,9 @@ class FirebaseService(
                 }
 
                 // Null error code — fall back to raw string check
-                null if rawErrorCode in invalidTokenRawCodes -> {
+                null if (rawErrorCode in invalidTokenRawCodes || (rawErrorCode == "INVALID_ARGUMENT" && isInvalidTokenError(
+                    e
+                ))) -> {
                     AppLogger.warn("[Firebase] Removing invalid token via raw error code '$rawErrorCode': $token", user = firebaseToken.userId)
                     deleteToken(token)
                     false
@@ -406,6 +418,16 @@ class FirebaseService(
         }
     }
 
+    /**
+     * Whether an INVALID_ARGUMENT error is about the registration token itself. FCM sends the same code
+     * for a bad payload, and deleting a working token there stops all pushes to that phone until the app
+     * uploads its token again. A bad token is named in the message ("The registration token is not a
+     * valid FCM registration token") and as the field `message.token` in the error details.
+     */
+    private fun isInvalidTokenError(e: FirebaseMessagingException): Boolean =
+        e.message?.contains("registration token", ignoreCase = true) == true ||
+            e.httpResponse?.content?.contains("\"message.token\"") == true
+
 
 
     private fun notificationResponseToDataMap(notification: NotificationResponse): Map<String, String> {
@@ -432,9 +454,8 @@ class FirebaseService(
         }
         result["type"] = typeName
 
-        // FCM rejects data over 4 KB with INVALID_ARGUMENT, which safeSend treats as a dead token and so
-        // deleted working tokens. Long texts go out without content: the client then shows "new messages"
-        // and the sync brings the full message.
+        // FCM rejects data over 4 KB with INVALID_ARGUMENT and the push is lost. Long texts go out
+        // without content: the client then shows "new messages" and the sync brings the full message.
         val dataBytes = result.entries.sumOf { it.key.toByteArray().size + it.value.toByteArray().size }
         if (dataBytes > MAX_DATA_BYTES && result.containsKey("content")) result["content"] = ""
 

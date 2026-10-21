@@ -605,8 +605,13 @@ class UserService(
             friendsLookupService.deleteFriendshipEntry(friendship)
         }
 
-        //Leave all groups
-        groupLookupService.leaveAllGroups(userId)
+        //Leave all groups - co-members' devices drop the user from the member list right away
+        groupLookupService.leaveAllGroups(userId).forEach { groupId ->
+            //A group deleted in the meantime must not stop the account deletion halfway
+            runCatching {
+                notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), deleted = false)
+            }.onFailure { AppLogger.warn("Group update after account deletion failed for group $groupId: ${it.message}", user = userId) }
+        }
 
         //delete all user messages
         messageLookupService.deleteAllUserMessages(userId)

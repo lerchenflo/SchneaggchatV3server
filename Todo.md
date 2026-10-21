@@ -4,6 +4,18 @@ Collected follow-ups and checks for the server, so no thought gets lost. Each it
 
 ---
 
+## Push notifications: none may get lost
+
+Source: Android push audit in the client repo (2026-10-21) and the Android notification review (2026-10-16). The user's top priority: no case where a notification is swallowed and the user is never told. Done 2026-10-21: `INVALID_ARGUMENT` only deletes the FCM token when the error names the token, and friend-request pushes carry the sender as `requesterId` (see git history). Retrying transient FCM errors was rejected (user, 2026-10-21: not the cause in nearly any case; the SDK already retries HTTP 503 four times).
+
+Constraint for everything below: the server must stay compatible with the released client (v3.0.17), so anything that changes what the client sends or receives waits for a client release.
+- [ ] **One ack cancels the push for every device** (`notifications/websocket/SocketConnectionHandler.kt:150-177`, `PendingPushRegistry`). Push tokens only know the user, so a minimized desktop app (it keeps its socket) or a second phone in the foreground acks the message and the phone in the pocket never buzzes. Plan: client repo `plans/DEVICE_AWARE_PUSH_PLAN.md` (device id from the `RefreshToken` row as an access-token claim, push token and socket tied to it, the push held per device). Decide later (user, 2026-10-21).
+- [ ] **Confirm-or-push for reactions, friend requests and events** (`notifications/NotificationService.kt`: `notifyReactionAdded` :398, `notifyEventUpdate` :363, `notifyFriendRequest` :479). They count as delivered once the socket write succeeds; new messages already wait for the client's ack (`PendingPushRegistry`). A socket that is closing (app going to the background, signal lost) loses them. The client would have to ack these too.
+- [ ] **`setMessagesRead` marks every unread message of the chat read** (`message/MessageService.kt:682-760`). The client's timestamp is only used as `readAt`. So "Mark as read" / "Reply" on a notification also marks a message read that arrived after the notification was shown, and the user never sees it. Needs the client first: v3.0.17 sends its own clock's "now" (chat screen and notification action) and marks every local message read, so filtering on `sendDate <= timestamp` now would leave fresh messages unread on the server whenever the phone's clock is behind (they come back as unread on the next sync). Compatible way: a new optional parameter (e.g. the newest shown message id) that the server only filters on when it is present, sent by the notification actions of a new client.
+- [ ] Client follow-up together with this refactor: the Android push path skips a push when its message is already stored (`AppFirebaseMessagingService.kt:137-142`), and a sync (e.g. the one behind "Mark as read") stores other chats' messages before their pushes arrive. To be replaced by "skip only what this device already notified" when the server side above is reworked (user, 2026-10-21). Tracked in the client `plans/Todo.md` (P1).
+
+---
+
 ## Mappers in their own files
 
 Source: user decision (2026-10-17). Not started - do it later, not as part of other work.
@@ -34,9 +46,8 @@ The server now pushes a socket event to every affected user and device for all 1
 
 Found while checking, not fixed:
 
-- [ ] Account deletion (`UserService.deleteAccount` -> `groupLookupService.leaveAllGroups`) neither bumps the groups' `updatedAt` nor sends `GroupChange`, so co-members keep the deleted user in the member list until another change of that group.
-- [ ] `/users/sharelocation` changes the actor's `SelfUserResponse.locationShared` but sends no `UserChange` for the actor's own row.
-- [ ] `src/test/.../AuthServiceTokenRotationTest.kt` does not compile: it passes `emailService` to `AuthService` but never declares the mock.
+- [ ] Account deletion (`GroupLookupService.leaveAllGroups`) only removes the member row: when the deleted user was a group's last admin nobody is promoted, and a group whose last member is deleted stays as an undeleted group without members. `GroupService.performUserAction` (`REMOVE_USER`) handles both for a normal leave. (`updatedAt` bump and `GroupChange` were fixed 2026-10-21.)
+- [ ] `/users/sharelocation` now pushes the actor's own row when `locationShared` flips (2026-10-21), but `/users/sync` still misses it on the actor's other devices that were offline: the own row only counts as changed through `User.updatedAt`, which a friendship setting does not bump.
 
 ---
 
@@ -57,16 +68,12 @@ Push a reminder for an event one day before it starts and on the day it starts.
 
 ## Unified console logging
 
-Source: user request (2026-10-18). Not started.
+Source: user request (2026-10-18). Mostly done in `6ac1cb9` ("updated logging"), in a different shape than planned: `AppLogger` got its own channel worker (one thread, in order, drained on shutdown), the request user from the `SecurityContext`, `user` / `error` params, `AppLogger.nameOf(id)` for a second user, and a username cache (10 min TTL). The hand-written user texts, raw `println` / `printStackTrace()` calls and the birthday `"$user.id"` bug are gone.
 
-Today there are three console formats (`AppLogger` println, Spring/SLF4J, raw `println` / `printStackTrace()`), and the user shows up at the front, in the middle, at the end or not at all. Goal: one format, every line with `username (id)` in the same column, resolved without a DB lookup on the request thread.
+Left:
 
-- [ ] Infrastructure: `logback-spring.xml` with one console pattern behind an `AsyncAppender` (the "channel": one worker thread, lines stay in order, drained on shutdown; `neverBlock=true`, `discardingThreshold=0`). It also catches Spring's own lines.
-- [ ] `LogContextFilter` after `JwtAuthFilter` puts the requester's `userId` (and ip) into the MDC; a `%user` converter in the worker thread turns it into `username (id)` through a cache (TTL about 10 min, invalidated on rename/account delete), id only before Spring is up or when Mongo fails.
-- [ ] `AppLogger` stays the facade (same methods), on top of SLF4J, with optional `user`, `tag` and `error` params. `LogUser(id)` in a message resolves a second user (receiver, kicked member) the same way.
-- [ ] Migrate call sites: drop the hand-written user text (`GlobalExceptionHandler.logWithUserInfo`, `FirebaseService.describeUser`, `user=` in `RateLimitFilter`, `by $adminId`), move `[Firebase]` / `RATELIMIT` / `ADMIN:` prefixes into `tag`, pass `user` explicitly where no request thread exists (Firebase/APNs coroutines, socket handler, schedulers).
-- [ ] Replace `println` and `printStackTrace()` with `AppLogger.error(..., error = e)`; log each 500 once instead of twice.
-- [ ] Bug found while checking: `BirthdayNotificationScheduler.kt` logs `"$user.id"`, which prints the whole `User` (email, password hash) followed by ".id". Use `${user.id}`.
+- [ ] Spring's own lines (SLF4J/logback) still use Spring's console format, not `AppLogger`'s. A `logback-spring.xml` (or routing them into `AppLogger`) would give one format.
+- [ ] The username cache is only refreshed by its TTL, so a rename or a deleted account shows the old name for up to 10 minutes.
 
 ---
 

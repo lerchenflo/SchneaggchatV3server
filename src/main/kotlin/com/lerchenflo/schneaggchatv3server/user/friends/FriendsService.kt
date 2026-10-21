@@ -269,11 +269,18 @@ class FriendsService(
         //No-op if nothing actually changed (ignoring the bumped updatedAt)
         if (updatedSetting.copy(updatedAt = existingSetting.updatedAt) == existingSetting) return
 
+        val sharedBefore = friendsLookupService.hasActiveLocationSharing(userId)
         friendsSettingsService.saveFriendshipSetting(updatedSetting)
 
         //Only the changing user's own devices need the new flags - the friend's row on their side
         //does not carry what the changing user shares with them.
         notificationService.notifyRelationChange(recipientId = userId, otherUserId = friendId)
+
+        //The own row's locationShared is derived from all friendships, so it flips with the first
+        //friend shared with and the last one stopped
+        if (friendsLookupService.hasActiveLocationSharing(userId) != sharedBefore) {
+            userLookupService.findById(userId)?.let { notificationService.notifyOwnUserUpdate(it) }
+        }
     }
 
     /**

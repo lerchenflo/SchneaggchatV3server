@@ -204,16 +204,7 @@ class NotificationService(
      * row (it carries the username and the picture timestamp too).
      */
     fun notifyUserUpdate(user: User, deleted: Boolean) {
-        // Notify the user themselves
-        socketConnectionHandler.sendMessage(
-            SocketConnectionMessage.UserChange(
-                user = user.toSelfUserResponse(
-                    locationShared = friendsLookupService.hasActiveLocationSharing(user.id),
-                ),
-                deleted = deleted
-            ),
-            receiverId = user.id
-        )
+        notifyOwnUserUpdate(user, deleted)
 
         friendsLookupService.getCounterpartInteractions(user.id).forEach { (counterpartId, interaction) ->
             socketConnectionHandler.sendMessage(
@@ -224,6 +215,22 @@ class NotificationService(
                 receiverId = counterpartId
             )
         }
+    }
+
+    /**
+     * Push [user]'s own row ([UserResponse.SelfUserResponse]) to every device of [user] only - for
+     * changes no friend sees, like the derived `locationShared` flag.
+     */
+    fun notifyOwnUserUpdate(user: User, deleted: Boolean = false) {
+        socketConnectionHandler.sendMessage(
+            SocketConnectionMessage.UserChange(
+                user = user.toSelfUserResponse(
+                    locationShared = friendsLookupService.hasActiveLocationSharing(user.id),
+                ),
+                deleted = deleted
+            ),
+            receiverId = user.id
+        )
     }
 
     /**
