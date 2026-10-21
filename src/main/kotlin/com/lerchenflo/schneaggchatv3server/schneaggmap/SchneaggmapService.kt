@@ -393,7 +393,7 @@ fun fixEncoding(s: String): String {
         val fixed = try {
             String(current.toByteArray(cp1252), Charsets.UTF_8)
         } catch (e: Exception) {
-            AppLogger.warn("Legacy map import: could not fix encoding of '$current': ${e.message}")
+            AppLogger.warn("Legacy map import: could not fix encoding of '$current': ${e.message}", tag = "import_legacy_map_encoding_failed")
             return current
         }
 

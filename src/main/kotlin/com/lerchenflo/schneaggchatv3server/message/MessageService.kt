@@ -477,6 +477,7 @@ class MessageService(
             }
 
             requireOrLog(
+                "delete_poll_option_not_creator",
                 poll.canUserDeleteOption(requestingUserId, option),
                 { "Poll option deletion denied - user: ${userLookupService.getUsername(requestingUserId)}, messageId: ${request.messageId}, optionId: ${request.optionId}" }
             ) { "You can only delete options you created" }
@@ -646,6 +647,7 @@ class MessageService(
 
         require(message.msgType != MessageType.SYSTEM) { "Cannot delete a system message" }
         requireOrLog(
+            "delete_message_not_sender",
             message.senderId == deletingUserId,
             { "Message deletion denied - user: ${userLookupService.getUsername(deletingUserId)}, messageId: ${messageId.toHexString()}, sender: ${userLookupService.getUsername(message.senderId)}" }
         ) { "Only the sender can delete a message" }
@@ -695,7 +697,7 @@ class MessageService(
             // For group messages: find all messages sent to this group
             // that the user hasn't read yet
             if (!groupLookupService.isUserInGroup(readingUser, chat)) {
-                AppLogger.warn("Not a member of group $chat", user = readingUser)
+                AppLogger.warn("Not a member of group $chat", user = readingUser, tag = "mark_read_not_in_group")
                 return
             }
             
@@ -769,7 +771,7 @@ class MessageService(
                     changingUserId = readingUser,
                 )
             } catch (e: Exception) {
-                AppLogger.error("Failed to notify message update for ${message.id}: ${e.message}")
+                AppLogger.error("Failed to notify message update for ${message.id}: ${e.message}", tag = "notify_message_update_failed")
             }
         }
 
@@ -833,6 +835,7 @@ class MessageService(
         } else {
             // For direct messages, user must be either sender or receiver
             requireOrLog(
+                "access_message_not_participant",
                 message.senderId == userId || message.receiverId == userId,
                 { "Message access denied - user: ${userLookupService.getUsername(userId)}, messageId: ${messageId.toHexString()}, sender: ${userLookupService.getUsername(message.senderId)}, receiver: ${userLookupService.getUsername(message.receiverId)}" }
             ) { "You do not have access to this message" }
@@ -848,6 +851,7 @@ class MessageService(
     private fun canUserAccessMessage(sender: ObjectId, receiver: ObjectId, groupMessage: Boolean) {
         if (groupMessage) {
             requireOrLog(
+                "access_message_not_in_group",
                 groupLookupService.isUserInGroup(sender, receiver),
                 { "Unauthorized message access - user: ${userLookupService.getUsername(sender)}, group: ${groupLookupService.getGroupName(receiver)}: Not in group" }
             ) { "You are not a member of this group" }
@@ -857,6 +861,7 @@ class MessageService(
                 "You can not send messages to yourself"
             }
             requireOrLog(
+                "access_message_not_friends",
                 friendsLookupService.areFriends(sender, receiver),
                 { "Unauthorized message access - user: ${userLookupService.getUsername(sender)} is not friends with: ${userLookupService.getUsername(receiver)}" }
             ) { "You can not send messages to users who are not your friends" }

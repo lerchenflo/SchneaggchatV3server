@@ -47,7 +47,7 @@ class RateLimitFilter(
                     return
                 }
             } catch (e: Exception) {
-                AppLogger.warn("RATELIMIT unavailable on auth path, failing closed ($requestDescription): ${e.message}")
+                AppLogger.warn("RATELIMIT unavailable on auth path, failing closed ($requestDescription): ${e.message}", tag = "check_rate_limit_unavailable_closed")
                 response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE)
                 return
             }
@@ -70,7 +70,7 @@ class RateLimitFilter(
                 }
             }
         } catch (e: Exception) {
-            AppLogger.warn("RATELIMIT unavailable, failing open ($requestDescription): ${e.message}")
+            AppLogger.warn("RATELIMIT unavailable, failing open ($requestDescription): ${e.message}", tag = "check_rate_limit_unavailable_open")
         }
 
         filterChain.doFilter(request, response)
@@ -103,7 +103,8 @@ class RateLimitFilter(
         val limit = properties.tierConfig(tier)
         AppLogger.warn(
             "RATELIMIT ${tier.name} exceeded (more than ${limit.capacity} requests per " +
-                    "${limit.refillPeriod}), 429 for ${retryAfter}s | $requestDescription"
+                    "${limit.refillPeriod}), 429 for ${retryAfter}s | $requestDescription",
+            tag = "exceed_rate_limit",
         )
 
         response.status = 429

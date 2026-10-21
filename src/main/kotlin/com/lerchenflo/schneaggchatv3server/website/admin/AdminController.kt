@@ -20,6 +20,15 @@ import com.lerchenflo.schneaggchatv3server.util.LogPage
 import com.lerchenflo.schneaggchatv3server.util.LogSort
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
+import com.lerchenflo.schneaggchatv3server.util.AppLogLevel
+import com.lerchenflo.schneaggchatv3server.monitoring.MonitoringService
+import com.lerchenflo.schneaggchatv3server.monitoring.model.AppLogEntryResponse
+import com.lerchenflo.schneaggchatv3server.monitoring.model.AppLogKind
+import com.lerchenflo.schneaggchatv3server.monitoring.model.AppLogPage
+import com.lerchenflo.schneaggchatv3server.monitoring.model.ErrorTypesResponse
+import com.lerchenflo.schneaggchatv3server.monitoring.model.MetricsSeriesResponse
+import com.lerchenflo.schneaggchatv3server.monitoring.model.MonitoringOverview
+import com.lerchenflo.schneaggchatv3server.monitoring.model.MonitoringRange
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
@@ -49,6 +58,7 @@ class AdminController(
     private val adminUserService: AdminUserService,
     private val friendsTreeService: FriendsTreeService,
     private val redisTemplate: StringRedisTemplate,
+    private val monitoringService: MonitoringService,
 ) {
 
     // ─── Map change log ─────────────────────────────────────────────────────
@@ -316,6 +326,73 @@ class AdminController(
         adminGuard.requireAdmin()
         return LogType.entries.map { it.name }
     }
+
+    // ─── Monitoring dashboard ────────────────────────────────────────────────
+
+    @GetMapping("/monitoring/overview")
+    fun getMonitoringOverview(@RequestParam(defaultValue = "HOURS_24") range: String): MonitoringOverview {
+        adminGuard.requireAdmin()
+        return monitoringService.overview(parseRange(range))
+    }
+
+    @GetMapping("/monitoring/errors")
+    fun getMonitoringErrorTypes(
+        @RequestParam(defaultValue = "HOURS_24") range: String,
+        @RequestParam(defaultValue = "WARN,ERROR") levels: String,
+    ): ErrorTypesResponse {
+        adminGuard.requireAdmin()
+        return monitoringService.errorTypes(parseRange(range), parseLevels(levels))
+    }
+
+    @GetMapping("/monitoring/metrics")
+    fun getMonitoringMetrics(@RequestParam(defaultValue = "HOURS_24") range: String): MetricsSeriesResponse {
+        adminGuard.requireAdmin()
+        return monitoringService.metricsSeries(parseRange(range))
+    }
+
+    @GetMapping("/monitoring/logs")
+    fun getMonitoringLogs(
+        @RequestParam(defaultValue = "HOURS_24") range: String,
+        @RequestParam(required = false) kind: String?,
+        @RequestParam(defaultValue = "") levels: String,
+        @RequestParam(required = false) tag: String?,
+        @RequestParam(required = false) user: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "50") pageSize: Int,
+    ): AppLogPage {
+        adminGuard.requireAdmin()
+        require(ValidationUtils.validatePaginationPage(page)) { "Invalid page number" }
+        require(ValidationUtils.validatePaginationPageSize(pageSize)) { "Invalid page size" }
+
+        val parsedKind = kind?.takeIf { it.isNotBlank() }?.let {
+            runCatching { AppLogKind.valueOf(it.uppercase()) }.getOrElse {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown kind: $kind")
+            }
+        }
+        return monitoringService.logs(
+            parseRange(range), parsedKind, parseLevels(levels), tag, user, q, page, pageSize,
+        )
+    }
+
+    @GetMapping("/monitoring/trace/{requestId}")
+    fun getMonitoringTrace(@PathVariable requestId: String): List<AppLogEntryResponse> {
+        adminGuard.requireAdmin()
+        require(requestId.length <= 64) { "Invalid request id" }
+        return monitoringService.trace(requestId)
+    }
+
+    private fun parseRange(range: String): MonitoringRange =
+        runCatching { MonitoringRange.valueOf(range.uppercase()) }.getOrElse {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown range: $range")
+        }
+
+    private fun parseLevels(levels: String): List<AppLogLevel> =
+        levels.split(',').map { it.trim() }.filter { it.isNotEmpty() }.map {
+            runCatching { AppLogLevel.valueOf(it.uppercase()) }.getOrElse {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown level: $it")
+            }
+        }
 
     // ─── Game scores ─────────────────────────────────────────────────────────
 

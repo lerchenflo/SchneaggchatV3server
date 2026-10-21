@@ -224,7 +224,7 @@ class AuthController(
 
         val user = userLookupService.findByEmail(email)
         if (user == null){
-            AppLogger.warn("No user to delete found with email $email")
+            AppLogger.warn("No user to delete found with email $email", tag = "delete_account_email_not_found")
             return
         }
 
@@ -351,7 +351,7 @@ class AuthController(
 
         val user = userLookupService.findByEmail(email)
         if (user == null){
-            AppLogger.warn("No user found with email $email for password reset")
+            AppLogger.warn("No user found with email $email for password reset", tag = "reset_password_email_not_found")
             return
         }
 

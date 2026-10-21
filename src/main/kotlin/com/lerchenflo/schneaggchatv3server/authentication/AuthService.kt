@@ -125,7 +125,7 @@ class AuthService(
         try {
             requireLoginAttemptsRemaining(username)
         } catch (e: ResponseStatusException) {
-            AppLogger.warn("$attempt | FAILED: ${e.reason}")
+            AppLogger.warn("$attempt | FAILED: ${e.reason}", tag = "login_failed")
             throw e
         }
 
@@ -133,7 +133,7 @@ class AuthService(
         //username, and both must answer the same way so the caller can't enumerate accounts.
         val user = userLookupService.findByUsername(username)
         if (user == null || !hashEncoder.matches(password, user.hashedPassword)) {
-            AppLogger.warn("$attempt | FAILED: ${if (user == null) "unknown username" else "wrong password"}")
+            AppLogger.warn("$attempt | FAILED: ${if (user == null) "unknown username" else "wrong password"}", tag = "login_failed")
             recordFailedLogin(username, user?.id, ip)
             throw BadCredentialsException("Invalid credentials")
         }
@@ -220,7 +220,7 @@ class AuthService(
                     previousLoginAt = previousLoginAt,
                 )
             )
-        }.onFailure { AppLogger.warn("Could not schedule login alert mail: ${it.message}", user = user.id) }
+        }.onFailure { AppLogger.warn("Could not schedule login alert mail: ${it.message}", user = user.id, tag = "schedule_login_alert_failed") }
     }
 
     /**
@@ -342,7 +342,7 @@ class AuthService(
             rateLimitService.availableTokens(loginThrottleKey(username), RateLimitTier.AUTH_USER)
         } catch (e: Exception) {
             //Fail closed: without a working limiter there is nothing bounding password guesses.
-            AppLogger.warn("Login throttle unavailable, rejecting login: ${e.message}")
+            AppLogger.warn("Login throttle unavailable, rejecting login: ${e.message}", tag = "check_login_throttle_unavailable")
             throw ResponseStatusException(HttpStatusCode.valueOf(503), "Login temporarily unavailable")
         }
 
@@ -350,7 +350,8 @@ class AuthService(
             val limit = rateLimitProperties.authUser
             AppLogger.warn(
                 "RATELIMIT AUTH_USER exceeded, 429 for login | username=${username.take(100)} " +
-                        "(more than ${limit.capacity} failed logins per ${limit.refillPeriod})"
+                        "(more than ${limit.capacity} failed logins per ${limit.refillPeriod})",
+                tag = "exceed_login_rate_limit",
             )
             throw ResponseStatusException(
                 HttpStatusCode.valueOf(429),
@@ -377,7 +378,7 @@ class AuthService(
                     )
                 }
             } catch (e: Exception) {
-                AppLogger.warn("Could not record failed login attempt: ${e.message}")
+                AppLogger.warn("Could not record failed login attempt: ${e.message}", tag = "record_failed_login_failed")
             }
         }
 
@@ -441,7 +442,7 @@ class AuthService(
             )
         }
 
-        AppLogger.warn("TOKENREFRESH: Unknown token", user = user.id)
+        AppLogger.warn("TOKENREFRESH: Unknown token", user = user.id, tag = "refresh_token_unknown")
         throw ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid refresh token")
     }
 

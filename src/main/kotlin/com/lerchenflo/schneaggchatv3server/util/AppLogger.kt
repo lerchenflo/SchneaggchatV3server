@@ -8,10 +8,32 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.bson.types.ObjectId
-import org.springframework.security.core.context.SecurityContextHolder
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.milliseconds
+
+enum class AppLogLevel { DEBUG, INFO, WARN, ERROR }
+
+/**
+ * One log line waiting to be stored. Request context (user, request id, path) is captured on the
+ * logging thread, because the queue is drained later on a scheduler thread that has none.
+ */
+data class PendingAppLog(
+    val timestampMillis: Long,
+    val level: AppLogLevel,
+    val message: String,
+    val tag: String?,
+    val throwable: Throwable?,
+    val requestId: String?,
+    val userId: String?,
+    val method: String?,
+    val path: String?,
+    /** Never stored, see [RequestLogContext.clientIp]. */
+    val clientIp: String?,
+)
 
 /**
  * Lightweight console logger with colored, timestamped output.
@@ -26,6 +48,14 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  * A call only puts the line into a queue. One background worker takes the lines out in order, looks
  * up the usernames and prints them, so a request never waits for a username lookup.
+ *
+ * Every line is also queued for the admin monitoring dashboard - `AppLogService` drains [pending]
+ * into the `app_logs` collection. The queue lives here (not in the Spring bean) so lines logged
+ * during startup, before the bean exists, are kept too.
+ *
+ * `tag` is a stable call-site id (e.g. `join_event_no_access`) the dashboard groups and searches by.
+ * WARN/ERROR lines should carry one; untagged lines with an `error` are grouped by an automatic
+ * tag derived from the exception (see [autoTag]).
  *
  * Colors:
  *   INFO    → Cyan
@@ -53,11 +83,19 @@ object AppLogger {
     /** After a failed lookup (database down) lines show the id only for this long, so the queue keeps moving. */
     private const val LOOKUP_PAUSE_MS = 30 * 1000L
 
+    /** Upper bound so a log storm while Mongo is down can't eat the heap - overflow is dropped and counted. */
+    private const val MAX_PENDING = 20_000
+
+    val pending = ConcurrentLinkedQueue<PendingAppLog>()
+    private val pendingSize = AtomicInteger(0)
+    val dropped = AtomicLong(0)
+
     private class Line(
         val time: LocalDateTime,
         val color: String,
         val level: String,
         val user: ObjectId?,
+        val tag: String?,
         val message: String,
         val error: Throwable?,
     )
@@ -97,15 +135,57 @@ object AppLogger {
         })
     }
 
-    private fun log(color: String, level: String, message: String, user: ObjectId?, error: Throwable? = null) {
-        val line = Line(LocalDateTime.now(), color, level, user ?: requestUser(), message, error)
+    private fun log(color: String, label: String, level: AppLogLevel, message: String, user: ObjectId?, tag: String?, error: Throwable?) {
+        val line = Line(LocalDateTime.now(), color, label, user ?: requestUser(), tag, message, error)
         // Queue full or closed: print right away, without looking up names
         if (queue.trySend(line).isFailure) println(format(line, resolveNames = false))
+        record(level, message, tag, error, user)
     }
 
-    /** The user of the current HTTP request. Has to be read here: the worker runs on another thread. */
+    /**
+     * Queues a line for storage without printing it. Used directly by the Logback bridge, whose
+     * events Logback already printed itself.
+     */
+    fun record(level: AppLogLevel, message: String, tag: String?, throwable: Throwable?, user: ObjectId? = null) {
+        if (pendingSize.incrementAndGet() > MAX_PENDING) {
+            pendingSize.decrementAndGet()
+            dropped.incrementAndGet()
+            return
+        }
+        val context = RequestLogContext.current()
+        pending.add(
+            PendingAppLog(
+                timestampMillis = System.currentTimeMillis(),
+                level = level,
+                message = message,
+                tag = tag,
+                throwable = throwable,
+                requestId = context?.requestId,
+                userId = user?.toHexString() ?: context?.userId ?: RequestLogContext.authenticatedUserId(),
+                method = context?.method,
+                path = context?.path,
+                clientIp = context?.clientIp,
+            )
+        )
+    }
+
+    /** Takes up to [max] queued lines, oldest first. */
+    fun drain(max: Int): List<PendingAppLog> {
+        val batch = ArrayList<PendingAppLog>(minOf(max, pendingSize.get().coerceAtLeast(0)))
+        while (batch.size < max) {
+            val next = pending.poll() ?: break
+            pendingSize.decrementAndGet()
+            batch += next
+        }
+        return batch
+    }
+
+    /**
+     * The user of the current HTTP request. Has to be read here: the worker runs on another thread.
+     * The request context keeps it after Spring Security cleared its own context at the end of the chain.
+     */
     private fun requestUser(): ObjectId? =
-        (SecurityContextHolder.getContext().authentication?.principal as? String)
+        (RequestLogContext.current()?.userId ?: RequestLogContext.authenticatedUserId())
             ?.takeIf { ObjectId.isValid(it) }
             ?.let { ObjectId(it) }
 
@@ -113,8 +193,9 @@ object AppLogger {
         val ts = "${GRAY}${line.time.format(formatter)}${RESET}"
         val lvl = "${line.color}${line.level.padEnd(7)}${RESET}"
         val user = line.user?.let { describe(it, resolveNames) } ?: "-"
-        val message = mention.replace(line.message) { describe(ObjectId(it.groupValues[1]), resolveNames) }
-        val text = "$ts $lvl ${user.padEnd(USER_WIDTH)} | $message"
+        val tagPart = if (line.tag != null) "${GRAY}[${line.tag}]${RESET} " else ""
+        val message = replaceMentions(line.message) { describe(it, resolveNames) }
+        val text = "$ts $lvl ${user.padEnd(USER_WIDTH)} | $tagPart$message"
         return if (line.error != null) "$text\n${line.error.stackTraceToString().trimEnd()}" else text
     }
 
@@ -143,18 +224,61 @@ object AppLogger {
     /** Marks a second user inside a message; printed as the username. */
     fun nameOf(userId: ObjectId): String = "{user:${userId.toHexString()}}"
 
-    /** General information */
-    fun info(message: String, user: ObjectId? = null) = log(CYAN, "INFO", message, user)
+    /** The users marked with [nameOf] in [message]. */
+    fun mentionedUsers(message: String): List<ObjectId> =
+        mention.findAll(message).map { ObjectId(it.groupValues[1]) }.toList()
 
-    /** Successful operations */
-    fun success(message: String, user: ObjectId? = null) = log(GREEN, "SUCCESS", message, user)
+    /** [message] with every [nameOf] mark replaced by [name] of that user. */
+    fun replaceMentions(message: String, name: (ObjectId) -> String): String =
+        mention.replace(message) { name(ObjectId(it.groupValues[1])) }
+
+    /** General information */
+    fun info(message: String, user: ObjectId? = null, tag: String? = null) =
+        log(CYAN, "INFO", AppLogLevel.INFO, message, user, tag, null)
+
+    /** Successful operations - stored as INFO */
+    fun success(message: String, user: ObjectId? = null, tag: String? = null) =
+        log(GREEN, "SUCCESS", AppLogLevel.INFO, message, user, tag, null)
 
     /** Warnings — non-critical issues */
-    fun warn(message: String, user: ObjectId? = null, error: Throwable? = null) = log(YELLOW, "WARN", message, user, error)
+    fun warn(message: String, user: ObjectId? = null, tag: String? = null, error: Throwable? = null) =
+        log(YELLOW, "WARN", AppLogLevel.WARN, message, user, tag, error)
 
     /** Errors — failures that need attention. Pass `error` to print the stack trace. */
-    fun error(message: String, user: ObjectId? = null, error: Throwable? = null) = log(RED, "ERROR", message, user, error)
+    fun error(message: String, user: ObjectId? = null, tag: String? = null, error: Throwable? = null) =
+        log(RED, "ERROR", AppLogLevel.ERROR, message, user, tag, error)
 
     /** Debug — verbose info for development */
-    fun debug(message: String, user: ObjectId? = null) = log(MAGENTA, "DEBUG", message, user)
+    fun debug(message: String, user: ObjectId? = null, tag: String? = null) =
+        log(MAGENTA, "DEBUG", AppLogLevel.DEBUG, message, user, tag, null)
+
+    /** Helpers whose frames say nothing about where a failure really came from. */
+    private val skippedFrameClasses = setOf(
+        "com.lerchenflo.schneaggchatv3server.core.security.RequireAuthKt",
+        "com.lerchenflo.schneaggchatv3server.core.security.AdminGuard",
+        "com.lerchenflo.schneaggchatv3server.util.ValidationUtils",
+        "com.lerchenflo.schneaggchatv3server.util.OptimisticRetryKt",
+        // Servlet filters wrap every request - a framework 404 would otherwise be blamed on them.
+        "com.lerchenflo.schneaggchatv3server.core.security.JwtAuthFilter",
+        "com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitFilter",
+        "com.lerchenflo.schneaggchatv3server.monitoring.RequestLogFilter",
+    )
+
+    /**
+     * Tag for a failure nobody tagged by hand: exception class + the first app frame that threw it,
+     * e.g. `IllegalArgumentException@UserService.changeUserProfile`. Groups a plain `require()` per
+     * call site without touching every call. Falls back to the bare class name for framework-only traces.
+     */
+    fun autoTag(throwable: Throwable): String {
+        val frame = throwable.stackTrace.firstOrNull { frame ->
+            frame.className.startsWith("com.lerchenflo.") &&
+                    frame.className.substringBefore('$') !in skippedFrameClasses
+        }
+        val name = throwable.javaClass.simpleName.ifEmpty { throwable.javaClass.name }
+        return if (frame == null) {
+            name
+        } else {
+            "$name@${frame.className.substringAfterLast('.').substringBefore('$')}.${frame.methodName.substringBefore('$')}"
+        }
+    }
 }

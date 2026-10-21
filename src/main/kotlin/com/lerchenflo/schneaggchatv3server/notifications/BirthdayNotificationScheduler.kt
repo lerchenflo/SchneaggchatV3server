@@ -30,14 +30,14 @@ class BirthdayNotificationScheduler(
             runCatching {
                 notificationService.notifyBirthday(user.id, user.id, ownBirthday = true)
             }.onFailure {
-                AppLogger.error("[Birthday] self notify failed: ${it.message}", user = user.id)
+                AppLogger.error("[Birthday] self notify failed: ${it.message}", user = user.id, tag = "notify_birthday_self_failed")
             }
 
             friendsLookupService.getFriends(user.id).forEach { friendId ->
                 runCatching {
                     notificationService.notifyBirthday(user.id, friendId, ownBirthday = false)
                 }.onFailure {
-                    AppLogger.error("[Birthday] friend notify failed for ${AppLogger.nameOf(friendId)}: ${it.message}", user = user.id)
+                    AppLogger.error("[Birthday] friend notify failed for ${AppLogger.nameOf(friendId)}: ${it.message}", user = user.id, tag = "notify_birthday_friend_failed")
                 }
             }
         }

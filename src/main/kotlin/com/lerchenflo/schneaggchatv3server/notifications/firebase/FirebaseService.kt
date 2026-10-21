@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.notifications.firebase
 
+import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetrics
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -35,7 +36,7 @@ class FirebaseService(
                     // fallback to expected mounted path inside container
                     FileInputStream("/app/$resourceName")
                 } catch (e: Exception) {
-                    AppLogger.error("Firebase json not found in path /app/$resourceName")
+                    AppLogger.error("Firebase json not found in path /app/$resourceName", tag = "init_firebase_config_missing")
 
                     return@run //Return to not crash the server docker
                 }
@@ -83,7 +84,7 @@ class FirebaseService(
 
             //println("Firebasetoken saved successfully")
         } catch (e: DuplicateKeyException) {
-            AppLogger.warn("[Firebase] Duplicate token already exists", user = userId)
+            AppLogger.warn("[Firebase] Duplicate token already exists", user = userId, tag = "register_fcm_token_duplicate")
         }
     }
 
@@ -151,7 +152,7 @@ class FirebaseService(
                 sendNotificationToUser(receiverId, notification)
 
             } catch (e: Exception) {
-                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = receiverId, error = e)
+                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = receiverId, error = e, tag = "send_fcm_coroutine_failed")
                 loggingService.log(
                     userId = receiverId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -199,7 +200,7 @@ class FirebaseService(
                 sendNotificationToUser(receiverId, notification)
 
             } catch (e: Exception) {
-                AppLogger.error("[Firebase] Error in reaction notification coroutine: ${e.message}", user = receiverId, error = e)
+                AppLogger.error("[Firebase] Error in reaction notification coroutine: ${e.message}", user = receiverId, error = e, tag = "send_fcm_coroutine_failed")
                 loggingService.log(
                     userId = receiverId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -239,7 +240,7 @@ class FirebaseService(
                 sendNotificationToUser(receivingUserId, notification)
 
             } catch (e: Exception) {
-                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = receivingUserId, error = e)
+                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = receivingUserId, error = e, tag = "send_fcm_coroutine_failed")
                 loggingService.log(
                     userId = senderId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -271,11 +272,11 @@ class FirebaseService(
                         )
                         safeSend(message = message, firebaseToken = firebaseToken)
                     } catch (e: Exception) {
-                        AppLogger.error("[Firebase] Error sending to token ${firebaseToken.token}: ${e.message}", user = userId, error = e)
+                        AppLogger.error("[Firebase] Error sending to token ${firebaseToken.token}: ${e.message}", user = userId, error = e, tag = "send_fcm_token_failed")
                     }
                 }
             } catch (e: Exception) {
-                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = userId, error = e)
+                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = userId, error = e, tag = "send_fcm_coroutine_failed")
                 loggingService.log(
                     userId = userId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -314,11 +315,11 @@ class FirebaseService(
                         )
                         safeSend(message = message, firebaseToken = firebaseToken)
                     } catch (e: Exception) {
-                        AppLogger.error("[Firebase] Error sending wake to token ${firebaseToken.token}: ${e.message}", user = userId)
+                        AppLogger.error("[Firebase] Error sending wake to token ${firebaseToken.token}: ${e.message}", user = userId, tag = "send_fcm_wake_token_failed")
                     }
                 }
             } catch (e: Exception) {
-                AppLogger.error("[Firebase] Error in wake coroutine: ${e.message}", user = userId)
+                AppLogger.error("[Firebase] Error in wake coroutine: ${e.message}", user = userId, tag = "send_fcm_wake_coroutine_failed")
                 loggingService.log(
                     userId = userId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -335,9 +336,11 @@ class FirebaseService(
         val token = firebaseToken.token
         try {
             val response = FirebaseMessaging.getInstance().send(message)
+            ServerMetrics.fcmSent.incrementAndGet()
             return true
 
         } catch (e: FirebaseMessagingException) {
+            ServerMetrics.fcmFailed.incrementAndGet()
             val errorCode = e.messagingErrorCode
             //e.printStackTrace()
             val rawErrorCode = e.errorCode?.name // fallback: raw string like "registration-token-not-registered"
@@ -390,7 +393,7 @@ class FirebaseService(
                 null if (rawErrorCode in invalidTokenRawCodes || (rawErrorCode == "INVALID_ARGUMENT" && isInvalidTokenError(
                     e
                 ))) -> {
-                    AppLogger.warn("[Firebase] Removing invalid token via raw error code '$rawErrorCode': $token", user = firebaseToken.userId)
+                    AppLogger.warn("[Firebase] Removing invalid token via raw error code '$rawErrorCode': $token", user = firebaseToken.userId, tag = "remove_fcm_invalid_token")
                     deleteToken(token)
                     false
                 }
@@ -401,18 +404,19 @@ class FirebaseService(
                     MessagingErrorCode.INTERNAL,
                     MessagingErrorCode.QUOTA_EXCEEDED
                 ) -> {
-                    AppLogger.warn("[Firebase] Transient error for token: $token (Code: $errorCode)", user = firebaseToken.userId)
+                    AppLogger.warn("[Firebase] Transient error for token: $token (Code: $errorCode)", user = firebaseToken.userId, tag = "send_fcm_transient_error")
                     false
                 }
 
                 // Everything else (including null with unknown raw code) — log both codes
                 else -> {
-                    AppLogger.warn("[Firebase] Unhandled error for token: $token (Code: $errorCode, Raw: $rawErrorCode, HTTP: ${e.httpResponse?.statusCode})", user = firebaseToken.userId)
+                    AppLogger.warn("[Firebase] Unhandled error for token: $token (Code: $errorCode, Raw: $rawErrorCode, HTTP: ${e.httpResponse?.statusCode})", user = firebaseToken.userId, tag = "send_fcm_unhandled_error")
                     false
                 }
             }
         } catch (e: Exception) {
-            AppLogger.error("[Firebase] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}", user = firebaseToken.userId, error = e)
+            AppLogger.error("[Firebase] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}", user = firebaseToken.userId, error = e, tag = "send_fcm_unexpected")
+            ServerMetrics.fcmFailed.incrementAndGet()
             loggingService.log(userId = firebaseToken.userId, logType = LogType.EXCEPTION_THROWN)
             return false
         }

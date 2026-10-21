@@ -40,14 +40,14 @@ class FeedbackSeedService(
     fun seedMissingEntries() {
         val resource = ClassPathResource("seed/feedback_features.json")
         if (!resource.exists()) {
-            AppLogger.warn("Feedback seed file not found, skipping feedback seeding")
+            AppLogger.warn("Feedback seed file not found, skipping feedback seeding", tag = "seed_feedback_file_missing")
             return
         }
 
         val seeds = try {
             Json.mapper.readValue(resource.inputStream, object : TypeReference<List<FeedbackSeed>>() {})
         } catch (e: Exception) {
-            AppLogger.error("Could not parse feedback seed file: ${e.message}")
+            AppLogger.error("Could not parse feedback seed file: ${e.message}", tag = "seed_feedback_parse_failed")
             return
         }
 
@@ -77,7 +77,7 @@ class FeedbackSeedService(
                 ValidationUtils.validateFeedbackDescription(trimmedDescription) &&
                 ValidationUtils.validateFeedbackLocation(trimmedLocation)
         if (!valid) {
-            AppLogger.warn("Skipping invalid feedback seed '$seedKey'")
+            AppLogger.warn("Skipping invalid feedback seed '$seedKey'", tag = "seed_feedback_invalid_entry")
             return null
         }
 

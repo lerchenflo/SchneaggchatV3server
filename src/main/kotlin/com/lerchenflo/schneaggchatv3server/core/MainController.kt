@@ -521,7 +521,7 @@ class MainController(
         if (existingCollections.contains("friendships")) {
             val targetCount = db.getCollection("friendships").countDocuments()
             if (targetCount > 0) {
-                AppLogger.warn("Migration skipped: 'friendships' already has $targetCount document(s) - refusing to overwrite. Resolve 'frienships' vs 'friendships' manually.")
+                AppLogger.warn("Migration skipped: 'friendships' already has $targetCount document(s) - refusing to overwrite. Resolve 'frienships' vs 'friendships' manually.", tag = "migrate_friendships_skipped")
                 return
             }
             // Empty collection auto-created by Spring's index creation - safe to drop before the rename.
@@ -824,7 +824,7 @@ class MainController(
                     val elements = try {
                         Json.mapper.readValue(rawJson, object : TypeReference<List<MutableMap<String, Any?>>>() {})
                     } catch (e: Exception) {
-                        AppLogger.warn("Map attribute type migration: skipping unreadable snapshot in version ${doc.getObjectId("_id")}: ${e.message}")
+                        AppLogger.warn("Map attribute type migration: skipping unreadable snapshot in version ${doc.getObjectId("_id")}: ${e.message}", tag = "migrate_map_snapshot_skipped")
                         continue
                     }
 

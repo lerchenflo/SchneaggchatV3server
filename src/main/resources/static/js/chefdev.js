@@ -1,5 +1,5 @@
-// Admin panel: login, authenticated fetch wrapper, and the four tabs (map change log, donations,
-// connected users, error logs). German only - this page is seen by two people, so it carries no
+// Admin panel: login, authenticated fetch wrapper, the monitoring dashboard and the data tabs (map
+// change log, donations, connected users, error logs, ...). German only - this page is seen by two people, so it carries no
 // data-i18n keys and is not part of the strings-*.xml translation system.
 
 /* ---------------------------------------------------------------------- */
@@ -115,7 +115,7 @@ function showPanelView() {
 }
 
 // Order matches the top bar: read-only views first, data-changing views after the separator.
-const TABS = ['connected', 'changelog', 'tree', 'logs', 'donations', 'faq', 'scores', 'users', 'server'];
+const TABS = ['monitoring', 'connected', 'changelog', 'tree', 'logs', 'donations', 'faq', 'scores', 'users', 'server'];
 
 function switchTab(tab) {
     TABS.forEach((t) => {
@@ -136,6 +136,8 @@ function switchTab(tab) {
     if (tab === 'users' && !usersState.loadedOnce) loadUsers();
     if (tab === 'tree' && !treeState.loadedOnce) loadFriendsTree();
     if (tab === 'logs' && !logsState.loadedOnce) loadLogs(true);
+    // Reloaded on every visit - no live updates, the tab switch is the refresh.
+    if (tab === 'monitoring') loadMonitoring();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1275,6 +1277,526 @@ attachSortableHeader('logs-header', logsState, LOG_SORT_DEFAULT_DIR, () => loadL
 document.getElementById('logs-load-more')?.addEventListener('click', () => {
     logsState.page += 1;
     loadLogs(false);
+});
+
+/* ---------------------------------------------------------------------- */
+/* Monitoring dashboard                                                   */
+/* ---------------------------------------------------------------------- */
+
+const monitoringState = {
+    range: 'HOURS_24',
+    errorTypes: [],
+    errorsAxis: null,
+    errorsSearch: '',
+    sortKey: 'count',
+    sortAsc: false,
+    logsPage: 0,
+};
+
+const ERROR_SORT_DEFAULT_DIR = { tag: 'asc', level: 'asc', count: 'desc', affectedUsers: 'desc', lastSeen: 'desc' };
+
+const MON_COLORS = {
+    error: '#ef4444',
+    warn: '#f59e0b',
+    info: '#2e77cc',
+    ok: '#1ed860',
+    purple: '#a855f7',
+    gray: '#64748b',
+};
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function formatNumber(value, digits = 0) {
+    if (value == null || Number.isNaN(value)) return '—';
+    return Number(value).toLocaleString('de-DE', { maximumFractionDigits: digits, minimumFractionDigits: 0 });
+}
+
+function formatUptime(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (days > 0) return `${days} T ${hours} h`;
+    if (hours > 0) return `${hours} h ${minutes} min`;
+    return `${minutes} min`;
+}
+
+function formatAxisTime(millis, bucketMs) {
+    const date = new Date(millis);
+    const time = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    if (bucketMs < 60 * 60 * 1000) return time;
+    return `${date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} ${time}`;
+}
+
+function svgEl(tag, attrs) {
+    const node = document.createElementNS(SVG_NS, tag);
+    Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+    return node;
+}
+
+/** Rounds a chart's maximum up to 1/2/5 x 10^n so the grid lines land on readable values. */
+function niceMax(value) {
+    if (value <= 0) return 1;
+    const magnitude = 10 ** Math.floor(Math.log10(value));
+    const step = [1, 2, 5, 10].find((m) => m * magnitude >= value);
+    return step * magnitude;
+}
+
+/**
+ * Draws a column chart into `container` with plain SVG. `series` = [{ name, color, values }] on
+ * the shared `axis` ({ start, bucketMs, buckets }); values may be null for "no data". Stacked by
+ * default; `mini` drops axes and labels for the per-error sparklines. Hovering shows a tooltip
+ * with every series' value for that column.
+ */
+function renderColumnChart(container, axis, series, opts = {}) {
+    container._chart = { axis, series, opts };
+    container.innerHTML = '';
+
+    const mini = !!opts.mini;
+    const width = Math.max(container.clientWidth || 0, mini ? 120 : 300);
+    const height = opts.height || (mini ? 36 : 220);
+    const pad = mini ? { l: 0, r: 0, t: 2, b: 0 } : { l: 48, r: 8, t: 10, b: 22 };
+    const stacked = opts.stacked !== false;
+    const format = opts.format || ((v) => formatNumber(v));
+    const n = axis.buckets;
+
+    const columnValue = (i) => stacked
+        ? series.reduce((sum, s) => sum + (s.values[i] || 0), 0)
+        : Math.max(0, ...series.map((s) => s.values[i] || 0));
+    const max = niceMax(Math.max(0, ...Array.from({ length: n }, (_, i) => columnValue(i))));
+
+    const plotW = width - pad.l - pad.r;
+    const plotH = height - pad.t - pad.b;
+    const colW = plotW / n;
+    const gap = colW > 4 ? Math.min(2, colW * 0.2) : 0;
+
+    const svg = svgEl('svg', { width, height, class: 'mon-chart-svg' });
+
+    if (!mini) {
+        for (let g = 0; g <= 4; g++) {
+            const y = pad.t + plotH - (plotH * g) / 4;
+            svg.appendChild(svgEl('line', { x1: pad.l, x2: width - pad.r, y1: y, y2: y, class: 'mon-grid-line' }));
+            const label = svgEl('text', { x: pad.l - 6, y: y + 4, class: 'mon-axis-label', 'text-anchor': 'end' });
+            label.textContent = format((max * g) / 4);
+            svg.appendChild(label);
+        }
+        const ticks = Math.min(6, n);
+        for (let t = 0; t < ticks; t++) {
+            const i = Math.round((t * (n - 1)) / Math.max(1, ticks - 1));
+            const label = svgEl('text', {
+                x: pad.l + i * colW + colW / 2,
+                y: height - 6,
+                class: 'mon-axis-label',
+                'text-anchor': t === 0 ? 'start' : t === ticks - 1 ? 'end' : 'middle',
+            });
+            label.textContent = formatAxisTime(axis.start + i * axis.bucketMs, axis.bucketMs);
+            svg.appendChild(label);
+        }
+    }
+
+    for (let i = 0; i < n; i++) {
+        const x = pad.l + i * colW + gap / 2;
+        let base = pad.t + plotH;
+        series.forEach((s, si) => {
+            const v = s.values[i];
+            if (!v) return;
+            const h = Math.max(1, (v / max) * plotH);
+            if (stacked) {
+                base -= h;
+                svg.appendChild(svgEl('rect', { x, y: base, width: Math.max(1, colW - gap), height: h, fill: s.color }));
+            } else {
+                const w = Math.max(1, (colW - gap) / series.length);
+                svg.appendChild(svgEl('rect', {
+                    x: x + si * w, y: pad.t + plotH - h, width: w, height: h, fill: s.color,
+                }));
+            }
+        });
+    }
+
+    const tooltip = document.getElementById('mon-tooltip');
+    svg.addEventListener('mousemove', (e) => {
+        const rect = svg.getBoundingClientRect();
+        const i = Math.floor((e.clientX - rect.left - pad.l) / colW);
+        if (i < 0 || i >= n) {
+            tooltip.classList.add('hidden');
+            return;
+        }
+        tooltip.innerHTML = '';
+        tooltip.appendChild(el('div', 'mon-tooltip-time', formatDateTime(axis.start + i * axis.bucketMs)));
+        series.forEach((s) => {
+            const line = el('div', 'mon-tooltip-line');
+            const swatch = el('span', 'mon-swatch');
+            swatch.style.background = s.color;
+            line.appendChild(swatch);
+            line.appendChild(document.createTextNode(`${s.name}: ${s.values[i] == null ? '—' : format(s.values[i])}`));
+            tooltip.appendChild(line);
+        });
+        tooltip.style.left = `${Math.min(e.clientX + 14, window.innerWidth - 220)}px`;
+        tooltip.style.top = `${e.clientY + 14}px`;
+        tooltip.classList.remove('hidden');
+    });
+    svg.addEventListener('mouseleave', () => tooltip.classList.add('hidden'));
+
+    container.appendChild(svg);
+
+    if (!mini && series.length > 1) {
+        const legend = el('div', 'mon-legend');
+        series.forEach((s) => {
+            const item = el('span', 'mon-legend-item');
+            const swatch = el('span', 'mon-swatch');
+            swatch.style.background = s.color;
+            item.appendChild(swatch);
+            item.appendChild(document.createTextNode(s.name));
+            legend.appendChild(item);
+        });
+        container.appendChild(legend);
+    }
+}
+
+// Charts are drawn at their container's pixel width - redraw them all when that changes.
+let monitoringResizeTimer = null;
+window.addEventListener('resize', () => {
+    clearTimeout(monitoringResizeTimer);
+    monitoringResizeTimer = setTimeout(() => {
+        document.querySelectorAll('#admin-section-monitoring .mon-chart').forEach((c) => {
+            if (c._chart) renderColumnChart(c, c._chart.axis, c._chart.series, c._chart.opts);
+        });
+    }, 200);
+});
+
+function kpiTile(label, value, previous, invert = true) {
+    const tile = el('div', 'mon-kpi');
+    tile.appendChild(el('div', 'mon-kpi-label', label));
+    tile.appendChild(el('div', 'mon-kpi-value', typeof value === 'number' ? formatNumber(value) : value));
+    if (previous != null && typeof value === 'number') {
+        const diff = value - previous;
+        // For errors, going up is bad - so up is red, down is green.
+        const trend = el('div', `mon-kpi-trend ${diff === 0 ? '' : (diff > 0) === invert ? 'is-bad' : 'is-good'}`);
+        trend.textContent = diff === 0
+            ? '± 0 zum Zeitraum davor'
+            : `${diff > 0 ? '▲' : '▼'} ${formatNumber(Math.abs(diff))} zum Zeitraum davor`;
+        tile.appendChild(trend);
+    }
+    return tile;
+}
+
+function renderOverview(data) {
+    const kpis = document.getElementById('mon-kpis');
+    kpis.innerHTML = '';
+    kpis.appendChild(kpiTile('Fehler', data.current.errors, data.previous.errors));
+    kpis.appendChild(kpiTile('Warnungen', data.current.warnings, data.previous.warnings));
+    kpis.appendChild(kpiTile('Fehlgeschl. Requests', data.current.failedRequests, data.previous.failedRequests));
+    kpis.appendChild(kpiTile('Serverfehler (5xx)', data.current.serverErrors, data.previous.serverErrors));
+    kpis.appendChild(kpiTile('Betroffene Nutzer', data.current.affectedUsers, data.previous.affectedUsers));
+
+    const status = document.getElementById('mon-status');
+    status.innerHTML = '';
+    const m = data.latestMetrics;
+    if (m) {
+        const devices = Object.values(m.activeDevices || {}).reduce((a, b) => a + b, 0);
+        status.appendChild(kpiTile('Uptime', formatUptime(m.uptimeSeconds)));
+        status.appendChild(kpiTile('Heap', `${formatNumber(m.heapUsedMb)} / ${formatNumber(m.heapMaxMb)} MB`));
+        status.appendChild(kpiTile('CPU (Prozess)', m.processCpuPercent < 0 ? '—' : `${formatNumber(m.processCpuPercent, 1)} %`));
+        status.appendChild(kpiTile('Socket-Verbindungen', `${formatNumber(m.socketConnections)} (${formatNumber(m.socketUsers)} Nutzer)`));
+        status.appendChild(kpiTile('Aktive Geräte', devices));
+        status.appendChild(kpiTile('Mongo / Redis', `${m.mongoPingMs < 0 ? '✕' : formatNumber(m.mongoPingMs, 1)} / ${m.redisPingMs < 0 ? '✕' : formatNumber(m.redisPingMs, 1)} ms`));
+    } else {
+        status.appendChild(el('p', 'admin-muted', 'Noch keine Server-Messwerte (erster Messpunkt eine Minute nach dem Start).'));
+    }
+
+    renderColumnChart(document.getElementById('mon-chart-levels'), data.axis, [
+        { name: 'Fehler', color: MON_COLORS.error, values: data.errorSeries },
+        { name: 'Warnungen', color: MON_COLORS.warn, values: data.warningSeries },
+    ]);
+    renderColumnChart(document.getElementById('mon-chart-requests'), data.axis, [
+        { name: '5xx', color: MON_COLORS.error, values: data.serverErrorSeries },
+        { name: '4xx', color: MON_COLORS.warn, values: data.clientErrorSeries },
+    ]);
+
+    const codes = document.getElementById('mon-status-codes');
+    codes.innerHTML = '';
+    const maxCount = Math.max(1, ...data.statusCodes.map((c) => c.count));
+    if (data.statusCodes.length === 0) codes.appendChild(el('p', 'admin-muted', 'Keine fehlgeschlagenen Requests.'));
+    data.statusCodes.forEach((code) => {
+        const row = el('div', 'mon-bar-row');
+        row.appendChild(el('span', 'mon-bar-label', String(code.status)));
+        const track = el('div', 'mon-bar-track');
+        const bar = el('div', 'mon-bar');
+        bar.style.width = `${(code.count / maxCount) * 100}%`;
+        bar.style.background = code.status >= 500 ? MON_COLORS.error : code.status === 429 ? MON_COLORS.purple : MON_COLORS.warn;
+        track.appendChild(bar);
+        row.appendChild(track);
+        row.appendChild(el('span', 'mon-bar-value', formatNumber(code.count)));
+        codes.appendChild(row);
+    });
+
+    const endpoints = document.getElementById('mon-endpoint-rows');
+    endpoints.innerHTML = '';
+    data.topEndpoints.forEach((endpoint) => {
+        const row = el('tr', 'mon-clickable');
+        row.appendChild(el('td', 'mon-mono', `${endpoint.method || ''} ${endpoint.endpoint}`));
+        row.appendChild(el('td', null, endpoint.statuses.map((s) => `${s.status}×${s.count}`).join(', ')));
+        row.appendChild(el('td', null, formatNumber(endpoint.count)));
+        row.appendChild(el('td', null, formatDateTime(endpoint.lastSeen)));
+        // Endpoint patterns ("/groups/{id}") aren't searchable, the concrete path text is close enough.
+        row.addEventListener('click', () => filterExplorer({ kind: 'REQUEST', q: endpoint.endpoint.split('{')[0] }));
+        endpoints.appendChild(row);
+    });
+}
+
+function renderErrorTypes() {
+    const tbody = document.getElementById('mon-errors-rows');
+    tbody.innerHTML = '';
+    const search = monitoringState.errorsSearch.toLowerCase();
+    const dir = monitoringState.sortAsc ? 1 : -1;
+    const key = monitoringState.sortKey;
+
+    const rows = monitoringState.errorTypes
+        .filter((t) => !search || t.tag.toLowerCase().includes(search) || t.lastMessage.toLowerCase().includes(search))
+        .sort((a, b) => (typeof a[key] === 'string' ? a[key].localeCompare(b[key]) : a[key] - b[key]) * dir);
+
+    if (rows.length === 0) {
+        const row = el('tr');
+        const cell = el('td', 'admin-muted', 'Keine Fehler in diesem Zeitraum.');
+        cell.colSpan = 6;
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+    }
+
+    rows.forEach((type) => {
+        const row = el('tr', 'mon-clickable');
+        const tagCell = el('td');
+        tagCell.appendChild(el('div', 'mon-mono', type.tag));
+        tagCell.appendChild(el('div', 'admin-muted mon-sub', type.lastMessage));
+        row.appendChild(tagCell);
+
+        const levelCell = el('td');
+        levelCell.appendChild(levelBadge(type.level));
+        row.appendChild(levelCell);
+        row.appendChild(el('td', 'mon-count', formatNumber(type.count)));
+        row.appendChild(el('td', null, formatNumber(type.affectedUsers)));
+        row.appendChild(el('td', null, formatDateTime(type.lastSeen)));
+
+        const chartCell = el('td', 'mon-spark-cell');
+        const chart = el('div', 'mon-chart mon-spark');
+        chartCell.appendChild(chart);
+        row.appendChild(chartCell);
+        tbody.appendChild(row);
+        renderColumnChart(chart, monitoringState.errorsAxis, [
+            { name: type.tag, color: type.level === 'ERROR' ? MON_COLORS.error : MON_COLORS.warn, values: type.series },
+        ], { mini: true });
+
+        row.addEventListener('click', () => filterExplorer({ tag: type.tag, kind: 'LOG' }));
+    });
+}
+
+/** Server status charts: one panel per metric group. */
+const METRIC_PANELS = [
+    { title: 'Heap (MB)', stacked: false, series: [['heapUsedMb', 'Belegt', MON_COLORS.info, 'gauges'], ['heapMaxMb', 'Max', MON_COLORS.gray, 'gauges']] },
+    { title: 'CPU (%)', stacked: false, digits: 1, series: [['processCpuPercent', 'Prozess', MON_COLORS.ok, 'gauges'], ['systemCpuPercent', 'System', MON_COLORS.gray, 'gauges']] },
+    { title: 'Threads', series: [['threadCount', 'Threads', MON_COLORS.info, 'gauges']] },
+    { title: 'Socket-Verbindungen', stacked: false, series: [['socketConnections', 'Verbindungen', MON_COLORS.ok, 'gauges'], ['socketUsers', 'Nutzer', MON_COLORS.info, 'gauges']] },
+    { title: 'Push FCM', series: [['fcmSent', 'Gesendet', MON_COLORS.ok, 'counters'], ['fcmFailed', 'Fehlgeschlagen', MON_COLORS.error, 'counters']] },
+    { title: 'Push APNs', series: [['apnsSent', 'Gesendet', MON_COLORS.ok, 'counters'], ['apnsFailed', 'Fehlgeschlagen', MON_COLORS.error, 'counters']] },
+    { title: 'E-Mails', series: [['emailsSent', 'Gesendet', MON_COLORS.ok, 'counters'], ['emailsFailed', 'Fehlgeschlagen', MON_COLORS.error, 'counters']] },
+    { title: 'Nachrichten', series: [['messagesSent', 'Nachrichten', MON_COLORS.ok, 'counters']] },
+    { title: 'Logins & neue Accounts', stacked: false, series: [['logins', 'Logins', MON_COLORS.info, 'counters'], ['newAccounts', 'Neue Accounts', MON_COLORS.purple, 'counters']] },
+    { title: 'Mongo / Redis Ping (ms)', stacked: false, digits: 1, series: [['mongoPingMs', 'Mongo', MON_COLORS.ok, 'gauges'], ['redisPingMs', 'Redis', MON_COLORS.error, 'gauges']] },
+    { title: 'GC-Zeit (ms)', series: [['gcTimeMs', 'GC', MON_COLORS.warn, 'counters']] },
+    { title: 'Verworfene Log-Zeilen (Limit)', series: [['logsDropped', 'Verworfen', MON_COLORS.error, 'counters']] },
+    { title: 'Aktive Geräte', devices: true },
+];
+
+const DEVICE_COLORS = [MON_COLORS.ok, MON_COLORS.info, MON_COLORS.purple, MON_COLORS.warn, MON_COLORS.gray];
+
+function renderMetrics(data) {
+    const grid = document.getElementById('mon-metrics');
+    grid.innerHTML = '';
+    METRIC_PANELS.forEach((panel) => {
+        const box = el('div', 'mon-panel');
+        box.appendChild(el('div', 'mon-panel-title', panel.title));
+        const chart = el('div', 'mon-chart');
+        box.appendChild(chart);
+        grid.appendChild(box);
+
+        const series = panel.devices
+            ? Object.entries(data.activeDevices).map(([type, values], i) => ({
+                name: type, color: DEVICE_COLORS[i % DEVICE_COLORS.length], values,
+            }))
+            : panel.series.map(([key, name, color, group]) => ({
+                // A failed ping is stored as -1 - not a value to draw.
+                name, color, values: data[group][key].map((v) => (v != null && v < 0 ? null : v)),
+            }));
+        renderColumnChart(chart, data.axis, series, {
+            height: 160,
+            stacked: panel.stacked !== false,
+            format: (v) => formatNumber(v, panel.digits || 0),
+        });
+    });
+}
+
+function levelBadge(level) {
+    return el('span', `admin-badge mon-level-${level.toLowerCase()}`, level);
+}
+
+function logRow(entry) {
+    const row = el('tr', 'mon-clickable');
+    row.appendChild(el('td', 'mon-nowrap', new Date(entry.timestamp).toLocaleString('de-DE')));
+
+    const levelCell = el('td');
+    levelCell.appendChild(levelBadge(entry.level));
+    if (entry.kind === 'REQUEST') levelCell.appendChild(el('span', 'admin-badge admin-badge-offline mon-kind', `HTTP ${entry.status}`));
+    row.appendChild(levelCell);
+
+    row.appendChild(el('td', 'mon-mono', entry.tag || ''));
+
+    const userCell = el('td', 'admin-user-cell');
+    userCell.appendChild(el('span', null, entry.username || '—'));
+    if (entry.userId) userCell.appendChild(el('span', 'admin-user-id', entry.userId));
+    row.appendChild(userCell);
+
+    const messageCell = el('td', 'admin-log-message', entry.message);
+    if (entry.path && entry.kind !== 'REQUEST') messageCell.appendChild(el('div', 'admin-muted mon-sub', `${entry.method} ${entry.path}`));
+    row.appendChild(messageCell);
+
+    const requestCell = el('td');
+    if (entry.requestId) {
+        const link = el('button', 'mon-link', entry.requestId);
+        link.type = 'button';
+        link.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openTrace(entry.requestId);
+        });
+        requestCell.appendChild(link);
+    }
+    row.appendChild(requestCell);
+
+    // Click toggles the stack trace (if any) right below the row.
+    row.addEventListener('click', () => {
+        const next = row.nextElementSibling;
+        if (next?.classList.contains('mon-detail-row')) {
+            next.remove();
+            return;
+        }
+        if (!entry.stackTrace) return;
+        const detail = el('tr', 'mon-detail-row');
+        const cell = el('td');
+        cell.colSpan = 6;
+        cell.appendChild(el('pre', 'mon-stack', entry.stackTrace));
+        detail.appendChild(cell);
+        row.after(detail);
+    });
+    return row;
+}
+
+function explorerParams() {
+    return {
+        range: monitoringState.range,
+        levels: document.getElementById('mon-log-level').value,
+        kind: document.getElementById('mon-log-kind').value,
+        tag: document.getElementById('mon-log-tag').value.trim(),
+        user: document.getElementById('mon-log-user').value.trim(),
+        q: document.getElementById('mon-log-q').value.trim(),
+    };
+}
+
+async function loadExplorer(reset) {
+    if (reset) {
+        monitoringState.logsPage = 0;
+        document.getElementById('mon-log-rows').innerHTML = '';
+    }
+    const params = new URLSearchParams({ ...explorerParams(), page: monitoringState.logsPage, pageSize: '50' });
+    const page = await adminFetchJson(`/chefdev/api/monitoring/logs?${params}`);
+    const tbody = document.getElementById('mon-log-rows');
+    page.entries.forEach((entry) => tbody.appendChild(logRow(entry)));
+    document.getElementById('mon-log-load-more').classList.toggle('hidden', !page.moreEntries);
+}
+
+/** Jumps from a chart / table row to the explorer, filtered to it. */
+function filterExplorer({ tag = '', kind = '', q = '' }) {
+    document.getElementById('mon-log-tag').value = tag;
+    document.getElementById('mon-log-kind').value = kind;
+    document.getElementById('mon-log-q').value = q;
+    document.getElementById('mon-log-level').value = '';
+    document.getElementById('mon-log-user').value = '';
+    loadExplorer(true);
+    document.getElementById('mon-explorer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function openTrace(requestId) {
+    const entries = await adminFetchJson(`/chefdev/api/monitoring/trace/${encodeURIComponent(requestId)}`);
+    document.getElementById('mon-trace-id').textContent = requestId;
+    const box = document.getElementById('mon-trace-rows');
+    box.innerHTML = '';
+    entries.forEach((entry) => {
+        const line = el('div', 'mon-trace-line');
+        line.appendChild(el('span', 'admin-muted mon-nowrap', new Date(entry.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 })));
+        line.appendChild(levelBadge(entry.level));
+        if (entry.tag) line.appendChild(el('span', 'mon-mono', entry.tag));
+        line.appendChild(el('span', 'admin-log-message', entry.message));
+        box.appendChild(line);
+        if (entry.stackTrace) box.appendChild(el('pre', 'mon-stack', entry.stackTrace));
+    });
+    document.getElementById('mon-trace-modal').classList.remove('hidden');
+}
+
+document.getElementById('mon-trace-close')?.addEventListener('click', () => {
+    document.getElementById('mon-trace-modal').classList.add('hidden');
+});
+
+async function loadMonitoring() {
+    const range = monitoringState.range;
+    const levels = document.getElementById('mon-errors-level').value;
+
+    const [overview, errors, metrics] = await Promise.all([
+        adminFetchJson(`/chefdev/api/monitoring/overview?range=${range}`),
+        adminFetchJson(`/chefdev/api/monitoring/errors?range=${range}&levels=${levels}`),
+        adminFetchJson(`/chefdev/api/monitoring/metrics?range=${range}`),
+    ]);
+
+    renderOverview(overview);
+    monitoringState.errorTypes = errors.types;
+    monitoringState.errorsAxis = errors.axis;
+    renderErrorTypes();
+    renderMetrics(metrics);
+    await loadExplorer(true);
+
+    document.getElementById('mon-updated').textContent =
+        `Stand ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+}
+
+document.getElementById('mon-range')?.addEventListener('click', (e) => {
+    const button = e.target.closest('button[data-range]');
+    if (!button) return;
+    monitoringState.range = button.dataset.range;
+    document.querySelectorAll('#mon-range button').forEach((b) => b.classList.toggle('active', b === button));
+    loadMonitoring();
+});
+
+document.getElementById('mon-refresh')?.addEventListener('click', () => loadMonitoring());
+document.getElementById('mon-errors-level')?.addEventListener('change', () => loadMonitoring());
+document.getElementById('mon-errors-search')?.addEventListener('input', (e) => {
+    monitoringState.errorsSearch = e.target.value;
+    renderErrorTypes();
+});
+attachSortableHeader('mon-errors-header', monitoringState, ERROR_SORT_DEFAULT_DIR, renderErrorTypes);
+
+['mon-log-level', 'mon-log-kind'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('change', () => loadExplorer(true));
+});
+
+// Text filters reload after typing stops instead of on every key.
+let explorerTypingTimer = null;
+['mon-log-tag', 'mon-log-user', 'mon-log-q'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('input', () => {
+        clearTimeout(explorerTypingTimer);
+        explorerTypingTimer = setTimeout(() => loadExplorer(true), 400);
+    });
+});
+
+document.getElementById('mon-log-load-more')?.addEventListener('click', () => {
+    monitoringState.logsPage += 1;
+    loadExplorer(false);
 });
 
 /* ---------------------------------------------------------------------- */
