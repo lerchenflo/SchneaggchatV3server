@@ -28,6 +28,9 @@ data class PollCreateRequest(
 
     val allowDeleteOptions: Boolean = false,
     val showCheckboxes: Boolean = true,
+
+    //Only read on sub polls, see PollMessage.visibleToAll
+    val visibleToAll: Boolean = true,
 )
 
 /**
@@ -39,10 +42,15 @@ data class PollVoteOptionCreateRequest(
     @field:Size(max = 250, message = "Vote option text too long")
     val text: String,
     val maxVoters: Int? = null, // null = unlimited
+    val subPoll: PollCreateRequest? = null, //Follow-up poll for users who pick this option
 )
 
 
-fun PollCreateRequest.toPoll(creatorId: ObjectId) : PollMessage {
+/**
+ * Builds the poll tree. Sub polls always inherit visibility and close date from [root] - whatever
+ * a sub poll request carries for those is ignored.
+ */
+fun PollCreateRequest.toPoll(creatorId: ObjectId, root: PollCreateRequest = this) : PollMessage {
     return PollMessage(
         creatorId = creatorId,
         title = this.title.trim(),
@@ -50,8 +58,8 @@ fun PollCreateRequest.toPoll(creatorId: ObjectId) : PollMessage {
         maxAnswers = this.maxAnswers,
         customAnswersEnabled = this.customAnswersEnabled,
         maxAllowedCustomAnswers = this.maxAllowedCustomAnswers,
-        visibility = this.visibility,
-        closeDate = if (this.closeDate != null) Instant.fromEpochMilliseconds(this.closeDate) else null,
+        visibility = root.visibility,
+        closeDate = if (root.closeDate != null) Instant.fromEpochMilliseconds(root.closeDate) else null,
         voteOptions = this.voteOptions.map {
             PollVoteOption(
                 id = ObjectId.get().toHexString(),
@@ -60,10 +68,12 @@ fun PollCreateRequest.toPoll(creatorId: ObjectId) : PollMessage {
                 creatorId = creatorId,
                 voters = emptyList(),
                 maxVoters = it.maxVoters,
+                subPoll = it.subPoll?.toPoll(creatorId = creatorId, root = root),
             )
         },
         allowDeleteOptions = this.allowDeleteOptions,
         showCheckboxes = this.showCheckboxes,
+        visibleToAll = if (this === root) true else this.visibleToAll,
     )
 }
 
@@ -83,6 +93,8 @@ data class PollVoteRequest(
     val text: String?, //Pass if the id is null (New custom option with this text)
     val maxAllowedAnswers: Int?, //Pass if the user creates a custom entry and the poll supports restricting the entries for votes
     val selected: Boolean, //Did the user select or unselect this item
+    @field:Size(max = 24, message = "Parent option ID too long")
+    val parentOptionId: String? = null, //Only for a new custom option: the option whose sub poll gets it (null = root poll)
 )
 
 /**

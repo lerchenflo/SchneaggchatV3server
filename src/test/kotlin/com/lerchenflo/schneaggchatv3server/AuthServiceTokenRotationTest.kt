@@ -56,6 +56,7 @@ class AuthServiceTokenRotationTest {
     private val hashEncoder = mockk<HashEncoder>()
     private val refreshTokenRepository = mockk<RefreshTokenRepository>(relaxed = true)
     private val loggingService = mockk<LoggingService>(relaxed = true)
+    private val emailService = mockk<EmailService>(relaxed = true)
     private val imageManager = mockk<ImageManager>(relaxed = true)
     private val mongoTemplate = mockk<MongoTemplate>()
     private val rateLimitService = mockk<RateLimitService>(relaxed = true)

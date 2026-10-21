@@ -67,35 +67,55 @@ class FriendsLookupService(
 
     fun getAllInteractions(userId: ObjectId): List<UserInteraction> {
         return friendshipRepository.findByUserId1OrUserId2(userId, userId)
+            .map { friendship -> friendship.toInteraction(viewerId = userId) }
+    }
+
+    /**
+     * [viewerId]'s interaction with [otherUserId], or null if there is no friendship row between
+     * them (never interacted, request declined or friend removed).
+     */
+    fun getInteraction(viewerId: ObjectId, otherUserId: ObjectId): UserInteraction? {
+        return findFriendship(viewerId, otherUserId)?.toInteraction(viewerId = viewerId)
+    }
+
+    /**
+     * Every user with a friendship row towards [userId] (any status), each paired with their OWN
+     * interaction with [userId] (their nickname for [userId], what they share with [userId]).
+     * These are the users a change to [userId] has to be pushed to.
+     */
+    fun getCounterpartInteractions(userId: ObjectId): List<Pair<ObjectId, UserInteraction>> {
+        return friendshipRepository.findByUserId1OrUserId2(userId, userId)
             .map { friendship ->
-                val otherUserId = if (friendship.userId1 == userId) {
-                    friendship.userId2
-                } else {
-                    friendship.userId1
-                }
-
-                //This user's (userId's) own setting: nickname they gave to otherUserId, and
-                //whether they (userId) share their location with otherUserId
-                val friendshipSetting = friendshipSettingsService.getFriendshipSetting(friendship.id, userId)
-
-                UserInteraction(
-                    userId = otherUserId,
-                    status = friendship.status,
-                    requesterId = friendship.requesterId,
-                    //Settings changes must move this timestamp too, otherwise a pure setting flip
-                    //(nickname, sharing toggles) is only ever delivered by the socket and a client
-                    //that was offline at the time keeps a stale value forever.
-                    lastChanged = maxOf(
-                        friendship.updatedAt,
-                        friendshipSetting?.updatedAt ?: Instant.DISTANT_PAST
-                    ),
-                    nickName = friendshipSetting?.nickName,
-                    shareLocation = friendshipSetting?.shareLocation ?: false,
-                    shareSpeedHeading = friendshipSetting?.shareSpeedHeading ?: false,
-                    shareSnailTrail = friendshipSetting?.shareSnailTrail ?: false,
-                    allowWake = friendshipSetting?.allowWake ?: false,
-                )
+                val counterpartId = if (friendship.userId1 == userId) friendship.userId2 else friendship.userId1
+                counterpartId to friendship.toInteraction(viewerId = counterpartId)
             }
+    }
+
+    /** This friendship as seen by [viewerId]: the other user, plus [viewerId]'s own settings towards them. */
+    private fun Friendship.toInteraction(viewerId: ObjectId): UserInteraction {
+        val otherUserId = if (userId1 == viewerId) userId2 else userId1
+
+        //The viewer's own setting: nickname they gave to otherUserId, and
+        //whether they (the viewer) share their location with otherUserId
+        val friendshipSetting = friendshipSettingsService.getFriendshipSetting(id, viewerId)
+
+        return UserInteraction(
+            userId = otherUserId,
+            status = status,
+            requesterId = requesterId,
+            //Settings changes must move this timestamp too, otherwise a pure setting flip
+            //(nickname, sharing toggles) is only ever delivered by the socket and a client
+            //that was offline at the time keeps a stale value forever.
+            lastChanged = maxOf(
+                updatedAt,
+                friendshipSetting?.updatedAt ?: Instant.DISTANT_PAST
+            ),
+            nickName = friendshipSetting?.nickName,
+            shareLocation = friendshipSetting?.shareLocation ?: false,
+            shareSpeedHeading = friendshipSetting?.shareSpeedHeading ?: false,
+            shareSnailTrail = friendshipSetting?.shareSnailTrail ?: false,
+            allowWake = friendshipSetting?.allowWake ?: false,
+        )
     }
 
     /**

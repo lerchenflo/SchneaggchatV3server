@@ -90,9 +90,18 @@ class MessageLookupService(
         val userGroups = groupLookupService.getUserGroupIds(userId)
         val fullHistoryGroups = groupLookupService.getGroupIdsJoinedAfterVersion(userId, since)
 
+        // Sender/receiver only grant access to direct messages. A group message is visible through
+        // current membership alone - otherwise a user who left a group keeps syncing their own
+        // messages there (every read receipt/reaction bumps the version) and the client then hits
+        // "You are not a member of this group" fetching their media.
         val visibility = Criteria().orOperator(
-            Criteria.where("senderId").`is`(userId),
-            Criteria.where("receiverId").`is`(userId),
+            Criteria().andOperator(
+                Criteria.where("groupMessage").`is`(false),
+                Criteria().orOperator(
+                    Criteria.where("senderId").`is`(userId),
+                    Criteria.where("receiverId").`is`(userId),
+                )
+            ),
             Criteria().andOperator(
                 Criteria.where("groupMessage").`is`(true),
                 Criteria.where("receiverId").`in`(userGroups)

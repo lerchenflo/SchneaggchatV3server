@@ -111,6 +111,7 @@ class EventService(
 
         if (existing != null) {
             requireOrLog(
+                "edit_event_not_creator",
                 upsertingUser == existing.creatorId,
                 { "Unauthorized event action - user: ${userLookupService.getUsername(upsertingUser)}, eventId: ${existing.id.toHexString()}, creator: ${userLookupService.getUsername(existing.creatorId)}" }
             ) { "You can not edit this event, you are not the creator" }
@@ -136,6 +137,29 @@ class EventService(
                     expiresAt = groupExpiresAt
                 ).id
             } else null
+
+        // A groupless event that gains a group on edit: everyone who already accepted it goes
+        // straight into the new group, so they stay part of the event instead of having to join
+        // again. No friendship check, same as a regular join.
+        if (existing != null && existing.groupId == null && groupId != null) {
+            val acceptedUsers = existing.participations
+                .filter { it.status == EventParticipationStatus.ACCEPTED && it.userId != existing.creatorId }
+                .map { it.userId }
+                .distinct()
+
+            if (acceptedUsers.isNotEmpty()) {
+                acceptedUsers.forEach { userId ->
+                    if (!groupLookupService.isUserInGroup(userId, groupId)) {
+                        groupService.addUserToGroup(groupId = groupId, memberId = userId)
+                    }
+                }
+                groupService.touchGroup(groupId)
+                notificationService.notifyGroupUpdate(
+                    groupResponse = groupLookupService.getGroupAsGroupResponse(groupId),
+                    deleted = false
+                )
+            }
+        }
 
         // Re-sync the group's timer only when the creator changed something it is derived from
         // (dates or delay). A title-only edit must not silently overwrite a timer a group admin
@@ -222,6 +246,7 @@ class EventService(
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found")
 
         requireOrLog(
+            "detach_event_not_creator",
             requestingUser == event.creatorId,
             { "Unauthorized event action - user: ${userLookupService.getUsername(requestingUser)}, eventId: ${event.id.toHexString()}, creator: ${userLookupService.getUsername(event.creatorId)}" }
         ) { "You can not change this event, you are not the creator" }
@@ -260,6 +285,7 @@ class EventService(
 
         //Check if can access event
         requireOrLog(
+            "join_event_no_access",
             canAccessEvent(requesterId = joiningUser, event = event),
             { "Unauthorized event action - user: ${userLookupService.getUsername(joiningUser)}, eventId: ${event.id.toHexString()}: Cannot access event" }
         ) { "You can not access this event" }
@@ -326,6 +352,7 @@ class EventService(
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found")
 
         requireOrLog(
+            "set_event_participation_no_access",
             canAccessEvent(requesterId = requestingUser, event = event),
             { "Unauthorized event action - user: ${userLookupService.getUsername(requestingUser)}, eventId: ${event.id.toHexString()}: Cannot access event" }
         ) { "You can not access this event" }

@@ -47,7 +47,7 @@
     <string name="compare_pin_own">Unbegrenzt</string>
     <string name="compare_pin_snapchat">Nur mit Snapchat+ (kostenpflichtig)</string>
     <string name="compare_pin_whatsapp">Maximal 3 Chats</string>
-    <string name="compare_polls_own">Eigene Optionen, Limit pro Antwort, Optionen löschbar</string>
+    <string name="compare_polls_own">Eigene Optionen, Limit pro Antwort, Unterumfragen, Optionen löschbar</string>
     <string name="compare_polls_snapchat">Nur Story-Sticker</string>
     <string name="compare_polls_whatsapp">Nur einfache Umfragen</string>
     <string name="compare_reactions_own">Freitext bis zu 10 Zeichen, nicht nur Emojis</string>
@@ -152,7 +152,7 @@
     <string name="feature_map_title">Schneaggmap</string>
     <string name="feature_platform_text">Verwendbar von jedem Gerät: Android, iOS und Desktop!</string>
     <string name="feature_platform_title">Multiplattform &amp; Open Source</string>
-    <string name="feature_polls_text">Füge eigene Antwortmöglichkeiten hinzu und verwende die Stimmenbegrenzung pro Option.</string>
+    <string name="feature_polls_text">Füge eigene Antwortmöglichkeiten hinzu, verwende die Stimmenbegrenzung pro Option und hänge Unterumfragen an, die sich nur für alle öffnen, die diese Option wählen.</string>
     <string name="feature_polls_title">Umfragen</string>
     <string name="feature_security_text">Nachrichten sollen bald Ende-zu-Ende-verschlüsselt werden.</string>
     <string name="feature_security_badge">Bald verfügbar</string>
@@ -166,6 +166,13 @@
     <string name="hero_cta_compare">Warum Schneaggchat?</string>
     <string name="hero_cta_download">Jetzt herunterladen</string>
     <string name="hero_cta_features">Alle Features</string>
+    <string name="hero_shot_chats">Dein Chat. Made in Vorarlberg.</string>
+    <string name="hero_shot_compass">Finde deine Leute – auch im Gedränge.</string>
+    <string name="hero_shot_events">Vom Chat zum Treffen.</string>
+    <string name="hero_shot_games">Tägliche Rätsel, Spiele und Highscores.</string>
+    <string name="hero_shot_groups">Gruppen, Reaktionen, Umfragen und mehr.</string>
+    <string name="hero_shot_map">Live-Standort teilen – nur mit Freunden.</string>
+    <string name="hero_shot_polls">Abstimmen statt endlos diskutieren.</string>
     <string name="hero_subtitle">Schneaggchat ist eine kostenlose Chat-App ohne Werbung für Android, iOS und Desktop – mit Live-Karte, Events, Umfragen, Minispielen und Vorarlbergerisch als Sprache.</string>
     <string name="hero_title">Die Chat-App für dich und deine Freunde</string>
     <string name="hero_trust">Kostenlos · Open Source · Keine Werbung · Guter Support</string>

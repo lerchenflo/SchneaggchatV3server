@@ -21,6 +21,11 @@ data class RateLimitProperties(
     // unless their account is actually under attack. Unlike the IP tiers this one cannot be evaded
     // by rotating source addresses - the account being guessed is the key.
     val authUser: TierConfig = TierConfig(10L, Duration.ofMinutes(15)),
+    // Per-user feedback board limits. The global USER tier alone would let one account flood the
+    // board with hundreds of entries/comments per minute.
+    val feedbackCreate: TierConfig = TierConfig(10L, Duration.ofHours(1)),
+    val feedbackComment: TierConfig = TierConfig(30L, Duration.ofMinutes(10)),
+    val feedbackVote: TierConfig = TierConfig(60L, Duration.ofMinutes(1)),
     val authPathPrefix: String = "/auth/",
     val refreshPath: String = "/auth/refresh",
 
@@ -48,6 +53,9 @@ data class RateLimitProperties(
         RateLimitTier.AUTH -> auth
         RateLimitTier.AUTH_REFRESH -> authRefresh
         RateLimitTier.AUTH_USER -> authUser
+        RateLimitTier.FEEDBACK_CREATE -> feedbackCreate
+        RateLimitTier.FEEDBACK_COMMENT -> feedbackComment
+        RateLimitTier.FEEDBACK_VOTE -> feedbackVote
     }
 
     data class TierConfig(

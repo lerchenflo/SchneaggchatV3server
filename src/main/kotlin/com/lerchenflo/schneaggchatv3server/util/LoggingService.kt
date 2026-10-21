@@ -4,6 +4,7 @@ package com.lerchenflo.schneaggchatv3server.util
 
 import com.lerchenflo.schneaggchatv3server.authentication.AuthController
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
+import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetrics
 import com.lerchenflo.schneaggchatv3server.repository.LogRepository
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryRepository
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
@@ -49,6 +50,13 @@ enum class LogType {
 
     //Games
     GAME_SCORE_SUBMITTED,
+
+    //Feedback board
+    FEEDBACK_CREATED,
+    FEEDBACK_DELETED,
+    FEEDBACK_COMMENT_CREATED,
+    FEEDBACK_COMMENT_DELETED,
+    FEEDBACK_STATUS_CHANGED,
 
     ACCOUNT_DELETION_EMAIL_SENT,
     EMAIL_VERIFICATION_EMAIL_SENT,
@@ -118,6 +126,7 @@ class LoggingService(
 
 
     fun log(userId: ObjectId?, logType: LogType, message: String? = null) {
+        if (logType == LogType.USER_LOGIN) ServerMetrics.logins.incrementAndGet()
         logRepository.save(
             Log(
                 userId = userId,

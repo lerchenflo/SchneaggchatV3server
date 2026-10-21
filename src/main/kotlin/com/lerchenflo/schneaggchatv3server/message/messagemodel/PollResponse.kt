@@ -5,6 +5,16 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import org.bson.types.ObjectId
 
 
+/**
+ * A sub poll is sent along if it is visible to everyone, or the requester created the poll, or
+ * picked the option it belongs to - otherwise it is left out of this user's response entirely.
+ */
+private fun PollVoteOption.subPollResponseFor(requestingUserId: ObjectId, pollCreatorId: ObjectId): PollResponse? {
+    val subPoll = subPoll ?: return null
+    val visible = subPoll.visibleToAll || requestingUserId == pollCreatorId || hasVoter(requestingUserId)
+    return if (visible) subPoll.toPollMessageResponse(requestingUserId) else null
+}
+
 fun PollMessage.toPollMessageResponse(requestingUserId: ObjectId): PollResponse {
     val poll = this
 
@@ -21,8 +31,10 @@ fun PollMessage.toPollMessageResponse(requestingUserId: ObjectId): PollResponse 
                 closeDate = poll.closeDate?.toEpochMilliseconds(),
                 allowDeleteOptions = poll.allowDeleteOptions,
                 showCheckboxes = poll.showCheckboxes,
+                visibleToAll = poll.visibleToAll,
                 voteOptions = poll.voteOptions.map { option ->
                     AnonymousPollVoteOptionResponse(
+                        subPoll = option.subPollResponseFor(requestingUserId, poll.creatorId),
                         id = option.id,
                         text = option.text,
                         custom = option.custom,
@@ -50,8 +62,10 @@ fun PollMessage.toPollMessageResponse(requestingUserId: ObjectId): PollResponse 
                 closeDate = poll.closeDate?.toEpochMilliseconds(),
                 allowDeleteOptions = poll.allowDeleteOptions,
                 showCheckboxes = poll.showCheckboxes,
+                visibleToAll = poll.visibleToAll,
                 voteOptions = poll.voteOptions.map { option ->
                     PublicPollVoteOptionResponse(
+                        subPoll = option.subPollResponseFor(requestingUserId, poll.creatorId),
                         id = option.id,
                         text = option.text,
                         custom = option.custom,
@@ -99,6 +113,7 @@ interface PollResponse {
 
     val allowDeleteOptions: Boolean
     val showCheckboxes: Boolean
+    val visibleToAll: Boolean
 
 
 
@@ -113,6 +128,7 @@ interface PollResponse {
         override val closeDate: Long?,
         override val allowDeleteOptions: Boolean,
         override val showCheckboxes: Boolean,
+        override val visibleToAll: Boolean,
 
         val voteOptions: List<PublicPollVoteOptionResponse>,
 
@@ -129,6 +145,7 @@ interface PollResponse {
         override val closeDate: Long?,
         override val allowDeleteOptions: Boolean,
         override val showCheckboxes: Boolean,
+        override val visibleToAll: Boolean,
 
         val voteOptions: List<AnonymousPollVoteOptionResponse>,
 
@@ -143,7 +160,8 @@ data class AnonymousPollVoteOptionResponse(
     val custom: Boolean,
     val createdByMe: Boolean,
     val maxVoters: Int? = null, // null = unlimited
-    val voters : List<AnonymousPollVoterResponse>
+    val voters : List<AnonymousPollVoterResponse>,
+    val subPoll: PollResponse? = null,
 )
 
 data class AnonymousPollVoterResponse(
@@ -160,7 +178,8 @@ data class PublicPollVoteOptionResponse(
     val custom: Boolean,
     val creatorId: String,
     val maxVoters: Int? = null, // null = unlimited
-    val voters : List<PublicPollVoterResponse>
+    val voters : List<PublicPollVoterResponse>,
+    val subPoll: PollResponse? = null,
 )
 
 data class PublicPollVoterResponse(

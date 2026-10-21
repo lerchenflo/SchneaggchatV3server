@@ -16,7 +16,9 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.PinnedChat
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.toFriendUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.toSelfUserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.toSimpleUserResponse
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
@@ -38,7 +40,6 @@ class UserService(
     private val userRepository: UserRepository,
     private val userLookupService: UserLookupService,
 
-    private val friendshipsService: FriendsService,
     private val friendsLookupService: FriendsLookupService,
     private val friendsSettingsService: FriendsSettingsService,
 
@@ -55,8 +56,13 @@ class UserService(
 
     ) {
 
+    companion object {
+        /** Username of the Google Play / App Store review account, see [ensureTestaccount]. */
+        const val TESTACCOUNT_USERNAME = "testaccount"
+    }
+
     fun ensureTestaccount(): User {
-        val username = "testaccount"
+        val username = TESTACCOUNT_USERNAME
         return userLookupService.findByUsername(username) ?: run {
 
             val now = Clock.System.now()
@@ -232,6 +238,15 @@ class UserService(
         )
         userRepository.save(updatedUser)
         notificationService.notifyUserUpdate(updatedUser, deleted = false)
+
+        //Group co-members who are not friends only know this user by GroupMemberResponse.memberName.
+        //Bumping updatedAt also brings the new name to members who are offline right now, on their
+        //next /groups/sync.
+        groupLookupService.getUserGroupIds(requestingUserId).forEach { groupId ->
+            val group = groupLookupService.getGroupById(groupId) ?: return@forEach
+            groupLookupService.saveGroup(group.copy(updatedAt = updatedUser.updatedAt))
+            notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), deleted = false)
+        }
     }
 
     fun getProfilePic(requestingUserId: ObjectId, userId: ObjectId): ByteArray? {
@@ -245,6 +260,7 @@ class UserService(
                     .isNotEmpty()
 
         requireOrLog(
+            "get_user_profilepic_not_allowed",
             allowed,
             { "Unauthorized profile pic access - user: ${userLookupService.getUsername(requestingUserId)}, target: ${userLookupService.getUsername(userId)}: No non-blocked friendship and no common group" }
         ) { "You are not allowed to view this profile picture" }
@@ -253,6 +269,8 @@ class UserService(
             val imageName = imageManager.getProfilePicFileName(userId.toHexString(), false)
             imageManager.loadProfilePicFromFile(imageName)
         } catch (e: IllegalArgumentException) {
+            //Every account gets a profile pic at registration, so a missing file is a lost image
+            AppLogger.warn("Profile pic missing: ${e.message}", user = userId, tag = "get_user_profilepic_missing")
             null
         }
     }
@@ -305,7 +323,10 @@ class UserService(
 
             if (userRequest.newEmail != null) {
                 require(ValidationUtils.validateEmail(userRequest.newEmail)) { "New email is invalid" }
-                AppLogger.info("Setting new Email for ${user.username}: ${userRequest.newEmail}")
+                if (userLookupService.isEmailTaken(userRequest.newEmail, exceptUserId = user.id)) {
+                    throw ResponseStatusException(HttpStatus.CONFLICT, "A user with this email already exists")
+                }
+                AppLogger.info("Setting new Email: ${userRequest.newEmail}", user = user.id)
             }
 
             if (userRequest.newBirthDate != null) {
@@ -320,7 +341,7 @@ class UserService(
                 updatedAt = if (somethingChanged) timeStamp else requestingUser.updatedAt,
                 userStatus = userRequest.newStatus ?: requestingUser.userStatus,
                 birthDate = userRequest.newBirthDate ?: requestingUser.birthDate,
-                email = userRequest.newEmail?.lowercase(getDefault())?.trim() ?: requestingUser.email,
+                email = userRequest.newEmail?.let { ValidationUtils.normalizeEmail(it) } ?: requestingUser.email,
                 //Blank string clears the stored number, null leaves it unchanged
                 phoneNumber = userRequest.newPhoneNumber?.ifBlank { null } ?: requestingUser.phoneNumber,
             )
@@ -333,6 +354,7 @@ class UserService(
             //Change something about another user
 
             requireOrLog(
+                "change_friend_settings_not_friends",
                 friendsLookupService.areFriends(requestingUser.id, user.id),
                 { "Unauthorized user action - user: ${userLookupService.getUsername(requestingUser.id)} is not friends with: ${userLookupService.getUsername(user.id)}" }
             ) { "You are not friends with this user" }
@@ -448,8 +470,11 @@ class UserService(
         mergeMapUsers: Boolean?,
         mapStyle: String?,
         pinnedChats: List<PinnedChat>?,
+        quickReactions: List<String>?,
+        resetQuickReactions: Boolean?,
         developerSettings: Boolean?,
         lastContributePopupShown: Long?,
+        lastDismissedAnnouncementId: Long?,
     ) {
         val user = userLookupService.findById(userId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
@@ -459,7 +484,23 @@ class UserService(
             require(ValidationUtils.validateObjectId(it.chatId)) { "Invalid pinned chat ID" }
         }
 
+        require(quickReactions == null || quickReactions.size <= 200) { "Too many quick reactions" }
+        quickReactions?.forEach {
+            //Same bound the reaction endpoint itself enforces, so a stored quick reaction is always sendable
+            require(ValidationUtils.validateReactionContent(it)) { "Invalid quick reaction" }
+        }
+        require(quickReactions == null || quickReactions.distinct().size == quickReactions.size) { "Duplicate quick reaction" }
+
         val current = user.settings
+
+        // Spelled out instead of the `?:` the other fields use: null is already taken here
+        // ("leave unchanged"), so clearing the list back to the app defaults needs its own flag.
+        val newQuickReactions = when {
+            resetQuickReactions == true -> null
+            quickReactions != null -> quickReactions
+            else -> current.quickReactions
+        }
+
         val newSettings = current.copy(
             mdFormat = mdFormat ?: current.mdFormat,
             highlightTodaysMessageTimestamp = highlightTodaysMessageTimestamp
@@ -470,8 +511,15 @@ class UserService(
             mergeMapUsers = mergeMapUsers ?: current.mergeMapUsers,
             mapStyle = mapStyle ?: current.mapStyle,
             pinnedChats = pinnedChats ?: current.pinnedChats,
+            quickReactions = newQuickReactions,
             developerSettings = developerSettings ?: current.developerSettings,
             lastContributePopupShown = lastContributePopupShown ?: current.lastContributePopupShown,
+            // Only ever moves up: a device with an outdated number must not bring back an
+            // announcement that was already dismissed elsewhere.
+            lastDismissedAnnouncementId = maxOf(
+                current.lastDismissedAnnouncementId,
+                lastDismissedAnnouncementId ?: current.lastDismissedAnnouncementId,
+            ),
         )
 
         if (newSettings == current) return
@@ -518,34 +566,23 @@ class UserService(
 
         //User requests friends data
         else if (friendshipStatus == FriendshipStatus.ACCEPTED) {
-            return UserResponse.FriendUserResponse(
-                id = user.id.toString(),
-                username = user.username,
-                userDescription = user.userDescription,
-                userStatus = user.userStatus,
-                updatedAt = lastChangedAt ?: user.updatedAt.toEpochMilliseconds(),
-                birthDate = user.birthDate,
-                phoneNumber = user.phoneNumber,
-                requesterId = requesterId?.toHexString(),
-                profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
+            return user.toFriendUserResponse(
+                requesterId = requesterId,
                 nickName = nickName,
                 shareLocation = shareLocation,
                 shareSpeedHeading = shareSpeedHeading,
                 shareSnailTrail = shareSnailTrail,
                 allowWake = allowWake,
-                lastSeen = user.lastSeen.toEpochMilliseconds(),
+                updatedAt = lastChangedAt,
             )
         }
 
         //User requests random other users data
         else {
-            return UserResponse.SimpleUserResponse(
-                id = user.id.toString(),
-                username = user.username,
-                updatedAt = lastChangedAt ?: user.updatedAt.toEpochMilliseconds(),
+            return user.toSimpleUserResponse(
                 friendShipStatus = friendshipStatus,
-                requesterId = requesterId?.toHexString(),
-                profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
+                requesterId = requesterId,
+                updatedAt = lastChangedAt,
             )
         }
     }
@@ -572,8 +609,13 @@ class UserService(
             friendsLookupService.deleteFriendshipEntry(friendship)
         }
 
-        //Leave all groups
-        groupLookupService.leaveAllGroups(userId)
+        //Leave all groups - co-members' devices drop the user from the member list right away
+        groupLookupService.leaveAllGroups(userId).forEach { groupId ->
+            //A group deleted in the meantime must not stop the account deletion halfway
+            runCatching {
+                notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), deleted = false)
+            }.onFailure { AppLogger.warn("Group update after account deletion failed for group $groupId: ${it.message}", user = userId) }
+        }
 
         //delete all user messages
         messageLookupService.deleteAllUserMessages(userId)

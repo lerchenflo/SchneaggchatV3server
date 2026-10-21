@@ -69,6 +69,6 @@ class AdminUserService(
         refreshTokenRepository.deleteByUserId(userId)
         socketConnectionHandler.disconnectUser(userId)
 
-        AppLogger.info("ADMIN: Forced logout of ${user.username} on all devices")
+        AppLogger.info("ADMIN: Forced logout of ${AppLogger.nameOf(userId)} on all devices")
     }
 }

@@ -36,12 +36,42 @@
                 </a>
             </div>
         </div>
-        <div class="hero-image" id="hero-stack">
-            <div class="phone-frame slot-front">
-                <img src="/web_images/screenshot_chats.webp" alt="Schneaggchat Chats" width="700" height="1436" loading="eager">
+        <div class="hero-image">
+            <!-- Raw app screenshots from the client repo, storeassets/shots (capture_store_shots.sh) -->
+            <div class="hero-stack" id="hero-stack" role="button" tabindex="0" aria-label="Nächster Screenshot">
+                <div class="phone-frame slot-front">
+                    <img src="/web_images/screens/01-chats.webp" alt="Chatliste mit Gruppen und Freunden" width="600" height="1339" loading="eager">
+                </div>
+                <div class="phone-frame slot-back">
+                    <img src="/web_images/screens/03-karte.webp" alt="Schneaggmap: Freunde live auf der Karte" width="600" height="1339" loading="eager">
+                </div>
+                <div class="phone-frame slot-hidden">
+                    <img src="/web_images/screens/02-chat.webp" alt="Gruppenchat mit Umfrage und Reaktionen" width="600" height="1339" loading="lazy" decoding="async">
+                </div>
+                <div class="phone-frame slot-hidden">
+                    <img src="/web_images/screens/04-events.webp" alt="Events in der Übersicht" width="600" height="1339" loading="lazy" decoding="async">
+                </div>
+                <div class="phone-frame slot-hidden">
+                    <img src="/web_images/screens/05-umfrage.webp" alt="Umfrage mit Unterumfrage im Gruppenchat" width="600" height="1339" loading="lazy" decoding="async">
+                </div>
+                <div class="phone-frame slot-hidden">
+                    <img src="/web_images/screens/06-kompass.webp" alt="Freundekompass mit Richtung und Entfernung" width="600" height="1339" loading="lazy" decoding="async">
+                </div>
+                <div class="phone-frame slot-hidden">
+                    <img src="/web_images/screens/07-spiel.webp" alt="C-Challenge, eines der Rätsel und Spiele" width="600" height="1339" loading="lazy" decoding="async">
+                </div>
             </div>
-            <div class="phone-frame slot-back">
-                <img src="/web_images/screenshot_karte.webp" alt="Schneaggmap: Freunde und Orte live auf der Karte" width="700" height="1445" loading="eager">
+            <div class="hero-shot-meta">
+                <p class="hero-shot-caption" aria-live="polite">
+                    <span class="is-active" data-i18n="hero_shot_chats">Dein Chat. Made in Vorarlberg.</span>
+                    <span data-i18n="hero_shot_map">Live-Standort teilen – nur mit Freunden.</span>
+                    <span data-i18n="hero_shot_groups">Gruppen, Reaktionen, Umfragen und mehr.</span>
+                    <span data-i18n="hero_shot_events">Vom Chat zum Treffen.</span>
+                    <span data-i18n="hero_shot_polls">Abstimmen statt endlos diskutieren.</span>
+                    <span data-i18n="hero_shot_compass">Finde deine Leute – auch im Gedränge.</span>
+                    <span data-i18n="hero_shot_games">Tägliche Rätsel, Spiele und Highscores.</span>
+                </p>
+                <div class="hero-shot-dots"></div>
             </div>
         </div>
     </section>
@@ -605,21 +635,47 @@
             card?.classList.add('is-primary');
         })();
 
-        // Hero screenshot stack (Chats in front, Karte behind) - click either
-        // phone to swap which one is in front.
+        // Hero screenshot stack: one phone in front, the next one behind it.
+        // Click (or Enter/Space) cycles through all screens, the dots jump to one.
         (function () {
             const stack = document.getElementById('hero-stack');
             if (!stack) return;
 
-            const frames = stack.querySelectorAll('.phone-frame');
-            if (frames.length !== 2) return;
+            const frames = [...stack.querySelectorAll('.phone-frame')];
+            const captions = [...document.querySelectorAll('.hero-shot-caption span')];
+            const dotsBox = document.querySelector('.hero-shot-dots');
+            let current = 0;
 
-            stack.addEventListener('click', () => {
-                frames.forEach((frame) => {
-                    frame.classList.toggle('slot-front');
-                    frame.classList.toggle('slot-back');
-                });
+            const dots = frames.map((frame, i) => {
+                const dot = document.createElement('button');
+                dot.type = 'button';
+                dot.setAttribute('aria-label', `Screenshot ${i + 1}`);
+                dot.addEventListener('click', () => show(i));
+                dotsBox?.appendChild(dot);
+                return dot;
             });
+
+            function show(index) {
+                current = (index + frames.length) % frames.length;
+                const next = (current + 1) % frames.length;
+                frames.forEach((frame, i) => {
+                    frame.classList.toggle('slot-front', i === current);
+                    frame.classList.toggle('slot-back', i === next);
+                    frame.classList.toggle('slot-hidden', i !== current && i !== next);
+                });
+                captions.forEach((caption, i) => caption.classList.toggle('is-active', i === current));
+                dots.forEach((dot, i) => dot.setAttribute('aria-current', i === current ? 'true' : 'false'));
+            }
+
+            stack.addEventListener('click', () => show(current + 1));
+            stack.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    show(current + 1);
+                }
+            });
+
+            show(0);
         })();
     </script>
 </body>
