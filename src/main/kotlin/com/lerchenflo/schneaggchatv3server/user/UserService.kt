@@ -40,7 +40,6 @@ class UserService(
     private val userRepository: UserRepository,
     private val userLookupService: UserLookupService,
 
-    private val friendshipsService: FriendsService,
     private val friendsLookupService: FriendsLookupService,
     private val friendsSettingsService: FriendsSettingsService,
 
@@ -323,6 +322,9 @@ class UserService(
 
             if (userRequest.newEmail != null) {
                 require(ValidationUtils.validateEmail(userRequest.newEmail)) { "New email is invalid" }
+                if (userLookupService.isEmailTaken(userRequest.newEmail, exceptUserId = user.id)) {
+                    throw ResponseStatusException(HttpStatus.CONFLICT, "A user with this email already exists")
+                }
                 AppLogger.info("Setting new Email: ${userRequest.newEmail}", user = user.id)
             }
 
@@ -338,7 +340,7 @@ class UserService(
                 updatedAt = if (somethingChanged) timeStamp else requestingUser.updatedAt,
                 userStatus = userRequest.newStatus ?: requestingUser.userStatus,
                 birthDate = userRequest.newBirthDate ?: requestingUser.birthDate,
-                email = userRequest.newEmail?.lowercase(getDefault())?.trim() ?: requestingUser.email,
+                email = userRequest.newEmail?.let { ValidationUtils.normalizeEmail(it) } ?: requestingUser.email,
                 //Blank string clears the stored number, null leaves it unchanged
                 phoneNumber = userRequest.newPhoneNumber?.ifBlank { null } ?: requestingUser.phoneNumber,
             )

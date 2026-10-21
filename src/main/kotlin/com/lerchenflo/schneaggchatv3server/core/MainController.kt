@@ -25,6 +25,7 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRole
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
+import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import com.lerchenflo.schneaggchatv3server.util.SyncCollection
 import com.lerchenflo.schneaggchatv3server.util.VersionCounterService
 import com.mongodb.MongoNamespace
@@ -59,13 +60,8 @@ class MainController(
 
     private val userService: UserService,
 
-    private val hashEncoder: HashEncoder,
     private val mongoTemplate: MongoTemplate,
-    private val groupService: GroupService,
     private val groupRepository: GroupRepository,
-
-
-    private val schneaggmapService: SchneaggmapService,
 
     private val versionCounterService: VersionCounterService,
 
@@ -100,6 +96,7 @@ class MainController(
         migrateGroupDeletedFlag()
         migrateDetachEventsFromDeletedGroups()
         migrateUserRole()
+        migrateEmailNormalization()
         migrateRefreshTokenChains()
         migrateDonations()
 
@@ -412,6 +409,34 @@ class MainController(
             AppLogger.success("Migration completed: Set role=USER on ${result.modifiedCount} users")
         } else {
             AppLogger.success("Migration check: All users already have a role field")
+        }
+    }
+
+    /**
+     * Stores every email in [ValidationUtils.normalizeEmail] form. Accounts from before registration
+     * lowercased the address kept it as typed, so lookups by the normalized address missed them and
+     * the duplicate check let a second account in with the same address in other case.
+     */
+    fun migrateEmailNormalization() {
+        AppLogger.info("Running email normalization migration...")
+
+        val query = Query().apply { fields().include("email") }
+        val users = mongoTemplate.find(query, org.bson.Document::class.java, "users")
+            .mapNotNull { doc -> doc.getString("email")?.let { doc.getObjectId("_id") to it } }
+
+        var normalizedCount = 0
+        users.forEach { (id, email) ->
+            val normalized = ValidationUtils.normalizeEmail(email)
+            if (normalized != email) {
+                mongoTemplate.updateFirst(Query(Criteria.where("_id").`is`(id)), Update().set("email", normalized), "users")
+                normalizedCount++
+            }
+        }
+
+        if (normalizedCount > 0) {
+            AppLogger.success("Migration completed: Normalized the email of $normalizedCount users")
+        } else {
+            AppLogger.success("Migration check: All emails already normalized")
         }
     }
 

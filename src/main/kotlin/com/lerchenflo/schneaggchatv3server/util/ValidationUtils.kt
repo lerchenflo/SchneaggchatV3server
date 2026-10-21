@@ -25,6 +25,12 @@ object ValidationUtils {
     )
 
     /**
+     * The form every email is stored and looked up in. Mail providers treat addresses
+     * case-insensitively, so "Flo@x.com" and "flo@x.com" must count as the same address.
+     */
+    fun normalizeEmail(email: String): String = email.trim().lowercase(getDefault())
+
+    /**
      * Validates email address format
      * - Must follow standard email format
      * - Must not be empty or blank

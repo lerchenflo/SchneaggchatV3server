@@ -77,6 +77,15 @@ Left:
 
 ---
 
+## Account emails: one account per address
+
+Source: user bug report (2026-10-21): two accounts with the same email, password reset then threw (`findByEmail` is a single-result query). Fixed 2026-10-21: the email change checks uniqueness, and every email is stored and looked up normalized (startup migration `migrateEmailNormalization`). Prod had no duplicates left (checked 2026-10-21).
+
+- [ ] Make `User.email` `@Indexed(unique = true)`, so two registrations at the same moment cannot both pass the check. The existing non-unique `email` index has to be dropped by hand first, or the auto index creation fails at startup with an options conflict.
+- [ ] Changing the email keeps `emailVerifiedAt`, so a new, unproven address counts as verified (login alerts and resets go to it). Reset it on a real change; the released client already handles an unverified account (verification screen).
+
+---
+
 ## Admin announcements
 
 Source: client `plans/ANNOUNCEMENTS_PLAN.md` (2026-10-16). Server part done 2026-10-17.
