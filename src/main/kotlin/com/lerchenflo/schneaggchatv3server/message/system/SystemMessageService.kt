@@ -74,7 +74,7 @@ class SystemMessageService(
                 readerIds = readerIds,
             )
         }.onFailure { e ->
-            AppLogger.error("Failed to write group system message ($eventType) for group $groupId: ${e.message}")
+            AppLogger.error("Failed to write group system message ($eventType) for group $groupId: ${e.message}", tag = "write_group_system_message_failed")
         }
     }
 
@@ -100,7 +100,7 @@ class SystemMessageService(
                 readerIds = listOf(acceptingUserId, requesterId),
             )
         }.onFailure { e ->
-            AppLogger.error("Failed to write friendship-accepted system message ($acceptingUserId <-> $requesterId): ${e.message}")
+            AppLogger.error("Failed to write friendship-accepted system message with ${AppLogger.nameOf(requesterId)}: ${e.message}", user = acceptingUserId, tag = "write_friendship_system_message_failed")
         }
     }
 
@@ -123,7 +123,7 @@ class SystemMessageService(
                 readerIds = listOf(senderId, targetId),
             )
         }.onFailure { e ->
-            AppLogger.error("Failed to write wake system message ($senderId -> $targetId): ${e.message}")
+            AppLogger.error("Failed to write wake system message to ${AppLogger.nameOf(targetId)}: ${e.message}", user = senderId, tag = "write_wake_system_message_failed")
         }
     }
 

@@ -14,6 +14,7 @@ data class MessageResponse(
     val sendDate: Long,
     val lastChanged: Long,
     val deleted: Boolean,
+    val edited: Boolean = false,
     val version: Long,
     val readers: List<ReaderResponse>,
     val reactions: List<ReactionResponse>,

@@ -124,7 +124,6 @@ class AuthController(
         require(ValidationUtils.validateLoginInput(loginRequest.password)) { "Invalid password" }
 
         val ip = clientIpResolver.resolve(request)
-        AppLogger.info("Login attempt: username=${loginRequest.username.trim().lowercase(getDefault())} ip=$ip")
 
         return authService.login(
             username = loginRequest.username.trim().lowercase(getDefault()),
@@ -225,11 +224,11 @@ class AuthController(
 
         val user = userLookupService.findByEmail(email)
         if (user == null){
-            AppLogger.warn("No user to delete found with email $email")
+            AppLogger.warn("No user to delete found with email $email", tag = "delete_account_email_not_found")
             return
         }
 
-        AppLogger.info("Email delete request for $email")
+        AppLogger.info("Email delete request for $email", user = user.id)
         emailService.sendDelAccEmail(user.id, email)
     }
 
@@ -352,11 +351,11 @@ class AuthController(
 
         val user = userLookupService.findByEmail(email)
         if (user == null){
-            AppLogger.warn("No user found with email $email for password reset")
+            AppLogger.warn("No user found with email $email for password reset", tag = "reset_password_email_not_found")
             return
         }
 
-        AppLogger.info("Password reset request for $email")
+        AppLogger.info("Password reset request for $email", user = user.id)
         emailService.sendPasswordResetEmail(user.id, email)
     }
 

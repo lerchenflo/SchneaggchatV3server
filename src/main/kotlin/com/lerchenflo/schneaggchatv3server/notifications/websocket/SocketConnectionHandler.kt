@@ -42,6 +42,7 @@ class SocketConnectionHandler(
     @Lazy private val notificationService: NotificationService,
     // @Lazy breaks the cycle: AdminEventService -> SocketConnectionHandler (for the initial snapshot on registration).
     @Lazy private val adminEventService: AdminEventService,
+    private val pendingPushRegistry: PendingPushRegistry,
 ): TextWebSocketHandler() {
 
     companion object {
@@ -59,6 +60,9 @@ class SocketConnectionHandler(
 
         /** Outbound bytes allowed to pile up behind a slow send before the session is cut off. */
         private const val SEND_BUFFER_LIMIT_BYTES = 512 * 1024
+
+        /** Handshake header a client sets when it confirms new messages with `messageack`. */
+        const val ACK_SUPPORT_HEADER = "X-Socket-Acks"
     }
 
     var connections : CopyOnWriteArrayList<SocketConnection> = CopyOnWriteArrayList()
@@ -86,7 +90,7 @@ class SocketConnectionHandler(
             try {
                 connection.session.close(CloseStatus.NORMAL)
             } catch (e: Exception) {
-                if (!e.isPeerGone()) AppLogger.error("Error force-closing socket for user $userId: ${e.describe()}")
+                if (!e.isPeerGone()) AppLogger.error("Error force-closing socket: ${e.describe()}", user = userId, tag = "force_close_socket_failed")
             }
         }
     }
@@ -98,7 +102,7 @@ class SocketConnectionHandler(
             try {
                 connection.session.sendMessage(TextMessage(json))
             } catch (e: Exception) {
-                if (!e.isPeerGone()) AppLogger.error("Error broadcasting to user ${connection.userId}: ${e.describe()}")
+                if (!e.isPeerGone()) AppLogger.error("Error broadcasting: ${e.describe()}", user = connection.userId, tag = "broadcast_socket_failed")
                 closeDeadConnection(connection)
             }
         }
@@ -125,12 +129,51 @@ class SocketConnectionHandler(
                 delivered = true
             } catch (e: Exception) {
                 if (!e.isPeerGone()) {
-                    AppLogger.error("Error sending socket message to user $receiverId (session ${connection.sessionId}): ${e.describe()}")
+                    AppLogger.error("Error sending socket message (session ${connection.sessionId}): ${e.describe()}", user = receiverId, tag = "send_socket_message_failed")
                 }
                 closeDeadConnection(connection)
             }
         }
         return delivered
+    }
+
+    /**
+     * Like [sendMessage], for a new message whose recipient would otherwise get a push. Sessions of
+     * clients that confirm receipt only count once they ack: [push] is held in [PendingPushRegistry]
+     * and sent if none of them does. It is registered before writing, so an ack can never arrive
+     * ahead of its registration. A successful write to an older, non-acking session still counts
+     * as delivered, as before.
+     *
+     * @return true if the socket took over (delivered, or the push is pending/already handled);
+     * false if the user has no session at all and the caller has to push itself.
+     */
+    fun sendNewMessage(message: SocketConnectionMessage, receiverId: ObjectId, messageId: String, push: () -> Unit): Boolean {
+        val userConnections = connections.filter { it.userId == receiverId }
+        if (userConnections.isEmpty()) return false
+
+        val ackSessionIds = userConnections.filter { it.acksMessages }.map { it.sessionId }
+        if (ackSessionIds.isNotEmpty()) {
+            pendingPushRegistry.await(receiverId, messageId, ackSessionIds, push)
+        }
+
+        val jsonMessage = Json.mapper.writeValueAsString(message)
+        var deliveredToLegacy = false
+        for (connection in userConnections) {
+            try {
+                connection.session.sendMessage(TextMessage(jsonMessage))
+                if (!connection.acksMessages) deliveredToLegacy = true
+            } catch (e: Exception) {
+                if (!e.isPeerGone()) {
+                    AppLogger.error("Error sending socket message (session ${connection.sessionId}): ${e.describe()}", user = receiverId)
+                }
+                // Unregistering also releases this session's pending pushes right away
+                closeDeadConnection(connection)
+            }
+        }
+
+        if (deliveredToLegacy) pendingPushRegistry.ack(receiverId, messageId)
+
+        return deliveredToLegacy || ackSessionIds.isNotEmpty()
     }
 
     override fun handleTextMessage(session: WebSocketSession, message: TextMessage) {
@@ -139,7 +182,7 @@ class SocketConnectionHandler(
         val parsed = try {
             Json.mapper.readValue(message.payload, SocketConnectionMessage::class.java)
         } catch (e: Exception) {
-            AppLogger.warn("Could not parse inbound socket message from user $senderId: ${e.message}")
+            AppLogger.warn("Could not parse inbound socket message: ${e.message}", user = senderId, tag = "parse_socket_message_failed")
             return
         }
 
@@ -156,8 +199,9 @@ class SocketConnectionHandler(
                     ),
                 )
             }
+            is SocketConnectionMessage.MessageAck -> pendingPushRegistry.ack(senderId, parsed.messageId)
             // All other message types are server -> client only; ignore if received inbound.
-            else -> AppLogger.warn("Ignoring unsupported inbound socket message type from user $senderId")
+            else -> AppLogger.warn("Ignoring unsupported inbound socket message type", user = senderId, tag = "handle_socket_unsupported_type")
         }
     }
 
@@ -169,7 +213,7 @@ class SocketConnectionHandler(
     override fun handleTransportError(session: WebSocketSession, exception: Throwable) {
         // The container closes the session after this and afterConnectionClosed does the bookkeeping.
         if (exception.isPeerGone()) return
-        AppLogger.warn("Socket transport error on session ${session.id}: ${exception.describe()}")
+        AppLogger.warn("Socket transport error on session ${session.id}: ${exception.describe()}", user = connections.find { it.sessionId == session.id }?.userId, tag = "socket_transport_error")
     }
 
     /**
@@ -189,7 +233,7 @@ class SocketConnectionHandler(
         for (connection in connections) {
             val silentFor = now - connection.lastPongAt
             if (silentFor > PONG_TIMEOUT) {
-                AppLogger.warn("Socket of user ${connection.userId} (session ${connection.sessionId}) silent for $silentFor, closing as dead")
+                AppLogger.warn("Socket (session ${connection.sessionId}) silent for $silentFor, closing as dead", user = connection.userId, tag = "close_silent_socket")
                 closeDeadConnection(connection)
                 continue
             }
@@ -197,7 +241,7 @@ class SocketConnectionHandler(
                 connection.session.sendMessage(PingMessage())
             } catch (e: Exception) {
                 if (!e.isPeerGone()) {
-                    AppLogger.warn("Keepalive ping to user ${connection.userId} (session ${connection.sessionId}) failed: ${e.describe()}")
+                    AppLogger.warn("Keepalive ping (session ${connection.sessionId}) failed: ${e.describe()}", user = connection.userId, tag = "send_socket_ping_failed")
                 }
                 closeDeadConnection(connection)
             }
@@ -213,7 +257,7 @@ class SocketConnectionHandler(
         try {
             connection.session.close(CloseStatus.SESSION_NOT_RELIABLE)
         } catch (e: Exception) {
-            if (!e.isPeerGone()) AppLogger.error("Error closing dead socket of user ${connection.userId}: ${e.describe()}")
+            if (!e.isPeerGone()) AppLogger.error("Error closing dead socket: ${e.describe()}", user = connection.userId, tag = "close_dead_socket_failed")
         }
         unregister(connection.sessionId)
     }
@@ -235,7 +279,7 @@ class SocketConnectionHandler(
 
 
         requestingUserId ?: run {
-                AppLogger.warn("Socket connection not authenticated")
+                AppLogger.warn("Socket connection not authenticated", tag = "auth_socket_failed")
                 throw ResponseStatusException(
                     /* status = */ HttpStatus.FORBIDDEN,
                     /* reason = */ "Not logged in"
@@ -260,6 +304,7 @@ class SocketConnectionHandler(
                 sessionId = session.id,
                 userId = userId,
                 session = safeSession,
+                acksMessages = session.handshakeHeaders.getFirst(ACK_SUPPORT_HEADER) == "1",
             )
         }
 
@@ -305,6 +350,9 @@ class SocketConnectionHandler(
         }
 
         connectionToRemove ?: return
+
+        // Whatever this session had not confirmed yet will not be confirmed any more - push it
+        pendingPushRegistry.onSessionClosed(sessionId)
 
         connectionTimeLogger.upsertEntry(
             userId = connectionToRemove.userId,

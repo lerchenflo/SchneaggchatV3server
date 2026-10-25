@@ -19,12 +19,24 @@ data class PersonalUserSettings(
 
     val pinnedChats: List<PinnedChat> = emptyList(),
 
+    // Quick reaction emojis offered on a long press of a message. Nullable on purpose:
+    // null means "never customised", so the client falls back to its own default set and keeps
+    // following it when that set changes in a later app version. An empty list is a deliberate
+    // choice ("show no quick reactions") and is stored as such. Reset back to null via
+    // [com.lerchenflo.schneaggchatv3server.user.UserController.UserSettingsRequest.resetQuickReactions].
+    val quickReactions: List<String>? = null,
+
     val developerSettings: Boolean = false,
 
     // Epoch millis of the last time the contribute popup was shown on any device.
     // 0 means never seeded - a fresh account gets this filled in at registration, and
     // MainController.migrateContributePopupShown backfills accounts created before this field existed.
     val lastContributePopupShown: Long = 0L,
+
+    // Number of the newest announcement this user dismissed on any device. 0 = none yet (also for
+    // documents written before this field existed). Only ever raised, see UserService.updateSettings.
+    // /announcements/latest only returns announcements above it.
+    val lastDismissedAnnouncementId: Long = 0L,
 )
 
 data class PinnedChat(

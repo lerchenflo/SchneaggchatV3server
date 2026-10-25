@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.authentication
 
+import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetrics
 import com.lerchenflo.schneaggchatv3server.authentication.model.LoginAlert
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
@@ -71,9 +72,11 @@ class EmailService(
         mail.text = "Click here to validate your email:\n$verificationUrl"
         try {
             mailSender.send(mail)
+            ServerMetrics.emailsSent.incrementAndGet()
             loggingService.log(userId, LogType.EMAIL_VERIFICATION_EMAIL_SENT, user.email)
         } catch (e: Exception) {
-            println("Mail not sent, error")
+            AppLogger.warn("Email verification mail to ${user.email} not sent: ${e.message}", user = userId, tag = "send_verification_mail_failed")
+            ServerMetrics.emailsFailed.incrementAndGet()
         }
     }
 
@@ -83,19 +86,19 @@ class EmailService(
     fun verifyEmailRequest(token: String) : Boolean {
         val tokenData = jwtService.validateEmailToken(token)
         if (tokenData == null) {
-            AppLogger.warn("Email verification failed: invalid or expired token")
+            AppLogger.warn("Email verification failed: invalid or expired token", tag = "verify_email_invalid_token")
             return false
         }
         val (email, userId) = tokenData
 
         val user = userLookupService.findByEmail(email)
         if (user == null) {
-            AppLogger.warn("Email verification failed: no user found for email $email (userId=$userId)")
+            AppLogger.warn("Email verification failed: no user found for email $email", user = userId, tag = "verify_email_user_not_found")
             return false
         }
 
         if (user.id != userId) {
-            AppLogger.warn("Email verification failed: token userId $userId does not match user ${user.id} for email $email")
+            AppLogger.warn("Email verification failed: token does not match ${AppLogger.nameOf(user.id)}, the owner of $email", user = userId, tag = "verify_email_user_mismatch")
             return false
         }
 
@@ -107,7 +110,7 @@ class EmailService(
         )
         userLookupService.save(updatedUser)
         notificationService.notifyUserUpdate(updatedUser, deleted = false)
-        AppLogger.info("Email verified successfully for user ${user.username}: (${user.email})")
+        AppLogger.info("Email verified successfully (${user.email})", user = user.id)
         return true
     }
 
@@ -133,9 +136,11 @@ class EmailService(
         mail.text = "Someone requested to delete your account. If this was not you, please ignore this email.\nIf you really want to delete your account, click the link below to confirm:\n$verificationUrl\n\nNote: You will need to confirm the deletion on the website before your account is permanently deleted."
         try {
             mailSender.send(mail)
+            ServerMetrics.emailsSent.incrementAndGet()
             loggingService.log(userId, LogType.ACCOUNT_DELETION_EMAIL_SENT)
         } catch (e: Exception) {
-            println("Mail not sent, error")
+            AppLogger.warn("Account deletion mail to $email not sent: ${e.message}", user = userId, tag = "send_account_deletion_mail_failed")
+            ServerMetrics.emailsFailed.incrementAndGet()
         }
     }
 
@@ -161,7 +166,7 @@ class EmailService(
         if (user.id != userId) return false
         
         userService.deleteAccount(user.id)
-        println("Account with name ${user.username} has been deleted")
+        AppLogger.info("Account ${user.username} has been deleted")
 
         return true
     }
@@ -176,7 +181,7 @@ class EmailService(
 
         // Only send if email is verified
         if (user.emailVerifiedAt == null) {
-            println("Password reset requested for unverified email $email")
+            AppLogger.info("Password reset requested for unverified email $email", user = userId)
             //return (Allow unverified email passwort resets)
         }
 
@@ -195,9 +200,11 @@ class EmailService(
         mail.text = "Someone requested to reset your password. If this was not you, please ignore this email.\n\nYour Username: ${userLookupService.getUsername(userId)}\n\nTo reset your password, click the link below:\n$resetUrl\n\nThis link is valid for 1 hour."
         try {
             mailSender.send(mail)
+            ServerMetrics.emailsSent.incrementAndGet()
             loggingService.log(userId, LogType.PASSWORD_RESET_EMAIL_SENT)
         } catch (e: Exception) {
-            println("Mail not sent, error")
+            AppLogger.warn("Password reset mail to $email not sent: ${e.message}", user = userId, tag = "send_password_reset_mail_failed")
+            ServerMetrics.emailsFailed.incrementAndGet()
         }
     }
 
@@ -247,7 +254,7 @@ class EmailService(
         val sessions = try {
             refreshTokenRepository.findByUserIdAndExpiresAtAfterOrderByCreatedAtDesc(user.id, now)
         } catch (e: Exception) {
-            AppLogger.warn("Login alert: could not list sessions of ${user.username}: ${e.message}")
+            AppLogger.warn("Login alert: could not list sessions: ${e.message}", user = user.id, tag = "list_login_alert_sessions_failed")
             emptyList()
         }
 
@@ -290,8 +297,10 @@ class EmailService(
             """.trimMargin()
         try {
             mailSender.send(mail)
+            ServerMetrics.emailsSent.incrementAndGet()
         } catch (e: Exception) {
-            AppLogger.warn("Login alert mail to ${user.username} not sent: ${e.message}")
+            AppLogger.warn("Login alert mail not sent: ${e.message}", user = user.id, tag = "send_login_alert_mail_failed")
+            ServerMetrics.emailsFailed.incrementAndGet()
         }
     }
 
@@ -323,6 +332,7 @@ class EmailService(
             address.canonicalHostName.takeIf { it != ip && it != address.hostAddress }
         }
     } catch (e: Exception) {
+        AppLogger.warn("Login alert: reverse DNS lookup for $ip failed: ${e.message}", tag = "resolve_reverse_dns_failed")
         null
     }
 

@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.notifications.firebase
 
+import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetrics
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -35,7 +36,7 @@ class FirebaseService(
                     // fallback to expected mounted path inside container
                     FileInputStream("/app/$resourceName")
                 } catch (e: Exception) {
-                    AppLogger.error("Firebase json not found in path /app/$resourceName")
+                    AppLogger.error("Firebase json not found in path /app/$resourceName", tag = "init_firebase_config_missing")
 
                     return@run //Return to not crash the server docker
                 }
@@ -83,7 +84,7 @@ class FirebaseService(
 
             //println("Firebasetoken saved successfully")
         } catch (e: DuplicateKeyException) {
-            AppLogger.warn("Firebase Duplicate key already exists")
+            AppLogger.warn("[Firebase] Duplicate token already exists", user = userId, tag = "register_fcm_token_duplicate")
         }
     }
 
@@ -151,8 +152,7 @@ class FirebaseService(
                 sendNotificationToUser(receiverId, notification)
 
             } catch (e: Exception) {
-                AppLogger.error("Error in Firebase notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = receiverId, error = e, tag = "send_fcm_coroutine_failed")
                 loggingService.log(
                     userId = receiverId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -200,8 +200,7 @@ class FirebaseService(
                 sendNotificationToUser(receiverId, notification)
 
             } catch (e: Exception) {
-                AppLogger.error("Error in Firebase reaction notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[Firebase] Error in reaction notification coroutine: ${e.message}", user = receiverId, error = e, tag = "send_fcm_coroutine_failed")
                 loggingService.log(
                     userId = receiverId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -231,7 +230,7 @@ class FirebaseService(
 
                 // Build the NotificationResponse and delegate to generic sender
                 val notification = NotificationResponse.FriendRequestNotificationResponse(
-                    requesterId = receivingUserId.toHexString(),
+                    requesterId = senderId.toHexString(),
                     requesterName = sendingUserName,
                     accepted = accepted,
                 )
@@ -241,8 +240,7 @@ class FirebaseService(
                 sendNotificationToUser(receivingUserId, notification)
 
             } catch (e: Exception) {
-                AppLogger.error("Error in Firebase notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = receivingUserId, error = e, tag = "send_fcm_coroutine_failed")
                 loggingService.log(
                     userId = senderId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -274,13 +272,11 @@ class FirebaseService(
                         )
                         safeSend(message = message, firebaseToken = firebaseToken)
                     } catch (e: Exception) {
-                        AppLogger.error("Error sending to token ${firebaseToken.token}: ${e.message}")
-                        e.printStackTrace()
+                        AppLogger.error("[Firebase] Error sending to token ${firebaseToken.token}: ${e.message}", user = userId, error = e, tag = "send_fcm_token_failed")
                     }
                 }
             } catch (e: Exception) {
-                AppLogger.error("Error in Firebase notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[Firebase] Error in notification coroutine: ${e.message}", user = userId, error = e, tag = "send_fcm_coroutine_failed")
                 loggingService.log(
                     userId = userId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -319,11 +315,11 @@ class FirebaseService(
                         )
                         safeSend(message = message, firebaseToken = firebaseToken)
                     } catch (e: Exception) {
-                        AppLogger.error("Error sending wake to token ${firebaseToken.token}: ${e.message}")
+                        AppLogger.error("[Firebase] Error sending wake to token ${firebaseToken.token}: ${e.message}", user = userId, tag = "send_fcm_wake_token_failed")
                     }
                 }
             } catch (e: Exception) {
-                AppLogger.error("Error in Firebase wake coroutine: ${e.message}")
+                AppLogger.error("[Firebase] Error in wake coroutine: ${e.message}", user = userId, tag = "send_fcm_wake_coroutine_failed")
                 loggingService.log(
                     userId = userId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -336,17 +332,15 @@ class FirebaseService(
     }
 
 
-    /** "username (id)" for logs; the id stays in, so a renamed or deleted user can still be traced. */
-    private fun describeUser(userId: ObjectId): String =
-        "${userLookupService.getUsername(userId)} (${userId.toHexString()})"
-
     private fun safeSend(message: Message, firebaseToken: FirebaseToken): Boolean {
         val token = firebaseToken.token
         try {
             val response = FirebaseMessaging.getInstance().send(message)
+            ServerMetrics.fcmSent.incrementAndGet()
             return true
 
         } catch (e: FirebaseMessagingException) {
+            ServerMetrics.fcmFailed.incrementAndGet()
             val errorCode = e.messagingErrorCode
             //e.printStackTrace()
             val rawErrorCode = e.errorCode?.name // fallback: raw string like "registration-token-not-registered"
@@ -356,17 +350,27 @@ class FirebaseService(
                 "REGISTRATION_TOKEN_NOT_REGISTERED",
                 "INVALID_REGISTRATION_TOKEN",
                 "MISMATCHED_CREDENTIAL",
-                "INVALID_ARGUMENT",
             )
 
             return when (errorCode) {
                 in setOf(
                     MessagingErrorCode.UNREGISTERED,
-                    MessagingErrorCode.INVALID_ARGUMENT,
                     MessagingErrorCode.SENDER_ID_MISMATCH
                 ) -> {
-                    AppLogger.warn("[Firebase] Removing invalid token of ${describeUser(firebaseToken.userId)} (Code: $errorCode): $token")
+                    AppLogger.warn("[Firebase] Removing invalid token (Code: $errorCode): $token", user = firebaseToken.userId)
                     deleteToken(token)
+                    false
+                }
+
+                MessagingErrorCode.INVALID_ARGUMENT if isInvalidTokenError(e) -> {
+                    AppLogger.warn("[Firebase] Removing invalid token (Code: $errorCode): $token", user = firebaseToken.userId)
+                    deleteToken(token)
+                    false
+                }
+
+                // A bad payload, not a bad token - the token stays
+                MessagingErrorCode.INVALID_ARGUMENT -> {
+                    AppLogger.warn("[Firebase] Invalid argument, token kept (${e.message}): $token", user = firebaseToken.userId)
                     false
                 }
 
@@ -374,20 +378,22 @@ class FirebaseService(
                 // The iOS app is gone from the Firebase project, so these can never be delivered again. The
                 // ApnsError detail proves the token went to Apple, so an Android token is never removed here.
                 MessagingErrorCode.THIRD_PARTY_AUTH_ERROR if e.httpResponse?.content?.contains("ApnsError") == true -> {
-                    AppLogger.warn("[Firebase] Removing leftover iOS token of ${describeUser(firebaseToken.userId)} (Code: $errorCode): $token")
+                    AppLogger.warn("[Firebase] Removing leftover iOS token (Code: $errorCode): $token", user = firebaseToken.userId)
                     deleteToken(token)
                     false
                 }
 
                 // Without the APNs detail it is unclear which push service failed, so the token stays
                 MessagingErrorCode.THIRD_PARTY_AUTH_ERROR -> {
-                    AppLogger.warn("[Firebase] Third party auth error for token of ${describeUser(firebaseToken.userId)} (Code: $errorCode, HTTP: ${e.httpResponse?.statusCode}): $token")
+                    AppLogger.warn("[Firebase] Third party auth error (Code: $errorCode, HTTP: ${e.httpResponse?.statusCode}): $token", user = firebaseToken.userId)
                     false
                 }
 
                 // Null error code — fall back to raw string check
-                null if rawErrorCode in invalidTokenRawCodes -> {
-                    AppLogger.warn("[Firebase] Removing invalid token of ${describeUser(firebaseToken.userId)} via raw error code '$rawErrorCode': $token")
+                null if (rawErrorCode in invalidTokenRawCodes || (rawErrorCode == "INVALID_ARGUMENT" && isInvalidTokenError(
+                    e
+                ))) -> {
+                    AppLogger.warn("[Firebase] Removing invalid token via raw error code '$rawErrorCode': $token", user = firebaseToken.userId, tag = "remove_fcm_invalid_token")
                     deleteToken(token)
                     false
                 }
@@ -398,23 +404,33 @@ class FirebaseService(
                     MessagingErrorCode.INTERNAL,
                     MessagingErrorCode.QUOTA_EXCEEDED
                 ) -> {
-                    AppLogger.warn("[Firebase] Transient error for token: $token (Code: $errorCode)")
+                    AppLogger.warn("[Firebase] Transient error for token: $token (Code: $errorCode)", user = firebaseToken.userId, tag = "send_fcm_transient_error")
                     false
                 }
 
                 // Everything else (including null with unknown raw code) — log both codes
                 else -> {
-                    AppLogger.warn("[Firebase] Unhandled error for token: $token (Code: $errorCode, Raw: $rawErrorCode, HTTP: ${e.httpResponse?.statusCode})")
+                    AppLogger.warn("[Firebase] Unhandled error for token: $token (Code: $errorCode, Raw: $rawErrorCode, HTTP: ${e.httpResponse?.statusCode})", user = firebaseToken.userId, tag = "send_fcm_unhandled_error")
                     false
                 }
             }
         } catch (e: Exception) {
-            AppLogger.error("[Firebase] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}")
-            e.printStackTrace()
-            loggingService.log(userId = null, logType = LogType.EXCEPTION_THROWN)
+            AppLogger.error("[Firebase] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}", user = firebaseToken.userId, error = e, tag = "send_fcm_unexpected")
+            ServerMetrics.fcmFailed.incrementAndGet()
+            loggingService.log(userId = firebaseToken.userId, logType = LogType.EXCEPTION_THROWN)
             return false
         }
     }
+
+    /**
+     * Whether an INVALID_ARGUMENT error is about the registration token itself. FCM sends the same code
+     * for a bad payload, and deleting a working token there stops all pushes to that phone until the app
+     * uploads its token again. A bad token is named in the message ("The registration token is not a
+     * valid FCM registration token") and as the field `message.token` in the error details.
+     */
+    private fun isInvalidTokenError(e: FirebaseMessagingException): Boolean =
+        e.message?.contains("registration token", ignoreCase = true) == true ||
+            e.httpResponse?.content?.contains("\"message.token\"") == true
 
 
 
@@ -441,6 +457,11 @@ class FirebaseService(
             is NotificationResponse.EventNotificationResponse -> "event"
         }
         result["type"] = typeName
+
+        // FCM rejects data over 4 KB with INVALID_ARGUMENT and the push is lost. Long texts go out
+        // without content: the client then shows "new messages" and the sync brings the full message.
+        val dataBytes = result.entries.sumOf { it.key.toByteArray().size + it.value.toByteArray().size }
+        if (dataBytes > MAX_DATA_BYTES && result.containsKey("content")) result["content"] = ""
 
         // cast to Map<String,String>
         return result.mapValues { it.value as String }
@@ -478,5 +499,8 @@ class FirebaseService(
             .build()
     }
 
-
+    private companion object {
+        /** FCM's data limit is 4096 bytes; the rest is room for what FCM adds itself. */
+        const val MAX_DATA_BYTES = 3800
+    }
 }

@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.notifications.apns
 
+import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetrics
 import com.eatthepath.pushy.apns.ApnsClient
 import com.eatthepath.pushy.apns.ApnsClientBuilder
 import com.eatthepath.pushy.apns.DeliveryPriority
@@ -38,7 +39,7 @@ class ApnsService(
     init {
         run {
             if (teamId.isBlank() || keyId.isBlank() || bundleId.isBlank()) {
-                AppLogger.error("APNs config missing (APNS_TEAM_ID, APNS_KEY_ID or APNS_BUNDLE_ID not set)")
+                AppLogger.error("APNs config missing (APNS_TEAM_ID, APNS_KEY_ID or APNS_BUNDLE_ID not set)", tag = "init_apns_config_missing")
                 return@run
             }
 
@@ -47,7 +48,7 @@ class ApnsService(
 
             val keyFile = File(resourcePath)
             if (!keyFile.exists()) {
-                AppLogger.error("APNs .p8 key file not found at $resourcePath")
+                AppLogger.error("APNs .p8 key file not found at $resourcePath", tag = "init_apns_key_missing")
                 return@run
             }
 
@@ -62,7 +63,7 @@ class ApnsService(
                     .build()
                 AppLogger.success("APNs client initialized (sandbox=$apnsDebug)")
             } catch (e: Exception) {
-                AppLogger.error("APNs client initialization failed: ${e.message}")
+                AppLogger.error("APNs client initialization failed: ${e.message}", tag = "init_apns_failed")
             }
         }
     }
@@ -85,7 +86,7 @@ class ApnsService(
                 logType = LogType.APNS_TOKEN_REGISTERED,
             )
         } catch (e: DuplicateKeyException) {
-            AppLogger.warn("APNs duplicate token already exists")
+            AppLogger.warn("[APNs] Duplicate token already exists", user = userId, tag = "register_apns_token_duplicate")
         }
     }
 
@@ -147,8 +148,7 @@ class ApnsService(
                 )
                 sendNotificationToUser(receiverId, notification)
             } catch (e: Exception) {
-                AppLogger.error("Error in APNs notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[APNs] Error in notification coroutine: ${e.message}", user = receiverId, error = e, tag = "send_apns_coroutine_failed")
                 loggingService.log(
                     userId = receiverId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -192,8 +192,7 @@ class ApnsService(
                 )
                 sendNotificationToUser(receiverId, notification)
             } catch (e: Exception) {
-                AppLogger.error("Error in APNs reaction notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[APNs] Error in reaction notification coroutine: ${e.message}", user = receiverId, error = e, tag = "send_apns_coroutine_failed")
                 loggingService.log(
                     userId = receiverId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -220,14 +219,13 @@ class ApnsService(
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val notification = NotificationResponse.FriendRequestNotificationResponse(
-                    requesterId = receivingUserId.toHexString(),
+                    requesterId = senderId.toHexString(),
                     requesterName = sendingUserName,
                     accepted = accepted,
                 )
                 sendNotificationToUser(receivingUserId, notification)
             } catch (e: Exception) {
-                AppLogger.error("Error in APNs notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[APNs] Error in notification coroutine: ${e.message}", user = receivingUserId, error = e, tag = "send_apns_coroutine_failed")
                 loggingService.log(
                     userId = senderId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -264,15 +262,13 @@ class ApnsService(
                             /* priority = */ DeliveryPriority.IMMEDIATE,
                             /* pushType = */ PushType.ALERT,
                         )
-                        safeSend(client, push)
+                        safeSend(client, push, apnsToken.userId)
                     } catch (e: Exception) {
-                        AppLogger.error("Error sending APNs to token ${apnsToken.token}: ${e.message}")
-                        e.printStackTrace()
+                        AppLogger.error("[APNs] Error sending to token ${apnsToken.token}: ${e.message}", user = userId, error = e, tag = "send_apns_token_failed")
                     }
                 }
             } catch (e: Exception) {
-                AppLogger.error("Error in APNs notification coroutine: ${e.message}")
-                e.printStackTrace()
+                AppLogger.error("[APNs] Error in notification coroutine: ${e.message}", user = userId, error = e, tag = "send_apns_coroutine_failed")
                 loggingService.log(
                     userId = userId,
                     logType = LogType.EXCEPTION_THROWN,
@@ -283,29 +279,31 @@ class ApnsService(
     }
 
 
-    private fun safeSend(client: ApnsClient, notification: SimpleApnsPushNotification): Boolean {
+    private fun safeSend(client: ApnsClient, notification: SimpleApnsPushNotification, userId: ObjectId): Boolean {
         return try {
             val response = client.sendNotification(notification).get()
             if (response.isAccepted) {
+                ServerMetrics.apnsSent.incrementAndGet()
                 true
             } else {
+                ServerMetrics.apnsFailed.incrementAndGet()
                 val reason = response.rejectionReason.orElse("unknown")
-                AppLogger.error("Error sending notification APNs: $reason")
+                AppLogger.error("[APNs] Error sending notification: $reason", user = userId, tag = "send_apns_failed")
                 when (reason) {
                     "Unregistered", "BadDeviceToken", "DeviceTokenNotForTopic", "TopicDisallowed" -> {
                         deleteToken(notification.token)
                         false
                     }
                     else -> {
-                        AppLogger.warn("[APNs] Rejected: $reason for token ${notification.token}")
+                        AppLogger.warn("[APNs] Rejected: $reason for token ${notification.token}", user = userId, tag = "send_apns_rejected")
                         false
                     }
                 }
             }
         } catch (e: Exception) {
-            AppLogger.error("[APNs] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}")
-            e.printStackTrace()
-            loggingService.log(userId = null, logType = LogType.EXCEPTION_THROWN)
+            AppLogger.error("[APNs] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}", user = userId, error = e, tag = "send_apns_unexpected")
+            ServerMetrics.apnsFailed.incrementAndGet()
+            loggingService.log(userId = userId, logType = LogType.EXCEPTION_THROWN)
             false
         }
     }

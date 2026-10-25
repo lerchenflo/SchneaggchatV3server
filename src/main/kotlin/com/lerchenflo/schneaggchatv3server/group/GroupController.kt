@@ -70,6 +70,7 @@ class GroupController(
 
 
         requireOrLog(
+            "get_group_profilepic_not_member",
             groupLookupService.isUserInGroup(requestingUserId, ObjectId(groupId)),
             { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUserId)}, action: GET_PROFILE_PIC, group: ${groupLookupService.getGroupName(ObjectId(groupId))}: Not in group" }
         ) { "You are not a member of this group" }
@@ -115,6 +116,7 @@ class GroupController(
         @RequestParam("groupid") groupid: String,
         @RequestBody newName: String
     ) {
+        require(ValidationUtils.validateObjectId(groupid)) { "Invalid group ID" }
         val requestingUserId = requireAuth()
 
 

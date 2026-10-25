@@ -18,10 +18,10 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.Frien
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.SnailTrailPointPayload
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
-import com.lerchenflo.schneaggchatv3server.user.friends.FriendsSettingsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
-import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.toSelfUserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.toUserResponseFor
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
 import kotlin.time.ExperimentalTime
@@ -42,7 +42,6 @@ class NotificationService(
     private val userLookupService: UserLookupService,
     private val groupLookupService: GroupLookupService,
     private val friendsLookupService: FriendsLookupService,
-    private val friendsSettingsService: FriendsSettingsService
 ) {
 
     
@@ -72,43 +71,47 @@ class NotificationService(
                 //Exclude the changing user
                 if (member.userid == changingUserId) return@forEach
 
-                if (socketConnectionHandler.sendMessage(
-                        message = SocketConnectionMessage.MessageChange(
-                            message = message.toMessageResponse(member.userid),
-                            deleted = deleted,
-                            newMessage = newMessage,
-                        ),
+                val socketMessage = SocketConnectionMessage.MessageChange(
+                    message = message.toMessageResponse(member.userid),
+                    deleted = deleted,
+                    newMessage = newMessage,
+                )
+                val pushNewMessage = {
+                    firebaseMessagingService.sendNewMessageNotificationToUser(
+                        senderId = message.senderId,
                         receiverId = member.userid,
-                    )) {
-                    deliveredOverSocket += member.userid
-                } else {
+                        messageType = message.msgType,
+                        messageContent = message.content,
+                        msgId = message.id.toHexString(),
+                        groupMessage = true,
+                        groupName = groupName,
+                        groupId = message.receiverId,
+                        sendDate = message.sendDate.toEpochMilliseconds(),
+                        answerId = message.answerId?.toHexString(),
+                    )
+                    apnsService.sendNewMessageNotificationToUser(
+                        senderId = message.senderId,
+                        receiverId = member.userid,
+                        messageType = message.msgType,
+                        messageContent = message.content,
+                        msgId = message.id.toHexString(),
+                        groupMessage = true,
+                        groupName = groupName,
+                        groupId = message.receiverId,
+                        sendDate = message.sendDate.toEpochMilliseconds(),
+                        answerId = message.answerId?.toHexString(),
+                    )
+                }
 
-                    if (newMessage) {
-                        firebaseMessagingService.sendNewMessageNotificationToUser(
-                            senderId = message.senderId,
-                            receiverId = member.userid,
-                            messageType = message.msgType,
-                            messageContent = message.content,
-                            msgId = message.id.toHexString(),
-                            groupMessage = true,
-                            groupName = groupName,
-                            groupId = message.receiverId,
-                            sendDate = message.sendDate.toEpochMilliseconds(),
-                            answerId = message.answerId?.toHexString(),
-                        )
-                        apnsService.sendNewMessageNotificationToUser(
-                            senderId = message.senderId,
-                            receiverId = member.userid,
-                            messageType = message.msgType,
-                            messageContent = message.content,
-                            msgId = message.id.toHexString(),
-                            groupMessage = true,
-                            groupName = groupName,
-                            groupId = message.receiverId,
-                            sendDate = message.sendDate.toEpochMilliseconds(),
-                            answerId = message.answerId?.toHexString(),
-                        )
+                if (newMessage) {
+                    //Socket first; the push is held until the client acks, or sent right away if there is no socket
+                    if (socketConnectionHandler.sendNewMessage(socketMessage, member.userid, message.id.toHexString(), pushNewMessage)) {
+                        deliveredOverSocket += member.userid
+                    } else {
+                        pushNewMessage()
                     }
+                } else if (socketConnectionHandler.sendMessage(message = socketMessage, receiverId = member.userid)) {
+                    deliveredOverSocket += member.userid
                 }
 
             }
@@ -119,43 +122,45 @@ class NotificationService(
             //Notify the user which did not change the message
             val recipient = if (message.senderId == changingUserId) message.receiverId else message.senderId
 
-            //Try sending via socketconnection
-            if (socketConnectionHandler.sendMessage(
-                    SocketConnectionMessage.MessageChange(
-                        message = message.toMessageResponse(message.receiverId),
-                        deleted = deleted,
-                        newMessage = newMessage,
-                    ),
-                    receiverId = recipient,
-                )) {
-                deliveredOverSocket += recipient
-            } else {
+            val socketMessage = SocketConnectionMessage.MessageChange(
+                message = message.toMessageResponse(message.receiverId),
+                deleted = deleted,
+                newMessage = newMessage,
+            )
+            val pushNewMessage = {
+                firebaseMessagingService.sendNewMessageNotificationToUser(
+                    senderId = message.senderId,
+                    receiverId = message.receiverId,
+                    messageType = message.msgType,
+                    messageContent = message.content,
+                    msgId = message.id.toHexString(),
+                    groupMessage = false,
+                    groupName = null,
+                    sendDate = message.sendDate.toEpochMilliseconds(),
+                    answerId = message.answerId?.toHexString(),
+                )
+                apnsService.sendNewMessageNotificationToUser(
+                    senderId = message.senderId,
+                    receiverId = message.receiverId,
+                    messageType = message.msgType,
+                    messageContent = message.content,
+                    msgId = message.id.toHexString(),
+                    groupMessage = false,
+                    groupName = null,
+                    sendDate = message.sendDate.toEpochMilliseconds(),
+                    answerId = message.answerId?.toHexString(),
+                )
+            }
 
-                if (newMessage) {
-                    firebaseMessagingService.sendNewMessageNotificationToUser(
-                        senderId = message.senderId,
-                        receiverId = message.receiverId,
-                        messageType = message.msgType,
-                        messageContent = message.content,
-                        msgId = message.id.toHexString(),
-                        groupMessage = false,
-                        groupName = null,
-                        sendDate = message.sendDate.toEpochMilliseconds(),
-                        answerId = message.answerId?.toHexString(),
-                    )
-                    apnsService.sendNewMessageNotificationToUser(
-                        senderId = message.senderId,
-                        receiverId = message.receiverId,
-                        messageType = message.msgType,
-                        messageContent = message.content,
-                        msgId = message.id.toHexString(),
-                        groupMessage = false,
-                        groupName = null,
-                        sendDate = message.sendDate.toEpochMilliseconds(),
-                        answerId = message.answerId?.toHexString(),
-                    )
+            if (newMessage) {
+                //Socket first; the push is held until the client acks, or sent right away if there is no socket
+                if (socketConnectionHandler.sendNewMessage(socketMessage, recipient, message.id.toHexString(), pushNewMessage)) {
+                    deliveredOverSocket += recipient
+                } else {
+                    pushNewMessage()
                 }
-
+            } else if (socketConnectionHandler.sendMessage(socketMessage, receiverId = recipient)) {
+                deliveredOverSocket += recipient
             }
         }
 
@@ -192,9 +197,31 @@ class NotificationService(
         }
     }
 
-    @OptIn(ExperimentalTime::class)
+    /**
+     * Push a change of [user] to every device of the user themselves and of everyone with a
+     * friendship row towards them, each in the shape `/users/sync` would give them: friends get the
+     * friend row with their own settings towards [user], pending / blocked counterparts the simple
+     * row (it carries the username and the picture timestamp too).
+     */
     fun notifyUserUpdate(user: User, deleted: Boolean) {
-        // Notify the user themselves
+        notifyOwnUserUpdate(user, deleted)
+
+        friendsLookupService.getCounterpartInteractions(user.id).forEach { (counterpartId, interaction) ->
+            socketConnectionHandler.sendMessage(
+                SocketConnectionMessage.UserChange(
+                    user = user.toUserResponseFor(interaction),
+                    deleted = deleted
+                ),
+                receiverId = counterpartId
+            )
+        }
+    }
+
+    /**
+     * Push [user]'s own row ([UserResponse.SelfUserResponse]) to every device of [user] only - for
+     * changes no friend sees, like the derived `locationShared` flag.
+     */
+    fun notifyOwnUserUpdate(user: User, deleted: Boolean = false) {
         socketConnectionHandler.sendMessage(
             SocketConnectionMessage.UserChange(
                 user = user.toSelfUserResponse(
@@ -204,108 +231,45 @@ class NotificationService(
             ),
             receiverId = user.id
         )
+    }
 
-        // Notify friends
-        friendsLookupService.getFriendsForUserUpdate(user.id).forEach { (friendId, requesterId, nickName, shareLocation) ->
-            socketConnectionHandler.sendMessage(
-                SocketConnectionMessage.UserChange(
-                    user = UserResponse.FriendUserResponse(
-                        id = user.id.toHexString(),
-                        username = user.username,
-                        updatedAt = user.updatedAt.toEpochMilliseconds(),
-                        profilePicUpdatedAt = user.profilePicUpdatedAt.toEpochMilliseconds(),
-                        requesterId = requesterId.toHexString(),
-                        birthDate = user.birthDate,
-                        phoneNumber = user.phoneNumber,
-                        userDescription = user.userDescription,
-                        userStatus = user.userStatus,
-                        nickName = nickName,
-                        shareLocation = shareLocation,
-                        lastSeen = user.lastSeen.toEpochMilliseconds()
-                    ),
-                    deleted = deleted
+    /**
+     * Push [recipientId]'s current view of [otherUserId] to every device of [recipientId], read
+     * from the database the way `/users/sync` builds it: the friend row for an accepted friendship,
+     * the simple row for a pending one, and a deleted [SocketConnectionMessage.UserChange] once no
+     * friendship row is left (request declined, friend removed).
+     *
+     * Call it for each side whose view changed after every friendship mutation - the acting user
+     * included, because the client no longer syncs after its own change and its other devices
+     * would not learn about it at all.
+     */
+    fun notifyRelationChange(recipientId: ObjectId, otherUserId: ObjectId) {
+        val interaction = friendsLookupService.getInteraction(viewerId = recipientId, otherUserId = otherUserId)
+
+        val socketMessage = if (interaction == null) {
+            SocketConnectionMessage.UserChange(
+                //No relationship left, so no user data either: the client only reads the id of a
+                //deleted user. requesterId must still be non-null - the client declares it so and
+                //would drop the whole message as unparsable.
+                user = UserResponse.SimpleUserResponse(
+                    id = otherUserId.toHexString(),
+                    username = "",
+                    updatedAt = 0,
+                    profilePicUpdatedAt = 0,
+                    friendShipStatus = null,
+                    requesterId = recipientId.toHexString(),
                 ),
-                receiverId = friendId
+                deleted = true
+            )
+        } else {
+            val otherUser = userLookupService.findById(otherUserId) ?: return
+            SocketConnectionMessage.UserChange(
+                user = otherUser.toUserResponseFor(interaction),
+                deleted = false
             )
         }
-    }
 
-    /**
-     * Notify the changing user's own devices that they updated whether they share
-     * their location with a specific friend. The friend's view of the relationship
-     * is unaffected by this change, so only the changing user is pushed to.
-     * @param changingUserId the user who changed their own sharing setting
-     * @param friendId the friend this setting applies to
-     * @param shareLocation the new sharing value (changingUserId -> friendId)
-     */
-    @OptIn(ExperimentalTime::class)
-    fun notifyLocationSharingChange(changingUserId: ObjectId, friendId: ObjectId, shareLocation: Boolean) {
-        val friend = userLookupService.findById(friendId) ?: return
-        val friendship = friendsLookupService.findFriendship(changingUserId, friendId) ?: return
-        //changingUserId's own nickname for the friend
-        val nickName = friendsSettingsService.getFriendshipSetting(friendship.id, changingUserId)?.nickName
-
-        socketConnectionHandler.sendMessage(
-            SocketConnectionMessage.UserChange(
-                user = UserResponse.FriendUserResponse(
-                    id = friend.id.toHexString(),
-                    username = friend.username,
-                    updatedAt = friend.updatedAt.toEpochMilliseconds(),
-                    profilePicUpdatedAt = friend.profilePicUpdatedAt.toEpochMilliseconds(),
-                    requesterId = friendship.requesterId.toHexString(),
-                    birthDate = friend.birthDate,
-                    phoneNumber = friend.phoneNumber,
-                    userDescription = friend.userDescription,
-                    userStatus = friend.userStatus,
-                    nickName = nickName,
-                    shareLocation = shareLocation,
-                    lastSeen = friend.lastSeen.toEpochMilliseconds()
-                ),
-                deleted = false
-            ),
-            receiverId = changingUserId
-        )
-    }
-
-    /**
-     * Push a wake-permission change to the changing user's OWN devices for multi-device sync.
-     * The friend is deliberately not notified - they have no business knowing whether someone
-     * allows them to wake them until they actually try.
-     * @param changingUserId the user who changed who may wake them
-     * @param friendId the friend the permission applies to
-     * @param allowWake the new value (friendId may wake changingUserId)
-     */
-    @OptIn(ExperimentalTime::class)
-    fun notifyWakePermissionChange(changingUserId: ObjectId, friendId: ObjectId, allowWake: Boolean) {
-        val friend = userLookupService.findById(friendId) ?: return
-        val friendship = friendsLookupService.findFriendship(changingUserId, friendId) ?: return
-        //changingUserId's own settings row towards the friend. Send every field it carries - the
-        //client replaces the whole user row, so omitting one would silently reset it.
-        val setting = friendsSettingsService.getFriendshipSetting(friendship.id, changingUserId)
-
-        socketConnectionHandler.sendMessage(
-            SocketConnectionMessage.UserChange(
-                user = UserResponse.FriendUserResponse(
-                    id = friend.id.toHexString(),
-                    username = friend.username,
-                    updatedAt = friend.updatedAt.toEpochMilliseconds(),
-                    profilePicUpdatedAt = friend.profilePicUpdatedAt.toEpochMilliseconds(),
-                    requesterId = friendship.requesterId.toHexString(),
-                    birthDate = friend.birthDate,
-                    phoneNumber = friend.phoneNumber,
-                    userDescription = friend.userDescription,
-                    userStatus = friend.userStatus,
-                    nickName = setting?.nickName,
-                    shareLocation = setting?.shareLocation ?: false,
-                    shareSpeedHeading = setting?.shareSpeedHeading ?: false,
-                    shareSnailTrail = setting?.shareSnailTrail ?: false,
-                    allowWake = allowWake,
-                    lastSeen = friend.lastSeen.toEpochMilliseconds()
-                ),
-                deleted = false
-            ),
-            receiverId = changingUserId
-        )
+        socketConnectionHandler.sendMessage(socketMessage, receiverId = recipientId)
     }
 
     /**
@@ -342,7 +306,12 @@ class NotificationService(
         )
     }
 
-    fun notifyGroupUpdate(groupResponse: GroupResponse, deleted: Boolean) {
+    /**
+     * @param removedMemberIds users who just left or got removed. They are no longer in
+     * [GroupResponse.members], but every device of theirs has to drop the group (and its messages),
+     * so they get the group as deleted.
+     */
+    fun notifyGroupUpdate(groupResponse: GroupResponse, deleted: Boolean, removedMemberIds: Collection<ObjectId> = emptyList()) {
 
         //Only for socket connected users
         groupResponse.members.forEach { member ->
@@ -352,6 +321,16 @@ class NotificationService(
                     deleted = deleted
                 ),
                 receiverId = ObjectId(member.userid),
+            )
+        }
+
+        removedMemberIds.forEach { removedMemberId ->
+            socketConnectionHandler.sendMessage(
+                SocketConnectionMessage.GroupChange(
+                    group = groupResponse,
+                    deleted = true
+                ),
+                receiverId = removedMemberId,
             )
         }
     }

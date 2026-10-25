@@ -63,4 +63,10 @@ interface RefreshTokenRepository: MongoRepository<RefreshToken, ObjectId> {
      */
     fun findByUserIdAndExpiresAtAfterOrderByCreatedAtDesc(userId: ObjectId, time: Instant): List<RefreshToken>
 
+    /**
+     * Ends one session of a user - the device list's remote logout. Scoped to [userId] so a user
+     * can only ever end their own sessions. Returns the number of rows removed (0 or 1).
+     */
+    fun deleteByIdAndUserId(id: ObjectId, userId: ObjectId): Long
+
 }

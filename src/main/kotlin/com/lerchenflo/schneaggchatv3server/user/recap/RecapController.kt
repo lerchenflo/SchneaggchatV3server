@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.Year
 import java.time.ZoneId
 
+private const val FIRST_RECAP_YEAR = 2024
+
 @RestController
 @RequestMapping("/recap")
 class RecapController(
@@ -18,7 +20,10 @@ class RecapController(
     @GetMapping
     fun getRecap(@RequestParam(required = false) year: Int?): RecapResponse {
         val requesterId = requireAuth()
-        val resolvedYear = year ?: Year.now(ZoneId.of("Europe/Vienna")).value
+        val currentYear = Year.now(ZoneId.of("Europe/Vienna")).value
+        val resolvedYear = year ?: currentYear
+        // Out-of-range years made ZonedDateTime throw (500, logged as an exception against the requester)
+        require(resolvedYear in FIRST_RECAP_YEAR..currentYear) { "Invalid recap year" }
         return recapService.buildRecap(requesterId, resolvedYear)
     }
 }

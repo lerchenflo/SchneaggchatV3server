@@ -2,6 +2,8 @@ package com.lerchenflo.schneaggchatv3server.user
 
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
+import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -16,16 +18,26 @@ import kotlin.jvm.optionals.getOrNull
 class UserLookupService(
     private val userRepository: UserRepository,
 ) {
+    init {
+        // Lets every log line show the username next to the id
+        AppLogger.usernameLookup = { userId -> userRepository.findById(userId).getOrNull()?.username }
+    }
+
     fun checkExistingUser(username: String, email: String) {
         val usernameexists = userRepository.findByUsername(username)
         if (usernameexists != null) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "A user with this username ($username) already exists")
         }
 
-        val emailexists = userRepository.findByEmail(email.trim())
-        if (emailexists != null) {
+        if (isEmailTaken(email)) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "A user with this email ($email) already exists")
         }
+    }
+
+    /** Whether an account other than [exceptUserId] already uses [email]. */
+    fun isEmailTaken(email: String, exceptUserId: ObjectId? = null): Boolean {
+        val owner = findByEmail(email) ?: return false
+        return owner.id != exceptUserId
     }
 
     fun save(user: User): User {
@@ -62,7 +74,7 @@ class UserLookupService(
     }
 
     fun findByEmail(email: String): User? {
-        val optuser = userRepository.findByEmail(email)
+        val optuser = userRepository.findByEmail(ValidationUtils.normalizeEmail(email))
 
         return optuser
     }

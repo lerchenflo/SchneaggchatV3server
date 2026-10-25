@@ -70,6 +70,7 @@ class GroupService(
         membersInternal.forEach { member ->
             if (member == creatorId) return@forEach //Exclude self
             requireOrLog(
+                "create_group_member_not_friend",
                 friendsLookupService.areFriends(creatorId, member),
                 { "Group creation denied - user: ${userLookupService.getUsername(creatorId)} is not friends with: ${userLookupService.getUsername(member)}" }
             ) { "You need to be friends with everyone in the group" }
@@ -205,6 +206,7 @@ class GroupService(
     fun changeGroupProfilePic(userId: ObjectId, groupId: ObjectId, image: MultipartFile) {
 
         requireOrLog(
+            "change_group_profilepic_not_member",
             groupLookupService.isUserInGroup(userId, groupId),
             { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_PROFILE_PIC, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
         ) { "You are not a member of this group" }
@@ -238,6 +240,7 @@ class GroupService(
     fun changeGroupDescription(userId: ObjectId, groupId: ObjectId, newDescription: String) {
 
         requireOrLog(
+            "change_group_description_not_member",
             groupLookupService.isUserInGroup(userId, groupId),
             { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_DESCRIPTION, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
         ) { "You are not a member of this group" }
@@ -264,6 +267,7 @@ class GroupService(
     fun changeGroupName(userId: ObjectId, groupId: ObjectId, newName: String) {
 
         requireOrLog(
+            "change_group_name_not_member",
             groupLookupService.isUserInGroup(userId, groupId),
             { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_NAME, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
         ) { "You are not a member of this group" }
@@ -312,10 +316,12 @@ class GroupService(
      */
     fun changeGroupExpiresAt(userId: ObjectId, groupId: ObjectId, expiresAt: Instant?) {
         requireOrLog(
+            "change_group_expiry_not_member",
             groupLookupService.isUserInGroup(userId, groupId),
             { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_EXPIRES_AT, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
         ) { "You are not a member of this group" }
         requireOrLog(
+            "change_group_expiry_not_admin",
             groupLookupService.isAdmin(userId, groupLookupService.getGroupMembers(groupId)),
             { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_EXPIRES_AT, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
         ) { "You are not an admin" }
@@ -359,6 +365,7 @@ class GroupService(
         val groupMembers = groupLookupService.getGroupMembers(groupId)
 
         requireOrLog(
+            "manage_group_member_not_member",
             groupLookupService.isUserInGroup(requestingUser, groupId),
             { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
         ) { "You are not a member of this group" }
@@ -375,9 +382,14 @@ class GroupService(
         // so the added member knows the group before they are told they are attending its event.
         var pendingEventUpdate: Event? = null
 
+        // A member who left or got removed is no longer in the group response, but still has to
+        // drop the group on every device of theirs.
+        var removedMemberId: ObjectId? = null
+
         when (userAction) {
             GroupMemberAction.ADD_USER -> {
                 requireOrLog(
+                    "add_group_user_not_admin",
                     groupLookupService.isAdmin(requestingUser, groupMembers),
                     { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
                 ) { "You are not an admin" }
@@ -411,6 +423,7 @@ class GroupService(
             }
             GroupMemberAction.REMOVE_USER -> {
                 requireOrLog(
+                    "remove_group_user_target_not_in_group",
                     groupLookupService.isUserInGroup(groupMember, groupId),
                     { "Group action denied - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}, target: ${userLookupService.getUsername(groupMember)}: Target not in group" }
                 ) { "User is not in this group" }
@@ -418,6 +431,7 @@ class GroupService(
                 // If someone else is removing the user, they must be admin
                 if (requestingUser != groupMember) {
                     requireOrLog(
+                        "remove_group_user_not_admin",
                         groupLookupService.isAdmin(requestingUser, groupMembers),
                         { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
                     ) { "You are not an admin" }
@@ -467,6 +481,7 @@ class GroupService(
                 // Remove the member
                 val focusedMember = groupMembers.first { it.userid == groupMember }
                 groupMemberRepository.delete(focusedMember)
+                removedMemberId = groupMember
 
                 pendingEvent = if (requestingUser == groupMember) {
                     SystemEventType.GROUP_MEMBER_LEFT
@@ -477,11 +492,13 @@ class GroupService(
 
             GroupMemberAction.MAKE_ADMIN -> {
                 requireOrLog(
+                    "make_group_admin_not_admin",
                     groupLookupService.isAdmin(requestingUser, groupMembers),
                     { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
                 ) { "You are not an admin" }
 
                 requireOrLog(
+                    "make_group_admin_target_not_in_group",
                     groupLookupService.isUserInGroup(groupMember, groupId),
                     { "Group action denied - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}, target: ${userLookupService.getUsername(groupMember)}: Target not in group" }
                 ) { "User is not in this group" }
@@ -497,11 +514,13 @@ class GroupService(
             }
             GroupMemberAction.REMOVE_ADMIN -> {
                 requireOrLog(
+                    "remove_group_admin_not_admin",
                     groupLookupService.isAdmin(requestingUser, groupMembers),
                     { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
                 ) { "You are not an admin" }
 
                 requireOrLog(
+                    "remove_group_admin_target_not_in_group",
                     groupLookupService.isUserInGroup(groupMember, groupId),
                     { "Group action denied - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}, target: ${userLookupService.getUsername(groupMember)}: Target not in group" }
                 ) { "User is not in this group" }
@@ -524,7 +543,11 @@ class GroupService(
         //No error, update group last changed
         groupLookupService.saveGroup(group.copy(updatedAt = now))
 
-        notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
+        notificationService.notifyGroupUpdate(
+            groupResponse = groupLookupService.getGroupAsGroupResponse(groupId),
+            deleted = false,
+            removedMemberIds = listOfNotNull(removedMemberId),
+        )
 
         pendingEventUpdate?.let { event ->
             notificationService.notifyEventUpdate(
