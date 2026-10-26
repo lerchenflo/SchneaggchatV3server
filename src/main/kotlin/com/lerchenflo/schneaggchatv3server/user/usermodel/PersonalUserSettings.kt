@@ -29,8 +29,7 @@ data class PersonalUserSettings(
     val developerSettings: Boolean = false,
 
     // Epoch millis of the last time the contribute popup was shown on any device.
-    // 0 means never seeded - a fresh account gets this filled in at registration, and
-    // MainController.migrateContributePopupShown backfills accounts created before this field existed.
+    // 0 means never seeded - a fresh account gets this filled in at registration.
     val lastContributePopupShown: Long = 0L,
 
     // Number of the newest announcement this user dismissed on any device. 0 = none yet (also for

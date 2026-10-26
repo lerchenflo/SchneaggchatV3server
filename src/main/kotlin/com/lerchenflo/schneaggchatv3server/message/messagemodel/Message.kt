@@ -62,8 +62,7 @@ data class Message(
     /**
      * Monotonic per-collection version stamped by [com.lerchenflo.schneaggchatv3server.util.VersionCounterService]
      * on every write (send/edit/react/vote/delete/read-receipt). This - not [lastChanged] - is the
-     * cursor `/messages/sync` filters and paginates on. Defaults to 0 for documents written before
-     * this field existed; backfilled by `MainController.migrateMessageVersions()`. Not indexed on
+     * cursor `/messages/sync` filters and paginates on. Not indexed on
      * its own - every sync query filters by sender/receiver first, so the compound indexes above
      * cover it; a bare index here would be redundant overhead on every write.
      */
