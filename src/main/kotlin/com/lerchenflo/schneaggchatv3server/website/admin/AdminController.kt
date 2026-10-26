@@ -22,6 +22,8 @@ import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.AppLogLevel
 import com.lerchenflo.schneaggchatv3server.monitoring.MonitoringService
+import com.lerchenflo.schneaggchatv3server.monitoring.RequestCountService
+import com.lerchenflo.schneaggchatv3server.monitoring.model.EndpointUsageResponse
 import com.lerchenflo.schneaggchatv3server.monitoring.model.AppLogEntryResponse
 import com.lerchenflo.schneaggchatv3server.monitoring.model.AppLogKind
 import com.lerchenflo.schneaggchatv3server.monitoring.model.AppLogPage
@@ -59,6 +61,7 @@ class AdminController(
     private val friendsTreeService: FriendsTreeService,
     private val redisTemplate: StringRedisTemplate,
     private val monitoringService: MonitoringService,
+    private val requestCountService: RequestCountService,
 ) {
 
     // ─── Map change log ─────────────────────────────────────────────────────
@@ -333,6 +336,12 @@ class AdminController(
     fun getMonitoringOverview(@RequestParam(defaultValue = "HOURS_24") range: String): MonitoringOverview {
         adminGuard.requireAdmin()
         return monitoringService.overview(parseRange(range))
+    }
+
+    @GetMapping("/monitoring/endpoints")
+    fun getMonitoringEndpoints(@RequestParam(defaultValue = "HOURS_24") range: String): EndpointUsageResponse {
+        adminGuard.requireAdmin()
+        return requestCountService.usage(parseRange(range))
     }
 
     @GetMapping("/monitoring/errors")

@@ -1285,6 +1285,9 @@ document.getElementById('logs-load-more')?.addEventListener('click', () => {
 
 const monitoringState = {
     range: 'HOURS_24',
+    overview: null,
+    // Status code the "endpoints with the most errors" table is filtered to, null = all
+    endpointStatus: null,
     errorTypes: [],
     errorsAxis: null,
     errorsSearch: '',
@@ -1294,6 +1297,15 @@ const monitoringState = {
 };
 
 const ERROR_SORT_DEFAULT_DIR = { tag: 'asc', level: 'asc', count: 'desc', affectedUsers: 'desc', lastSeen: 'desc' };
+
+const endpointUsageState = {
+    endpoints: [],
+    search: '',
+    sortKey: 'count',
+    sortAsc: false,
+};
+
+const USAGE_SORT_DEFAULT_DIR = { endpoint: 'asc', count: 'desc', failed: 'desc', lastHour: 'desc' };
 
 const MON_COLORS = {
     error: '#ef4444',
@@ -1348,11 +1360,14 @@ function niceMax(value) {
  * with every series' value for that column.
  */
 function renderColumnChart(container, axis, series, opts = {}) {
-    container._chart = { axis, series, opts };
     container.innerHTML = '';
 
     const mini = !!opts.mini;
-    const width = Math.max(container.clientWidth || 0, mini ? 120 : 300);
+    // Never wider than the box - a fixed minimum width overflowed narrow grid columns. A hidden
+    // container (width 0) gets a fallback and is redrawn once it is shown, see chartResizeObserver.
+    const width = mini ? Math.max(container.clientWidth || 0, 120) : (container.clientWidth || 300);
+    container._chart = { axis, series, opts, width };
+    if (!mini) chartResizeObserver.observe(container);
     const height = opts.height || (mini ? 36 : 220);
     const pad = mini ? { l: 0, r: 0, t: 2, b: 0 } : { l: 48, r: 8, t: 10, b: 22 };
     const stacked = opts.stacked !== false;
@@ -1452,15 +1467,18 @@ function renderColumnChart(container, axis, series, opts = {}) {
     }
 }
 
-// Charts are drawn at their container's pixel width - redraw them all when that changes.
-let monitoringResizeTimer = null;
-window.addEventListener('resize', () => {
-    clearTimeout(monitoringResizeTimer);
-    monitoringResizeTimer = setTimeout(() => {
-        document.querySelectorAll('#admin-section-monitoring .mon-chart').forEach((c) => {
-            if (c._chart) renderColumnChart(c, c._chart.axis, c._chart.series, c._chart.opts);
+// Charts are drawn at their container's pixel width - redraw one whenever that width changes
+// (window resize, grid/row switch, the monitoring section shown after loading while hidden).
+// Redrawn in the next frame, so the redraw itself never triggers a resize loop warning.
+const chartResizeObserver = new ResizeObserver((entries) => {
+    requestAnimationFrame(() => {
+        entries.forEach(({ target }) => {
+            const chart = target._chart;
+            if (chart && target.isConnected && target.clientWidth > 0 && target.clientWidth !== chart.width) {
+                renderColumnChart(target, chart.axis, chart.series, chart.opts);
+            }
         });
-    }, 200);
+    });
 });
 
 function kpiTile(label, value, previous, invert = true) {
@@ -1512,12 +1530,33 @@ function renderOverview(data) {
         { name: '4xx', color: MON_COLORS.warn, values: data.clientErrorSeries },
     ]);
 
+    monitoringState.overview = data;
+    // A status filter survives a refresh as long as that status still has failures
+    if (!data.statusCodes.some((code) => code.status === monitoringState.endpointStatus)) {
+        monitoringState.endpointStatus = null;
+    }
+    renderStatusCodes();
+    renderTopEndpoints();
+}
+
+/** Clicking a status code narrows the endpoint table to that status; clicking it again (or "Alle anzeigen") undoes it. */
+function setEndpointStatusFilter(status) {
+    monitoringState.endpointStatus = status;
+    renderStatusCodes();
+    renderTopEndpoints();
+}
+
+function renderStatusCodes() {
+    const data = monitoringState.overview;
+    const selected = monitoringState.endpointStatus;
     const codes = document.getElementById('mon-status-codes');
     codes.innerHTML = '';
     const maxCount = Math.max(1, ...data.statusCodes.map((c) => c.count));
     if (data.statusCodes.length === 0) codes.appendChild(el('p', 'admin-muted', 'Keine fehlgeschlagenen Requests.'));
     data.statusCodes.forEach((code) => {
-        const row = el('div', 'mon-bar-row');
+        const active = code.status === selected;
+        const row = el('div', `mon-bar-row mon-clickable${active ? ' is-active' : selected != null ? ' is-dimmed' : ''}`);
+        row.title = active ? 'Filter aufheben' : `Nur Endpunkte mit ${code.status} anzeigen`;
         row.appendChild(el('span', 'mon-bar-label', String(code.status)));
         const track = el('div', 'mon-bar-track');
         const bar = el('div', 'mon-bar');
@@ -1526,12 +1565,31 @@ function renderOverview(data) {
         track.appendChild(bar);
         row.appendChild(track);
         row.appendChild(el('span', 'mon-bar-value', formatNumber(code.count)));
+        row.addEventListener('click', () => setEndpointStatusFilter(active ? null : code.status));
         codes.appendChild(row);
     });
+}
+
+function renderTopEndpoints() {
+    const data = monitoringState.overview;
+    const status = monitoringState.endpointStatus;
+    // Per status the server sends that status' own top list, so endpoints outside the overall top list show up too
+    const rows = status == null ? data.topEndpoints : (data.topEndpointsByStatus[status] || []);
+
+    document.getElementById('mon-endpoint-filter').textContent = status == null ? '' : `(nur ${status})`;
+    document.getElementById('mon-endpoint-reset').classList.toggle('hidden', status == null);
 
     const endpoints = document.getElementById('mon-endpoint-rows');
     endpoints.innerHTML = '';
-    data.topEndpoints.forEach((endpoint) => {
+    if (rows.length === 0) {
+        const row = el('tr');
+        const cell = el('td', 'admin-muted', 'Keine fehlgeschlagenen Requests.');
+        cell.colSpan = 4;
+        row.appendChild(cell);
+        endpoints.appendChild(row);
+        return;
+    }
+    rows.forEach((endpoint) => {
         const row = el('tr', 'mon-clickable');
         row.appendChild(el('td', 'mon-mono', `${endpoint.method || ''} ${endpoint.endpoint}`));
         row.appendChild(el('td', null, endpoint.statuses.map((s) => `${s.status}×${s.count}`).join(', ')));
@@ -1540,6 +1598,37 @@ function renderOverview(data) {
         // Endpoint patterns ("/groups/{id}") aren't searchable, the concrete path text is close enough.
         row.addEventListener('click', () => filterExplorer({ kind: 'REQUEST', q: endpoint.endpoint.split('{')[0] }));
         endpoints.appendChild(row);
+    });
+}
+
+function renderEndpointUsage() {
+    const tbody = document.getElementById('mon-usage-rows');
+    tbody.innerHTML = '';
+    const search = endpointUsageState.search.toLowerCase();
+    const dir = endpointUsageState.sortAsc ? 1 : -1;
+    const key = endpointUsageState.sortKey;
+
+    const rows = endpointUsageState.endpoints
+        .filter((e) => !search || `${e.method} ${e.endpoint}`.toLowerCase().includes(search))
+        .sort((a, b) => (typeof a[key] === 'string' ? a[key].localeCompare(b[key]) : a[key] - b[key]) * dir);
+
+    if (rows.length === 0) {
+        const row = el('tr');
+        const cell = el('td', 'admin-muted', 'Keine Aufrufe in diesem Zeitraum.');
+        cell.colSpan = 5;
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+    }
+
+    rows.forEach((usage) => {
+        const row = el('tr');
+        row.appendChild(el('td', 'mon-mono', `${usage.method} ${usage.endpoint}`));
+        row.appendChild(el('td', null, formatNumber(usage.count)));
+        row.appendChild(el('td', null, usage.failed > 0 ? formatNumber(usage.failed) : '—'));
+        row.appendChild(el('td', null, usage.statuses.map((s) => `${s.status}×${formatNumber(s.count)}`).join(', ')));
+        row.appendChild(el('td', null, formatDateTime(usage.lastHour)));
+        tbody.appendChild(row);
     });
 }
 
@@ -1611,6 +1700,7 @@ const DEVICE_COLORS = [MON_COLORS.ok, MON_COLORS.info, MON_COLORS.purple, MON_CO
 
 function renderMetrics(data) {
     const grid = document.getElementById('mon-metrics');
+    grid.querySelectorAll('.mon-chart').forEach((chart) => chartResizeObserver.unobserve(chart));
     grid.innerHTML = '';
     METRIC_PANELS.forEach((panel) => {
         const box = el('div', 'mon-panel');
@@ -1748,13 +1838,18 @@ async function loadMonitoring() {
     const range = monitoringState.range;
     const levels = document.getElementById('mon-errors-level').value;
 
-    const [overview, errors, metrics] = await Promise.all([
+    const [overview, errors, metrics, usage] = await Promise.all([
         adminFetchJson(`/chefdev/api/monitoring/overview?range=${range}`),
         adminFetchJson(`/chefdev/api/monitoring/errors?range=${range}&levels=${levels}`),
         adminFetchJson(`/chefdev/api/monitoring/metrics?range=${range}`),
+        adminFetchJson(`/chefdev/api/monitoring/endpoints?range=${range}`),
     ]);
 
     renderOverview(overview);
+    endpointUsageState.endpoints = usage.endpoints;
+    // Counted per full hour, so the table can start earlier than the other panels
+    document.getElementById('mon-usage-since').textContent = `(seit ${formatDateTime(usage.since)})`;
+    renderEndpointUsage();
     monitoringState.errorTypes = errors.types;
     monitoringState.errorsAxis = errors.axis;
     renderErrorTypes();
@@ -1774,12 +1869,43 @@ document.getElementById('mon-range')?.addEventListener('click', (e) => {
 });
 
 document.getElementById('mon-refresh')?.addEventListener('click', () => loadMonitoring());
+document.getElementById('mon-endpoint-reset')?.addEventListener('click', () => setEndpointStatusFilter(null));
+
+// Server status charts as a grid or one full-width chart per row, remembered per browser
+const METRICS_LAYOUT_KEY = 'chefdev.metricsLayout';
+
+function applyMetricsLayout(layout) {
+    document.getElementById('mon-metrics')?.classList.toggle('mon-grid-rows', layout === 'rows');
+    document.querySelectorAll('#mon-metrics-layout button').forEach((b) => b.classList.toggle('active', b.dataset.layout === layout));
+}
+
+document.getElementById('mon-metrics-layout')?.addEventListener('click', (e) => {
+    const button = e.target.closest('button[data-layout]');
+    if (!button) return;
+    applyMetricsLayout(button.dataset.layout);
+    try {
+        localStorage.setItem(METRICS_LAYOUT_KEY, button.dataset.layout);
+    } catch (_) {
+        // Storage blocked - the layout just isn't remembered
+    }
+});
+
+try {
+    applyMetricsLayout(localStorage.getItem(METRICS_LAYOUT_KEY) || 'grid');
+} catch (_) {
+    applyMetricsLayout('grid');
+}
 document.getElementById('mon-errors-level')?.addEventListener('change', () => loadMonitoring());
 document.getElementById('mon-errors-search')?.addEventListener('input', (e) => {
     monitoringState.errorsSearch = e.target.value;
     renderErrorTypes();
 });
 attachSortableHeader('mon-errors-header', monitoringState, ERROR_SORT_DEFAULT_DIR, renderErrorTypes);
+document.getElementById('mon-usage-search')?.addEventListener('input', (e) => {
+    endpointUsageState.search = e.target.value;
+    renderEndpointUsage();
+});
+attachSortableHeader('mon-usage-header', endpointUsageState, USAGE_SORT_DEFAULT_DIR, renderEndpointUsage);
 
 ['mon-log-level', 'mon-log-kind'].forEach((id) => {
     document.getElementById(id)?.addEventListener('change', () => loadExplorer(true));

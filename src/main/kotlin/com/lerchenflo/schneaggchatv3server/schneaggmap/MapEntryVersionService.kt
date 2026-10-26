@@ -71,13 +71,15 @@ class MapEntryVersionService(
     private val notificationService: NotificationService,
 ) {
 
+    private val locationDataListType = object : TypeReference<List<LocationData>>() {}
+
     /** Records the creation of an entry, capturing every field as an addition (oldValue = null). */
     fun recordCreate(entry: MapEntry, requesterId: ObjectId) {
         val changes = listOf(
             FieldChange("name", null, json(entry.name)),
             FieldChange("description", null, json(entry.description)),
             FieldChange("coordinates", null, json(entry.coordinates)),
-            FieldChange("locationData", null, json(entry.locationData)),
+            FieldChange("locationData", null, locationDataJson(entry.locationData)),
         )
         save(entry.id, requesterId, MapChangeType.CREATE, changes)
     }
@@ -317,7 +319,7 @@ class MapEntryVersionService(
 
     private fun decodeLocationData(rawJson: String?): List<LocationData>? {
         if (rawJson == null) return null
-        return Json.mapper.readValue(rawJson, object : TypeReference<List<LocationData>>() {})
+        return Json.mapper.readValue(rawJson, locationDataListType)
     }
 
     private fun diff(old: MapEntry, new: MapEntry): List<FieldChange> {
@@ -325,7 +327,7 @@ class MapEntryVersionService(
         if (old.name != new.name) changes += FieldChange("name", json(old.name), json(new.name))
         if (old.description != new.description) changes += FieldChange("description", json(old.description), json(new.description))
         if (old.coordinates != new.coordinates) changes += FieldChange("coordinates", json(old.coordinates), json(new.coordinates))
-        if (old.locationData != new.locationData) changes += FieldChange("locationData", json(old.locationData), json(new.locationData))
+        if (old.locationData != new.locationData) changes += FieldChange("locationData", locationDataJson(old.locationData), locationDataJson(new.locationData))
         return changes
     }
 
@@ -343,6 +345,13 @@ class MapEntryVersionService(
     }
 
     private fun json(value: Any?): String = Json.mapper.writeValueAsString(value)
+
+    /**
+     * `locationData` needs the typed writer: [json] only sees a `List<Object>` there and leaves out
+     * each element's `_class` type id, so the value could not be read back.
+     */
+    private fun locationDataJson(locationData: List<LocationData>): String =
+        Json.mapper.writerFor(locationDataListType).writeValueAsString(locationData)
 
     // ─── Admin read path ────────────────────────────────────────────────────────
 
@@ -413,7 +422,7 @@ class MapEntryVersionService(
                     "${latLong.lat}, ${latLong.long}"
                 }
                 "locationData" -> {
-                    val attributes = Json.mapper.readValue(rawJson, object : TypeReference<List<LocationData>>() {})
+                    val attributes = decodeLocationData(rawJson).orEmpty()
                     if (attributes.isEmpty()) {
                         "keine Attribute"
                     } else {

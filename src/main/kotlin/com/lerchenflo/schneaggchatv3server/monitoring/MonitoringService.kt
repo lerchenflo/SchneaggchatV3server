@@ -113,30 +113,46 @@ class MonitoringService(
             StatusCount(status, (row["count"] as Number).toLong())
         }
 
-        val topEndpoints = aggregate(
+        // One row per method + endpoint + status
+        val endpointStatusRows = aggregate(
             LOGS, requestMatch,
             Document(
                 "\$group", Document("_id", Document("method", "\$method").append("endpoint", "\$endpoint").append("status", "\$status"))
                     .append("count", Document("\$sum", WEIGHT))
                     .append("lastSeen", Document("\$max", "\$$EPOCH"))
             ),
-        ).groupBy { row ->
-            val id = row.get("_id", Document::class.java)
-            (id["method"] as? String) to ((id["endpoint"] as? String) ?: "?")
+        )
+        val methodOf = { row: Document -> row.get("_id", Document::class.java)["method"] as? String }
+        val endpointOf = { row: Document -> (row.get("_id", Document::class.java)["endpoint"] as? String) ?: "?" }
+        val statusOf = { row: Document -> (row.get("_id", Document::class.java)["status"] as? Number)?.toInt() ?: 0 }
+        val countOf = { row: Document -> (row["count"] as Number).toLong() }
+        val lastSeenOf = { row: Document -> (row["lastSeen"] as Number).toLong() * 1000 }
+
+        val topEndpoints = endpointStatusRows.groupBy { row ->
+            methodOf(row) to endpointOf(row)
         }.map { (key, rows) ->
             EndpointFailure(
                 method = key.first,
                 endpoint = key.second,
-                count = rows.sumOf { (it["count"] as Number).toLong() },
-                lastSeen = rows.maxOf { (it["lastSeen"] as Number).toLong() * 1000 },
-                statuses = rows.map {
-                    StatusCount(
-                        status = (it.get("_id", Document::class.java)["status"] as? Number)?.toInt() ?: 0,
-                        count = (it["count"] as Number).toLong(),
-                    )
-                }.sortedByDescending { it.count },
+                count = rows.sumOf(countOf),
+                lastSeen = rows.maxOf(lastSeenOf),
+                statuses = rows.map { StatusCount(status = statusOf(it), count = countOf(it)) }.sortedByDescending { it.count },
             )
         }.sortedByDescending { it.count }.take(MAX_ENDPOINTS)
+
+        // The same rows per status code, for the dashboard's status filter - an endpoint outside the
+        // overall top list can still be the one with the most 401s
+        val topEndpointsByStatus = endpointStatusRows.groupBy(statusOf).mapValues { (status, rows) ->
+            rows.map { row ->
+                EndpointFailure(
+                    method = methodOf(row),
+                    endpoint = endpointOf(row),
+                    count = countOf(row),
+                    lastSeen = lastSeenOf(row),
+                    statuses = listOf(StatusCount(status = status, count = countOf(row))),
+                )
+            }.sortedByDescending { it.count }.take(MAX_ENDPOINTS)
+        }
 
         return MonitoringOverview(
             axis = axis,
@@ -148,6 +164,7 @@ class MonitoringService(
             serverErrorSeries = serverErrorSeries.toList(),
             statusCodes = statusCodes,
             topEndpoints = topEndpoints,
+            topEndpointsByStatus = topEndpointsByStatus,
             latestMetrics = serverMetricsRepository.findFirstByOrderByTimestampDesc()?.toResponse(),
         )
     }

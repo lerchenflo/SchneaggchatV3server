@@ -48,3 +48,6 @@ schneaggchatv3-firebase-admin.json
 .env
 
 
+
+### macOS ###
+.DS_Store

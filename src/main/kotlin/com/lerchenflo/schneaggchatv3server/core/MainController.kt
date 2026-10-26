@@ -1,20 +1,16 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.lerchenflo.schneaggchatv3server.core
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.core.type.TypeReference
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
-import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
-import com.lerchenflo.schneaggchatv3server.website.donations.model.Donation
-import com.lerchenflo.schneaggchatv3server.website.faq.FaqSeedService
-import com.lerchenflo.schneaggchatv3server.feedback.FeedbackSeedService
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
+import com.lerchenflo.schneaggchatv3server.feedback.FeedbackSeedService
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
-import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
 import com.lerchenflo.schneaggchatv3server.repository.DonationRepository
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
+import com.lerchenflo.schneaggchatv3server.schneaggmap.LocationData
 import com.lerchenflo.schneaggchatv3server.schneaggmap.SchneaggmapService
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.BicycleUndergroundType
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.MapEntry
@@ -23,11 +19,9 @@ import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.PersonalUserSettings
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRole
-import com.lerchenflo.schneaggchatv3server.util.AppLogger
-import com.lerchenflo.schneaggchatv3server.util.Json
-import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
-import com.lerchenflo.schneaggchatv3server.util.SyncCollection
-import com.lerchenflo.schneaggchatv3server.util.VersionCounterService
+import com.lerchenflo.schneaggchatv3server.util.*
+import com.lerchenflo.schneaggchatv3server.website.donations.model.Donation
+import com.lerchenflo.schneaggchatv3server.website.faq.FaqSeedService
 import com.mongodb.MongoNamespace
 import org.bson.types.ObjectId
 import org.springframework.beans.factory.annotation.Value
@@ -92,6 +86,7 @@ class MainController(
         migrateReactionTimestamps()
         migrateMessageVersions()
         migrateMapAttributeKeys()
+        migrateMapVersionTypeIds()
         migrateMapAttributeTypes()
         migrateGroupDeletedFlag()
         migrateDetachEventsFromDeletedGroups()
@@ -674,6 +669,59 @@ class MainController(
         }
     }
 
+    /** One attribute field renamed by [migrateMapAttributeKeys], inside elements of type [typeAlias]. */
+    private data class MapAttributeRename(val typeAlias: String, val old: String, val new: String)
+
+    private val mapAttributeRenames = listOf(
+        MapAttributeRename("radar", "speedLimit", "radarSpeedLimit"),
+        MapAttributeRename("radar", "mobile", "radarMobile"),
+        MapAttributeRename("radar", "redLight", "radarRedLight"),
+        MapAttributeRename("police", "lastSeen", "policeLastSeen"),
+        MapAttributeRename("mountain_street", "mautFee", "mountainStreetMautFee"),
+        MapAttributeRename("mountain_street", "heightLimit", "mountainStreetHeightLimit"),
+        MapAttributeRename("mountain_street", "closedInWinter", "mountainStreetClosedInWinter"),
+        MapAttributeRename("wheeliespot", "onlyOnWeekends", "wheeliespotOnlyOnWeekends"),
+        MapAttributeRename("offroad_motorcycle", "legal", "offroadMotorcycleLegal"),
+        MapAttributeRename("offroad_motorcycle", "motocross", "offroadMotorcycleMotocross"),
+        MapAttributeRename("offroad_motorcycle", "enduro", "offroadMotorcycleEnduro"),
+        MapAttributeRename("viewpoint", "lieDownFriendly", "viewpointLieDownFriendly"),
+        MapAttributeRename("camping", "official", "campingOfficial"),
+        MapAttributeRename("camping", "waterDistance", "campingWaterDistance"),
+        MapAttributeRename("camping", "sittingPossibility", "campingSittingPossibility"),
+        MapAttributeRename("camping", "grillPossibility", "campingGrillPossibility"),
+        MapAttributeRename("swimming", "indoor", "swimmingIndoor"),
+        MapAttributeRename("swimming", "jumpSpot", "swimmingJumpSpot"),
+        MapAttributeRename("swimming", "lieDownFriendly", "swimmingLieDownFriendly"),
+        MapAttributeRename("swimming", "price", "swimmingPrice"),
+        MapAttributeRename("climbingspot", "viaFerrata", "climbingspotViaFerrata"),
+        MapAttributeRename("climbingspot", "outdoor", "climbingspotOutdoor"),
+        MapAttributeRename("climbingspot", "price", "climbingspotPrice"),
+        MapAttributeRename("volleyball", "goodNet", "volleyballGoodNet"),
+        MapAttributeRename("volleyball", "goodField", "volleyballGoodField"),
+        MapAttributeRename("volleyball", "outdoor", "volleyballOutdoor"),
+        MapAttributeRename("bicycle", "legal", "bicycleLegal"),
+        MapAttributeRename("bicycle", "difficulty", "bicycleDifficulty"),
+        MapAttributeRename("bicycle", "undergroundType", "bicycleUndergroundType"),
+        MapAttributeRename("outdoor_fitness", "shadow", "outdoorFitnessShadow"),
+        MapAttributeRename("table_tennis", "private", "tableTennisPrivate"),
+        MapAttributeRename("tennis", "paddle", "tennisPaddle"),
+        MapAttributeRename("sightseeing", "entryFee", "sightseeingEntryFee"),
+        MapAttributeRename("party", "entryFee", "partyEntryFee"),
+        MapAttributeRename("wifi", "ssid", "wifiSsid"),
+        MapAttributeRename("wifi", "password", "wifiPassword"),
+        MapAttributeRename("food_kebab", "kebabPrice", "foodKebabPrice"),
+        MapAttributeRename("food_pizza", "margaritaPrice", "foodPizzaMargaritaPrice"),
+        MapAttributeRename("food_burger", "cheeseburgerPrice", "foodBurgerCheeseburgerPrice"),
+        MapAttributeRename("food_beer", "beerPrice", "foodBeerPrice"),
+        MapAttributeRename("food_ice", "iceScoopPrice", "foodIceScoopPrice"),
+        MapAttributeRename("food_cafe_bakery", "outdoorSeating", "foodCafeBakeryOutdoorSeating"),
+        MapAttributeRename("food_cafe_bakery", "alcohol", "foodCafeBakeryAlcohol"),
+        MapAttributeRename("food_cafe_bakery", "coffee", "foodCafeBakeryCoffee"),
+        MapAttributeRename("food_cafe_bakery", "breakfast", "foodCafeBakeryBreakfast"),
+        MapAttributeRename("food_asian", "allYouCanEat", "foodAsianAllYouCanEat"),
+        MapAttributeRename("food_other", "cuisine", "foodOtherCuisine"),
+    )
+
     /**
      * Renames map entry attribute fields inside `map_entries.locationData[]` so the Kotlin property,
      * the AttributeKey enum constant, the JSON wire key and the Mongo field name are all the same
@@ -689,58 +737,7 @@ class MainController(
     fun migrateMapAttributeKeys() {
         AppLogger.info("Running map attribute key migration...")
 
-        data class Rename(val typeAlias: String, val old: String, val new: String)
-
-        val renames = listOf(
-            Rename("radar", "speedLimit", "radarSpeedLimit"),
-            Rename("radar", "mobile", "radarMobile"),
-            Rename("radar", "redLight", "radarRedLight"),
-            Rename("police", "lastSeen", "policeLastSeen"),
-            Rename("mountain_street", "mautFee", "mountainStreetMautFee"),
-            Rename("mountain_street", "heightLimit", "mountainStreetHeightLimit"),
-            Rename("mountain_street", "closedInWinter", "mountainStreetClosedInWinter"),
-            Rename("wheeliespot", "onlyOnWeekends", "wheeliespotOnlyOnWeekends"),
-            Rename("offroad_motorcycle", "legal", "offroadMotorcycleLegal"),
-            Rename("offroad_motorcycle", "motocross", "offroadMotorcycleMotocross"),
-            Rename("offroad_motorcycle", "enduro", "offroadMotorcycleEnduro"),
-            Rename("viewpoint", "lieDownFriendly", "viewpointLieDownFriendly"),
-            Rename("camping", "official", "campingOfficial"),
-            Rename("camping", "waterDistance", "campingWaterDistance"),
-            Rename("camping", "sittingPossibility", "campingSittingPossibility"),
-            Rename("camping", "grillPossibility", "campingGrillPossibility"),
-            Rename("swimming", "indoor", "swimmingIndoor"),
-            Rename("swimming", "jumpSpot", "swimmingJumpSpot"),
-            Rename("swimming", "lieDownFriendly", "swimmingLieDownFriendly"),
-            Rename("swimming", "price", "swimmingPrice"),
-            Rename("climbingspot", "viaFerrata", "climbingspotViaFerrata"),
-            Rename("climbingspot", "outdoor", "climbingspotOutdoor"),
-            Rename("climbingspot", "price", "climbingspotPrice"),
-            Rename("volleyball", "goodNet", "volleyballGoodNet"),
-            Rename("volleyball", "goodField", "volleyballGoodField"),
-            Rename("volleyball", "outdoor", "volleyballOutdoor"),
-            Rename("bicycle", "legal", "bicycleLegal"),
-            Rename("bicycle", "difficulty", "bicycleDifficulty"),
-            Rename("bicycle", "undergroundType", "bicycleUndergroundType"),
-            Rename("outdoor_fitness", "shadow", "outdoorFitnessShadow"),
-            Rename("table_tennis", "private", "tableTennisPrivate"),
-            Rename("tennis", "paddle", "tennisPaddle"),
-            Rename("sightseeing", "entryFee", "sightseeingEntryFee"),
-            Rename("party", "entryFee", "partyEntryFee"),
-            Rename("wifi", "ssid", "wifiSsid"),
-            Rename("wifi", "password", "wifiPassword"),
-            Rename("food_kebab", "kebabPrice", "foodKebabPrice"),
-            Rename("food_pizza", "margaritaPrice", "foodPizzaMargaritaPrice"),
-            Rename("food_burger", "cheeseburgerPrice", "foodBurgerCheeseburgerPrice"),
-            Rename("food_beer", "beerPrice", "foodBeerPrice"),
-            Rename("food_ice", "iceScoopPrice", "foodIceScoopPrice"),
-            Rename("food_cafe_bakery", "outdoorSeating", "foodCafeBakeryOutdoorSeating"),
-            Rename("food_cafe_bakery", "alcohol", "foodCafeBakeryAlcohol"),
-            Rename("food_cafe_bakery", "coffee", "foodCafeBakeryCoffee"),
-            Rename("food_cafe_bakery", "breakfast", "foodCafeBakeryBreakfast"),
-            Rename("food_asian", "allYouCanEat", "foodAsianAllYouCanEat"),
-            Rename("food_other", "cuisine", "foodOtherCuisine"),
-        )
-        val renamesByTypeAlias = renames.groupBy { it.typeAlias }
+        val renamesByTypeAlias = mapAttributeRenames.groupBy { it.typeAlias }
 
         val collection = mongoTemplate.getCollection("map_entries")
         var modifiedDocuments = 0
@@ -770,6 +767,102 @@ class MainController(
             AppLogger.success("Migration completed: Renamed map attribute keys in $modifiedDocuments map entries")
         } else {
             AppLogger.success("Migration check: All map attribute keys already migrated")
+        }
+    }
+
+    /**
+     * The change log wrote its `locationData` snapshots as a plain List, which leaves out each
+     * element's `_class` type id (fixed in `MapEntryVersionService.locationDataJson`) - so they can
+     * neither be shown nor reverted. Adds the type id, worked out from the element's field names,
+     * and renames pre-[migrateMapAttributeKeys] field names on the way, so [migrateMapAttributeTypes]
+     * (which skips elements without `_class`) converts their values next. Must run between those two.
+     *
+     * Some old field names were shared by several types (`legal`, `price`, `entryFee`, ...). Those
+     * are decided by the types the entry has now; an element that still fits more than one type,
+     * or none, is left as it is and logged. Idempotent - only elements without `_class` are touched.
+     */
+    fun migrateMapVersionTypeIds() {
+        AppLogger.info("Running map change log type id migration...")
+
+        // Every field name a type has, had before the key rename, or had before the type migration
+        val fieldsByTypeAlias = mutableMapOf<String, MutableSet<String>>()
+        LocationData::class.java.getAnnotation(JsonSubTypes::class.java).value.forEach { subType ->
+            val properties = Json.mapper.serializationConfig
+                .introspect(Json.mapper.constructType(subType.value.java))
+                .findProperties()
+                .map { it.name }
+            fieldsByTypeAlias.getOrPut(subType.name) { mutableSetOf() } += properties
+        }
+        mapAttributeRenames.forEach { rename ->
+            fieldsByTypeAlias.getOrPut(rename.typeAlias) { mutableSetOf() } += listOf(rename.old, rename.new)
+        }
+        val renamesByTypeAlias = mapAttributeRenames.groupBy { it.typeAlias }
+
+        val entries = mongoTemplate.getCollection("map_entries")
+        val currentTypesByEntry = mutableMapOf<ObjectId, Set<String>>()
+        fun currentTypesOf(entryId: ObjectId) = currentTypesByEntry.getOrPut(entryId) {
+            entries.find(org.bson.Document("_id", entryId)).first()
+                ?.getList("locationData", org.bson.Document::class.java)
+                ?.mapNotNull { it.getString("_class") }
+                ?.toSet()
+                ?: emptySet()
+        }
+
+        val versions = mongoTemplate.getCollection("map_entry_versions")
+        var migratedVersions = 0
+        var unresolvedElements = 0
+
+        versions.find(org.bson.Document("changes.field", "locationData")).forEach { doc ->
+            val changes = doc.getList("changes", org.bson.Document::class.java) ?: return@forEach
+            var changed = false
+
+            changes.filter { it.getString("field") == "locationData" }.forEach { change ->
+                for (side in listOf("oldValue", "newValue")) {
+                    val rawJson = change.getString(side) ?: continue
+                    val elements = try {
+                        Json.mapper.readValue(rawJson, object : TypeReference<List<MutableMap<String, Any?>>>() {})
+                    } catch (e: Exception) {
+                        AppLogger.warn("Map change log type id migration: skipping unreadable snapshot in version ${doc.getObjectId("_id")}: ${e.message}", tag = "migrate_map_version_type_id_skipped")
+                        continue
+                    }
+
+                    var sideChanged = false
+                    elements.filter { !it.containsKey("_class") }.forEach { element ->
+                        val fields = element.keys
+                        val candidates = fieldsByTypeAlias.filterValues { known -> fields.isNotEmpty() && known.containsAll(fields) }.keys
+                        val typeAlias = candidates.singleOrNull()
+                            ?: candidates.intersect(currentTypesOf(doc.getObjectId("entryId"))).singleOrNull()
+
+                        if (typeAlias == null) {
+                            AppLogger.warn("Map change log type id migration: can't tell the type of $fields in version ${doc.getObjectId("_id")} (fits ${candidates.ifEmpty { "none" }})", tag = "migrate_map_version_type_id_unresolved")
+                            unresolvedElements++
+                            return@forEach
+                        }
+
+                        renamesByTypeAlias[typeAlias]?.forEach { (_, old, new) ->
+                            if (element.containsKey(old) && !element.containsKey(new)) element[new] = element.remove(old)
+                        }
+                        element["_class"] = typeAlias
+                        sideChanged = true
+                    }
+
+                    if (sideChanged) {
+                        change[side] = Json.mapper.writeValueAsString(elements)
+                        changed = true
+                    }
+                }
+            }
+
+            if (changed) {
+                versions.replaceOne(org.bson.Document("_id", doc.getObjectId("_id")), doc)
+                migratedVersions++
+            }
+        }
+
+        if (migratedVersions > 0 || unresolvedElements > 0) {
+            AppLogger.success("Migration completed: Added type ids in $migratedVersions change log versions, $unresolvedElements elements left unresolved")
+        } else {
+            AppLogger.success("Migration check: All map change log snapshots already have type ids")
         }
     }
 
