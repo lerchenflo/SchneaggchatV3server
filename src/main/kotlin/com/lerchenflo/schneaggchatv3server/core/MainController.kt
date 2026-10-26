@@ -3,6 +3,7 @@ package com.lerchenflo.schneaggchatv3server.core
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.feedback.FeedbackSeedService
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
+import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
@@ -36,6 +37,8 @@ class MainController(
 
     private val feedbackSeedService: FeedbackSeedService,
 
+    private val messageLookupService: MessageLookupService,
+
     @Value("\${apns.debug}") private val debug: Boolean,
 
     ){
@@ -51,6 +54,8 @@ class MainController(
 
         faqSeedService.seedMissingEntries()
         feedbackSeedService.seedMissingEntries()
+
+        purgeMessagesOfDeletedGroups()
 
         if (debug) {
             //Create test account for google play & Apple
@@ -89,6 +94,22 @@ class MainController(
             AppLogger.info("----------------------------------------")
         }
         AppLogger.info("========================================")
+    }
+
+
+    /**
+     * Cleanup for groups deleted before [com.lerchenflo.schneaggchatv3server.group.GroupService.deleteGroup]
+     * purged their messages: hard-deletes the messages + media of every soft-deleted group.
+     * Idempotent - once a group's messages are gone it finds nothing. Can be removed once it ran
+     * on production.
+     */
+    fun purgeMessagesOfDeletedGroups() {
+        val deletedGroups = groupRepository.findByDeletedTrue()
+        val purgedCount = deletedGroups.sumOf { group -> messageLookupService.deleteAllGroupMessages(group.id) }
+
+        if (purgedCount > 0) {
+            AppLogger.info("Purged $purgedCount messages of ${deletedGroups.size} deleted groups")
+        }
     }
 
 

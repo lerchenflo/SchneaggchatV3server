@@ -6,6 +6,7 @@ import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 import com.lerchenflo.schneaggchatv3server.repository.MessageRepository
 import com.lerchenflo.schneaggchatv3server.util.AudioManager
 import com.lerchenflo.schneaggchatv3server.util.ImageManager
+import org.bson.Document
 import org.bson.types.ObjectId
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
@@ -146,6 +147,38 @@ class MessageLookupService(
         }
 
         messageRepository.deleteAll(messages)
+    }
+
+    /**
+     * Hard-deletes every message of a group (its system messages too - they carry
+     * `receiverId = groupId`) together with their image/audio files. Only for a group that is
+     * gone: no member is left to sync tombstones, and clients wipe the chat locally on the group
+     * delete. Readers, reactions and poll votes live inside the message document and go with it.
+     * @return the number of deleted messages
+     */
+    fun deleteAllGroupMessages(groupId: ObjectId): Long {
+        // A function, not a val: Criteria.and() appends to a shared chain, so one instance can't be
+        // reused for both queries.
+        fun groupMessages() = Criteria.where("groupMessage").`is`(true).and("receiverId").`is`(groupId)
+
+        // Only the media messages need their file deleted, so only their id is loaded - a big group
+        // must not pull its whole history into memory. Raw documents, because a projected Message
+        // can't be constructed.
+        val mediaQuery = Query(
+            groupMessages().and("msgType").`in`(MessageType.IMAGE.name, MessageType.AUDIO.name)
+        )
+        mediaQuery.fields().include("_id", "msgType")
+
+        mongoTemplate.find(mediaQuery, Document::class.java, mongoTemplate.getCollectionName(Message::class.java))
+            .forEach { document ->
+                val messageId = document.getObjectId("_id")
+                when (document.getString("msgType")) {
+                    MessageType.IMAGE.name -> imageManager.deleteMessageImage(messageId, group = true)
+                    MessageType.AUDIO.name -> audioManager.deleteMessageAudio(messageId, group = true)
+                }
+            }
+
+        return mongoTemplate.remove(Query(groupMessages()), Message::class.java).deletedCount
     }
 
 }
