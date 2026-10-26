@@ -143,6 +143,20 @@ class GroupController(
     }
 
 
+    @DeleteMapping("/delete")
+    fun deleteGroup(
+        @RequestParam("groupid") groupid: String
+    ) {
+        require(ValidationUtils.validateObjectId(groupid)) { "Invalid group ID" }
+        val requestingUserId = requireAuth()
+
+        groupService.deleteGroupAsAdmin(
+            userId = requestingUserId,
+            groupId = ObjectId(groupid)
+        )
+    }
+
+
     @PostMapping("/changemembers")
     fun changeMembers(
         @Valid @RequestBody groupActionRequest: GroupService.GroupActionRequest

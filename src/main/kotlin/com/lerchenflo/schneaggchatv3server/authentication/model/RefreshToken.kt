@@ -24,10 +24,8 @@ import kotlin.time.Instant
  * (login dedups on userId + deviceName + deviceType), which is what makes the active-device
  * count on the website exact: `count(expiresAt > now)` per [deviceType].
  *
- * The `{userId, hashedToken}` and `{userId, previousHashedToken}` indexes are managed
- * programmatically in `MainController.migrateRefreshTokenChains` (not via annotations) so the
- * legacy `active_user_token` partial index can be dropped without an auto-index-creation
- * conflict at startup.
+ * The `{userId, hashedToken}` and `{userId, previousHashedToken}` indexes are created
+ * programmatically in `MainController.ensureRefreshTokenIndexes` (not via annotations).
  */
 @TypeAlias("refreshtoken")
 @Document("refreshTokens")

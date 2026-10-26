@@ -12,6 +12,7 @@ import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.group.model.toGroupMemberResponse
+import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.SystemEventType
 import com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
@@ -44,6 +45,7 @@ class GroupService(
 
     private val notificationService: NotificationService,
     private val systemMessageService: SystemMessageService,
+    private val messageLookupService: MessageLookupService,
 
     private val imageManager: ImageManager,
     private val friendsService: FriendsService,
@@ -605,9 +607,33 @@ class GroupService(
 
 
     /**
+     * User-facing: delete the whole group for every member. Admins only, same as the delete timer.
+     * A connected event is detached and survives without a group chat - deleting the event as well
+     * stays with its creator in the event screen.
+     */
+    fun deleteGroupAsAdmin(userId: ObjectId, groupId: ObjectId) {
+        groupLookupService.getGroupById(groupId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
+
+        requireOrLog(
+            "delete_group_not_member",
+            groupLookupService.isUserInGroup(userId, groupId),
+            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: DELETE_GROUP, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
+        ) { "You are not a member of this group" }
+        requireOrLog(
+            "delete_group_not_admin",
+            groupLookupService.isAdmin(userId, groupLookupService.getGroupMembers(groupId)),
+            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: DELETE_GROUP, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
+        ) { "You are not an admin" }
+
+        deleteGroup(groupId, deletedBy = userId, deleteConnectedEvent = false)
+    }
+
+    /**
      * Soft-delete a group and all of its members. The single point every group deletion goes through,
-     * so members are always cleaned up and clients are always notified. A connected event (if any) is
-     * detached (groupId set to null) unless [deleteConnectedEvent] is set, in which case it is deleted too.
+     * so members are always cleaned up and clients are always notified. The group's messages and their
+     * media are hard-deleted. A connected event (if any) is detached (groupId set to null) unless
+     * [deleteConnectedEvent] is set, in which case it is deleted too.
      */
     fun deleteGroup(groupId: ObjectId, deletedBy: ObjectId? = null, deleteConnectedEvent: Boolean = false) {
         val group = groupLookupService.getGroupById(groupId) ?: return
@@ -620,6 +646,9 @@ class GroupService(
         groupLookupService.saveGroup(group.copy(deleted = true))
 
         imageManager.deleteProfilePic(groupId.toHexString(), group = true)
+
+        // After the members are gone, so no send can slip in behind the purge
+        messageLookupService.deleteAllGroupMessages(groupId)
 
         loggingService.log(deletedBy, LogType.GROUP_DELETED)
 

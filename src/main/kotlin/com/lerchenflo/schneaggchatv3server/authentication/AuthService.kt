@@ -472,12 +472,6 @@ class AuthService(
             .set("deviceName", deviceName)
             .set("deviceType", devicetype)
             .set("lastUsedAt", Clock.System.now())
-            // Transitional: a pre-migration soft-deleted row can still hold this hash as its
-            // current token; claiming it revives it, so strip the legacy soft-delete markers or
-            // MainController.migrateRefreshTokenChains would sweep the revived row. No-op on
-            // rows written after the migration.
-            .unset("deletedAt")
-            .unset("replacedByToken")
 
         return mongoTemplate.findAndModify(
             query,

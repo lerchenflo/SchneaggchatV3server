@@ -2,7 +2,6 @@
 
 package com.lerchenflo.schneaggchatv3server.schneaggmap
 
-import com.fasterxml.jackson.core.type.TypeReference
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.*
@@ -10,20 +9,16 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
-import com.lerchenflo.schneaggchatv3server.util.Json
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import com.lerchenflo.schneaggchatv3server.util.withOptimisticRetry
 import org.bson.types.ObjectId
-import org.springframework.core.io.ClassPathResource
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
-import java.nio.charset.Charset
 import kotlin.collections.forEach
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
 data class MapSyncResponse(
     val updatedEntries: List<MapEntryResponse>,
@@ -249,160 +244,4 @@ class SchneaggmapService(
         )
     }
 
-
-    // ─── Boot hooks ───────────────────────────────────────────────────────────
-
-    fun importLegacyMapEntries(creatorId: ObjectId) {
-        if (mapEntryRepository.count() > 0) {
-            //AppLogger.info("Legacy map entry import skipped: collection not empty, testing for deserialization error:")
-            mapEntryRepository.findAll().first()
-            //AppLogger.info("No error")
-            return
-        }
-
-        val resource = ClassPathResource("seed/v2schneaggmaplocations.json")
-        val raw = Json.mapper.readValue(
-            resource.inputStream,
-            object : TypeReference<List<Map<String, Any>>>() {}
-        )
-
-        val skippedCategories = setOf("Kraftraum", "Schaffa", "Schule")
-        val speedRegex = Regex("""^(\d+)""")
-        val batch = mutableListOf<MapEntry>()
-        var skipped = 0
-
-        for (entry in raw) {
-            val categoryName = fixEncoding(entry["Name"] as? String ?: continue)
-            if (categoryName in skippedCategories) { skipped++; continue }
-
-            val beschreibung = fixEncoding((entry["Beschreibung"] as? String).orEmpty())
-            val createdAt = Instant.fromEpochMilliseconds((entry["CreationTime"] as? String)?.toLongOrNull() ?: 0L)
-            val updatedAt = Instant.fromEpochMilliseconds((entry["LastChanged"]  as? String)?.toLongOrNull() ?: 0L)
-            val lat = (entry["Latitude"]  as? String)?.toDoubleOrNull() ?: continue
-            val lng = (entry["Longitude"] as? String)?.toDoubleOrNull() ?: continue
-
-            val locationData: LocationData
-            val name: String
-            val description: String
-
-            when (categoryName) {
-
-                "Radar" -> {
-                    val speed = speedRegex.find(beschreibung)?.groupValues?.get(1)?.toIntOrNull()
-                    locationData = if (beschreibung == "Ampelblitzer") {
-                        LocationData.Radar(
-                            radarSpeedLimit = AttributeValue.IntValue(0),
-                            radarMobile     = AttributeValue.BoolValue(false),
-                            radarRedLight   = AttributeValue.BoolValue(true),
-                        )
-                    } else {
-                        LocationData.Radar(
-                            radarSpeedLimit = AttributeValue.IntValue(speed ?: 0),
-                            radarMobile     = AttributeValue.BoolValue(false),
-                            radarRedLight   = AttributeValue.BoolValue(false),
-                        )
-                    }
-                    name        = if (speed != null) "$speed km/h Radar" else "Radar"
-                    description = ""
-                }
-
-                "Motorradstrecke" -> {
-                    locationData = LocationData.MountainStreet(
-                        mountainStreetMautFee        = null,
-                        mountainStreetHeightLimit    = null,
-                        mountainStreetClosedInWinter = null,
-                    )
-                    name        = beschreibung.ifBlank { "Motorradstrecke" }
-                    description = ""
-                }
-
-                "Wheeliespot" -> {
-                    locationData = LocationData.Wheeliespot(
-                        wheeliespotOnlyOnWeekends = null,
-                    )
-                    name        = beschreibung.ifBlank { "Wheeliespot" }
-                    description = ""
-                }
-
-                "Sehenswuerdigkeit" -> {
-                    locationData = LocationData.SightSeeing(sightseeingEntryFee = null)
-                    name        = beschreibung.ifBlank { "Sehenswürdigkeit" }
-                    description = ""
-                }
-
-                "Badespot" -> {
-                    locationData = LocationData.SwimmingLocation(swimmingSetting = null, swimmingJumpSpot = null, swimmingLieDownFriendly = null, swimmingPrice = null)
-                    name        = beschreibung.ifBlank { "Badespot" }
-                    description = ""
-                }
-
-                "Partylocation" -> {
-                    locationData = LocationData.PartyLocation(partyEntryFee = null)
-                    name        = beschreibung.ifBlank { "Partylocation" }
-                    description = ""
-                }
-
-                "Kebab" -> {
-                    locationData = LocationData.FoodKebab(foodKebabPrice = null)
-                    name        = beschreibung.ifBlank { "Kebab" }
-                    description = ""
-                }
-
-                "Essen" -> {
-                    locationData = LocationData.FoodOther(
-                        foodOtherCuisine = AttributeValue.StringValue(beschreibung.ifBlank { "Essen" }),
-                    )
-                    name        = beschreibung.ifBlank { "Essen" }
-                    description = ""
-                }
-
-                else -> { skipped++; continue }
-            }
-
-            batch.add(
-                MapEntry(
-                    name         = name,
-                    description  = description,
-                    coordinates  = LatLong(lat = lat, long = lng),
-                    locationData = listOf(locationData),
-                    createdBy    = creatorId,
-                    createdAt    = createdAt,
-                    updatedBy    = creatorId,
-                    updatedAt    = updatedAt,
-                    deleted      = false,
-                )
-            )
-        }
-
-        mapEntryRepository.saveAll(batch)
-        AppLogger.success("Legacy map entry import complete: imported=${batch.size}, skipped=$skipped")
-    }
-
-
-}
-
-
-private val cp1252 = Charset.forName("windows-1252")
-
-//Reverse wrong encoding from v2 schneaggmap strings ("Seebrünzler" to "SeebrÃƒÂ¼nzler")
-
-fun fixEncoding(s: String): String {
-    var current = s
-
-    repeat(5) {
-        val fixed = try {
-            String(current.toByteArray(cp1252), Charsets.UTF_8)
-        } catch (e: Exception) {
-            AppLogger.warn("Legacy map import: could not fix encoding of '$current': ${e.message}", tag = "import_legacy_map_encoding_failed")
-            return current
-        }
-
-        if (fixed == current) {
-            return current
-        }
-
-        current = fixed
-    }
-
-    return current
 }

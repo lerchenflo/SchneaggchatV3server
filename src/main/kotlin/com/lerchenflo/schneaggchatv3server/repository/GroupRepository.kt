@@ -9,4 +9,5 @@ interface GroupRepository : MongoRepository<Group, ObjectId> {
     fun findByDeletedFalseAndExpiresAtBefore(yesterday: Instant): List<Group>
     fun findByIdAndDeletedFalse(id: ObjectId): Group?
     fun findByIdInAndDeletedFalse(ids: List<ObjectId>): List<Group>
+    fun findByDeletedTrue(): List<Group>
 }
