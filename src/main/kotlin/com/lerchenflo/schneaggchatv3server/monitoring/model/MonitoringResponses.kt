@@ -42,6 +42,24 @@ data class EndpointFailure(
     val statuses: List<StatusCount>,
 )
 
+/** One endpoint's requests in the range, all statuses. */
+data class EndpointUsage(
+    val method: String,
+    val endpoint: String,
+    val count: Long,
+    /** Responses >= 400. */
+    val failed: Long,
+    val statuses: List<StatusCount>,
+    /** Start of the newest hour with a request, epoch millis. */
+    val lastHour: Long,
+)
+
+data class EndpointUsageResponse(
+    /** Counts are per hour, so the range starts at the full hour before the requested start (epoch millis). */
+    val since: Long,
+    val endpoints: List<EndpointUsage>,
+)
+
 data class MonitoringOverview(
     val axis: TimeAxis,
     val current: LevelCounts,
@@ -53,6 +71,8 @@ data class MonitoringOverview(
     val serverErrorSeries: List<Long>,
     val statusCodes: List<StatusCount>,
     val topEndpoints: List<EndpointFailure>,
+    /** Top endpoints of each status code alone (key = status), for filtering the table by a clicked status. */
+    val topEndpointsByStatus: Map<Int, List<EndpointFailure>>,
     val latestMetrics: ServerMetricsSnapshotResponse?,
 )
 

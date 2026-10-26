@@ -3607,6 +3607,9 @@ header.scrolled {
 
 .mon-status .mon-kpi-value {
     font-size: 1.1rem;
+    /* "1.234 / 4.096 MB" wraps instead of being cut off */
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .mon-kpi-trend {
@@ -3650,17 +3653,51 @@ header.scrolled {
     margin-top: 1rem;
 }
 
+/* min(): a column never asks for more than the container has, so the grid can't overflow it */
 .mon-grid-2 {
-    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
 }
 
 .mon-grid-3 {
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
     margin-bottom: 1rem;
+}
+
+.mon-grid-3.mon-grid-rows {
+    grid-template-columns: 1fr;
 }
 
 .mon-heading {
     margin: 2rem 0 1rem;
+}
+
+.mon-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 2rem 0 1rem;
+}
+
+.mon-heading-row .mon-heading {
+    margin: 0;
+}
+
+.mon-segmented button i {
+    margin-right: 0.4rem;
+}
+
+.mon-hint {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+}
+
+.mon-small-button {
+    flex: none;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.8rem;
 }
 
 .mon-chart {
@@ -3758,6 +3795,16 @@ header.scrolled {
 .mon-bar-value {
     text-align: right;
     color: #94a3b8;
+}
+
+.mon-bar-row.mon-clickable:hover .mon-bar-label,
+.mon-bar-row.is-active .mon-bar-label {
+    color: var(--light);
+    font-weight: 700;
+}
+
+.mon-bar-row.is-dimmed {
+    opacity: 0.4;
 }
 
 .mon-table-flat {

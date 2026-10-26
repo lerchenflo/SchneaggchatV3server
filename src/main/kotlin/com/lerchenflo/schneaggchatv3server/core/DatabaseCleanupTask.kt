@@ -2,6 +2,7 @@ package com.lerchenflo.schneaggchatv3server.core
 
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.monitoring.AppLogService
+import com.lerchenflo.schneaggchatv3server.monitoring.RequestCountService
 import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetricsService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserLocationRepository
@@ -16,6 +17,7 @@ class DatabaseCleanupTask(
     private val groupService: GroupService,
     private val appLogService: AppLogService,
     private val serverMetricsService: ServerMetricsService,
+    private val requestCountService: RequestCountService,
 ) {
 
     /**
@@ -43,5 +45,7 @@ class DatabaseCleanupTask(
         //Monitoring dashboard data (31 days)
         appLogService.deleteExpired()
         serverMetricsService.deleteExpired()
+        //Request counts per endpoint (90 days)
+        requestCountService.deleteExpired()
     }
 }

@@ -146,11 +146,14 @@
 
                 <div class="mon-grid mon-grid-2">
                     <div class="mon-panel">
-                        <div class="mon-panel-title">Statuscodes</div>
+                        <div class="mon-panel-title">Statuscodes <span class="admin-muted mon-hint">(klicken zum Filtern)</span></div>
                         <div id="mon-status-codes" class="mon-bars"></div>
                     </div>
                     <div class="mon-panel">
-                        <div class="mon-panel-title">Endpunkte mit den meisten Fehlern</div>
+                        <div class="mon-panel-header">
+                            <div class="mon-panel-title">Endpunkte mit den meisten Fehlern <span id="mon-endpoint-filter" class="admin-muted"></span></div>
+                            <button type="button" id="mon-endpoint-reset" class="secondary-button mon-small-button hidden">Alle anzeigen</button>
+                        </div>
                         <div class="admin-table-scroll mon-table-flat">
                             <table class="admin-table mon-table-compact">
                                 <thead>
@@ -164,6 +167,30 @@
                                 <tbody id="mon-endpoint-rows"></tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Requests per endpoint (all requests, counted per hour) -->
+                <div class="mon-panel">
+                    <div class="mon-panel-header">
+                        <div class="mon-panel-title">Aufrufe pro Endpunkt <span id="mon-usage-since" class="admin-muted"></span></div>
+                        <div class="admin-filter-row">
+                            <input type="search" id="mon-usage-search" class="admin-select" placeholder="Endpunkt suchen...">
+                        </div>
+                    </div>
+                    <div class="admin-table-scroll mon-table-flat">
+                        <table class="admin-table mon-table-compact">
+                            <thead>
+                                <tr id="mon-usage-header">
+                                    <th class="admin-sortable" data-sort="endpoint">Endpunkt</th>
+                                    <th class="admin-sortable" data-sort="count">Aufrufe</th>
+                                    <th class="admin-sortable" data-sort="failed">Fehler</th>
+                                    <th>Status</th>
+                                    <th class="admin-sortable" data-sort="lastHour">Zuletzt</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mon-usage-rows"></tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -198,7 +225,13 @@
                 </div>
 
                 <!-- Server status -->
-                <h3 class="mon-heading">Serverstatus</h3>
+                <div class="mon-heading-row">
+                    <h3 class="mon-heading">Serverstatus</h3>
+                    <div id="mon-metrics-layout" class="mon-segmented" role="group" aria-label="Ansicht">
+                        <button type="button" data-layout="grid" class="active"><i class="fa-solid fa-table-cells-large"></i>Raster</button>
+                        <button type="button" data-layout="rows"><i class="fa-solid fa-bars"></i>Zeilen</button>
+                    </div>
+                </div>
                 <div id="mon-metrics" class="mon-grid mon-grid-3"></div>
 
                 <!-- Log explorer -->

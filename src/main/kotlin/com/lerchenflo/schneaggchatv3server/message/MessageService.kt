@@ -831,7 +831,7 @@ class MessageService(
         }
 
         if (message.groupMessage) {
-            canUserAccessMessage(userId, message.receiverId, true)
+            canUserAccessMessage(userId, message.receiverId, true, messageId)
         } else {
             // For direct messages, user must be either sender or receiver
             requireOrLog(
@@ -847,13 +847,16 @@ class MessageService(
 
     /**
      * Check if a user can access a message. throws if not
+     *
+     * [messageId] is only for the log: set when an existing message is accessed, null for a send,
+     * so a "Not in group" warning tells the two apart.
      */
-    private fun canUserAccessMessage(sender: ObjectId, receiver: ObjectId, groupMessage: Boolean) {
+    private fun canUserAccessMessage(sender: ObjectId, receiver: ObjectId, groupMessage: Boolean, messageId: ObjectId? = null) {
         if (groupMessage) {
             requireOrLog(
                 "access_message_not_in_group",
                 groupLookupService.isUserInGroup(sender, receiver),
-                { "Unauthorized message access - user: ${userLookupService.getUsername(sender)}, group: ${groupLookupService.getGroupName(receiver)}: Not in group" }
+                { "Unauthorized message access - user: ${userLookupService.getUsername(sender)}, group: ${groupLookupService.getGroupName(receiver)}, ${messageId?.let { "messageId: ${it.toHexString()}" } ?: "send"}: Not in group" }
             ) { "You are not a member of this group" }
         } else {
             //Single message
