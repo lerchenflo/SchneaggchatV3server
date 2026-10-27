@@ -8,8 +8,8 @@ enum class Game(
     val lowerTimeWins: Boolean,
     // Offline party games keep their own boards but never feed the cross-game ranking
     val countsForGlobalRanking: Boolean = true,
-    // Win-counting games: every submission is one win (score = 1) and the board ranks the sum
-    // per user instead of the best single submission
+    // Win-counting games: every submission carries a number of wins (score >= 1, at most maxScore)
+    // and the board ranks the sum per user instead of the best single submission
     val sumsWins: Boolean = false,
     // Highest score this game can possibly produce; anything above it is a forged submission.
     // null = no known upper bound (endless games).
@@ -63,6 +63,10 @@ enum class Game(
 
     // One submission per winning player (score = 1); the board shows the number of wins. timeMillis is always 0.
     UNDERCOVER(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, sumsWins = true, maxScore = 1),
+
+    // One submission per finished match carrying the player's won rounds; the board shows the total
+    // number of wins. timeMillis is always 0. 100 wins in one match is already far beyond a real evening.
+    TIC_TAC_TOE(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, sumsWins = true, maxScore = 100),
 
     // Daily C puzzle without a difficulty (always MEDIUM): 100 / 60 / 30 points for solving on the
     // first / second / third try, failed runs submit nothing. The solve time ranks equal points.
