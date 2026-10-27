@@ -153,13 +153,14 @@ class GamesService(
     }
 
     /**
-     * Rejects scores the game cannot actually produce. Win-counting games only accept single wins,
-     * every game with a known ceiling ([Game.maxScore]) refuses anything above it, and games with a
-     * scoring rate ([Game.maxPointsPerSecond]) refuse more points than [timeMillis] allows, so a
-     * patched client cannot own a board with an impossible submission.
+     * Rejects scores the game cannot actually produce. Win-counting games only accept at least one
+     * win (their [Game.maxScore] caps how many one submission may carry), every game with a known
+     * ceiling refuses anything above it, and games with a scoring rate ([Game.maxPointsPerSecond])
+     * refuse more points than [timeMillis] allows, so a patched client cannot own a board with an
+     * impossible submission.
      */
     private fun requireValidScore(game: Game, score: Long, timeMillis: Long) {
-        require(!game.sumsWins || score == 1L) { "${game.name} only accepts a score of 1 per win" }
+        require(!game.sumsWins || score >= 1L) { "${game.name} only accepts a positive number of wins" }
         require(score >= game.minScore) { "${game.name} scores cannot be below ${game.minScore}" }
         game.maxScore?.let { max ->
             require(score <= max) { "${game.name} scores cannot exceed $max" }
