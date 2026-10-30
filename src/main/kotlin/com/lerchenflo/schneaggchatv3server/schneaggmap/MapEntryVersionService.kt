@@ -1,8 +1,6 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.lerchenflo.schneaggchatv3server.schneaggmap
 
-import com.fasterxml.jackson.core.type.TypeReference
+import tools.jackson.core.type.TypeReference
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryRepository
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryVersionRepository
@@ -24,7 +22,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /** One row of the admin "map change log" view - a [MapEntryVersion] with values decoded to display strings. */

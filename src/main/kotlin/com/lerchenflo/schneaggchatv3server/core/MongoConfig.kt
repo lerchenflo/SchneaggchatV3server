@@ -1,5 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.core
 
+import com.lerchenflo.schneaggchatv3server.group.groupextensions.ExtensionItemData
+import com.lerchenflo.schneaggchatv3server.group.groupextensions.model.ExtensionSettings
 import com.lerchenflo.schneaggchatv3server.schneaggmap.LocationData
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.AttributeValue
 import com.lerchenflo.schneaggchatv3server.util.Json
@@ -24,6 +26,10 @@ class MongoConfig {
             AttributeValueReadConverter(),
             LocationDataWriteConverter(),
             LocationDataReadConverter(),
+            ExtensionItemDataWriteConverter(),
+            ExtensionItemDataReadConverter(),
+            ExtensionSettingsWriteConverter(),
+            ExtensionSettingsReadConverter(),
         ))
     }
 }
@@ -93,6 +99,45 @@ class LocationDataReadConverter : Converter<Document, LocationData> {
         val docWithType = Document(source)
 
         return Json.mapper.convertValue(docWithType, LocationData::class.java)
+    }
+}
+
+
+
+
+// Group extension payloads - same Jackson + @TypeAlias mechanics as the LocationData pair above
+
+@WritingConverter
+class ExtensionItemDataWriteConverter : Converter<ExtensionItemData, Document> {
+    override fun convert(source: ExtensionItemData): Document {
+        val doc = Document.parse(Json.mapper.writeValueAsString(source))
+        doc["_class"] = source::class.findAnnotation<TypeAlias>()?.value
+            ?: error("Missing @TypeAlias on ${source::class.simpleName}")
+        return doc
+    }
+}
+
+@ReadingConverter
+class ExtensionItemDataReadConverter : Converter<Document, ExtensionItemData> {
+    override fun convert(source: Document): ExtensionItemData {
+        return Json.mapper.convertValue(Document(source), ExtensionItemData::class.java)
+    }
+}
+
+@WritingConverter
+class ExtensionSettingsWriteConverter : Converter<ExtensionSettings, Document> {
+    override fun convert(source: ExtensionSettings): Document {
+        val doc = Document.parse(Json.mapper.writeValueAsString(source))
+        doc["_class"] = source::class.findAnnotation<TypeAlias>()?.value
+            ?: error("Missing @TypeAlias on ${source::class.simpleName}")
+        return doc
+    }
+}
+
+@ReadingConverter
+class ExtensionSettingsReadConverter : Converter<Document, ExtensionSettings> {
+    override fun convert(source: Document): ExtensionSettings {
+        return Json.mapper.convertValue(Document(source), ExtensionSettings::class.java)
     }
 }
 

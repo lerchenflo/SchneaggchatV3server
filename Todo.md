@@ -91,3 +91,11 @@ Source: user bug report (2026-10-21): two accounts with the same email, password
 Source: client `plans/ANNOUNCEMENTS_PLAN.md` (2026-10-16). Server part done 2026-10-17.
 
 - [ ] Later (optional): cleanup of long-expired announcements.
+
+---
+
+## FCM: Firebase Installation ID
+
+Source: firebase-admin update check (2026-10-30). firebase-admin 9.10.0 deprecated sending to an FCM token (`Message.Builder.setToken`, `MulticastMessage` tokens) in favor of the Firebase Installation ID (`setFid`). Tokens still work and the release notes give no removal date. The client part is tracked in the client `plans/Todo.md` (P3).
+
+- [ ] Accept and store the FID (`/users/setnotificationtoken` in `user/UserController.kt:51`, `notifications/firebase/model/FirebaseToken.kt`, `ValidationUtils.validateNotificationToken` - an FID has a different format than a token) and send with `setFid` in `FirebaseService.constructMessage` (`notifications/firebase/FirebaseService.kt:470`). Keep `setToken` for the released clients until none of them is left. The token cleanup on FCM "unregistered" errors has to cover FIDs too. Done before the client starts sending FIDs.

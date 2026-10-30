@@ -50,11 +50,10 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
 
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
+    implementation("tools.jackson.module:jackson-module-kotlin") // Jackson 3 Kotlin support (HTTP bodies + Json.mapper), so Kotlin default values apply
 
     //firebase
-    implementation("com.google.firebase:firebase-admin:9.9.0")
+    implementation("com.google.firebase:firebase-admin:9.11.0")
 
     //APNs
     implementation("com.eatthepath:pushy:0.15.6")

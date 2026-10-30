@@ -8,6 +8,7 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationS
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.hasEnded
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
+import com.lerchenflo.schneaggchatv3server.group.groupextensions.GroupExtensionLookupService
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
@@ -40,6 +41,7 @@ import kotlin.time.Instant
 class GroupService(
     private val groupMemberRepository: GroupMemberRepository,
     private val groupLookupService: GroupLookupService,
+    private val groupExtensionLookupService: GroupExtensionLookupService,
     private val eventsLookupService: EventsLookupService,
     private val userLookupService: UserLookupService,
 
@@ -632,7 +634,7 @@ class GroupService(
     /**
      * Soft-delete a group and all of its members. The single point every group deletion goes through,
      * so members are always cleaned up and clients are always notified. The group's messages and their
-     * media are hard-deleted. A connected event (if any) is detached (groupId set to null) unless
+     * media and its extensions are hard-deleted. A connected event (if any) is detached (groupId set to null) unless
      * [deleteConnectedEvent] is set, in which case it is deleted too.
      */
     fun deleteGroup(groupId: ObjectId, deletedBy: ObjectId? = null, deleteConnectedEvent: Boolean = false) {
@@ -649,6 +651,8 @@ class GroupService(
 
         // After the members are gone, so no send can slip in behind the purge
         messageLookupService.deleteAllGroupMessages(groupId)
+        // Clients drop them as unknown ids on the next /groupextensions/sync (and on the GroupChange below)
+        groupExtensionLookupService.deleteAllGroupExtensions(groupId)
 
         loggingService.log(deletedBy, LogType.GROUP_DELETED)
 

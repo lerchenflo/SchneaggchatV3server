@@ -3,6 +3,8 @@ package com.lerchenflo.schneaggchatv3server.notifications
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
+import com.lerchenflo.schneaggchatv3server.group.groupextensions.model.GroupExtension
+import com.lerchenflo.schneaggchatv3server.group.groupextensions.model.toGroupExtensionResponse
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.Message
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.toMessageResponse
@@ -331,6 +333,24 @@ class NotificationService(
                     deleted = true
                 ),
                 receiverId = removedMemberId,
+            )
+        }
+    }
+
+    /**
+     * Send a changed group extension to every member of its group, the writer included (a second
+     * device of the writer needs it too). Socket only - offline members catch up with
+     * /groupextensions/sync.
+     */
+    fun notifyGroupExtensionUpdate(extension: GroupExtension, deleted: Boolean) {
+        val response = extension.toGroupExtensionResponse()
+        groupLookupService.getGroupMembers(extension.ownerId).forEach { member ->
+            socketConnectionHandler.sendMessage(
+                SocketConnectionMessage.GroupExtensionChange(
+                    extension = response,
+                    deleted = deleted
+                ),
+                receiverId = member.userid,
             )
         }
     }
