@@ -475,9 +475,7 @@ class GroupService(
                             deleteGroup(groupId, deletedBy = requestingUser)
                             return // Don't update group lastChanged, no system message - no chat left
                         } else {
-                            // Find user with earliest joinedAt timestamp and promote to admin
-                            val longestMember = newGroupMembers.minBy { it.joinedAt }
-                            groupMemberRepository.save(longestMember.copy(admin = true))
+                            promoteLongestMember(newGroupMembers)
                         }
                     }
                 }
@@ -572,6 +570,37 @@ class GroupService(
             )
         }
 
+    }
+
+    /**
+     * Account deletion: takes [userId] out of every group by the rules of a normal leave in
+     * [performUserAction]. The longest member takes over from the last admin, and a group left
+     * without members is deleted. No system message, because the user's messages and name are gone
+     * right after. A failure in one group must not stop the account deletion halfway.
+     */
+    fun leaveAllGroups(userId: ObjectId) {
+        groupLookupService.getUserGroupIds(userId).forEach { groupId ->
+            runCatching {
+                val remainingMembers = groupLookupService.getGroupMembers(groupId).filter { it.userid != userId }
+
+                if (remainingMembers.isEmpty()) {
+                    deleteGroup(groupId, deletedBy = userId)
+                } else {
+                    if (remainingMembers.none { it.admin }) promoteLongestMember(remainingMembers)
+
+                    groupLookupService.removeGroupMember(groupId, userId)
+                    groupLookupService.getGroupById(groupId)?.let {
+                        groupLookupService.saveGroup(it.copy(updatedAt = Clock.System.now()))
+                    }
+                    notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), deleted = false)
+                }
+            }.onFailure { AppLogger.warn("Leaving group $groupId on account deletion failed: ${it.message}", user = userId) }
+        }
+    }
+
+    /** The member with the earliest joinedAt takes over when a group loses its last admin. */
+    private fun promoteLongestMember(members: List<GroupMember>) {
+        groupMemberRepository.save(members.minBy { it.joinedAt }.copy(admin = true))
     }
 
     fun addUserToGroup(groupId: ObjectId, memberId: ObjectId, timeStamp: Instant = Clock.System.now()) {

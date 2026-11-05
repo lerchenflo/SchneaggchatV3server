@@ -15,6 +15,7 @@ data class PersonalUserSettings(
 
     val mergeMapLocations: Boolean = true,
     val mergeMapUsers: Boolean = true,
+    val sortMapUsersByPinned: Boolean = true,
     val mapStyle: String = "LIBERTY",
 
     val pinnedChats: List<PinnedChat> = emptyList(),
