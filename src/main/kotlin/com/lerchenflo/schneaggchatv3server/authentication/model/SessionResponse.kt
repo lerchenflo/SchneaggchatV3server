@@ -1,9 +1,6 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.lerchenflo.schneaggchatv3server.authentication.model
 
 import com.lerchenflo.schneaggchatv3server.authentication.AuthController
-import kotlin.time.ExperimentalTime
 
 /**
  * One logged-in device in the user's device list (`GET /sessions`). Never carries token data.
@@ -17,12 +14,4 @@ data class SessionResponse(
     val createdAt: Long,
     /** Last login or token refresh, epoch millis. Falls back to [createdAt] for rows predating the field. */
     val lastUsedAt: Long,
-)
-
-fun RefreshToken.toSessionResponse() = SessionResponse(
-    id = id.toHexString(),
-    deviceName = deviceName,
-    deviceType = deviceType,
-    createdAt = createdAt.toEpochMilliseconds(),
-    lastUsedAt = (lastUsedAt ?: createdAt).toEpochMilliseconds(),
 )

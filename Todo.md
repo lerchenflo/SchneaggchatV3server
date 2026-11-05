@@ -16,26 +16,6 @@ Constraint for everything below: the server must stay compatible with the releas
 
 ---
 
-## Mappers in their own files
-
-Source: user decision (2026-10-17). Not started - do it later, not as part of other work.
-
-Every mapper (`toXResponse()`, `toX()` extension functions and similar conversions) lives in a separate mapper file, never inside a domain model, entity or response class file. Example: `user/usermodel/UserMapper.kt` next to `User.kt` / `UserResponse.kt`.
-
-- [ ] Move the mappers out of these files (found 2026-10-17 by searching for `fun X.toY(` outside mapper files; check each one, some may not be mappers):
-  - `announcement/model/AnnouncementResponse.kt`
-  - `events/eventmodel/EventParticipation.kt`, `EventResponse.kt`, `GroupDeleteDelay.kt`
-  - `games/model/GameScoreResponse.kt`
-  - `group/model/GroupMember.kt`
-  - `message/messagemodel/Message.kt`, `PollRequest.kt`, `PollResponse.kt`, `SystemEvent.kt`
-  - `schneaggmap/model/MapEntryResponse.kt`
-  - `user/usermodel/UserResponse.kt`
-  - `website/donations/model/DonationResponse.kt`
-  - `website/faq/model/FaqResponse.kt`
-- [ ] From then on, new mappers go straight into a mapper file.
-
----
-
 ## Socket push after every user/group mutation - client follow-up
 
 Source: client `plans/REPOSITORY_INTERFACE_MIGRATION_PLAN.md` (decision D16, 2026-10-13).
