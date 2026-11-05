@@ -2,7 +2,7 @@
 
 package com.lerchenflo.schneaggchatv3server.feedback
 
-import com.fasterxml.jackson.core.type.TypeReference
+import tools.jackson.core.type.TypeReference
 import com.lerchenflo.schneaggchatv3server.feedback.model.FeedbackEntry
 import com.lerchenflo.schneaggchatv3server.feedback.model.FeedbackStatus
 import com.lerchenflo.schneaggchatv3server.feedback.model.FeedbackTag

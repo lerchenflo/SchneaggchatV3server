@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import kotlin.jvm.optionals.getOrNull
-import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -107,18 +106,6 @@ class GroupLookupService(
         val member = getGroupMembers(groupId).first { it.userid == userId }
         groupMemberRepository.delete(member)
         return true
-    }
-
-    /**
-     * Remove [userId] from every group and bump each group's updatedAt, so the co-members' sync
-     * picks up the new member list. Returns the ids of the groups left.
-     */
-    fun leaveAllGroups(userId: ObjectId): List<ObjectId> {
-        val now = Clock.System.now()
-        return getUserGroupIds(userId).onEach { groupId ->
-            removeGroupMember(groupId, userId)
-            getGroupById(groupId)?.let { saveGroup(it.copy(updatedAt = now)) }
-        }
     }
 
     private fun getMemberGroupIds(userId: ObjectId): List<ObjectId> {

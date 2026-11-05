@@ -16,9 +16,14 @@ import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.MissingServletRequestParameterException
+import org.springframework.web.bind.ServletRequestBindingException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.multipart.support.MissingServletRequestPartException
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 
@@ -100,7 +105,8 @@ class GlobalExceptionHandler(
             level = if (serverError) AppLogLevel.ERROR else AppLogLevel.WARN,
             error = if (serverError) e else null,
         )
-        val error = e.message
+        // Only the reason, like the require() messages; e.message adds a "400 BAD_REQUEST" prefix
+        val error = e.reason ?: e.message
 
         if (serverError) {
             logError(e, request, ip)
@@ -153,6 +159,30 @@ class GlobalExceptionHandler(
     }
 
     /**
+     * Missing or malformed query parameter or multipart part (no ?extensionid=, ?page=abc). A client
+     * bug, not a server error: 400 with one warn line instead of the catch-all's 500 + stack trace.
+     */
+    @ExceptionHandler(
+        ServletRequestBindingException::class,
+        MissingServletRequestPartException::class,
+        MethodArgumentTypeMismatchException::class,
+    )
+    fun handleBadRequestParameter(e: Exception, request: HttpServletRequest): ResponseEntity<String> {
+        val ip = clientIpResolver.resolve(request)
+        val error = when (e) {
+            is MissingServletRequestParameterException -> "Missing request parameter '${e.parameterName}'"
+            is MissingServletRequestPartException -> "Missing request part '${e.requestPartName}'"
+            is MethodArgumentTypeMismatchException -> "Invalid value for parameter '${e.name}'"
+            else -> e.message ?: "Invalid request parameters"
+        }
+        logRequestError("Bad request parameter on ${request.method} ${request.requestURI}: $error", ip, AppLogger.autoTag(e))
+
+        return ResponseEntity
+            .badRequest()
+            .body(error)
+    }
+
+    /**
      * A client that went away mid-stream (closed admin panel tab, dropped connection). The container
      * reports the broken pipe as an async error dispatch, which would otherwise land in the catch-all
      * below and be logged - and stored - as a server error. Nothing can be written to the response
@@ -174,6 +204,16 @@ class GlobalExceptionHandler(
         return ResponseEntity
             .status(HttpStatus.UNAUTHORIZED)
             .body("Invalid credentials")
+    }
+
+    //withOptimisticRetry gave up: the document kept changing under concurrent writes, the client can retry
+    @ExceptionHandler(OptimisticLockingFailureException::class)
+    fun handleOptimisticLockingFailure(e: OptimisticLockingFailureException, request: HttpServletRequest): ResponseEntity<String> {
+        val ip = clientIpResolver.resolve(request)
+        logRequestError("Optimistic locking retries exhausted: ${e.message}", ip, AppLogger.autoTag(e))
+        return ResponseEntity
+            .status(409)
+            .body("This entry was changed at the same time. Please try again.")
     }
 
     // Catch-all handler for any unhandled exceptions

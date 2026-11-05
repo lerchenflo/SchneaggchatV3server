@@ -117,16 +117,6 @@
     <script src="/js/header_footer.js"></script>
 
     <script>
-        // Header scroll effect
-        window.addEventListener('scroll', function () {
-            const header = document.querySelector('header');
-            if (window.scrollY > 50) {
-                header.classList.add('scrolled');
-            } else {
-                header.classList.remove('scrolled');
-            }
-        });
-
         // Check if form was previously submitted
         document.addEventListener('DOMContentLoaded', function () {
             const formContainer = document.getElementById('form-container');
@@ -232,12 +222,6 @@
 
                 // Ensure input is empty for new request
                 emailInput.value = '';
-            });
-
-            // Optional: Clear submission status when leaving the page
-            window.addEventListener('beforeunload', function () {
-                // You might want to keep this for the session only
-                // localStorage.removeItem('accountDeletionRequested');
             });
         });
     </script>

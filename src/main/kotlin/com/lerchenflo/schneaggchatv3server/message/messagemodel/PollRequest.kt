@@ -2,8 +2,6 @@ package com.lerchenflo.schneaggchatv3server.message.messagemodel
 
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
-import org.bson.types.ObjectId
-import kotlin.time.Instant
 
 
 /**
@@ -44,41 +42,6 @@ data class PollVoteOptionCreateRequest(
     val maxVoters: Int? = null, // null = unlimited
     val subPoll: PollCreateRequest? = null, //Follow-up poll for users who pick this option
 )
-
-
-/**
- * Builds the poll tree. Sub polls always inherit visibility and close date from [root] - whatever
- * a sub poll request carries for those is ignored.
- */
-fun PollCreateRequest.toPoll(creatorId: ObjectId, root: PollCreateRequest = this) : PollMessage {
-    return PollMessage(
-        creatorId = creatorId,
-        title = this.title.trim(),
-        description = this.description?.trim(),
-        maxAnswers = this.maxAnswers,
-        customAnswersEnabled = this.customAnswersEnabled,
-        maxAllowedCustomAnswers = this.maxAllowedCustomAnswers,
-        visibility = root.visibility,
-        closeDate = if (root.closeDate != null) Instant.fromEpochMilliseconds(root.closeDate) else null,
-        voteOptions = this.voteOptions.map {
-            PollVoteOption(
-                id = ObjectId.get().toHexString(),
-                text = it.text,
-                custom = false,
-                creatorId = creatorId,
-                voters = emptyList(),
-                maxVoters = it.maxVoters,
-                subPoll = it.subPoll?.toPoll(creatorId = creatorId, root = root),
-            )
-        },
-        allowDeleteOptions = this.allowDeleteOptions,
-        showCheckboxes = this.showCheckboxes,
-        visibleToAll = if (this === root) true else this.visibleToAll,
-    )
-}
-
-
-
 
 /**
  * Vote in a poll

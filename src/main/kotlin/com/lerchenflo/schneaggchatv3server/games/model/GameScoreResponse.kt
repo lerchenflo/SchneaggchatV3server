@@ -1,8 +1,4 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.lerchenflo.schneaggchatv3server.games.model
-
-import kotlin.time.ExperimentalTime
 
 data class GameScoreResponse(
     val id: String,
@@ -12,16 +8,6 @@ data class GameScoreResponse(
     val score: Long,
     val timeMillis: Long,
     val achievedAt: Long,
-)
-
-fun GameScore.toGameScoreResponse(): GameScoreResponse = GameScoreResponse(
-    id = id.toHexString(),
-    gameId = game.name,
-    difficulty = difficulty.name,
-    userId = userId.toHexString(),
-    score = score,
-    timeMillis = timeMillis,
-    achievedAt = createdAt.toEpochMilliseconds(),
 )
 
 data class HighscoreEntryResponse(

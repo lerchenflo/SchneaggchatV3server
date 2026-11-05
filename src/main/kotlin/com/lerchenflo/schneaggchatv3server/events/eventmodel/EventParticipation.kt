@@ -27,11 +27,3 @@ data class EventParticipationResponse(
     val status: EventParticipationStatus,
     val updatedAt: Long,
 )
-
-fun EventParticipation.toResponse(): EventParticipationResponse {
-    return EventParticipationResponse(
-        userId = userId.toHexString(),
-        status = status,
-        updatedAt = updatedAt.toEpochMilliseconds(),
-    )
-}

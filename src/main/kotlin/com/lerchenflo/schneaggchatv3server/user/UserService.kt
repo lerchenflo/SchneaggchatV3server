@@ -2,6 +2,7 @@ package com.lerchenflo.schneaggchatv3server.user
 
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
+import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
@@ -28,6 +29,7 @@ import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
@@ -44,6 +46,7 @@ class UserService(
     private val friendsSettingsService: FriendsSettingsService,
 
     private val groupLookupService: GroupLookupService,
+    private val groupService: GroupService,
 
     private val messageLookupService: MessageLookupService,
 
@@ -345,7 +348,12 @@ class UserService(
                 //Blank string clears the stored number, null leaves it unchanged
                 phoneNumber = userRequest.newPhoneNumber?.ifBlank { null } ?: requestingUser.phoneNumber,
             )
-            userLookupService.save(updatedSelf)
+            try {
+                userLookupService.save(updatedSelf)
+            } catch (e: DuplicateKeyException) {
+                // Another account took the address between the isEmailTaken check and this save
+                throw ResponseStatusException(HttpStatus.CONFLICT, "A user with this email already exists")
+            }
 
             if (somethingChanged) {
                 notificationService.notifyUserUpdate(updatedSelf, deleted = false)
@@ -468,6 +476,7 @@ class UserService(
         language: String?,
         mergeMapLocations: Boolean?,
         mergeMapUsers: Boolean?,
+        sortMapUsersByPinned: Boolean?,
         mapStyle: String?,
         pinnedChats: List<PinnedChat>?,
         quickReactions: List<String>?,
@@ -509,6 +518,7 @@ class UserService(
             language = language ?: current.language,
             mergeMapLocations = mergeMapLocations ?: current.mergeMapLocations,
             mergeMapUsers = mergeMapUsers ?: current.mergeMapUsers,
+            sortMapUsersByPinned = sortMapUsersByPinned ?: current.sortMapUsersByPinned,
             mapStyle = mapStyle ?: current.mapStyle,
             pinnedChats = pinnedChats ?: current.pinnedChats,
             quickReactions = newQuickReactions,
@@ -610,12 +620,7 @@ class UserService(
         }
 
         //Leave all groups - co-members' devices drop the user from the member list right away
-        groupLookupService.leaveAllGroups(userId).forEach { groupId ->
-            //A group deleted in the meantime must not stop the account deletion halfway
-            runCatching {
-                notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), deleted = false)
-            }.onFailure { AppLogger.warn("Group update after account deletion failed for group $groupId: ${it.message}", user = userId) }
-        }
+        groupService.leaveAllGroups(userId)
 
         //delete all user messages
         messageLookupService.deleteAllUserMessages(userId)

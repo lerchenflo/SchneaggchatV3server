@@ -1,8 +1,4 @@
-@file:OptIn(ExperimentalTime::class)
-
 package com.lerchenflo.schneaggchatv3server.announcement.model
-
-import kotlin.time.ExperimentalTime
 
 /** Shapes match the app's `announcement/data/remote/dto/`. Times are epoch millis. */
 data class AnnouncementTextResponse(
@@ -26,21 +22,4 @@ data class AnnouncementResponse(
 /** "Nothing to show" is a normal reply with a null [announcement], not an empty body. */
 data class LatestAnnouncementResponse(
     val announcement: AnnouncementResponse?,
-)
-
-fun AnnouncementText.toAnnouncementTextResponse(): AnnouncementTextResponse = AnnouncementTextResponse(
-    title = title,
-    body = body,
-)
-
-fun Announcement.toAnnouncementResponse(creatorName: String?): AnnouncementResponse = AnnouncementResponse(
-    id = id,
-    german = german.toAnnouncementTextResponse(),
-    austrian = austrian?.toAnnouncementTextResponse(),
-    english = english?.toAnnouncementTextResponse(),
-    italian = italian?.toAnnouncementTextResponse(),
-    expiresAt = expiresAt.toEpochMilliseconds(),
-    createdAt = createdAt.toEpochMilliseconds(),
-    updatedAt = updatedAt.toEpochMilliseconds(),
-    creatorName = creatorName,
 )

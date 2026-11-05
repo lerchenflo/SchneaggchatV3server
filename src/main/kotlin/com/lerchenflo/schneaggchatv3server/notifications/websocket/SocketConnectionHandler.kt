@@ -231,9 +231,8 @@ class SocketConnectionHandler(
     fun keepaliveSweep() {
         val now = Clock.System.now()
         for (connection in connections) {
-            val silentFor = now - connection.lastPongAt
-            if (silentFor > PONG_TIMEOUT) {
-                AppLogger.warn("Socket (session ${connection.sessionId}) silent for $silentFor, closing as dead", user = connection.userId, tag = "close_silent_socket")
+            // A silent peer is the normal case for a vanished phone, so no log line here.
+            if (now - connection.lastPongAt > PONG_TIMEOUT) {
                 closeDeadConnection(connection)
                 continue
             }

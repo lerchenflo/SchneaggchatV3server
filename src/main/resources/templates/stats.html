@@ -16,16 +16,6 @@
 <!-- Stats Section -->
 <section class="stats-page">
     <div class="stats-container">
-        <!--
-        <div class="stats-header">
-            <div class="stats-icon">
-                <i class="fa-solid fa-chart-line"></i>
-            </div>
-            <h1>System Stats</h1>
-            <p class="subtitle">Live Stats vom Schneaggchat Server</p>
-        </div>
-        -->
-
         <!-- Total Stats Card -->
         <div class="total-stats-card">
             <div class="total-icon">
@@ -246,16 +236,6 @@
 <script src="/js/header_footer.js"></script>
 
 <script>
-    // Header scroll effect
-    window.addEventListener('scroll', function() {
-        const header = document.querySelector('header');
-        if (window.scrollY > 50) {
-            header.classList.add('scrolled');
-        } else {
-            header.classList.remove('scrolled');
-        }
-    });
-
     // Animate numbers on load
     function animateNumber(num) {
         const target = parseInt(num.textContent, 10) || 0;
@@ -284,8 +264,6 @@
         { owner: 'lerchenflo', repo: 'SchneaggchatV3' },
     ];
     const RECENT_WINDOW_DAYS = 14;
-    // Automated/bot commit identities that shouldn't show up as human contributors.
-    const EXCLUDED_LOGINS = ['claude'];
 
     function applyContributorTranslations() {
         const map = window.__schneaggchatI18n || {};
@@ -327,7 +305,6 @@
         perRepoEntries.flat().forEach(entry => {
             if (!entry.author) return; // commit identity not linked to a GitHub account
             const login = entry.author.login;
-            if (EXCLUDED_LOGINS.includes(login.toLowerCase())) return;
             const contributor = combined[login] || {
                 login,
                 avatarUrl: entry.author.avatar_url,

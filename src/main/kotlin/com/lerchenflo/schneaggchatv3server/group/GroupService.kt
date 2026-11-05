@@ -8,6 +8,7 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationS
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.hasEnded
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
+import com.lerchenflo.schneaggchatv3server.group.groupextensions.GroupExtensionLookupService
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
@@ -40,6 +41,7 @@ import kotlin.time.Instant
 class GroupService(
     private val groupMemberRepository: GroupMemberRepository,
     private val groupLookupService: GroupLookupService,
+    private val groupExtensionLookupService: GroupExtensionLookupService,
     private val eventsLookupService: EventsLookupService,
     private val userLookupService: UserLookupService,
 
@@ -473,9 +475,7 @@ class GroupService(
                             deleteGroup(groupId, deletedBy = requestingUser)
                             return // Don't update group lastChanged, no system message - no chat left
                         } else {
-                            // Find user with earliest joinedAt timestamp and promote to admin
-                            val longestMember = newGroupMembers.minBy { it.joinedAt }
-                            groupMemberRepository.save(longestMember.copy(admin = true))
+                            promoteLongestMember(newGroupMembers)
                         }
                     }
                 }
@@ -572,6 +572,37 @@ class GroupService(
 
     }
 
+    /**
+     * Account deletion: takes [userId] out of every group by the rules of a normal leave in
+     * [performUserAction]. The longest member takes over from the last admin, and a group left
+     * without members is deleted. No system message, because the user's messages and name are gone
+     * right after. A failure in one group must not stop the account deletion halfway.
+     */
+    fun leaveAllGroups(userId: ObjectId) {
+        groupLookupService.getUserGroupIds(userId).forEach { groupId ->
+            runCatching {
+                val remainingMembers = groupLookupService.getGroupMembers(groupId).filter { it.userid != userId }
+
+                if (remainingMembers.isEmpty()) {
+                    deleteGroup(groupId, deletedBy = userId)
+                } else {
+                    if (remainingMembers.none { it.admin }) promoteLongestMember(remainingMembers)
+
+                    groupLookupService.removeGroupMember(groupId, userId)
+                    groupLookupService.getGroupById(groupId)?.let {
+                        groupLookupService.saveGroup(it.copy(updatedAt = Clock.System.now()))
+                    }
+                    notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), deleted = false)
+                }
+            }.onFailure { AppLogger.warn("Leaving group $groupId on account deletion failed: ${it.message}", user = userId) }
+        }
+    }
+
+    /** The member with the earliest joinedAt takes over when a group loses its last admin. */
+    private fun promoteLongestMember(members: List<GroupMember>) {
+        groupMemberRepository.save(members.minBy { it.joinedAt }.copy(admin = true))
+    }
+
     fun addUserToGroup(groupId: ObjectId, memberId: ObjectId, timeStamp: Instant = Clock.System.now()) {
         require(!groupLookupService.isUserInGroup(memberId, groupId)) {"User is already in this group"}
 
@@ -632,7 +663,7 @@ class GroupService(
     /**
      * Soft-delete a group and all of its members. The single point every group deletion goes through,
      * so members are always cleaned up and clients are always notified. The group's messages and their
-     * media are hard-deleted. A connected event (if any) is detached (groupId set to null) unless
+     * media and its extensions are hard-deleted. A connected event (if any) is detached (groupId set to null) unless
      * [deleteConnectedEvent] is set, in which case it is deleted too.
      */
     fun deleteGroup(groupId: ObjectId, deletedBy: ObjectId? = null, deleteConnectedEvent: Boolean = false) {
@@ -649,6 +680,8 @@ class GroupService(
 
         // After the members are gone, so no send can slip in behind the purge
         messageLookupService.deleteAllGroupMessages(groupId)
+        // Clients drop them as unknown ids on the next /groupextensions/sync (and on the GroupChange below)
+        groupExtensionLookupService.deleteAllGroupExtensions(groupId)
 
         loggingService.log(deletedBy, LogType.GROUP_DELETED)
 

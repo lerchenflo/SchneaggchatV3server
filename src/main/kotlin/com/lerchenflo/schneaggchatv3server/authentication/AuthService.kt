@@ -19,11 +19,13 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.PersonalUserSettings
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.*
 import org.bson.types.ObjectId
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.data.mongodb.core.FindAndModifyOptions
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
 import org.springframework.data.mongodb.core.query.Update
+import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.stereotype.Service
@@ -108,7 +110,13 @@ class AuthService(
             group = false
         )
 
-        return userLookupService.save(user)
+        return try {
+            userLookupService.save(user)
+        } catch (e: DuplicateKeyException) {
+            // A second registration got past checkExistingUser at the same moment
+            imageManager.deleteProfilePic(user.id.toHexString(), group = false)
+            throw ResponseStatusException(HttpStatus.CONFLICT, "A user with this username or email already exists")
+        }
     }
 
     fun login(
