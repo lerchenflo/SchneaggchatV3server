@@ -3,6 +3,7 @@ package com.lerchenflo.schneaggchatv3server
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.toPushData
+import com.lerchenflo.schneaggchatv3server.schneaggmap.MapSightingType
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
@@ -11,6 +12,7 @@ class NotificationResponseMapperTest {
     @Test
     fun `every subtype gets its type name`() {
         val expected = mapOf(
+            "map_sighting" to NotificationResponse.MapSightingNotificationResponse("e", "Bödele", MapSightingType.RADAR),
             "message" to NotificationResponse.MessageNotificationResponse(
                 msgId = "m", senderName = "s", groupMessage = false, messageType = MessageType.TEXT,
                 groupName = "", content = "hi", senderId = "a", receiverId = "b",

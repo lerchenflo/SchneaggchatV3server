@@ -142,7 +142,8 @@ class SchneaggmapService(
                     ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Map entry not found")
             }
 
-            locationDatas.forEach { locationData ->
+            val cleanedData = locationDatas.map { it.withoutStaleLastSeen() }
+            cleanedData.forEach { locationData ->
                 validate(locationData)
             }
 
@@ -151,14 +152,14 @@ class SchneaggmapService(
                 name         = name,
                 description  = description,
                 coordinates  = coordinates,
-                locationData = locationDatas,
+                locationData = cleanedData,
                 updatedBy    = requesterId,
                 updatedAt    = now,
             ) ?: MapEntry(
                 name         = name,
                 description  = description,
                 coordinates  = coordinates,
-                locationData = locationDatas,
+                locationData = cleanedData,
                 createdBy    = requesterId,
                 createdAt    = now,
                 updatedBy    = requesterId,
@@ -178,6 +179,9 @@ class SchneaggmapService(
                 mapEntryVersionService.recordUpdate(existing, saved, requesterId)
             }
             notificationService.notifyMapUpdate(saved, newEntry = existing == null, deleted = false, excludeUserId = requesterId) //Exclude creator, he gets the new entry with the response when upserting
+            newSighting(existing, saved, now)?.let { sighting ->
+                notificationService.notifyMapSighting(saved, sighting, requesterId)
+            }
             saved
         }
     }

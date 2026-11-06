@@ -26,4 +26,5 @@ private fun NotificationResponse.pushTypeName(): String = when (this) {
     is NotificationResponse.BirthdayNotificationResponse -> "birthday"
     is NotificationResponse.WakeNotificationResponse -> "wake"
     is NotificationResponse.EventNotificationResponse -> "event"
+    is NotificationResponse.MapSightingNotificationResponse -> "map_sighting"
 }

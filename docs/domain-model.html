@@ -593,6 +593,7 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "mergeMapLocations: Boolean",
     "mergeMapUsers: Boolean",
     "sortMapUsersByPinned: Boolean",
+    "mapSightingPush: Boolean",
     "mapStyle: String",
     "pinnedChats: List<PinnedChat>",
     "quickReactions: List<String>?",
@@ -899,7 +900,7 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
    "pkg": "schneaggmap",
    "kind": "embedded",
    "fields": [
-    "Radar: speedLimit, mobile?, redLight",
+    "Radar: speedLimit, mobile?, redLight, lastSeen?",
     "Police: lastSeen?",
     "MountainStreet: mautFee?, heightLimit?, closedInWinter?",
     "Wheeliespot: onlyOnWeekends?",
@@ -931,7 +932,7 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
    ],
    "x": 0,
    "y": 0,
-   "note": "Sealed class, MapEntry.locationData holds a list of these. Every kind has its own attributes, each an AttributeValue. Stored names are lowerCamelCase(<TYPE>_<ATTRIBUTE>), for example radarSpeedLimit; the type prefix is left out here. These names are also Mongo fields and wire keys. schema() lists AttributeDefinition rules that SchneaggmapService validates against, they are not stored."
+   "note": "Sealed class, MapEntry.locationData holds a list of these. Every kind has its own attributes, each an AttributeValue. Stored names are lowerCamelCase(<TYPE>_<ATTRIBUTE>), for example radarSpeedLimit; the type prefix is left out here. These names are also Mongo fields and wire keys. schema() lists AttributeDefinition rules that SchneaggmapService validates against, they are not stored. A policeLastSeen or radarLastSeen of a mobile radar at most an hour old sends a map_sighting push to users with mapSightingPush on, unless the value before it is under 3 hours old. radarLastSeen is cleared unless radarMobile is on."
   },
   {
    "id": "attrvalue",

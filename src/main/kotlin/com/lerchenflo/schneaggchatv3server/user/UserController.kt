@@ -229,6 +229,7 @@ class UserController(
         val mergeMapLocations: Boolean? = null,
         val mergeMapUsers: Boolean? = null,
         val sortMapUsersByPinned: Boolean? = null,
+        val mapSightingPush: Boolean? = null,
         @field:Size(max = 40, message = "Map style too long")
         val mapStyle: String? = null,
         val pinnedChats: List<PinnedChat>? = null,
@@ -258,6 +259,7 @@ class UserController(
             mergeMapLocations = request.mergeMapLocations,
             mergeMapUsers = request.mergeMapUsers,
             sortMapUsersByPinned = request.sortMapUsersByPinned,
+            mapSightingPush = request.mapSightingPush,
             mapStyle = request.mapStyle,
             pinnedChats = request.pinnedChats,
             quickReactions = request.quickReactions,

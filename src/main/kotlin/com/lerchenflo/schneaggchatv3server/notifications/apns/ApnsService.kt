@@ -14,6 +14,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.push.PushOptions
 import com.lerchenflo.schneaggchatv3server.notifications.push.PushProvider
 import com.lerchenflo.schneaggchatv3server.notifications.push.PushSender
 import com.lerchenflo.schneaggchatv3server.notifications.push.PushTarget
+import com.lerchenflo.schneaggchatv3server.schneaggmap.MapSightingType
 import com.lerchenflo.schneaggchatv3server.util.*
 import jakarta.annotation.PreDestroy
 import org.springframework.beans.factory.annotation.Value
@@ -128,6 +129,7 @@ class ApnsService(
                 if (notification.ownBirthday) "Happy Birthday!" else "Schneaggchat"
             is NotificationResponse.WakeNotificationResponse -> notification.senderName
             is NotificationResponse.EventNotificationResponse -> notification.creatorName
+            is NotificationResponse.MapSightingNotificationResponse -> notification.entryName
         }
         val fallbackBody = when (notification) {
             is NotificationResponse.MessageNotificationResponse ->
@@ -146,6 +148,10 @@ class ApnsService(
             is NotificationResponse.WakeNotificationResponse ->
                 notification.reason.ifEmpty { "wants to wake you" }
             is NotificationResponse.EventNotificationResponse -> notification.eventTitle
+            is NotificationResponse.MapSightingNotificationResponse -> when (notification.sightingType) {
+                MapSightingType.POLICE -> "Police seen"
+                MapSightingType.RADAR -> "Mobile radar seen"
+            }
         }
 
         val payload: Map<String, Any> = mapOf(

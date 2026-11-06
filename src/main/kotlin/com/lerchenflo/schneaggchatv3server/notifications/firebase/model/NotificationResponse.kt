@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.notifications.firebase.model
 
+import com.lerchenflo.schneaggchatv3server.schneaggmap.MapSightingType
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
@@ -15,7 +16,8 @@ import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
     JsonSubTypes.Type(value = NotificationResponse.SystemNotificationResponse::class, name = "system"),
     JsonSubTypes.Type(value = NotificationResponse.BirthdayNotificationResponse::class, name = "birthday"),
     JsonSubTypes.Type(value = NotificationResponse.WakeNotificationResponse::class, name = "wake"),
-    JsonSubTypes.Type(value = NotificationResponse.EventNotificationResponse::class, name = "event")
+    JsonSubTypes.Type(value = NotificationResponse.EventNotificationResponse::class, name = "event"),
+    JsonSubTypes.Type(value = NotificationResponse.MapSightingNotificationResponse::class, name = "map_sighting")
 )
 
 sealed interface NotificationResponse {
@@ -80,5 +82,12 @@ sealed interface NotificationResponse {
         val eventTitle: String,
         val creatorId: String,
         val creatorName: String,
+    ) : NotificationResponse
+
+    //Police or a mobile radar was seen. Never carries who reported it.
+    data class MapSightingNotificationResponse(
+        val entryId: String,
+        val entryName: String,
+        val sightingType: MapSightingType,
     ) : NotificationResponse
 }

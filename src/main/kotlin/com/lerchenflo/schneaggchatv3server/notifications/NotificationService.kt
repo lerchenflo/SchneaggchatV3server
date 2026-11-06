@@ -17,6 +17,7 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.model.toMapEntryResponse
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.FriendLocationPayload
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.FriendLocationSnapshot
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.SnailTrailPointPayload
+import com.lerchenflo.schneaggchatv3server.schneaggmap.MapSightingType
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
@@ -345,6 +346,20 @@ class NotificationService(
             ),
             excludeUserId = excludeUserId //Do not exclude the editor, he also needs the update
         )
+    }
+
+    /**
+     * Police or a mobile radar was seen. Goes to every device with a push token, also with the app
+     * open, and devices without one (desktop) only get the map update from [notifyMapUpdate].
+     */
+    fun notifyMapSighting(entry: MapEntry, sighting: MapSightingType, excludeUserId: ObjectId) {
+        val push = NotificationResponse.MapSightingNotificationResponse(
+            entryId = entry.id.toHexString(),
+            entryName = entry.name,
+            sightingType = sighting,
+        )
+        val recipients = userLookupService.findMapSightingPushUserIds().filter { it != excludeUserId }
+        deliveryService.sendAll(recipients) { Delivery.PushOnly(push) }
     }
 
     /** Is the user currently connected via a WebSocket? Lets callers skip work for offline users. */

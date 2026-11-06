@@ -16,6 +16,7 @@ fun LocationData.getValueByKey(key: AttributeKey): AttributeValue? = when (this)
         AttributeKey.RADAR_SPEED_LIMIT -> radarSpeedLimit
         AttributeKey.RADAR_MOBILE      -> radarMobile
         AttributeKey.RADAR_RED_LIGHT   -> radarRedLight
+        AttributeKey.RADAR_LAST_SEEN   -> radarLastSeen
         else -> null
     }
 

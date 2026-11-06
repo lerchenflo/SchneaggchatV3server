@@ -46,17 +46,6 @@ The app's Schneaggmap settings have a new synced setting `sortMapUsersByPinned` 
 
 ---
 
-## Map notifications: police and mobile radar
-
-Source: user request (2026-11-06), wanted before the next release. The client item with the open decisions is in the app repo's `plans/Todo.md`.
-
-- [ ] Push for map changes. `notifyMapUpdate` (`notifications/NotificationService.kt:337`) only broadcasts a socket `MapChange`, so an app in the background gets nothing. Notify when a police entry, or a radar entry with `radarMobile` true, is created or updated (`schneaggmap/SchneaggmapService.kt:180`). Check reverts too: `schneaggmap/MapEntryVersionService.kt:303` also calls `notifyMapUpdate`, with `excludeUserId = null`, so the editor would get their own notification.
-- [ ] Synced user setting to switch it off, next to `sortMapUsersByPinned`, so the server can skip the push for those users.
-- [ ] Payload: a new `NotificationResponse` subtype with the entry id, name and type.
-- [ ] Last seen on a mobile radar, like `policeLastSeen`: optional `radarLastSeen` on `LocationData.Radar` (`schneaggmap/LocationData.kt:82`), `AttributeKey.RADAR_LAST_SEEN` and `GetValueForKey.kt`. Key and field name must match the client. Validation should accept the value only with `radarMobile` true; the schema has no conditional rule yet.
-
----
-
 ## Feedback board: sync and pinning
 
 Source: user request (2026-11-06), GitHub issue #947. The client items are in the app repo's `plans/Todo.md`.
