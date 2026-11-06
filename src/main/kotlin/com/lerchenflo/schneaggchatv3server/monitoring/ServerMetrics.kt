@@ -15,4 +15,15 @@ object ServerMetrics {
     val emailsSent = AtomicLong()
     val emailsFailed = AtomicLong()
     val logins = AtomicLong()
+
+    // Socket or push decision, see DeliveryService
+    val pushesImmediate = AtomicLong()
+    val pushesHeld = AtomicLong()
+    val pushesAcked = AtomicLong()
+    val pushesAckTimedOut = AtomicLong()
+    val pushesSessionClosed = AtomicLong()
+    val ackLatencyTotalMs = AtomicLong()
+
+    /** Pushes to tokens not linked to a device. At 0 the legacy token collections can go. */
+    val legacyTokenPushes = AtomicLong()
 }

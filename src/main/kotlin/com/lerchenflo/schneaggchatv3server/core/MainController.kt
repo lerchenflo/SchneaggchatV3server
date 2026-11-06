@@ -7,18 +7,16 @@ import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
-import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.*
 import com.lerchenflo.schneaggchatv3server.website.faq.FaqSeedService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
-import org.springframework.dao.DataAccessException
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.index.Index
 import org.springframework.data.mongodb.core.index.IndexInfo
-import org.springframework.data.mongodb.core.indexOps
+import org.springframework.data.mongodb.core.index.PartialIndexFilter
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -54,7 +52,6 @@ class MainController(
     @EventListener(ApplicationReadyEvent::class)
     fun onStartup() {
         ensureRefreshTokenIndexes()
-        ensureUniqueEmailIndex()
 
         faqSeedService.seedMissingEntries()
         feedbackSeedService.seedMissingEntries()
@@ -133,29 +130,13 @@ class MainController(
                 .on("userId", Sort.Direction.ASC)
                 .on("previousHashedToken", Sort.Direction.ASC)
         )
-    }
-
-
-    /**
-     * The unique `users.email` index, so two registrations at the same moment cannot both pass the
-     * email check. Created here rather than with `@Indexed(unique = true)`, because
-     * `auto-index-creation` fails at startup while the older non-unique index on the same key
-     * exists, and that index has to be dropped first. When duplicate emails block the unique index,
-     * the plain one comes back, so lookups stay indexed and the server still starts.
-     */
-    fun ensureUniqueEmailIndex() {
-        val indexOps = mongoTemplate.indexOps<User>()
-        val existingIndex = indexOps.indexInfo.firstOrNull { it.isIndexForFields(listOf("email")) }
-        if (existingIndex?.isUnique == true) return
-
-        existingIndex?.let { indexOps.dropIndex(it.name) }
-
-        try {
-            indexOps.createIndex(Index().named("email").on("email", Sort.Direction.ASC).unique())
-        } catch (e: DataAccessException) {
-            AppLogger.error("Unique email index not created, check for duplicate emails", error = e)
-            indexOps.createIndex(Index().named("email").on("email", Sort.Direction.ASC))
-        }
+        // One push token on one device, see DeviceDirectory
+        indexOps.createIndex(
+            Index().named("push_token_unique")
+                .on("pushToken", Sort.Direction.ASC)
+                .unique()
+                .partial(PartialIndexFilter.of(org.bson.Document("pushToken", org.bson.Document("\$type", "string"))))
+        )
     }
 
 

@@ -64,6 +64,8 @@ class ServerMetricsService(
         val messageCount = messageLookupService.count()
         val userCount = userRepository.count()
         val connected = socketConnectionHandler.getConnectedUsers()
+        val pushesAcked = ServerMetrics.pushesAcked.getAndSet(0)
+        val ackLatencyTotalMs = ServerMetrics.ackLatencyTotalMs.getAndSet(0)
 
         val snapshot = ServerMetricsSnapshot(
             timestamp = Clock.System.now(),
@@ -84,6 +86,13 @@ class ServerMetricsService(
             apnsFailed = ServerMetrics.apnsFailed.getAndSet(0),
             emailsSent = ServerMetrics.emailsSent.getAndSet(0),
             emailsFailed = ServerMetrics.emailsFailed.getAndSet(0),
+            pushesImmediate = ServerMetrics.pushesImmediate.getAndSet(0),
+            pushesHeld = ServerMetrics.pushesHeld.getAndSet(0),
+            pushesAcked = pushesAcked,
+            ackLatencyMs = if (pushesAcked == 0L) 0.0 else ackLatencyTotalMs.toDouble() / pushesAcked,
+            pushesAckTimedOut = ServerMetrics.pushesAckTimedOut.getAndSet(0),
+            pushesSessionClosed = ServerMetrics.pushesSessionClosed.getAndSet(0),
+            legacyTokenPushes = ServerMetrics.legacyTokenPushes.getAndSet(0),
             // Deletions shrink the total, so a minute with more deletes than sends would go negative.
             messagesSent = lastMessageCount?.let { (messageCount - it).coerceAtLeast(0) } ?: 0,
             newAccounts = lastUserCount?.let { (userCount - it).coerceAtLeast(0) } ?: 0,

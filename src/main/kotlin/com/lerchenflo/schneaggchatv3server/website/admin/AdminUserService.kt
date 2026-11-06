@@ -2,6 +2,7 @@
 
 package com.lerchenflo.schneaggchatv3server.website.admin
 
+import com.lerchenflo.schneaggchatv3server.authentication.DeviceSessions
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.SocketConnectionHandler
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
@@ -29,6 +30,7 @@ class AdminUserService(
     private val userRepository: UserRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
     private val socketConnectionHandler: SocketConnectionHandler,
+    private val deviceSessions: DeviceSessions,
 ) {
 
     fun listUsers(): List<AdminUserResponse> {
@@ -66,8 +68,7 @@ class AdminUserService(
         val user = userRepository.findById(userId).orElse(null)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
 
-        refreshTokenRepository.deleteByUserId(userId)
-        socketConnectionHandler.disconnectUser(userId)
+        deviceSessions.endAll(userId)
 
         AppLogger.info("ADMIN: Forced logout of ${AppLogger.nameOf(userId)} on all devices")
     }

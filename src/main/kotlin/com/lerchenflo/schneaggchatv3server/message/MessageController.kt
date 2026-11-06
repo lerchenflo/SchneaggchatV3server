@@ -229,6 +229,21 @@ class MessageController(
     }
 
 
+    @PostMapping("/edit/poll")
+    fun editPoll(
+        @Valid @RequestBody pollEditRequest: PollEditRequest
+    ) : MessageResponse {
+        require(ValidationUtils.validateObjectId(pollEditRequest.messageId)) { "Invalid message ID" }
+
+        val requestingUserId = requireAuth()
+
+        return messageService.editPoll(
+            editingUserId = requestingUserId,
+            request = pollEditRequest
+        )
+    }
+
+
     @PostMapping("/react")
     fun reactToMessage(
         @Valid @RequestBody reactionRequest: ReactionRequest

@@ -79,6 +79,9 @@ class UserLookupService(
         return optuser
     }
 
+    /** Everyone who turned on police and mobile radar pushes. Off unless a user enabled it. */
+    fun findMapSightingPushUserIds(): List<ObjectId> = userRepository.findIdsWithMapSightingPush().map { it.id }
+
     fun deleteUser(userId: ObjectId) {
         userRepository.deleteById(userId)
     }

@@ -2,7 +2,7 @@ package com.lerchenflo.schneaggchatv3server.user.wake
 
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService
-import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
+import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
@@ -43,7 +43,7 @@ class WakeService(
     private val groupLookupService: GroupLookupService,
     private val friendsLookupService: FriendsLookupService,
     private val friendsSettingsService: FriendsSettingsService,
-    private val firebaseService: FirebaseService,
+    private val notificationService: NotificationService,
     private val loggingService: LoggingService,
     private val systemMessageService: SystemMessageService,
 ) {
@@ -91,7 +91,7 @@ class WakeService(
             return WakeResponse(WakeOutcome.NOT_ALLOWED, userCount = 0, deviceCount = 0, skippedCount = 1)
         }
 
-        val deviceCount = firebaseService.getTokensForUser(targetId).count { it.token.isNotEmpty() }
+        val deviceCount = notificationService.wakeableDeviceCount(targetId)
         if (deviceCount == 0) {
             return WakeResponse(WakeOutcome.NO_DEVICES, userCount = 0, deviceCount = 0, skippedCount = 0)
         }
@@ -149,7 +149,7 @@ class WakeService(
         //receiver how many people were woken alongside them, which can only be known once the
         //whole recipient set is settled.
         val deviceCounts = recipients.associateWith { memberId ->
-            firebaseService.getTokensForUser(memberId).count { it.token.isNotEmpty() }
+            notificationService.wakeableDeviceCount(memberId)
         }.filterValues { it > 0 }
 
         val userCount = deviceCounts.size
@@ -209,9 +209,9 @@ class WakeService(
         groupName: String,
         wokenUserCount: Int,
         wokenDeviceCount: Int,
-    ): Int {
-        return firebaseService.sendWakeToUser(
-            userId = recipientId,
+    ) {
+        notificationService.notifyWake(
+            recipientId = recipientId,
             notification = NotificationResponse.WakeNotificationResponse(
                 senderId = senderId.toHexString(),
                 senderName = senderName,

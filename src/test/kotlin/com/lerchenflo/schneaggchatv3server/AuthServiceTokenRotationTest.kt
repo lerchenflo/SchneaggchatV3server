@@ -4,6 +4,7 @@ package com.lerchenflo.schneaggchatv3server
 
 import com.lerchenflo.schneaggchatv3server.authentication.AuthController
 import com.lerchenflo.schneaggchatv3server.authentication.AuthService
+import com.lerchenflo.schneaggchatv3server.authentication.DeviceSessions
 import com.lerchenflo.schneaggchatv3server.authentication.EmailService
 import com.lerchenflo.schneaggchatv3server.authentication.model.LoginAlert
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
@@ -11,8 +12,7 @@ import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitProperties
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitService
-import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
-import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
+import com.lerchenflo.schneaggchatv3server.notifications.push.DeviceDirectory
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
@@ -60,8 +60,8 @@ class AuthServiceTokenRotationTest {
     private val imageManager = mockk<ImageManager>(relaxed = true)
     private val mongoTemplate = mockk<MongoTemplate>()
     private val rateLimitService = mockk<RateLimitService>(relaxed = true)
-    private val firebaseService = mockk<FirebaseService>(relaxed = true)
-    private val apnsService = mockk<ApnsService>(relaxed = true)
+    private val deviceSessions = mockk<DeviceSessions>(relaxed = true)
+    private val deviceDirectory = mockk<DeviceDirectory>(relaxed = true)
 
     private val authService = AuthService(
         jwtService = jwtService,
@@ -73,8 +73,8 @@ class AuthServiceTokenRotationTest {
         imageManager = imageManager,
         rateLimitService = rateLimitService,
         rateLimitProperties = RateLimitProperties(),
-        firebaseService = firebaseService,
-        apnsService = apnsService,
+        deviceSessions = deviceSessions,
+        deviceDirectory = deviceDirectory,
         mongoTemplate = mongoTemplate,
     )
 
@@ -106,6 +106,7 @@ class AuthServiceTokenRotationTest {
 
     @BeforeEach
     fun setupUser() {
+        every { rateLimitService.availableTokens(any(), any()) } returns 5L
         every { userLookupService.findById(userId.toHexString()) } returns user
         every { userLookupService.findByUsername("testuser") } returns user
     }
@@ -117,11 +118,12 @@ class AuthServiceTokenRotationTest {
     fun refreshRotatesInPlace() {
         val oldToken = jwtService.generateRefreshToken(userId.toHexString())
         val updateSlot = slot<Update>()
+        val row = sessionRow(hashedToken = hash(oldToken))
 
         // findAndModify claims the row -> this caller is the winner
         every {
             mongoTemplate.findAndModify(any(), capture(updateSlot), any(), RefreshToken::class.java)
-        } returns sessionRow(hashedToken = hash(oldToken))
+        } returns row
 
         val pair = authService.refresh(oldToken, "Test device", AuthController.DEVICETYPE.ANDROID)
 
@@ -135,6 +137,11 @@ class AuthServiceTokenRotationTest {
         assertEquals(hash(oldToken), updated.getString("previousHashedToken"))
         assertEquals(hash(pair.refreshToken), updated.getString("hashedToken"))
         assertEquals(pair.refreshToken, updated.getString("rawToken"))
+
+        // The device keeps its id and its push target across a refresh
+        assertEquals(row.id.toHexString(), jwtService.getSessionIdFromToken(pair.accessToken))
+        assertFalse(updated.containsKey("pushToken"))
+        assertFalse(updated.containsKey("pushProvider"))
     }
 
     @Test
@@ -227,6 +234,7 @@ class AuthServiceTokenRotationTest {
         assertTrue(jwtService.validateRefreshToken(pair.refreshToken))
         // In-place rotation -> no second row for the same device
         verify(exactly = 0) { refreshTokenRepository.save(any()) }
+        assertEquals(existing.id.toHexString(), jwtService.getSessionIdFromToken(pair.accessToken))
     }
 
     @Test

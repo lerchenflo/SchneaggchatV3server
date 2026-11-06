@@ -41,6 +41,21 @@ data class PollVoteOptionCreateRequest(
     val text: String,
     val maxVoters: Int? = null, // null = unlimited
     val subPoll: PollCreateRequest? = null, //Follow-up poll for users who pick this option
+    //Only read on a poll edit: the existing option this entry stands for. Null = new option
+    val id: String? = null,
+)
+
+/**
+ * Edit a poll: [poll] is the whole poll as the creator wants it to be, see [toEditedPoll].
+ */
+data class PollEditRequest(
+    @field:NotBlank(message = "Message ID must not be blank")
+    @field:Size(max = 24, message = "Message ID too long")
+    val messageId: String,
+    val poll: PollCreateRequest,
+    //Options the creator removed, sub polls included. An option that is neither here nor in [poll] stays
+    @field:Size(max = 150, message = "Too many deleted options")
+    val deletedOptionIds: List<String> = emptyList(),
 )
 
 /**

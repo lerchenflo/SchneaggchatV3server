@@ -29,6 +29,7 @@ class JwtAuthFilter(
                 val userId = jwtService.getUserIdFromToken(authHeader)
 
                 val auth = UsernamePasswordAuthenticationToken(userId, null, emptyList())
+                auth.details = jwtService.getSessionIdFromToken(authHeader)
                 SecurityContextHolder.getContext().authentication = auth
                 //Kept on the log context too: Spring Security clears its own context before
                 //RequestLogFilter writes the failed-request row.

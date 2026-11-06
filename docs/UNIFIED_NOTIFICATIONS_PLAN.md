@@ -1,370 +1,320 @@
 # Unified notification delivery - plan
 
-Status: plan, not started (2026-10-20). Written on branch `fcm-ios-token-cleanup`.
-
-## Scope and timing
-
-- Target: the release **after** the current one. Nothing of this goes into the current release.
-- All work happens on its own branch (e.g. `unified-notifications`), branched from `main` once the current release is out - not on `fcm-ios-token-cleanup` or any other feature branch.
-- The phases below are steps inside that branch. The branch is merged into `main` (and so reaches prod, see `server_docker/Dockerfile`) for the release after the current one.
-- **Server and client are released together. Older app versions are not supported** (the app forces an update on start when a new version is out): no compatibility layers, no capability flags, wire formats may change freely. See [Release](#release).
+Status: phases 1-4 built on `beta` (2026-11-06), not deployed yet. Phases 5-8 open. Revised 2026-11-06 after a design review, see [Review](#review). Replaces `plans/DEVICE_AWARE_PUSH_PLAN.md` in the client repo.
 
 ## Goal
 
-One delivery path for everything the server tells a user. For each recipient account:
+One call for everything the server tells a user:
 
-- every device with a live socket gets the update over the socket,
-- every device without a live socket (or whose socket did not confirm the update) gets an FCM / APNs push,
-- decided **per device**, not per account as today.
+```kotlin
+deliveryService.send(userId, Delivery.Alert(socket = change, push = notification))
+```
+
+The service finds every device of the user and gets the update to each one: over the socket when the device is connected and confirms it, over FCM / APNs when it is not. Callers never decide between socket and push, and never touch sessions, tokens or acks.
 
 ## Decisions
 
 | # | Question | Decision |
 |---|---|---|
-| D1 | Another device of the same account is connected (desktop open). Does the phone without a socket get a push? | **Always push.** Strict per device: every device without a confirmed live socket gets the push right away, whatever the other devices do. No delay, no "read elsewhere" suppression, no silent pushes. |
-| D2 | Do the acting user's *other* devices get live updates of their own actions (message sent on the phone shows up on the desktop)? | **Yes, socket only.** Every live session of the actor except the acting one gets the socket change. The actor never gets a push for their own action. |
-| D3 | Ack (delivery confirmation) only for new messages, or for every push-worthy socket event? | **Generic ack.** Every push-worthy socket event carries a `deliveryId`, the client acks it, the push for that device is only sent when no ack arrives. Replaces `MessageAck`. |
-| D4 | How does the server know which push token and which socket belong to the same device? | **Open - decide before phase 3.** Options in [Device identity](#device-identity-open-decision-d4). Phases 1 and 2 do not depend on it. |
-| D5 | Backward compatibility with released app versions? | **None.** Server and client ship together in one release, and the app forces the update on start. |
+| D1 | Desktop is open. Does the phone without a socket get a push? | **Always push.** Decided per device, whatever the other devices do. No delay and no quiet mode. |
+| D2 | Do the acting user's other devices get live updates of their own actions? | **Yes, socket only.** Every device of the actor except the acting one. The actor never gets a push for their own action. |
+| D3 | Ack only for new messages, or for everything that has a push? | **Generic ack.** Everything that can fall back to a push is acked per device. |
+| D4 | What is a device? | **The `refreshTokens` row.** Its id goes into the access token as `sid`, and the push token moves onto the row. Ending a session then removes its push target without extra code. |
+| D5 | Support for older app versions? | **None, on every release** (user, 2026-11-05). Play forces the update on Android, a popup on iOS blocks the app before anything starts. The deploy order below still matters, because store review means server and client can never go out at the same moment. |
+| D6 | Read on one device, clear the notification on the others? | **Last phase**, after core delivery works. |
+| D7 | Delivery guarantee? | **At least once per device, while the server is up.** The client drops duplicates by `deliveryId`. A crash between the database write and the send can lose a notification, not the data: the next sync brings it. No outbox. |
 
----
+## Current state
 
-## Current state (analysis)
+Checked against the code on 2026-11-05.
 
 ### Where notifications go out
 
-All realtime/push traffic goes through `notifications/NotificationService.kt`, with three exceptions:
+`NotificationService` calls the socket handler and both push senders directly from each `notifyX` method. The only other sender is `user/wake/WakeService.kt`, which calls `FirebaseService` itself.
 
-- `user/wake/WakeService.kt` calls `FirebaseService.sendWakeToUser` and `FirebaseService.getTokensForUser` directly (breaks the "only `NotificationService` talks to the senders" rule).
-- `website/admin/*` reads `SocketConnectionHandler` directly (presence only, no delivery - fine; the admin panel itself uses SSE, not `/ws`, so every `/ws` session is an app client).
-- `UserController` / `AuthService` save and delete tokens directly on `FirebaseService` / `ApnsService` (token management, not delivery - fine).
-
-| `NotificationService` method | Socket | Push | Fallback rule today |
+| Method | Socket | Push | Fallback today |
 |---|---|---|---|
-| `notifyMessageUpdate` (new message) | `MessageChange` to every participant **except the actor** | FCM + APNs `message` | Per **user**: push to all of the user's devices if the user has no session; if any session acks (`messageack`) or a non-acking session takes the write, **no device** gets a push. |
-| `notifyMessageUpdate` (edit, delete, read, poll vote, reaction) | `MessageChange`, actor excluded | none | - |
-| `notifyReactionAdded` | (rides on the `MessageChange` above) | FCM + APNs `message` with `reaction=true` | Push if the message sender was not in the `MessageChange` write set. Socket write = delivered, no ack. |
-| `notifySystemMessage` | `MessageChange` to all incl. actor | none | - |
-| `notifyUserUpdate`, `notifyRelationChange` | `UserChange` | none | - |
-| `notifyFriendRequest` | `FriendRequest` | FCM + APNs `friend_request` | Per user: push only if no session took the write. No ack. |
-| `notifyGroupUpdate` | `GroupChange` | none | - |
-| `notifyEventUpdate` | `EventChange` to audience + creator | FCM + APNs `event` (new events only, not to creator) | Per user: push only if no session took the write. No ack. |
-| `notifyBirthday` | none | FCM + APNs `birthday` | Always push, to every device. |
-| `notifyMapUpdate` | `MapChange` broadcast to everyone **except the acting user** (all their devices) | none | - |
-| Location / online status / snapshots | various | none | - |
-| Wake (`WakeService`, direct) | none | FCM only, TTL 0 | Always push. |
+| `notifyMessageUpdate`, new message | `MessageChange`, actor excluded | FCM + APNs `message` | Per **user**: one ack from any session cancels the push for all devices. A v3.0.17 session counts a socket write as delivered. |
+| `notifyMessageUpdate`, other changes | `MessageChange`, actor excluded | none | - |
+| `notifyReactionAdded` | rides on `MessageChange` | `message` with `reaction=true` | Per user, a socket write counts as delivered. |
+| `notifyFriendRequest` | `FriendRequest` | `friend_request` | Per user, a socket write counts as delivered. |
+| `notifyEventUpdate` | `EventChange` | `event`, new events only, not to the creator | Per user, a socket write counts as delivered. |
+| `notifyBirthday` | none | `birthday` | Always pushed. |
+| Wake (`WakeService`) | none | FCM only, TTL 0 | Always pushed. |
+| `notifySystemMessage`, `notifyUserUpdate`, `notifyOwnUserUpdate`, `notifyRelationChange`, `notifyGroupUpdate`, `notifyGroupExtensionUpdate`, online status, location | various | none | Socket only, offline devices sync. |
+| `notifyMapUpdate` | `MapChange` broadcast, all devices of the actor excluded | none | - |
 
 ### Problems
 
-1. **Fallback is per user, not per device.** `SocketConnectionHandler.sendMessage` / `sendNewMessage` return "the user got it" as soon as one session took it. A user with the desktop app open never gets a push on the phone in their pocket. Two phones: the one in the foreground suppresses the push for the one in the background. This is the main bug the plan fixes.
-2. **No link between a socket session and a push token.** `SocketConnection` knows `userId` + `sessionId`; `FirebaseToken` / `ApnsToken` only `userId` + `token`. There is no way to say "this token belongs to the device whose socket just acked". Needed for any per-device decision.
-3. **Ack only for new messages.** Reactions, friend requests and new events treat a socket *write* as delivery. A write only means the bytes reached the TCP buffer (see the comment on `PendingPushRegistry`), so pushes get lost when the app is on its way to the background or the peer vanished without a close frame.
-4. **Actor's other devices are left out** of `notifyMessageUpdate` (and `notifyMapUpdate`): a message sent on the phone only reaches the desktop at the next sync.
-5. **Copy-paste push layer.** `FirebaseService` and `ApnsService` each have `sendNewMessageNotificationToUser`, `sendReactionNotificationToUser`, `sendFriendRequestNotificationToUser`, which only build a `NotificationResponse` and call `sendNotificationToUser`. Same parameter lists twice in `NotificationService` (group branch and 1:1 branch), twice again in each sender. Tokens are read from Mongo twice per send (once to early-return, once inside `sendNotificationToUser`).
-6. **Unstructured threading.** Every send starts `CoroutineScope(Dispatchers.IO).launch` and nests another launch inside (`send*ToUser` -> `sendNotificationToUser`). No bound, no shutdown, exceptions only logged. FCM sends one HTTP call per token; APNs blocks on `.get()` per token.
-7. **Duplicated payload mapping.** `notificationResponseToDataMap` (Firebase) and `buildPayload` (APNs) both flatten the `NotificationResponse` and both keep their own `type` name `when`.
-8. **Ended sessions keep their push tokens.** The server cannot tell which push token belongs to which session, so only `/auth/logout` deletes tokens, and only the one the client sends along (`notificationToken` + `isAndroid`) or all of them (`allDevices`). Every other way a session ends deletes the `refreshTokens` row(s) but leaves the push tokens, so the device keeps getting pushes - with plaintext message content (Gotcha 9 in the project skill) - for an account it is no longer logged into:
+1. **Fallback is per user, not per device.** With the desktop app open, the phone in the pocket gets no push. This is the main bug.
+2. **Nothing links a socket to a push token.** `SocketConnection` knows `userId` + `sessionId`, the token rows only `userId` + `token`.
+3. **Only new messages are acked.** Reactions, friend requests and events treat a TCP write as delivered, so they get lost while an app goes to the background.
+4. **The actor's other devices miss their own actions** until the next sync.
+5. **Ended sessions keep their push tokens**, and pushes carry plaintext message content. Only `/auth/logout` deletes tokens, and only the one the client names. These paths keep them: `AuthService.endSession`, `UserService.changePassword`, `UserService.resetPassword`, `AdminUserService.forceLogout`, `DatabaseCleanupTask`, `UserService.deleteAccount`.
+6. **Ended sessions keep their socket.** Only `forceLogout` closes it. "Log out" of a device, a password change and a password reset leave the live socket running, and it keeps getting updates.
+7. **Unauthenticated token delete.** The credential-less branch of `AuthService.logout` deletes whatever push token the request names.
+8. **A token can sit under two users.** The unique index is `(userId, token)`, so after an account switch without a clean logout, user A's messages reach user B's phone.
+9. **Copy-paste push layer.** Each sender has per-type send methods, the same parameter blocks appear twice in `notifyMessageUpdate`, both senders keep their own `type` name `when`, and tokens are read twice per send.
+10. **Unstructured threading.** A new `CoroutineScope(Dispatchers.IO).launch` per send, APNs blocks on `.get()` per token.
+11. **The Android client drops a push when its message is already stored**, and a sync can store messages before their pushes arrive, so the user is never told (`AppFirebaseMessagingService.kt:137-142`).
 
-   | Session end | Code | Push tokens today |
-   |---|---|---|
-   | Logout on the device | `AuthService.logout` | Deleted, but only the token the client sends along. A client that lost its token (reinstall, token rotated) leaves the old row behind. |
-   | Logout "all devices" | `AuthService.logout(allDevices = true)` | All deleted. |
-   | "Log out" of another device in the device list | `AuthService.endSession` (`SessionController`) | **Kept.** Only removed if the ended device later calls `/auth/logout` itself after its refresh fails - never, if it is off, lost, stolen or uninstalled. |
-   | Password change | `UserService.changePassword` (deletes all sessions) | **Kept** on every device. |
-   | Password reset by email | `UserService.resetPassword` (deletes all sessions) | **Kept** on every device - the typical "my phone was stolen" action does not stop the stolen phone's pushes. |
-   | Admin "log out everywhere" | `AdminUserService` (deletes all sessions, closes sockets) | **Kept** on every device. |
-   | Session expired | `DatabaseCleanupTask` (`deleteByExpiresAtBefore`) | **Kept** forever. |
-   | Account deleted | `UserService.deleteAccount` | **Kept** - token rows of a deleted account stay in the database. |
+Smaller bugs: the 1:1 `MessageChange` is always built for the receiver, so the sender gets `clientMessageId = null`. On every connect, both snapshots go to all sessions of the user instead of the new one.
 
-   On top of that, the credential-less branch of `AuthService.logout` deletes whatever push token the request names (`deleteToken(token)` without an owner check), so anyone who knows a token can unregister it.
+### Client facts that matter
 
-### Smaller bugs found while reading
-
-- `NotificationService.notifyMessageUpdate`, 1:1 branch: the `MessageChange` is always built with `toMessageResponse(message.receiverId)`, also when the recipient is the sender (receiver edits / reacts / reads). The sender then gets `clientMessageId = null`. Building the response per recipient fixes it for free.
-- `FirebaseService` / `ApnsService.sendFriendRequestNotificationToUser` set `requesterId = receivingUserId` (the receiver, not the requester). Fix it together with whatever the client reads from it.
-- `FirebaseService.sendFriendRequestNotificationToUser` logs the exception under `senderId` instead of the receiver.
-- `PendingPushRegistry` keys on `(userId, messageId)`: the first ack from any device cancels the push for all devices (this is problem 1 in the ack path).
-
-### Client facts that matter (SchneaggchatV3)
-
-- The client closes its socket when the app goes to the background (`SocketConnectionManager.close`), so a phone in the pocket has no socket and relies on push.
-- The client shows a **local notification** for every `MessageChange` with `newMessage && msgType != SYSTEM` it receives over the socket (`SocketConnectionMessage.kt` ~line 233). It does **not** check `senderId == ownId`. Sending the actor's own new message to their other devices (D2) would ring those devices. Needs a client guard.
-- Reactions on own messages also create a local notification from the socket (`SocketConnectionMessage.kt` ~line 589, guarded by `senderId != ownId`).
-- The client acks with `MessageAck(messageId)` only for `newMessage && !deleted`, and announces it with handshake header `X-Socket-Acks: 1`.
-- The client registers its push token on every start (`ChatSelectorViewModel` -> `/users/setnotificationtoken`) and on iOS from `IosPushDelegateBridge`.
+- The app closes its socket in the background, so a phone in the pocket depends on push.
+- It shows a local notification for each `MessageChange` with `newMessage`, also for own messages. D2 needs a client guard.
+- `AppJson` sets `ignoreUnknownKeys = true`, so an unknown top-level key is harmless. An unknown `_class` is caught and dropped.
+- v3.0.18 sends `X-Socket-Acks` and `messageack`. v3.0.17 does neither.
+- It registers its push token on every start of the chat list.
+- Device names carry a stable id (`androidId`, `vendorId`, `installId`, `macAddress`), so login reuses the same `refreshTokens` row and its id stays stable.
 
 ---
 
 ## Target design
 
-### Concepts
+### `Delivery`: what a caller passes
 
-- **Device**: one installation of the app on one phone / desktop. Identified by a `deviceKey` (string). How it is obtained is D4; the rest of the design only needs "a socket session and a push token carry the same `deviceKey`".
-- **Session**: one live socket (`SocketConnection`), gets `deviceKey`. Every session acks (all `/ws` clients run the new app), so `acksMessages` and the `X-Socket-Acks` header go away.
-- **Push target**: one push token, `PushTarget(platform: FCM | APNS, token, userId, deviceKey: String?)`. Read from both token collections by a small `PushTokenService` (or a method on each sender).
-- **Delivery**: one update for one recipient user:
+Three cases, so an impossible combination cannot be built:
 
 ```kotlin
-data class Delivery(
-    val recipientId: ObjectId,
-    val socket: SocketConnectionMessage?,        // null = push only
-    val push: NotificationResponse?,             // null = socket only
-    val mode: DeliveryMode,
-    val pushOptions: PushOptions = PushOptions(), // ttl, platforms (wake = FCM only, TTL 0)
-)
+sealed interface Delivery {
+    /** Socket only. Offline devices catch up with their next sync. */
+    data class Live(val socket: SocketConnectionMessage) : Delivery
 
-enum class DeliveryMode {
-    LIVE_ONLY,   // socket to every live session, never a push (data changes, offline devices sync)
-    NOTIFY,      // socket to live sessions, push to every device that did not confirm it
-    PUSH_ALL,    // push to every device, socket ignored (wake, birthday)
+    /** Socket for connected devices, push for every device that did not confirm it. */
+    data class Alert(
+        val socket: SocketConnectionMessage,
+        val push: NotificationResponse,
+        val id: String = ObjectId.get().toHexString(), // the message id for new messages
+        val awaitAck: Boolean = false,                 // true for new messages, goes away in phase 5
+    ) : Delivery
+
+    /** Push to every device, sockets ignored (wake, birthday). */
+    data class PushOnly(val push: NotificationResponse, val options: PushOptions = PushOptions()) : Delivery
 }
 ```
 
-- **Actor**: `Actor(userId, deviceKey)` - who triggered the change and from which device. Passed by services that act on an HTTP request; `null` for schedulers.
+### `DeliveryService`: the only place that decides
 
-### `DeliveryService` (new, `notifications/DeliveryService.kt`)
-
-The only place that decides socket vs push. `NotificationService` keeps its `notifyX` methods (callers do not change), but each method only works out recipients and payloads and hands a list of `Delivery` objects to `DeliveryService.deliver(...)`. `NotificationService` stops calling `SocketConnectionHandler`, `FirebaseService` and `ApnsService` itself.
-
-Per-device rule for `NOTIFY`:
-
-```
-sessions = live sessions of recipient, grouped by deviceKey
-targets  = push targets of recipient, grouped by deviceKey
-
-for each device D (in sessions or targets):
-    write socket message (with deliveryId) to every session of D
-    if at least one write succeeded -> hold push for D's targets in PendingPushRegistry
-                                       (released on ack from any session of D,
-                                        pushed on timeout or when all of D's sessions close)
-    else (no session, or every write failed) -> push to D's targets now
-
-tokens without deviceKey: always pushed (a device that has not re-registered its token since the
-release - it registers on every app start, so this only covers devices that have not opened the
-new app yet).
+```kotlin
+fun send(userId: ObjectId, delivery: Delivery)
+fun sendAll(userIds: Collection<ObjectId>, build: (ObjectId) -> Delivery)
+fun sendToSession(sessionId: String, socket: SocketConnectionMessage) // snapshots after a connect
+fun broadcast(socket: SocketConnectionMessage, excludeUserId: ObjectId?)
+fun pushDeviceCount(userId: ObjectId, provider: PushProvider): Int    // shown by wake
 ```
 
-`LIVE_ONLY` writes to every session and returns. `PUSH_ALL` sends to every target.
+Phase 6 replaces `excludeUserId` with a `skipDevice` on all of them. `NotificationService` keeps its `notifyX` methods, so its callers stay as they are. Each method only works out recipients and payloads and calls `DeliveryService`. `sendAll` reads the push targets of a whole group in one query, and only for `Alert` and `PushOnly`.
 
-Actor handling (D2), applied by `NotificationService` when building the deliveries: the actor's own account gets a `LIVE_ONLY` delivery with the acting device (`actor.deviceKey`) excluded. This covers new messages too - the client guard against notifying own messages ships in the same release.
+`SocketConnectionHandler` keeps the session registry and exposes `sessionsOf(userId)` and `write(session, json)`. `sendMessage`, `sendNewMessage` and the delivery logic leave it. After this, only `DeliveryService` uses the socket writer and the push senders.
 
-`deliver` returns a small result (`DeliveryResult`: devices reached by socket, devices pushed, devices pending) for callers that need it - this replaces the `Set<ObjectId>` that `notifyMessageUpdate` returns for `notifyReactionAdded` today, and the device count that `WakeService` shows.
+### Per-device rule
 
-### Generic ack (D3)
+```
+Live:     write to every session
+PushOnly: push to every target
+Alert, for each device in (sessions + targets):
+    no target (desktop)  -> write to its sessions, done
+    no session           -> push now
+    session and target, awaitAck
+                         -> hold the push, then write to its sessions
+                            released by an ack from any session of this device
+                            pushed after 3 s, or when all its sessions closed
+    session and target, no awaitAck
+                         -> write to its sessions, push when every write failed
 
-Server -> client: push-worthy socket messages carry `deliveryId: String?`:
-- `MessageChange` (new message: `deliveryId = messageId`; reaction added, only towards the message sender: a fresh id)
-- `FriendRequest`
-- `EventChange` (new event)
-- future: event reminders (see `Todo.md`), anything else that has a push.
+A session without a device id (token issued before the deploy) -> write only.
+A target without a device id (legacy token) -> push now.
+```
 
-`deliveryId` is only set on the copy sent to the recipients that get a push for it. `LIVE_ONLY` copies have `deliveryId = null`, so the client never acks those.
+The push is registered before the write, so an ack can never arrive ahead of it. This is how `sendNewMessage` already works.
 
-Client -> server: `DeliveryAck(deliveryId: String)` (`_class = "deliveryack"`) **replaces** `MessageAck`. Remove `MessageAck` from the sealed interface and `@JsonSubTypes` on both sides, and drop the `X-Socket-Acks` handshake header.
+### Device model
 
-Server side: `PendingPushRegistry` key becomes `(userId, deviceKey, deliveryId)` and holds the push for that device's targets only. `ack(userId, deviceKey of the acking session, deliveryId)`. `onSessionClosed` stays as is (per session). Ack timeout stays 3 s.
+`RefreshToken` gets two fields. Its row already is one device, with a stable id across refresh and re-login:
 
-### Push layer cleanup
+```kotlin
+val pushProvider: PushProvider? = null, // FCM or APNS
+val pushToken: String? = null,
+```
 
-- `FirebaseService` and `ApnsService` each get one send method: `send(targets: List<PushTarget>, notification: NotificationResponse, options: PushOptions)`. The `sendNewMessage...`, `sendReaction...`, `sendFriendRequest...`, `sendWakeToUser` variants go away; `NotificationService` builds the `NotificationResponse` once per recipient.
-- Both implement a small `PushSender` interface (`platform`, `send`), so `DeliveryService` loops over senders instead of naming both.
-- Token lookup happens once, in `DeliveryService`, and the targets are passed down.
-- Flattening `NotificationResponse` into a string map and the `type` name live in one mapper file, `notifications/firebase/model/NotificationResponseMapper.kt` (mappers go in their own files). The FCM 4 KB content cut and the APNs fallback title/body stay in their senders.
-- One bounded executor for push I/O (`ThreadPoolTaskExecutor` bean or a shared `Executors.newFixedThreadPool`, shut down on `@PreDestroy`) instead of `CoroutineScope(Dispatchers.IO).launch` per call. `PendingPushRegistry` hands its due pushes to the same executor.
-- FCM: `FirebaseMessaging.sendEach(messages)` for all targets of one delivery (one HTTP batch instead of one call per token); keep the invalid-token cleanup per response. APNs: use the `CompletableFuture` from Pushy instead of `.get()` per token.
-- Token cleanup (`UNREGISTERED`, `BadDeviceToken`, ...) is unchanged.
-- Push payloads may change shape freely (D5), e.g. fix `requesterId`.
+- A partial unique index on `pushToken` (`{'$type': 'string'}`), created in `ensureRefreshTokenIndexes`, keeps one token on one row. This fixes problem 8.
+- `rotateTokenRow` only sets named fields, so refresh and login keep the push fields.
+- `DeviceDirectory` (new, `notifications/`) is the only class that reads or writes these fields:
+  - `targetsOf(userIds): Map<ObjectId, List<PushTarget>>`
+  - `registerPushToken(deviceId, provider, token)`: clears the token from any other row, then sets it. Refuses a row that no longer exists.
+  - `clearPushToken(token)`: for `UNREGISTERED`, `BadDeviceToken` and the like.
+- `PushTarget(deviceId: ObjectId?, provider, token)`.
 
-### Device identity (open decision D4)
+Access token:
 
-Both options give every socket session and every push token a `deviceKey`, and both link it to the device's `refreshTokens` row, so every session end can delete that device's push tokens (see [Logout and session end](#logout-and-session-end)). The rest of the plan is the same either way.
+- `generateAccessToken(userId, sid)`. `login` builds it after the row is known, today it builds it before. `refresh` has the row already.
+- `JwtAuthFilter` puts `sid` into `auth.details`. `currentDeviceOrNull()` sits next to `requireAuth()`.
+- Web logins have no row and no `sid`. The admin panel never opens `/ws`.
 
-**Option A - session id in the access token (server only).**
-`refreshTokens` already holds exactly one row per logged-in device (login dedups on userId + deviceName + deviceType). Put that row's id as a `sid` claim into every access token (`JwtService.generateAccessToken(userId, sessionId)`, set on login and refresh). Then:
-- socket handshake: `deviceKey = sid` from the bearer token,
-- `/users/setnotificationtoken`: `deviceKey = sid` from the request's token, stored on the token row,
-- actor device of any HTTP request: `sid` from the request's token (needs the claim exposed next to the principal, e.g. a `requireSession()` helper beside `requireAuth()`).
-- `deviceKey` **is** the session row id, so a session end knows the keys of the push tokens to delete without any extra field.
-- `/users/setnotificationtoken` must reject a `sid` whose session row no longer exists - otherwise an app whose session was just ended re-registers its token with its still valid access token (up to 15 minutes).
-- Pros: no client work; one source of truth (the session list the user already sees). Cons: tied to the auth session model - a re-login that creates a new row gives the same physical device a new key (the token row is re-linked on the next app start). Access tokens issued before the release have no `sid`; they expire within 15 minutes, a session without `deviceKey` in that window just covers no token.
+Socket: the handshake reads `sid` into `SocketConnection.deviceId` and refuses a `sid` whose row is gone. `acksMessages` goes away.
 
-**Option B - client-generated device id.**
-The client creates a UUID once per installation, stores it, and sends it as `X-Device-Id` on the socket handshake, on `/users/setnotificationtoken` and on every HTTP request (Ktor default header).
-- Login and refresh store the header value on the session row (`refreshTokens.deviceKey`), so a session end can look up which push tokens belong to it.
-- Pros: independent of auth; survives re-login. Cons: client work (store the id, send the header everywhere); one more field on `refreshTokens`; the value is client-controlled (only matters within the user's own devices, so low risk).
+### Ack
 
-Either way: `FirebaseToken` and `ApnsToken` get `deviceKey: String? = null` (indexed). `saveToken` updates `deviceKey` on an existing `(userId, token)` row instead of returning early.
+- `DeliveryService` stamps a top-level `deliveryId` key onto the JSON of an `Alert` (write the message to a tree, add the key). No message type changes, so a new type gets acks for free, and old clients ignore the key.
+- Client to server: `DeliveryAck(deliveryId)`, routed to `PendingPushRegistry.ack(deviceId, deliveryId)`.
+- `MessageAck(messageId)` keeps working until phase 7, because the `deliveryId` of a new message is its message id. It costs one line and covers the time between the server deploy and the client release.
+- `PendingPushRegistry` key becomes `(deviceId, deliveryId)`, and an entry holds that device's targets.
+- The push carries the same `deliveryId` (FCM data key, APNs custom key and `apns-collapse-id`), so a device can drop a push for something it already showed. On Android this replaces the "already stored" check from problem 11. On iOS the collapse id should also replace a local notification with the same identifier. Test this on a device before relying on it.
+- On shutdown the registry sends everything it still holds. It depends on the senders, so Spring destroys it first.
 
-### Logout and session end
+### Push layer
 
-Today the logout request is `{ refreshToken, notificationToken, isAndroid, allDevices }`. The push token is in there only because the server cannot find the device's push token on its own. Once push tokens carry the device's `deviceKey`, the server can:
+- `PushSender` interface, implemented by `FirebaseService` and `ApnsService`: `send(target, notification, options)`. All per-type send methods go.
+- `PushOptions(ttlSeconds: Long? = null, providers: Set<PushProvider> = all)`. Wake uses TTL 0, FCM only.
+- `NotificationResponseMapper.kt` holds the shared flatten and `type` name. The FCM 4 KB cut and the APNs fallback texts stay in their senders.
+- One thread pool for push I/O with fixed threads and an unbounded queue: a burst gets delayed, never dropped. It waits for running work on shutdown. `PendingPushRegistry` uses it too.
+- APNs uses Pushy's future instead of `.get()`.
+- Remove the unused `ApnsConfig` in `FirebaseService.constructMessage`.
+- No FCM `sendEach` batching: with per-device holds nearly every send has one target.
+- The later FID move (`Todo.md`) only touches `PushTarget`, `DeviceDirectory` and `FirebaseService`.
 
-- **Logout:** `{ refreshToken, allDevices }`. The server ends the session and deletes the push tokens with that session's `deviceKey` (or all of the user's tokens for `allDevices`). `notificationToken` and `isAndroid` go away, and with them the credential-less "delete whatever token is named" branch.
-- **Every other session end** deletes the push tokens of the ended session(s) in the same step - one helper, e.g. `PushTokenService.deleteForSessions(userId, deviceKeys)` / `deleteAllForUser(userId)`, called from:
-  - `AuthService.endSession` (device list "log out"),
-  - `UserService.changePassword` and `UserService.resetPassword`,
-  - `AdminUserService` forced logout,
-  - `DatabaseCleanupTask` for expired sessions (read the ids before deleting the rows),
-  - `UserService.deleteAccount` (all tokens of the user).
-- A device whose session ended gets no more pushes for that account. After its next login it registers its push token again (the client does this on every start of the chat list - check that a fresh login reaches that point too), and the token is linked to the new session.
+### Ending a session
 
-### Delivery matrix after the change
+`DeviceSessions` (new, `authentication/`) replaces the direct delete calls on `refreshTokenRepository`:
 
-| Trigger | Socket type | Recipient | Mode | Push |
-|---|---|---|---|---|
-| New message (1:1 / group) | `MessageChange(new)` + `deliveryId` | other participants | `NOTIFY` | `message` |
-| New message | `MessageChange(new)` | actor's other devices | `LIVE_ONLY` | - |
-| Edit, delete, read, poll vote | `MessageChange` | all participants, actor's other devices | `LIVE_ONLY` | - |
-| Reaction added | `MessageChange` + `deliveryId` | message sender (if not the reactor) | `NOTIFY` | `message` (`reaction=true`) |
-| Reaction added / removed | `MessageChange` | everyone else, actor's other devices | `LIVE_ONLY` | - |
-| System message | `MessageChange` | all incl. actor | `LIVE_ONLY` | - (unchanged) |
-| Friend request sent / accepted | `FriendRequest` + `deliveryId` | receiving user | `NOTIFY` | `friend_request` |
-| User / relation change | `UserChange` | as today | `LIVE_ONLY` | - |
-| Group change | `GroupChange` | as today | `LIVE_ONLY` | - |
-| New event | `EventChange` + `deliveryId` | audience | `NOTIFY` | `event` |
-| New event | `EventChange` | creator | `LIVE_ONLY` | - |
-| Event changed / deleted | `EventChange` | audience + creator | `LIVE_ONLY` | - |
-| Event reminder (Todo, not built yet) | new type + `deliveryId` | participants | `NOTIFY` | new subtype |
-| Birthday | - | birthday user, friends | `PUSH_ALL` | `birthday` (unchanged) |
-| Wake | - | target(s) | `PUSH_ALL`, FCM only, TTL 0 | `wake` (unchanged) |
-| Map change | `MapChange` broadcast | everyone except the acting **device** (was: acting user) | `LIVE_ONLY` | - |
-| Location, online status, snapshots | as today | as today | `LIVE_ONLY` | - |
+- `endDevice(userId, deviceId)` and `endAll(userId)`: delete the row(s) and close the matching sockets. The push target goes with the row.
+- Used by `logout`, `endSession`, `changePassword`, `resetPassword`, `forceLogout`, `deleteAccount` and `DatabaseCleanupTask`.
+
+### Legacy tokens
+
+Existing FCM / APNs rows cannot be matched to a device, because they only know the user. A phone that was not opened since the deploy must keep getting pushes, so during the transition:
+
+- `setnotificationtoken` writes the row **and** the old collection, so a rollback loses nothing.
+- `DeviceDirectory.targetsOf` adds old rows whose token is on no device row, with `deviceId = null`. They are always pushed.
+- `endAll` deletes the user's old rows too.
+- Phase 7 drops the old collections and this code. All of it sits in `DeviceDirectory`.
+
+### Delivery matrix
+
+| Trigger | Recipient | Delivery |
+|---|---|---|
+| New message | other participants | `Alert` (`id` = message id) |
+| New message | actor's other devices | `Live` |
+| Edit, delete, read, poll vote | participants, actor's other devices | `Live` |
+| Reaction added | message sender, unless they reacted | `Alert` |
+| Reaction added or removed | everyone else, actor's other devices | `Live` |
+| System message | all participants incl. actor | `Live` |
+| Friend request sent or accepted | receiving user | `Alert` |
+| New event | audience | `Alert` |
+| New event | creator | `Live` |
+| Event changed or deleted | audience, creator | `Live` |
+| User, relation, group, group extension change | as today | `Live` |
+| Online status, location | as today | `Live` |
+| Connect snapshots | the new session only | `sendToSession` |
+| Map change | everyone except the acting device | `broadcast` |
+| Birthday | birthday user, friends | `PushOnly` |
+| Wake | targets | `PushOnly`, FCM only, TTL 0 |
+| Event reminder (`Todo.md`) | accepted users, creator | `Alert` |
 
 ---
 
-## Implementation steps
+## Phases
 
-All phases happen on the separate branch (see [Scope and timing](#scope-and-timing)). They are an order of work, not separate releases; client and server changes for one phase can land together.
+All on one branch from `beta`. Each phase compiles and works on its own.
 
-### Phase 1 - push layer cleanup (no behaviour change)
+| Phase | Content | Size | Needs client |
+|---|---|---|---|
+| 1 | Push layer | M | no |
+| 2 | `DeliveryService`, still per user | M | no |
+| 3 | Device identity and session end | L | no |
+| 4 | Per-device rule | M | no |
+| 5 | Generic ack | M | yes |
+| 6 | Actor's other devices | S | yes |
+| 7 | Cleanup | S | no |
+| 8 | Read elsewhere (D6) | M | yes |
 
-1. Add `PushTarget`, `PushOptions`, `PushSender` (in `notifications/`), `NotificationResponseMapper.kt` (shared flatten + type name).
-2. `FirebaseService` / `ApnsService`: one `send(targets, notification, options)` each, on a shared bounded executor; FCM via `sendEach`, APNs async. Remove the per-type `send*ToUser` methods and the double token lookup.
-3. `NotificationService`: build each `NotificationResponse` once (one helper per type instead of the duplicated parameter blocks in `notifyMessageUpdate`), build the 1:1 `MessageChange` per recipient (fixes the `clientMessageId` bug).
-4. Move wake into `NotificationService.notifyWake(...)` returning the device count; `WakeService` stops using `FirebaseService`.
-5. Fix `requesterId` in `FriendRequestNotificationResponse` (server and client together).
+**Phase 1 - push layer (no behaviour change).** `PushTarget`, `PushOptions`, `PushSender`, `NotificationResponseMapper.kt`, thread pool. One `send` per sender. Build each `NotificationResponse` once. Build the 1:1 `MessageChange` per recipient. Move wake into `NotificationService`.
 
-### Phase 2 - `DeliveryService` (refactor)
+**Phase 2 - `DeliveryService` (no behaviour change).** Add `Delivery` and `DeliveryService`, keep the per-user rule inside. Move every `notifyX` onto it. Write the decision table tests here. Add the metrics.
 
-1. Add `Delivery`, `DeliveryMode`, `DeliveryResult`, `Actor`, `DeliveryService`.
-2. `SocketConnectionHandler`: keep the registry, but expose what `DeliveryService` needs (`sessionsOf(userId)`, `write(session, json): Boolean`) and drop the delivery logic from `sendNewMessage`. Optional: index sessions by user (`ConcurrentHashMap<ObjectId, List<SocketConnection>>`) instead of filtering the whole list for every send.
-3. Move every `notifyX` in `NotificationService` onto `DeliveryService.deliver(...)`. Without device keys yet, keep the current per-user rule inside `DeliveryService`, so this step is a pure refactor and the place to add tests for the decision table.
+**Phase 3 - device identity.** `sid` claim, `currentDeviceOrNull()`, `deviceId` on `SocketConnection`, the handshake check. Push fields, index, `DeviceDirectory`, legacy read. `setnotificationtoken` writes both. `DeviceSessions` replaces the direct deletes. Remove the unauthenticated delete branch of `logout`.
 
-### Phase 3 - per-device delivery (needs D4)
+**Phase 4 - per-device rule.** Switch the rule, key `PendingPushRegistry` by device, drain it on shutdown, drop `acksMessages` and the `X-Socket-Acks` read. The main bug is fixed here, for released clients too. `sendToSession` for the snapshots.
 
-1. Implement the chosen device identity (option A: `sid` claim + `requireSession()`; option B: `X-Device-Id` header in the client and a server helper that reads it).
-2. `deviceKey` on `SocketConnection`, `FirebaseToken`, `ApnsToken`; `saveToken` back-fills it.
-3. `PendingPushRegistry` keyed per device, holding that device's targets.
-4. `DeliveryService` switches from the per-user rule to the per-device rule; tokens without `deviceKey` are always pushed.
-5. Every session end deletes the device's push tokens by `deviceKey` - logout, device list "log out", password change / reset, admin forced logout, expiry cleanup, account deletion (see [Logout and session end](#logout-and-session-end)); drop `notificationToken` / `isAndroid` from the logout request.
+**Phase 5 - generic ack.** Client: send `DeliveryAck` for a stamped message after storing it and showing the notification, before media downloads. Drop duplicates by `deliveryId`. Server: stamp `Alert`, send `deliveryId` with the push, remove `awaitAck` so reactions, friend requests and events wait for an ack too.
 
-### Phase 4 - generic ack
+**Phase 6 - actor's other devices.** Client: no notification for own messages. Server: `Actor(userId, deviceId)` on `notifyMessageUpdate`, `notifyMapUpdate` and the reaction path (12 call sites), plus the extra `Live` delivery.
 
-1. Server: `deliveryId` on `MessageChange`, `FriendRequest`, `EventChange`; `DeliveryAck` replaces `MessageAck` in the sealed interface **and** `@JsonSubTypes`; `handleTextMessage` routes it to the registry; remove `acksMessages`, `ACK_SUPPORT_HEADER` and the legacy "write = delivered" path.
-2. Client: ack every socket message with a non-null `deliveryId`; remove `MessageAck` and the `X-Socket-Acks` header.
+**Phase 7 - cleanup.** Remove `MessageAck`, the old token collections and their code, and `notificationToken` / `isAndroid` on logout.
 
-### Phase 5 - actor's other devices (D2)
+**Phase 8 - read elsewhere.** Socket message and silent push that clear a chat's notification. Silent types need a flag the client skips, because Android shows a generic notification for an unknown push type. So the client learns the flag first.
 
-1. Services pass `Actor(userId, deviceKey)` into `notifyMessageUpdate`, `notifyMapUpdate` and the reaction path (from `requireAuth()` + the device key of the request).
-2. `notifyMessageUpdate` adds a `LIVE_ONLY` delivery for the actor, excluding the acting device.
-3. `notifyMapUpdate` excludes the acting device instead of the acting user.
-4. Client: no local notification for own messages (see below).
+## Release order
 
-## Client changes (SchneaggchatV3)
+No compatibility code is needed for this, only the right order:
 
-1. Do not show a local notification for a socket `MessageChange` whose `senderId == ownId`.
-2. Send `DeliveryAck(deliveryId)` for every socket message with a non-null `deliveryId` - after storing it and showing / scheduling the notification, before media downloads, like `MessageAck` today. Remove `MessageAck` and the `X-Socket-Acks` header.
-3. Option B only: device UUID, sent as `X-Device-Id` on the handshake, on `setnotificationtoken` and on every HTTP request.
-4. Logout: stop sending `notificationToken` / `isAndroid` (the server deletes the device's tokens itself).
-5. Read the fixed `requesterId` in friend request pushes.
-6. Push handler: drop a push for something already stored (it already does this for messages); same for friend requests / events if the ack raced the push.
+1. **Server, phases 1-4.** Works with the released apps, nothing on the wire changes. Reactions, friend requests and events are per device too, but a socket write still counts as delivered for them until phase 5. A v3.0.17 app does not ack, so it gets a push on top of each live message.
+2. **Client release** with the client parts of phases 5 and 6. They do nothing until the server stamps messages, and an app on this version works with the server from step 1.
+3. **After the forced update, server, phases 5 and 6.** Doing this before step 2 would give old apps a push on top of each live reaction, friend request and event, and own messages would ring their other devices.
+4. **Later, phase 7**, once the old token rows stopped being used (metric below).
 
-## Release
+Server rollback at any step: the new fields are ignored by older code, and the old collections stay complete until phase 7.
 
-- Server and client go out together in the release after the current one; the branch is merged into `main` for that release.
-- No compatibility with older app versions (D5): the app forces users to update on start when a new version is released, so no old client ever opens a socket against the new server.
-- An install that has not been opened since the release still has its old push token without `deviceKey`. It keeps getting pushes (see "Unlinked tokens" below) until it is opened, updated and re-registers its token.
-- Prod builds from the branch set in `server_docker/Dockerfile`, so nothing reaches prod before the feature branch is merged.
+## Observability
 
-## Risks and edge cases
+New counters in `ServerMetrics`, shown in the admin monitoring: deliveries per type, pushes sent right away, pushes held, held pushes released by ack, by timeout and by session close, ack latency, legacy tokens used. If timeouts are high, the 3 s value or the client is wrong, and this shows which one.
 
-- **Double notification on a device**: a device acks too late (> 3 s, slow phone) and also gets the push. Same as today for new messages; the client push handler must drop already-stored items.
-- **Unlinked tokens right after the release**: tokens without `deviceKey` are always pushed until the device opens the new app once (it re-registers on every start). A device that is in the foreground before its token is re-linked can get one push on top of the socket notification.
-- **Token moved between accounts** (account switch on one phone): the unique index is `(userId, token)`, so the same token can sit under two users. Logout already deletes it for the old user; with the per-device delete on session end this stays covered.
-- **Several sessions of one device** (reconnect before the old one is reaped): grouped by `deviceKey`, any ack from that device releases the push.
-- **Desktop** has no push token: it only ever gets the socket. Nothing to do.
-- **Horizontal scaling**: sessions and pending pushes are in memory (Gotcha 7 in the project skill). This plan does not change that.
-- **Pending push memory**: entries live at most `ACK_TIMEOUT_MS`; per-device keys multiply the count by the number of devices, which stays small.
+## Tests
 
-## Tests (write with the implementation, run only when asked)
+Written with the implementation, run when asked.
 
-- `DeliveryService` decision table with MockK fakes for the socket registry and the push senders: no session; session write fails; session acks / times out / closes; two devices with one connected (the phone must be pushed); token without `deviceKey`; `LIVE_ONLY`, `PUSH_ALL`; actor exclusion.
-- `PendingPushRegistry`: ack from device A does not cancel the push for device B; session close releases only that device.
-- Mapper: flatten + type name per `NotificationResponse` subtype; FCM 4 KB cut.
+- `DeliveryService` decision table with fakes: no session, write fails, ack, timeout, session close, desktop and phone (the phone gets the push), two phones, token without device, session without device, `skipDevice`, all three `Delivery` cases.
+- `PendingPushRegistry`: an ack from device A does not cancel device B, session close releases only that device, shutdown sends what is held.
+- `DeviceDirectory`: a token moves between rows and users, an ended session gets refused, legacy rows are only returned while unlinked.
+- `RefreshToken` row: refresh and login keep the push fields.
+- Mapper: flatten and `type` per subtype, FCM 4 KB cut.
+- Manual round before release: Android, iPhone and desktop on one account, app in foreground, background and killed, each `Alert` type.
+
+## Risks
+
+- **Central change.** A bug hits all notifications at once. Phases 1 and 2 change no behaviour and bring the tests first, and phase 4 is one switch.
+- **Duplicate notification** when a device acks after 3 s. Handled by `deliveryId` from phase 5. Until then it stays as it is today, for messages only.
+- **15 minutes after the phase 3 deploy**, access tokens without `sid` still exist. Those sessions are write-only, so a device can get a push on top of the socket until its next refresh.
+- **Two rows for one device** after the rare login race in `AuthService.login`, or with a blank device name. The token stays on the older row until the next app start moves it, and the device can get a double notification until then.
+- **More pushes for multi-device users**, the direct result of D1.
+- **A stale phone notification** after reading on the desktop, until phase 8.
+- **Up to 3 s push delay** for a connected device that does not ack, for all `Alert` types instead of only messages.
+- **Not addressed:** sessions and held pushes stay in memory, so this is single instance only. No retry of transient FCM errors (rejected 2026-10-21). Push content stays plaintext.
+
+## What it fixes
+
+Problems 1-11 and both smaller bugs. Event reminders and radar pushes get a ready path: one `Alert`, no new delivery code.
 
 ---
 
-## Pros, cons and everything it fixes
+## Review
 
-### What it fixes
+Reviewed as a senior developer would review it, against the code and the 2026-10-20 version of this plan. This was a review by the plan's author, not an independent one.
 
-Delivery (user-visible):
+**Verdict: the 2026-10-20 version would not have passed. This version would, with the conditions below.**
 
-1. **No push on the phone while another device is online.** Desktop open, or a second phone in the foreground, suppresses every push for all other devices of the account today. After: decided per device (D1).
-2. **One device's ack cancels the push for all devices.** `PendingPushRegistry` keys on `(userId, messageId)` today. After: `(userId, deviceKey, deliveryId)`.
-3. **Lost pushes for reactions, friend requests and new events.** These count a socket *write* as delivered, so they get lost when the app is on its way to the background or the peer vanished without a close frame. After: acked like new messages (D3).
-4. **Own actions do not reach own other devices live.** A message sent on the phone shows up on the desktop only after the next sync; map edits skip all of the editor's devices. After: socket update to every other device of the actor (D2).
+| # | Objection to the old version | Severity | Change |
+|---|---|---|---|
+| 1 | It assumed server and client ship at the same moment. Store review makes that impossible, and the old wire change would have dropped live updates or doubled notifications in between. | Blocker | [Release order](#release-order), additive `deliveryId` |
+| 2 | Tokens without a device had no rollback path, and deleting old rows on migration would lose pushes after a rollback. | Blocker | Write both until phase 7 |
+| 3 | Seven session end paths had to remember a cleanup call, which is the bug class it wanted to remove. | Major | Push target on the session row |
+| 4 | Ended sessions kept their live socket, and only push tokens were covered. | Major | `DeviceSessions` closes sockets |
+| 5 | `DeliveryMode` next to two nullable payloads allowed nonsense such as `NOTIFY` without a push. | Major | Sealed `Delivery` |
+| 6 | `deliveryId` on each message type means every new type has to remember it. | Major | Stamped by `DeliveryService` |
+| 7 | Client dedupe by "already stored" is the bug in problem 11. | Major | Dedupe by `deliveryId` |
+| 8 | A deploy lost up to 3 s of held pushes. | Minor | Drain on shutdown |
+| 9 | No way to see whether acks work in production. | Minor | [Observability](#observability) |
+| 10 | `sendEach` batching and a session index add code for a gain that this load does not need. | Minor | Dropped |
 
-Sessions and push tokens (privacy / security):
+**What was checked in the code:** one row per device and in-place rotation, `rotateTokenRow` sets single fields, login reuses the row, the admin panel does not use `/ws`, `ignoreUnknownKeys` on the client, the list of session end paths, all direct sender callers.
 
-5. **Ended sessions keep receiving pushes**, with plaintext message content: device list "log out", password change, password reset (the "phone was stolen" case), admin forced logout, expired sessions. After: every session end deletes that device's tokens.
-6. **Push tokens of deleted accounts stay in the database.** After: deleted with the account.
-7. **Unauthenticated token delete.** The credential-less logout branch deletes any push token named in the request. After: the branch and the `notificationToken` / `isAndroid` fields are gone.
-8. **Logout depends on the client remembering its push token.** A reinstalled app or a rotated token leaves the old row behind. After: the server finds the device's tokens itself.
+**Conditions for approval:**
 
-Code structure:
+1. Phases 1 and 2 merge with the decision table tests, before any behaviour changes.
+2. Phase 4 is tested by hand on real devices before it reaches `main`.
+3. Phase 5 waits for the metrics from phase 2 in production.
+4. The push token on the session row is a deliberate trade: an auth collection now holds a push field. It is accepted because the shared lifecycle removes a whole bug class, and only `DeviceDirectory` touches the field.
 
-9. **`WakeService` bypasses `NotificationService`** and talks to `FirebaseService` directly. After: wake goes through `NotificationService` like everything else.
-10. **Copy-paste push layer**: three per-type send methods in each of the two senders, plus the same parameter blocks twice in `notifyMessageUpdate`. After: one `send(targets, notification, options)` per sender, one place that builds each payload.
-11. **Two payload mappers** (`notificationResponseToDataMap`, `buildPayload`) with their own `type` name lists. After: one mapper file.
-12. **Socket vs push decided in many places** (each `notifyX` method, `SocketConnectionHandler.sendNewMessage`, `notifyReactionAdded`). After: one decision point (`DeliveryService`); a new feature only picks a `DeliveryMode`.
-13. **Event reminders (`Todo.md`)** get a ready-made path: a new socket type + push subtype with `NOTIFY`.
-
-Performance / robustness:
-
-14. **Unbounded threading**: a new `CoroutineScope(Dispatchers.IO).launch` per send, nested twice. After: one bounded executor, shut down cleanly.
-15. **One FCM HTTP call per token, blocking APNs `.get()` per token.** After: FCM `sendEach` batch, APNs async futures.
-16. **Push tokens read from Mongo twice per send.** After: once per delivery.
-17. **Every socket send filters the whole connection list** (optional fix: index sessions by user).
-
-Smaller bugs:
-
-18. 1:1 `MessageChange` built for the receiver also when it goes to the sender, so the sender gets `clientMessageId = null`.
-19. `requesterId` in friend request pushes holds the receiver's id.
-20. Friend request push errors are logged under the sender instead of the receiver.
-
-Testability:
-
-21. The delivery decision becomes a pure decision table in one class, testable with fakes - today it is spread over `NotificationService`, `SocketConnectionHandler` and `PendingPushRegistry`.
-
-### Pros
-
-- Every device of a user gets every notification exactly once in the normal case: by socket when it is connected, by push when it is not.
-- Pushes are only skipped when the device itself confirmed the update - no more guessing from a TCP write or from another device.
-- Ending a session really ends it: no more pushes to logged-out, stolen or expired devices.
-- One code path for all notifications: easier to reason about, to log, to test, and to extend (event reminders, future types).
-- Less code: the duplicated send methods, both ack variants (`MessageAck` + header) and the logout token fields go away.
-- No compatibility code needed (D5), so the result is simpler than a gradual migration would be.
-
-### Cons and costs
-
-- **More notifications for multi-device users.** A phone in the pocket buzzes while the user is chatting on the desktop (the direct consequence of D1). A later "delay and drop if read elsewhere" mode could soften it; out of scope here.
-- **Big, central change.** Every notification in the app goes through the new code. A bug there breaks all of them at once. Needs the decision table tests and a careful manual test round before the release.
-- **All-or-nothing release.** Server and client ship together and old apps are forced to update, so there is no gradual rollout. A rollback means rolling back the server *and* shipping a client rollback.
-- **Client work** in the same release: `DeliveryAck`, no notification for own messages, logout without push token, fixed `requesterId`, de-duplication of late pushes for friend requests / events; with option B also the device id header.
-- **Push delay of up to 3 s** for a connected device that does not ack (app just going to the background) - today only for new messages, afterwards also for reactions, friend requests and new events.
-- **Duplicate notification on a slow device** that acks after the 3 s timeout - existing behaviour for messages, now possible for more types; the client has to drop already-stored items.
-- **Unlinked tokens right after the release** are always pushed, so a device can get one double notification until it re-registers its token on the next app start.
-- **Device identity has a price either way**: option A ties devices to auth sessions (a new session row = a new device key until the token is re-registered); option B needs client work and stores a client-chosen value.
-- **More socket traffic**: one inbound ack per push-worthy event and per device (small).
-- **Not addressed**: sessions and pending pushes stay in memory (single server instance only, Gotcha 7).
+**Not verified yet:** the iOS collapse id behaviour, and how old desktop apps behave, since D5 only names Android and iOS. The additive wire keeps them working, but they get no forced update.

@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.websocket.connectiontim
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.ConnectedUser
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnection
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
+import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.LocationTelemetry
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.UserLocationService
@@ -43,6 +44,7 @@ class SocketConnectionHandler(
     // @Lazy breaks the cycle: AdminEventService -> SocketConnectionHandler (for the initial snapshot on registration).
     @Lazy private val adminEventService: AdminEventService,
     private val pendingPushRegistry: PendingPushRegistry,
+    private val refreshTokenRepository: RefreshTokenRepository,
 ): TextWebSocketHandler() {
 
     companion object {
@@ -60,9 +62,6 @@ class SocketConnectionHandler(
 
         /** Outbound bytes allowed to pile up behind a slow send before the session is cut off. */
         private const val SEND_BUFFER_LIMIT_BYTES = 512 * 1024
-
-        /** Handshake header a client sets when it confirms new messages with `messageack`. */
-        const val ACK_SUPPORT_HEADER = "X-Socket-Acks"
     }
 
     var connections : CopyOnWriteArrayList<SocketConnection> = CopyOnWriteArrayList()
@@ -95,89 +94,41 @@ class SocketConnectionHandler(
         }
     }
 
-    fun broadcast(message: SocketConnectionMessage, excludeUserId: ObjectId?) {
-        val json = Json.mapper.writeValueAsString(message)
-        for (connection in connections) {
-            if (excludeUserId != null && connection.userId == excludeUserId) continue
+    /** Closes the sockets of one ended device. Bookkeeping as in [disconnectUser]. */
+    fun disconnectDevice(deviceId: ObjectId) {
+        connections.filter { it.deviceId == deviceId }.forEach { connection ->
             try {
-                connection.session.sendMessage(TextMessage(json))
+                connection.session.close(CloseStatus.NORMAL)
             } catch (e: Exception) {
-                if (!e.isPeerGone()) AppLogger.error("Error broadcasting: ${e.describe()}", user = connection.userId, tag = "broadcast_socket_failed")
-                closeDeadConnection(connection)
+                if (!e.isPeerGone()) AppLogger.error("Error force-closing socket: ${e.describe()}", user = connection.userId, tag = "force_close_socket_failed")
             }
         }
     }
 
     /**
-     * Push [message] to every live session of [receiverId] - a user may be connected from several
-     * devices at once (desktop and phone), and after a reconnect a not-yet-reaped stale session may
-     * sit next to the live one; sending to only the first match would starve the others while
-     * still reporting success. A session whose send fails is treated as dead and closed.
-     *
-     * @return true if at least one session accepted the message, false if the user has no
-     * connection at all - the caller then falls back to FCM/APNs.
+     * Every live session of [userId]: a user may be connected from several devices at once, and
+     * after a reconnect a not-yet-reaped stale session may sit next to the live one.
      */
-    fun sendMessage(message: SocketConnectionMessage, receiverId: ObjectId) : Boolean {
-        val userConnections = connections.filter { it.userId == receiverId }
-        if (userConnections.isEmpty()) return false
+    fun sessionsOf(userId: ObjectId): List<SocketConnection> = connections.filter { it.userId == userId }
 
-        val jsonMessage = Json.mapper.writeValueAsString(message)
-        var delivered = false
-        for (connection in userConnections) {
-            try {
-                connection.session.sendMessage(TextMessage(jsonMessage))
-                delivered = true
-            } catch (e: Exception) {
-                if (!e.isPeerGone()) {
-                    AppLogger.error("Error sending socket message (session ${connection.sessionId}): ${e.describe()}", user = receiverId, tag = "send_socket_message_failed")
-                }
-                closeDeadConnection(connection)
+    /** @return false when the write failed. The session counts as dead then and gets closed. */
+    fun write(connection: SocketConnection, json: String): Boolean {
+        return try {
+            connection.session.sendMessage(TextMessage(json))
+            true
+        } catch (e: Exception) {
+            if (!e.isPeerGone()) {
+                AppLogger.error("Error sending socket message (session ${connection.sessionId}): ${e.describe()}", user = connection.userId, tag = "send_socket_message_failed")
             }
+            // Unregistering also releases this session's held pushes right away
+            closeDeadConnection(connection)
+            false
         }
-        return delivered
-    }
-
-    /**
-     * Like [sendMessage], for a new message whose recipient would otherwise get a push. Sessions of
-     * clients that confirm receipt only count once they ack: [push] is held in [PendingPushRegistry]
-     * and sent if none of them does. It is registered before writing, so an ack can never arrive
-     * ahead of its registration. A successful write to an older, non-acking session still counts
-     * as delivered, as before.
-     *
-     * @return true if the socket took over (delivered, or the push is pending/already handled);
-     * false if the user has no session at all and the caller has to push itself.
-     */
-    fun sendNewMessage(message: SocketConnectionMessage, receiverId: ObjectId, messageId: String, push: () -> Unit): Boolean {
-        val userConnections = connections.filter { it.userId == receiverId }
-        if (userConnections.isEmpty()) return false
-
-        val ackSessionIds = userConnections.filter { it.acksMessages }.map { it.sessionId }
-        if (ackSessionIds.isNotEmpty()) {
-            pendingPushRegistry.await(receiverId, messageId, ackSessionIds, push)
-        }
-
-        val jsonMessage = Json.mapper.writeValueAsString(message)
-        var deliveredToLegacy = false
-        for (connection in userConnections) {
-            try {
-                connection.session.sendMessage(TextMessage(jsonMessage))
-                if (!connection.acksMessages) deliveredToLegacy = true
-            } catch (e: Exception) {
-                if (!e.isPeerGone()) {
-                    AppLogger.error("Error sending socket message (session ${connection.sessionId}): ${e.describe()}", user = receiverId)
-                }
-                // Unregistering also releases this session's pending pushes right away
-                closeDeadConnection(connection)
-            }
-        }
-
-        if (deliveredToLegacy) pendingPushRegistry.ack(receiverId, messageId)
-
-        return deliveredToLegacy || ackSessionIds.isNotEmpty()
     }
 
     override fun handleTextMessage(session: WebSocketSession, message: TextMessage) {
-        val senderId = connections.find { it.sessionId == session.id }?.userId ?: return
+        val connection = connections.find { it.sessionId == session.id } ?: return
+        val senderId = connection.userId
 
         val parsed = try {
             Json.mapper.readValue(message.payload, SocketConnectionMessage::class.java)
@@ -199,7 +150,7 @@ class SocketConnectionHandler(
                     ),
                 )
             }
-            is SocketConnectionMessage.MessageAck -> pendingPushRegistry.ack(senderId, parsed.messageId)
+            is SocketConnectionMessage.MessageAck -> connection.deviceId?.let { pendingPushRegistry.ack(it, parsed.messageId) }
             // All other message types are server -> client only; ignore if received inbound.
             else -> AppLogger.warn("Ignoring unsupported inbound socket message type", user = senderId, tag = "handle_socket_unsupported_type")
         }
@@ -220,7 +171,7 @@ class SocketConnectionHandler(
      * Keepalive sweep. The server never learns on its own that a peer silently vanished (phone
      * radio already off when the app closed the socket, laptop lid closed, iOS suspended before
      * the close frame was flushed): TCP keeps accepting writes into its buffer for many minutes,
-     * so [sendMessage] would keep "succeeding" against a dead socket, the push fallback would
+     * so [write] would keep "succeeding" against a dead socket, the push fallback would
      * never kick in, and the user would stay "online" for their friends. So ping every session on
      * a fixed cadence and treat one that has not ponged within [PONG_TIMEOUT] as gone.
      *
@@ -267,12 +218,13 @@ class SocketConnectionHandler(
         super.afterConnectionEstablished(session)
 
         var requestingUserId : String? = null
+        var deviceId : ObjectId? = null
 
         val authHeader = session.handshakeHeaders.get("Authorization")?.first()
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             if (jwtService.validateAccessToken(authHeader)) {
                 requestingUserId = jwtService.getUserIdFromToken(authHeader)
-
+                deviceId = jwtService.getSessionIdFromToken(authHeader)?.let { ObjectId(it) }
             }
         }
 
@@ -285,6 +237,13 @@ class SocketConnectionHandler(
                 )
             }
 
+
+        //An ended device keeps its access token for some minutes, but must not get back in
+        val sessionEnded = deviceId?.let { !refreshTokenRepository.existsById(it) } ?: false
+        if (sessionEnded) {
+            AppLogger.warn("Socket refused, session $deviceId no longer exists", user = ObjectId(requestingUserId), tag = "auth_socket_session_ended")
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Session ended")
+        }
 
         //println("New socket connection from user ${userLookupService.getUsername(ObjectId(requestingUserId))} IP: ${session.handshakeHeaders["X-Real-IP"]}")
 
@@ -303,17 +262,17 @@ class SocketConnectionHandler(
                 sessionId = session.id,
                 userId = userId,
                 session = safeSession,
-                acksMessages = session.handshakeHeaders.getFirst(ACK_SUPPORT_HEADER) == "1",
+                deviceId = deviceId,
             )
         }
 
         //println("Total connections: ${connections.size}")
 
         // Initial load: push the connecting user the current locations of all friends they may see.
-        userLocationService.sendInitialLocationSnapshot(userId)
+        userLocationService.sendInitialLocationSnapshot(userId, session.id)
 
         // Initial load: push the connecting user which of their friends are currently online.
-        notificationService.sendInitialFriendOnlineSnapshot(userId)
+        notificationService.sendInitialFriendOnlineSnapshot(userId, session.id)
 
         // This was the user's first active session -> they just went online.
         if (wasOffline) {

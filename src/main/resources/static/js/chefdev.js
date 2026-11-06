@@ -1687,6 +1687,8 @@ const METRIC_PANELS = [
     { title: 'Socket-Verbindungen', stacked: false, series: [['socketConnections', 'Verbindungen', MON_COLORS.ok, 'gauges'], ['socketUsers', 'Nutzer', MON_COLORS.info, 'gauges']] },
     { title: 'Push FCM', series: [['fcmSent', 'Gesendet', MON_COLORS.ok, 'counters'], ['fcmFailed', 'Fehlgeschlagen', MON_COLORS.error, 'counters']] },
     { title: 'Push APNs', series: [['apnsSent', 'Gesendet', MON_COLORS.ok, 'counters'], ['apnsFailed', 'Fehlgeschlagen', MON_COLORS.error, 'counters']] },
+    { title: 'Push-Zustellung', stacked: false, series: [['pushesImmediate', 'Sofort', MON_COLORS.info, 'counters'], ['pushesHeld', 'Gehalten', MON_COLORS.gray, 'counters'], ['pushesAcked', 'Bestätigt', MON_COLORS.ok, 'counters'], ['pushesAckTimedOut', 'Timeout', MON_COLORS.error, 'counters'], ['pushesSessionClosed', 'Socket zu', MON_COLORS.warn, 'counters'], ['legacyTokenPushes', 'Alte Tokens', MON_COLORS.purple, 'counters']] },
+    { title: 'Ack-Zeit (ms)', digits: 0, series: [['ackLatencyMs', 'Mittel', MON_COLORS.info, 'gauges']] },
     { title: 'E-Mails', series: [['emailsSent', 'Gesendet', MON_COLORS.ok, 'counters'], ['emailsFailed', 'Fehlgeschlagen', MON_COLORS.error, 'counters']] },
     { title: 'Nachrichten', series: [['messagesSent', 'Nachrichten', MON_COLORS.ok, 'counters']] },
     { title: 'Logins & neue Accounts', stacked: false, series: [['logins', 'Logins', MON_COLORS.info, 'counters'], ['newAccounts', 'Neue Accounts', MON_COLORS.purple, 'counters']] },

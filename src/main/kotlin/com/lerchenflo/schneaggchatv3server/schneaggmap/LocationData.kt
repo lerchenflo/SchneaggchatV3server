@@ -83,12 +83,14 @@ sealed class LocationData {
         val radarSpeedLimit: AttributeValue,
         val radarMobile: AttributeValue?,
         val radarRedLight: AttributeValue,
+        val radarLastSeen: AttributeValue? = null, // only on a mobile radar, see withoutStaleLastSeen
     ) : LocationData() {
 
         override fun schema() = listOf(
             AttributeDefinition.IntDef(key = AttributeKey.RADAR_SPEED_LIMIT, required = true, min = 0),
             AttributeDefinition.BoolDef(key = AttributeKey.RADAR_MOBILE,    required = false),
             AttributeDefinition.BoolDef(key = AttributeKey.RADAR_RED_LIGHT,  required = true),
+            AttributeDefinition.DateTimeDef(key = AttributeKey.RADAR_LAST_SEEN, required = false),
         )
     }
 

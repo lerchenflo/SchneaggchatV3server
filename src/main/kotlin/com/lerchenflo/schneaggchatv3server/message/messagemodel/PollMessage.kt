@@ -100,6 +100,40 @@ data class PollMessage(
         voteOptions = voteOptions.map { it.clearVotesOf(userId) }
     )
 
+    /** Removes every vote in this poll and all of its sub polls. */
+    fun clearAllVotes(): PollMessage = copy(
+        voteOptions = voteOptions.map { it.clearAllVotes() }
+    )
+
+    /**
+     * Drops each user's oldest votes on this poll level until they are within [maxAnswers], the same
+     * order votePoll drops them in. Dropping a vote also drops the user's answers in that sub poll.
+     */
+    fun dropVotesOverMaxAnswers(): PollMessage {
+        val limit = maxAnswers ?: return this
+
+        val votesOverLimit = voteOptions
+            .flatMap { option -> option.voters.map { voter -> option.id to voter } }
+            .groupBy { (_, voter) -> voter.userId }
+            .values
+            .flatMap { votes -> votes.sortedByDescending { (_, voter) -> voter.votedAt }.drop(limit) }
+
+        return copy(
+            voteOptions = voteOptions.map { option ->
+                votesOverLimit
+                    .filter { (optionId, _) -> optionId == option.id }
+                    .fold(option) { kept, (_, voter) -> kept.clearVotesOf(voter.userId) }
+            }
+        )
+    }
+
+    /** Sets what sub polls share with the root poll, on this poll and all of its sub polls. */
+    fun withRootSettings(visibility: PollVisibility, closeDate: Instant?): PollMessage = copy(
+        visibility = visibility,
+        closeDate = closeDate,
+        voteOptions = voteOptions.map { it.copy(subPoll = it.subPoll?.withRootSettings(visibility, closeDate)) }
+    )
+
     /** Number of options in this poll and all of its sub polls. */
     fun totalOptionCount(): Int = voteOptions.sumOf { 1 + (it.subPoll?.totalOptionCount() ?: 0) }
 }
@@ -122,6 +156,12 @@ data class PollVoteOption(
         voters = voters.filter { it.userId != userId },
         subPoll = subPoll?.clearVotesOf(userId)
     )
+
+    /** Removes every vote on this option and in its sub poll tree. */
+    fun clearAllVotes(): PollVoteOption = copy(
+        voters = emptyList(),
+        subPoll = subPoll?.clearAllVotes()
+    )
 }
 
 data class PollVoter(
@@ -129,6 +169,7 @@ data class PollVoter(
     val votedAt: Instant,
 )
 
+//Declared from open to strict: a poll edit compares by this order
 enum class PollVisibility{
     PUBLIC,
     PRIVATE,

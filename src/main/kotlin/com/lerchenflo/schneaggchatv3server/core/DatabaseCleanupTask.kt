@@ -1,10 +1,10 @@
 package com.lerchenflo.schneaggchatv3server.core
 
+import com.lerchenflo.schneaggchatv3server.authentication.DeviceSessions
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.monitoring.AppLogService
 import com.lerchenflo.schneaggchatv3server.monitoring.RequestCountService
 import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetricsService
-import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserLocationRepository
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -12,7 +12,7 @@ import kotlin.time.Clock
 
 @Component
 class DatabaseCleanupTask(
-    private val refreshTokenRepository: RefreshTokenRepository,
+    private val deviceSessions: DeviceSessions,
     private val userLocationRepository: UserLocationRepository,
     private val groupService: GroupService,
     private val appLogService: AppLogService,
@@ -27,12 +27,10 @@ class DatabaseCleanupTask(
      */
     @Scheduled(fixedDelay = 60_000)
     fun cleanDatabasePeriodically() {
-        // The only token sweep: device session rows whose sliding expiresAt passed (device
-        // stopped refreshing for the whole refresh validity window). Rotated-away tokens need no
-        // sweep anymore - rotation happens in place, the old hash just moves to
+        // Rotated-away tokens need no sweep: rotation happens in place, the old hash just moves to
         // previousHashedToken on the same row. Can't rely on the @Indexed TTL index on expiresAt
         // (see RefreshTokenRepository.deleteByExpiresAtBefore).
-        refreshTokenRepository.deleteByExpiresAtBefore(Clock.System.now())
+        deviceSessions.endExpired()
 
 
         val deletedUserlocationsCount = userLocationRepository.deleteByExpiresAtBefore(Clock.System.now())

@@ -16,6 +16,7 @@ data class PersonalUserSettings(
     val mergeMapLocations: Boolean = true,
     val mergeMapUsers: Boolean = true,
     val sortMapUsersByPinned: Boolean = true,
+    val mapSightingPush: Boolean = false, // opt-in: push when police or a mobile radar is seen
     val mapStyle: String = "LIBERTY",
 
     val pinnedChats: List<PinnedChat> = emptyList(),

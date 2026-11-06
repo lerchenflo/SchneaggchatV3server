@@ -11,8 +11,7 @@ import com.lerchenflo.schneaggchatv3server.core.security.JwtService
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitProperties
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitService
 import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitTier
-import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
-import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
+import com.lerchenflo.schneaggchatv3server.notifications.push.DeviceDirectory
 import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.PersonalUserSettings
@@ -50,8 +49,8 @@ class AuthService(
     private val imageManager: ImageManager,
     private val rateLimitService: RateLimitService,
     private val rateLimitProperties: RateLimitProperties,
-    private val firebaseService: FirebaseService,
-    private val apnsService: ApnsService,
+    private val deviceSessions: DeviceSessions,
+    private val deviceDirectory: DeviceDirectory,
 
     private val mongoTemplate: MongoTemplate,
 ) {
@@ -156,15 +155,13 @@ class AuthService(
             logType = LogType.USER_LOGIN
         )
 
-        val newAccessToken = jwtService.generateAccessToken(user.id.toHexString())
-
         //The admin panel keeps only the access token in memory and logs in again once it expires
         //(see chefdev.js), so it gets no refresh token and no session row: nothing long-lived is
         //issued that it would only throw away, and it never shows up in the device list.
         if (devicetype == AuthController.DEVICETYPE.WEB) {
             AppLogger.success("$attempt | SUCCESS (access token only)")
             sendLoginAlert(user, deviceName, devicetype, newDevice = false, ip, clientInfo, previousLoginAt)
-            return TokenPair(accessToken = newAccessToken, refreshToken = "")
+            return TokenPair(accessToken = jwtService.generateAccessToken(user.id.toHexString()), refreshToken = "")
         }
 
         val newRefreshToken = jwtService.generateRefreshToken(user.id.toHexString())
@@ -182,21 +179,20 @@ class AuthService(
             )
         } else null
 
-        if (existing == null || rotateTokenRow(user.id, existing.hashedToken, newRefreshToken, deviceName, devicetype) == null) {
-            storeRefreshToken(
+        val session = existing?.let { rotateTokenRow(user.id, it.hashedToken, newRefreshToken, deviceName, devicetype) }
+            ?: storeRefreshToken(
                 userId = user.id,
                 rawRefreshToken = newRefreshToken,
                 deviceName = deviceName,
                 devicetype = devicetype,
             )
-        }
 
         AppLogger.success("$attempt | SUCCESS${if (existing == null) " (new device)" else ""}")
 
         sendLoginAlert(user, deviceName, devicetype, newDevice = existing == null, ip, clientInfo, previousLoginAt)
 
         return TokenPair(
-            accessToken = newAccessToken,
+            accessToken = jwtService.generateAccessToken(user.id.toHexString(), session.id.toHexString()),
             refreshToken = newRefreshToken
         )
     }
@@ -242,8 +238,9 @@ class AuthService(
      * already issued stays valid until it expires (see JwtService.accessTokenValidityMs); there is
      * no access token blacklist.
      *
-     * The device's push token goes with the session, otherwise a logged out device keeps receiving
-     * notifications for the account it just left.
+     * The device's push target goes with the session, otherwise a logged out device keeps receiving
+     * notifications for the account it just left. [notificationToken] only still matters for a
+     * legacy token that is not linked to a session yet.
      */
     fun logout(
         refreshToken: String?,
@@ -255,29 +252,17 @@ class AuthService(
         val validRefreshToken = refreshToken?.takeIf { jwtService.validateRefreshToken(it) }
         val tokenUserId = validRefreshToken?.let { ObjectId(jwtService.getUserIdFromToken(it)) }
 
-        val userId = tokenUserId ?: authenticatedUserId ?: run {
-            //No credential left - typically a device whose session was ended from another device's
-            //device list, logging itself out after its refresh got rejected. Its push token still
-            //has to go, or it keeps receiving notifications for an account it is no longer in.
-            if (notificationToken != null && isAndroid != null) {
-                if (isAndroid) firebaseService.deleteToken(notificationToken)
-                else apnsService.deleteToken(notificationToken)
-            }
-            return
-        }
+        //No credential left: a device whose session already ended, its push target went with it
+        val userId = tokenUserId ?: authenticatedUserId ?: return
 
         val endedSessions = when {
-            allDevices -> refreshTokenRepository.deleteByUserId(userId)
-            validRefreshToken != null -> deleteSession(userId, hashToken(validRefreshToken))
+            allDevices -> deviceSessions.endAll(userId)
+            validRefreshToken != null -> deviceSessions.endByRefreshToken(userId, hashToken(validRefreshToken))
             else -> 0L
         }
 
-        if (allDevices) {
-            firebaseService.deleteAllTokensForUser(userId)
-            apnsService.deleteAllTokensForUser(userId)
-        } else if (notificationToken != null && isAndroid != null) {
-            if (isAndroid) firebaseService.deleteTokenForUser(userId, notificationToken)
-            else apnsService.deleteTokenForUser(userId, notificationToken)
+        if (!allDevices && notificationToken != null) {
+            deviceDirectory.clearPushToken(userId, notificationToken)
         }
 
         loggingService.log(
@@ -297,14 +282,12 @@ class AuthService(
     }
 
     /**
-     * Logs one of the user's devices out remotely. Only the refresh token dies here: the device
-     * keeps its current access token until it expires (see JwtService.accessTokenValidityMs), then
-     * its refresh is rejected and it logs itself out, removing its push token on the way (see
-     * [logout]). Answers 404 for a session that doesn't exist or belongs to someone else.
+     * Logs one of the user's devices out remotely. The device keeps its current access token until
+     * it expires (see JwtService.accessTokenValidityMs), then its refresh is rejected and it logs
+     * itself out. Answers 404 for a session that doesn't exist or belongs to someone else.
      */
     fun endSession(userId: ObjectId, sessionId: ObjectId) {
-        val deleted = refreshTokenRepository.deleteByIdAndUserId(sessionId, userId)
-        if (deleted == 0L) {
+        if (!deviceSessions.endDevice(userId, sessionId)) {
             throw ResponseStatusException(HttpStatusCode.valueOf(404), "Session not found")
         }
 
@@ -313,22 +296,6 @@ class AuthService(
             logType = LogType.USER_LOGOUT,
             message = "remote | session $sessionId ended from device list",
         )
-    }
-
-    /**
-     * Removes this device's session row. Matches [RefreshToken.previousHashedToken] too, so a
-     * client logging out with the token it presented right before a rotation still ends the
-     * session instead of leaving the rotated row alive.
-     */
-    private fun deleteSession(userId: ObjectId, hashedToken: String): Long {
-        val query = Query().addCriteria(
-            Criteria.where("userId").`is`(userId).orOperator(
-                Criteria.where("hashedToken").`is`(hashedToken),
-                Criteria.where("previousHashedToken").`is`(hashedToken),
-            )
-        )
-
-        return mongoTemplate.remove(query, RefreshToken::class.java).deletedCount
     }
 
     private fun loginThrottleKey(username: String) = "rl:auth-user:${username.take(100)}"
@@ -426,7 +393,7 @@ class AuthService(
 
         if (claimed != null) {
             return TokenPair(
-                accessToken = jwtService.generateAccessToken(userId),
+                accessToken = jwtService.generateAccessToken(userId, claimed.id.toHexString()),
                 refreshToken = newRefreshToken
             )
         }
@@ -445,7 +412,7 @@ class AuthService(
             AppLogger.success("TOKENREFRESH replay: returned current token", user = user.id)
 
             return TokenPair(
-                accessToken = jwtService.generateAccessToken(userId),
+                accessToken = jwtService.generateAccessToken(userId, recovery.id.toHexString()),
                 refreshToken = recovery.rawToken
             )
         }

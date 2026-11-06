@@ -49,7 +49,8 @@ class MessageService(
 ) {
 
     companion object {
-        //Creation caps at 20 options; custom answers added later via votePoll may grow the poll up to this
+        private const val POLL_MAX_CREATE_OPTIONS = 20
+        //Custom answers added later via votePoll may grow the poll up to this, so edits use it too
         private const val POLL_MAX_TOTAL_OPTIONS = 50
 
         //Sub polls: the root poll is depth 0, so at most this many poll levels in one message
@@ -60,13 +61,13 @@ class MessageService(
     }
 
     /**
-     * Validates one poll level of a new poll and recurses into its sub polls. Close date and
-     * visibility are only checked on the root - sub polls inherit them.
+     * Validates one poll level of a new or edited poll and recurses into its sub polls. Close date
+     * and visibility are only checked on the root - sub polls inherit them.
      */
-    private fun validatePoll(poll: PollMessage, depth: Int) {
+    private fun validatePoll(poll: PollMessage, depth: Int, maxOptions: Int = POLL_MAX_CREATE_OPTIONS) {
         require(ValidationUtils.validatePollTitle(poll.title)) { "Invalid poll title" }
         require(ValidationUtils.validatePollDescription(poll.description)) { "Invalid poll description" }
-        require(poll.voteOptions.size <= 20) { "Poll can have at most 20 vote options" }
+        require(poll.voteOptions.size <= maxOptions) { "Poll can have at most $maxOptions vote options" }
         //A poll needs predefined options unless it's custom-answers-only
         if (!poll.customAnswersEnabled) {
             require(poll.voteOptions.isNotEmpty()) { "Poll must have at least 1 vote option unless custom answers are enabled" }
@@ -98,7 +99,7 @@ class MessageService(
             //A sub poll opens by picking its option, which a list poll can't do
             require(poll.showCheckboxes) { "Sub polls are not allowed on a list poll" }
             require(depth + 1 < POLL_MAX_DEPTH) { "Sub polls are nested too deep" }
-            validatePoll(subPoll, depth + 1)
+            validatePoll(subPoll, depth + 1, maxOptions)
         }
     }
 
@@ -525,35 +526,99 @@ class MessageService(
     }
 
 
+    /**
+     * Replaces a poll with the creator's edited version, see [toEditedPoll] for what happens to
+     * votes. The edit is merged into the stored poll on every retry, so votes cast meanwhile stay.
+     */
+    fun editPoll(editingUserId: ObjectId, request: PollEditRequest): MessageResponse {
+        return withOptimisticRetry {
+            val message = canUserAccessMessage(ObjectId(request.messageId), editingUserId)
+
+            require(message.msgType == MessageType.POLL && message.poll != null) { "This is not a poll message" }
+            require(!message.deleted) { "This poll was deleted" }
+            requireOrLog(
+                "edit_poll_not_creator",
+                message.poll.creatorId == editingUserId,
+                { "Poll edit denied - user: ${userLookupService.getUsername(editingUserId)}, messageId: ${request.messageId}" }
+            ) { "Only the poll creator can edit a poll" }
+
+            val editedPoll = request.poll.toEditedPoll(message.poll, request.deletedOptionIds.toSet())
+
+            //A closed poll stays editable: an unchanged past close date is fine, a new one must reopen it
+            if (editedPoll.closeDate != null && editedPoll.closeDate != message.poll.closeDate) {
+                require(editedPoll.closeDate > Clock.System.now()) { "Poll closedate is in the past" }
+            }
+            validatePoll(editedPoll, depth = 0, maxOptions = POLL_MAX_TOTAL_OPTIONS)
+            require(editedPoll.totalOptionCount() <= POLL_MAX_TREE_OPTIONS) { "Poll has too many options in total" }
+
+            val savedMessage = saveIfUnchanged(message, Update().set("poll", editedPoll).set("edited", true))
+
+            loggingService.log(
+                userId = editingUserId,
+                logType = LogType.POLL_EDITED
+            )
+
+            notificationService.notifyMessageUpdate(
+                message = savedMessage,
+                newMessage = false,
+                deleted = false,
+                changingUserId = editingUserId
+            )
+
+            savedMessage.toMessageResponse(editingUserId)
+        }
+    }
+
+
     fun editMessage(messageId: ObjectId, editingUserId: ObjectId, newContent: String) : MessageResponse {
 
 
         require(ValidationUtils.validateStringMessage(newContent)) { "Invalid new content"}
 
-        val message = canUserAccessMessage(messageId, editingUserId)
+        return withOptimisticRetry {
+            val message = canUserAccessMessage(messageId, editingUserId)
 
-        require(message.msgType == MessageType.TEXT || message.msgType == IMAGE) { "You can not edit a ${message.msgType} message" }
+            require(message.msgType == MessageType.TEXT || message.msgType == IMAGE) { "You can not edit a ${message.msgType} message" }
+            require(!message.deleted) { "You can not edit a deleted message" }
+            requireOrLog(
+                "edit_message_not_sender",
+                message.senderId == editingUserId,
+                { "Message edit denied - user: ${userLookupService.getUsername(editingUserId)}, messageId: ${messageId.toHexString()}, sender: ${userLookupService.getUsername(message.senderId)}" }
+            ) { "Only the sender can edit a message" }
 
-        //User can access message, change content
-        val now = Clock.System.now()
+            val newmessage = saveIfUnchanged(message, Update().set("content", newContent).set("edited", true))
 
-        val newmessage = versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
-            messageLookupService.saveMessage(message.copy(
-                lastChanged = now,
-                content = newContent,
-                edited = true,
-                version = version,
-            ))
+            notificationService.notifyMessageUpdate(
+                message = newmessage,
+                newMessage = false,
+                deleted = false,
+                changingUserId = editingUserId
+            )
+
+            newmessage.toMessageResponse(editingUserId)
         }
+    }
 
-        notificationService.notifyMessageUpdate(
-            message = newmessage,
-            newMessage = false,
-            deleted = false,
-            changingUserId = editingUserId
+
+    /**
+     * Writes [changes] unless another request changed [message] since it was read. The caller
+     * retries through [withOptimisticRetry], so concurrent votes and reactions are not overwritten.
+     */
+    private fun saveIfUnchanged(message: Message, changes: Update): Message {
+        val query = Query(
+            Criteria.where("_id").`is`(message.id)
+                .and("lastChanged.epochSeconds").`is`(message.lastChanged.epochSeconds)
+                .and("lastChanged.nanosecondsOfSecond").`is`(message.lastChanged.nanosecondsOfSecond)
         )
 
-        return newmessage.toMessageResponse(editingUserId)
+        return versionCounterService.withVersion(SyncCollection.MESSAGES) { version ->
+            mongoTemplate.findAndModify(
+                query,
+                changes.set("lastChanged", Clock.System.now()).set("version", version),
+                FindAndModifyOptions.options().returnNew(true),
+                Message::class.java
+            )
+        } ?: throw OptimisticLockingFailureException("Message was modified by another request")
     }
 
 
@@ -599,21 +664,13 @@ class MessageService(
                 )
             } ?: throw OptimisticLockingFailureException("Message was modified by another request")
 
-            val deliveredOverSocket = notificationService.notifyMessageUpdate(
+            notificationService.notifyMessageUpdate(
                 message = savedMessage,
                 newMessage = false,
                 deleted = false,
-                changingUserId = reactingUserId
+                changingUserId = reactingUserId,
+                addedReaction = if (isAdd) content else null,
             )
-
-            if (isAdd) {
-                notificationService.notifyReactionAdded(
-                    message = savedMessage,
-                    reactorId = reactingUserId,
-                    reactionContent = content,
-                    deliveredOverSocket = deliveredOverSocket,
-                )
-            }
 
             savedMessage.toMessageResponse(reactingUserId)
         }
