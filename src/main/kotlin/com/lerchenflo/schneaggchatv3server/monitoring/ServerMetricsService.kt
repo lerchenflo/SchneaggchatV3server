@@ -92,6 +92,7 @@ class ServerMetricsService(
             ackLatencyMs = if (pushesAcked == 0L) 0.0 else ackLatencyTotalMs.toDouble() / pushesAcked,
             pushesAckTimedOut = ServerMetrics.pushesAckTimedOut.getAndSet(0),
             pushesSessionClosed = ServerMetrics.pushesSessionClosed.getAndSet(0),
+            legacyTokenPushes = ServerMetrics.legacyTokenPushes.getAndSet(0),
             // Deletions shrink the total, so a minute with more deletes than sends would go negative.
             messagesSent = lastMessageCount?.let { (messageCount - it).coerceAtLeast(0) } ?: 0,
             newAccounts = lastUserCount?.let { (userCount - it).coerceAtLeast(0) } ?: 0,

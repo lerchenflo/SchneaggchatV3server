@@ -1,11 +1,11 @@
 package com.lerchenflo.schneaggchatv3server.user
 
+import com.lerchenflo.schneaggchatv3server.authentication.DeviceSessions
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
-import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
@@ -51,7 +51,7 @@ class UserService(
     private val messageLookupService: MessageLookupService,
 
     private val hashEncoder: HashEncoder,
-    private val refreshTokenRepository: RefreshTokenRepository,
+    private val deviceSessions: DeviceSessions,
     private val imageManager: ImageManager,
     private val notificationService: NotificationService,
 
@@ -439,7 +439,7 @@ class UserService(
         ))
 
         //All tokens invalidated
-        refreshTokenRepository.deleteByUserId(user.id)
+        deviceSessions.endAll(user.id)
 
     }
 
@@ -555,7 +555,7 @@ class UserService(
         ))
 
         //All tokens invalidated
-        refreshTokenRepository.deleteByUserId(user.id)
+        deviceSessions.endAll(user.id)
     }
 
 
@@ -607,8 +607,8 @@ class UserService(
         // Notify friends before deleting friendships (list would be empty after)
         notificationService.notifyUserUpdate(user, deleted = true)
 
-        //Remove all refreshtokens
-        refreshTokenRepository.deleteByUserId(userId)
+        //End every device session, push targets and sockets included
+        deviceSessions.endAll(userId)
 
         //Delete all friendships
         val frienduserids = friendsLookupService.getFriends(userId)

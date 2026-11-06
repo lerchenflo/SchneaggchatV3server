@@ -52,6 +52,7 @@ data class ServerMetricsSnapshot(
     val pushesSessionClosed: Long = 0,
     /** Mean time from holding a push to its ack, 0 without acks. */
     val ackLatencyMs: Double = 0.0,
+    val legacyTokenPushes: Long = 0,
 
     // App activity
     val messagesSent: Long,

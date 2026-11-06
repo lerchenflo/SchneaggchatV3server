@@ -10,6 +10,9 @@ data class SocketConnection (
     val userId: ObjectId,
     val session: WebSocketSession,
 
+    /** The device's session row. Null for an access token issued before devices existed. */
+    val deviceId: ObjectId? = null,
+
     /**
      * The client confirms every new message it receives (`messageack`), so a write to this session
      * is not delivery yet - see PendingPushRegistry. Announced in the handshake; older clients do

@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.websocket.connectiontim
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.ConnectedUser
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnection
 import com.lerchenflo.schneaggchatv3server.notifications.websocket.model.SocketConnectionMessage
+import com.lerchenflo.schneaggchatv3server.repository.RefreshTokenRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.LocationTelemetry
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.UserLocationService
@@ -43,6 +44,7 @@ class SocketConnectionHandler(
     // @Lazy breaks the cycle: AdminEventService -> SocketConnectionHandler (for the initial snapshot on registration).
     @Lazy private val adminEventService: AdminEventService,
     private val pendingPushRegistry: PendingPushRegistry,
+    private val refreshTokenRepository: RefreshTokenRepository,
 ): TextWebSocketHandler() {
 
     companion object {
@@ -91,6 +93,17 @@ class SocketConnectionHandler(
                 connection.session.close(CloseStatus.NORMAL)
             } catch (e: Exception) {
                 if (!e.isPeerGone()) AppLogger.error("Error force-closing socket: ${e.describe()}", user = userId, tag = "force_close_socket_failed")
+            }
+        }
+    }
+
+    /** Closes the sockets of one ended device. Bookkeeping as in [disconnectUser]. */
+    fun disconnectDevice(deviceId: ObjectId) {
+        connections.filter { it.deviceId == deviceId }.forEach { connection ->
+            try {
+                connection.session.close(CloseStatus.NORMAL)
+            } catch (e: Exception) {
+                if (!e.isPeerGone()) AppLogger.error("Error force-closing socket: ${e.describe()}", user = connection.userId, tag = "force_close_socket_failed")
             }
         }
     }
@@ -207,12 +220,13 @@ class SocketConnectionHandler(
         super.afterConnectionEstablished(session)
 
         var requestingUserId : String? = null
+        var deviceId : ObjectId? = null
 
         val authHeader = session.handshakeHeaders.get("Authorization")?.first()
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             if (jwtService.validateAccessToken(authHeader)) {
                 requestingUserId = jwtService.getUserIdFromToken(authHeader)
-
+                deviceId = jwtService.getSessionIdFromToken(authHeader)?.let { ObjectId(it) }
             }
         }
 
@@ -225,6 +239,13 @@ class SocketConnectionHandler(
                 )
             }
 
+
+        //An ended device keeps its access token for some minutes, but must not get back in
+        val sessionEnded = deviceId?.let { !refreshTokenRepository.existsById(it) } ?: false
+        if (sessionEnded) {
+            AppLogger.warn("Socket refused, session $deviceId no longer exists", user = ObjectId(requestingUserId), tag = "auth_socket_session_ended")
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Session ended")
+        }
 
         //println("New socket connection from user ${userLookupService.getUsername(ObjectId(requestingUserId))} IP: ${session.handshakeHeaders["X-Real-IP"]}")
 
@@ -243,6 +264,7 @@ class SocketConnectionHandler(
                 sessionId = session.id,
                 userId = userId,
                 session = safeSession,
+                deviceId = deviceId,
                 acksMessages = session.handshakeHeaders.getFirst(ACK_SUPPORT_HEADER) == "1",
             )
         }

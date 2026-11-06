@@ -3,6 +3,7 @@
 package com.lerchenflo.schneaggchatv3server.authentication.model
 
 import com.lerchenflo.schneaggchatv3server.authentication.AuthController
+import com.lerchenflo.schneaggchatv3server.notifications.push.PushProvider
 import org.bson.types.ObjectId
 import org.springframework.data.annotation.Id
 import org.springframework.data.annotation.TypeAlias
@@ -64,5 +65,9 @@ data class RefreshToken(
 
     //Nullable since tokens issued before this field was added won't have it set
     val deviceName: String? = null,
-    val deviceType: AuthController.DEVICETYPE? = null
+    val deviceType: AuthController.DEVICETYPE? = null,
+
+    /** How to reach this device when it has no socket, see `DeviceDirectory`. */
+    val pushProvider: PushProvider? = null,
+    val pushToken: String? = null,
 )

@@ -7,25 +7,22 @@ import com.eatthepath.pushy.apns.DeliveryPriority
 import com.eatthepath.pushy.apns.PushType
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification
-import com.lerchenflo.schneaggchatv3server.notifications.apns.model.ApnsToken
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.toPushData
+import com.lerchenflo.schneaggchatv3server.notifications.push.DeviceDirectory
 import com.lerchenflo.schneaggchatv3server.notifications.push.PushOptions
 import com.lerchenflo.schneaggchatv3server.notifications.push.PushProvider
 import com.lerchenflo.schneaggchatv3server.notifications.push.PushSender
 import com.lerchenflo.schneaggchatv3server.notifications.push.PushTarget
-import com.lerchenflo.schneaggchatv3server.repository.ApnsTokenRepository
 import com.lerchenflo.schneaggchatv3server.util.*
 import jakarta.annotation.PreDestroy
-import org.bson.types.ObjectId
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.dao.DuplicateKeyException
 import org.springframework.stereotype.Service
 import java.io.File
 
 @Service
 class ApnsService(
-    private val tokenRepository: ApnsTokenRepository,
+    private val deviceDirectory: DeviceDirectory,
     private val loggingService: LoggingService,
     @Value("\${apns.team-id}") private val teamId: String,
     @Value("\${apns.key-id}") private val keyId: String,
@@ -75,38 +72,6 @@ class ApnsService(
     }
 
 
-    fun saveToken(userId: ObjectId, token: String) {
-        try {
-            val existingToken = tokenRepository.findByUserIdAndToken(userId, token)
-            if (existingToken != null) return
-
-            tokenRepository.save(ApnsToken(userId = userId, token = token))
-
-            loggingService.log(
-                userId = userId,
-                logType = LogType.APNS_TOKEN_REGISTERED,
-            )
-        } catch (e: DuplicateKeyException) {
-            AppLogger.warn("[APNs] Duplicate token already exists", user = userId, tag = "register_apns_token_duplicate")
-        }
-    }
-
-    fun deleteToken(token: String) {
-        tokenRepository.deleteByToken(token)
-    }
-
-    /**
-     * Ownership checked delete for logout: [deleteToken] matches on the token alone, so calling it
-     * with a client supplied token would let anyone unregister another device's push token.
-     */
-    fun deleteTokenForUser(userId: ObjectId, token: String) {
-        tokenRepository.findByUserIdAndToken(userId, token)?.let { tokenRepository.delete(it) }
-    }
-
-    fun deleteAllTokensForUser(userId: ObjectId) {
-        tokenRepository.deleteAll(tokenRepository.findAllByUserId(userId))
-    }
-
     override fun send(target: PushTarget, notification: NotificationResponse, options: PushOptions) {
         val client = apnsClient ?: run {
             AppLogger.debug("APNs: client not initialized, skipping notification")
@@ -138,7 +103,7 @@ class ApnsService(
         ServerMetrics.apnsFailed.incrementAndGet()
         AppLogger.error("[APNs] Error sending notification: $reason", user = target.userId, tag = "send_apns_failed")
         when (reason) {
-            "Unregistered", "BadDeviceToken", "DeviceTokenNotForTopic", "TopicDisallowed" -> deleteToken(target.token)
+            "Unregistered", "BadDeviceToken", "DeviceTokenNotForTopic", "TopicDisallowed" -> deviceDirectory.clearPushToken(target.token)
             else -> AppLogger.warn("[APNs] Rejected: $reason for token ${target.token}", user = target.userId, tag = "send_apns_rejected")
         }
     }

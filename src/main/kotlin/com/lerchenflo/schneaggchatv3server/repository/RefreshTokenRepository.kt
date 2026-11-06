@@ -25,6 +25,11 @@ interface RefreshTokenRepository: MongoRepository<RefreshToken, ObjectId> {
         deviceType: AuthController.DEVICETYPE
     ): RefreshToken?
 
+    /** The devices of these users that can get a push. */
+    fun findByUserIdInAndPushTokenIsNotNull(userIds: Collection<ObjectId>): List<RefreshToken>
+
+    fun findByExpiresAtBefore(time: Instant): List<RefreshToken>
+
     /** Kills every session of a user (logout on all devices, ban, password change). Returns the
      * number of session rows removed. */
     fun deleteByUserId(userId: ObjectId): Long

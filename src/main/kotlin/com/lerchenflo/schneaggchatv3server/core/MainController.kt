@@ -18,6 +18,7 @@ import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.index.Index
 import org.springframework.data.mongodb.core.index.IndexInfo
+import org.springframework.data.mongodb.core.index.PartialIndexFilter
 import org.springframework.data.mongodb.core.indexOps
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
@@ -132,6 +133,13 @@ class MainController(
             Index().named("user_previous_token")
                 .on("userId", Sort.Direction.ASC)
                 .on("previousHashedToken", Sort.Direction.ASC)
+        )
+        // One push token on one device, see DeviceDirectory
+        indexOps.createIndex(
+            Index().named("push_token_unique")
+                .on("pushToken", Sort.Direction.ASC)
+                .unique()
+                .partial(PartialIndexFilter.of(org.bson.Document("pushToken", org.bson.Document("\$type", "string"))))
         )
     }
 

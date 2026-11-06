@@ -5,23 +5,20 @@ import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.messaging.*
-import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.FirebaseToken
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.toPushData
+import com.lerchenflo.schneaggchatv3server.notifications.push.DeviceDirectory
 import com.lerchenflo.schneaggchatv3server.notifications.push.PushOptions
 import com.lerchenflo.schneaggchatv3server.notifications.push.PushProvider
 import com.lerchenflo.schneaggchatv3server.notifications.push.PushSender
 import com.lerchenflo.schneaggchatv3server.notifications.push.PushTarget
-import com.lerchenflo.schneaggchatv3server.repository.FirebaseTokenRepository
 import com.lerchenflo.schneaggchatv3server.util.*
-import org.bson.types.ObjectId
-import org.springframework.dao.DuplicateKeyException
 import org.springframework.stereotype.Service
 import java.io.FileInputStream
 
 @Service
 class FirebaseService(
-    private val tokenRepository: FirebaseTokenRepository,
+    private val deviceDirectory: DeviceDirectory,
     private val loggingService: LoggingService,
 ) : PushSender {
 
@@ -58,52 +55,6 @@ class FirebaseService(
 
     }
 
-
-    fun saveToken(userId: ObjectId, token: String) {
-        try {
-            // Check if token already exists for this user
-            val existingToken = tokenRepository.findByUserIdAndToken(userId, token)
-
-            if (existingToken != null) {
-                //println("Firebase token exists, not updating")
-                return
-            }
-
-            // Save new token
-            tokenRepository.save(
-                FirebaseToken(
-                    userId = userId,
-                    token = token
-                )
-            )
-
-            //Save here if duplicate key exception occurs
-            loggingService.log(
-                userId = userId,
-                logType = LogType.FIREBASE_TOKEN_REGISTERED,
-            )
-
-            //println("Firebasetoken saved successfully")
-        } catch (e: DuplicateKeyException) {
-            AppLogger.warn("[Firebase] Duplicate token already exists", user = userId, tag = "register_fcm_token_duplicate")
-        }
-    }
-
-    fun deleteToken(token: String) {
-        tokenRepository.deleteByToken(token)
-    }
-
-    /**
-     * Ownership checked delete for logout: [deleteToken] matches on the token alone, so calling it
-     * with a client supplied token would let anyone unregister another device's push token.
-     */
-    fun deleteTokenForUser(userId: ObjectId, token: String) {
-        tokenRepository.findByUserIdAndToken(userId, token)?.let { tokenRepository.delete(it) }
-    }
-
-    fun deleteAllTokensForUser(userId: ObjectId) {
-        tokenRepository.deleteAll(tokenRepository.findAllByUserId(userId))
-    }
 
     override fun send(target: PushTarget, notification: NotificationResponse, options: PushOptions) {
         val data = withinDataLimit(notification.toPushData())
@@ -146,13 +97,13 @@ class FirebaseService(
                     MessagingErrorCode.SENDER_ID_MISMATCH
                 ) -> {
                     AppLogger.warn("[Firebase] Removing invalid token (Code: $errorCode): $token", user = target.userId)
-                    deleteToken(token)
+                    deviceDirectory.clearPushToken(token)
                     false
                 }
 
                 MessagingErrorCode.INVALID_ARGUMENT if isInvalidTokenError(e) -> {
                     AppLogger.warn("[Firebase] Removing invalid token (Code: $errorCode): $token", user = target.userId)
-                    deleteToken(token)
+                    deviceDirectory.clearPushToken(token)
                     false
                 }
 
@@ -167,7 +118,7 @@ class FirebaseService(
                 // ApnsError detail proves the token went to Apple, so an Android token is never removed here.
                 MessagingErrorCode.THIRD_PARTY_AUTH_ERROR if e.httpResponse?.content?.contains("ApnsError") == true -> {
                     AppLogger.warn("[Firebase] Removing leftover iOS token (Code: $errorCode): $token", user = target.userId)
-                    deleteToken(token)
+                    deviceDirectory.clearPushToken(token)
                     false
                 }
 
@@ -182,7 +133,7 @@ class FirebaseService(
                     e
                 ))) -> {
                     AppLogger.warn("[Firebase] Removing invalid token via raw error code '$rawErrorCode': $token", user = target.userId, tag = "remove_fcm_invalid_token")
-                    deleteToken(token)
+                    deviceDirectory.clearPushToken(token)
                     false
                 }
 

@@ -14,3 +14,7 @@ fun requireAuth(): ObjectId =
  */
 fun optionalAuth(): ObjectId? =
     (SecurityContextHolder.getContext().authentication?.principal as? String)?.let { ObjectId(it) }
+
+/** The device this request came from, its `refreshTokens` row. Null for a token without one. */
+fun currentDeviceOrNull(): ObjectId? =
+    (SecurityContextHolder.getContext().authentication?.details as? String)?.let { ObjectId(it) }

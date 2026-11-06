@@ -12,5 +12,9 @@ interface FirebaseTokenRepository : MongoRepository<FirebaseToken, ObjectId> {
 
     fun deleteByToken(token: String)
 
+    fun deleteByTokenIn(tokens: Collection<String>)
+
+    fun deleteByTokenAndUserIdNot(token: String, userId: ObjectId)
+
     fun findByUserIdAndToken(userId: ObjectId, token: String): FirebaseToken?
 }

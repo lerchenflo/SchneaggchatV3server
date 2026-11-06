@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.notifications.push
 
+import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetrics
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
@@ -37,6 +38,8 @@ class PushDispatcher(
     }
 
     private fun send(target: PushTarget, notification: NotificationResponse, options: PushOptions) {
+        if (target.deviceId == null) ServerMetrics.legacyTokenPushes.incrementAndGet()
+
         try {
             senderByProvider.getValue(target.provider).send(target, notification, options)
         } catch (e: Exception) {

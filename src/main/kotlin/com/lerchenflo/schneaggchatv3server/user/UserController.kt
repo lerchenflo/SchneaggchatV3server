@@ -3,9 +3,10 @@
 package com.lerchenflo.schneaggchatv3server.user
 
 import com.lerchenflo.schneaggchatv3server.authentication.EmailService
+import com.lerchenflo.schneaggchatv3server.core.security.currentDeviceOrNull
 import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
-import com.lerchenflo.schneaggchatv3server.notifications.apns.ApnsService
-import com.lerchenflo.schneaggchatv3server.notifications.firebase.FirebaseService
+import com.lerchenflo.schneaggchatv3server.notifications.push.DeviceDirectory
+import com.lerchenflo.schneaggchatv3server.notifications.push.PushProvider
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.PinnedChat
@@ -15,12 +16,14 @@ import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import org.bson.types.ObjectId
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import java.util.Locale.getDefault
 import kotlin.time.ExperimentalTime
+import org.springframework.web.server.ResponseStatusException
 
 @RestController
 @RequestMapping("/users")
@@ -29,8 +32,7 @@ class UserController(
     private val friendshipsService: FriendsService,
     private val emailService: EmailService,
 
-    private val firebaseService: FirebaseService,
-    private val apnsService: ApnsService,
+    private val deviceDirectory: DeviceDirectory,
 ) {
 
     @PostMapping("/verificationemail")
@@ -58,9 +60,10 @@ class UserController(
 
         //AppLogger.debug("Setting notification token: Android:${request.isAndroid}} ${request.token}")
 
-        val userId = requestingUserId
-        if (request.isAndroid) firebaseService.saveToken(userId = userId, token = request.token)
-        else apnsService.saveToken(userId = userId, token = request.token)
+        val provider = if (request.isAndroid) PushProvider.FCM else PushProvider.APNS
+        if (!deviceDirectory.registerPushToken(requestingUserId, currentDeviceOrNull(), provider, request.token)) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found")
+        }
     }
 
 

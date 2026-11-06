@@ -23,4 +23,7 @@ object ServerMetrics {
     val pushesAckTimedOut = AtomicLong()
     val pushesSessionClosed = AtomicLong()
     val ackLatencyTotalMs = AtomicLong()
+
+    /** Pushes to tokens not linked to a device. At 0 the legacy token collections can go. */
+    val legacyTokenPushes = AtomicLong()
 }

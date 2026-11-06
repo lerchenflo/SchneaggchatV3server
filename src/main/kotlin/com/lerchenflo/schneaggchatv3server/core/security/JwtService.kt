@@ -17,6 +17,11 @@ class JwtService(
     @Value("\${apns.debug}") private val apnsDebug: Boolean,
 
     ) {
+    private companion object {
+        /** The device's `refreshTokens` row id. */
+        const val SESSION_ID_CLAIM = "sid"
+    }
+
     private val secretKey = Keys.hmacShaKeyFor(jwtSecret.toByteArray())
     private val accessTokenValidityMs = 15L /*min*/ * 60L * 1000L    //How long a user can use his access token
     private val debugAccessTokenValidityMs = 15L /*min*/ * 60L * 1000L    //Debug same as release
@@ -28,7 +33,8 @@ class JwtService(
     private fun generateToken(
         userId: String,
         type: String,
-        expiry: Long
+        expiry: Long,
+        sessionId: String? = null,
     ): String {
 
         val now = Date()
@@ -39,17 +45,23 @@ class JwtService(
             .subject(userId)
             .id(UUID.randomUUID().toString())   // jti - guarantees token uniqueness even within the same millisecond
             .claim("type", type)
+            .apply { sessionId?.let { claim(SESSION_ID_CLAIM, it) } }
             .issuedAt(now)
             .expiration(expiryDate)
             .signWith(secretKey, Jwts.SIG.HS256)
             .compact()
     }
 
-    fun generateAccessToken(userId: String): String {
+    /**
+     * @param sessionId the device's `refreshTokens` row. Null for the admin panel, which has no row
+     * and never opens a socket.
+     */
+    fun generateAccessToken(userId: String, sessionId: String? = null): String {
         return generateToken(
             userId = userId,
             type = "access_token",
             expiry = if (apnsDebug) debugAccessTokenValidityMs else accessTokenValidityMs,
+            sessionId = sessionId,
         )
     }
 
@@ -85,6 +97,11 @@ class JwtService(
      */
     fun getExpiryMillisFromToken(token: String): Long? {
         return parseAllClaims(token)?.expiration?.time
+    }
+
+    /** The device this access token belongs to, see [generateAccessToken]. */
+    fun getSessionIdFromToken(token: String): String? {
+        return parseAllClaims(token)?.get(SESSION_ID_CLAIM, String::class.java)
     }
 
     // Authorization: Bearer <Token>

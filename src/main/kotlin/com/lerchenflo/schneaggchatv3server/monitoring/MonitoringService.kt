@@ -66,6 +66,7 @@ class MonitoringService(
             "gcCount", "gcTimeMs", "fcmSent", "fcmFailed", "apnsSent", "apnsFailed", "emailsSent",
             "emailsFailed", "messagesSent", "newAccounts", "logins", "logsDropped",
             "pushesImmediate", "pushesHeld", "pushesAcked", "pushesAckTimedOut", "pushesSessionClosed",
+            "legacyTokenPushes",
         )
     }
 
