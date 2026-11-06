@@ -19,7 +19,7 @@ data class User(
     val username: String,
     val hashedPassword: String,
 
-    // Unique index created in MainController.ensureUniqueEmailIndex, not through @Indexed
+    @Indexed(unique = true)
     val email: String,
     val emailVerifiedAt: Instant? = null,
 
