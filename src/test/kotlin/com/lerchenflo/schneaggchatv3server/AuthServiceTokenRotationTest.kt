@@ -106,6 +106,7 @@ class AuthServiceTokenRotationTest {
 
     @BeforeEach
     fun setupUser() {
+        every { rateLimitService.availableTokens(any(), any()) } returns 5L
         every { userLookupService.findById(userId.toHexString()) } returns user
         every { userLookupService.findByUsername("testuser") } returns user
     }

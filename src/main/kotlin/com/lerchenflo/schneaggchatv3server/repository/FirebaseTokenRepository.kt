@@ -8,6 +8,8 @@ interface FirebaseTokenRepository : MongoRepository<FirebaseToken, ObjectId> {
 
     fun findAllByUserId(userId: ObjectId): List<FirebaseToken>
 
+    fun findAllByUserIdIn(userIds: Collection<ObjectId>): List<FirebaseToken>
+
     fun deleteByToken(token: String)
 
     fun findByUserIdAndToken(userId: ObjectId, token: String): FirebaseToken?

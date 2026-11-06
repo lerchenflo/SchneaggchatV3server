@@ -8,6 +8,8 @@ interface ApnsTokenRepository : MongoRepository<ApnsToken, ObjectId> {
 
     fun findAllByUserId(userId: ObjectId): List<ApnsToken>
 
+    fun findAllByUserIdIn(userIds: Collection<ObjectId>): List<ApnsToken>
+
     fun deleteByToken(token: String)
 
     fun findByUserIdAndToken(userId: ObjectId, token: String): ApnsToken?
