@@ -121,7 +121,7 @@ class UserLocationService(
      * G's own per-friend settings towards [userId]. [userId]'s own entry is never gated - a user always
      * sees their full own position and trail.
      */
-    fun sendInitialLocationSnapshot(userId: ObjectId) {
+    fun sendInitialLocationSnapshot(userId: ObjectId, sessionId: String) {
         val selfSnapshot = userLocationRepository.findTopByUserIdOrderByLocationTimeDesc(userId)?.let { latest ->
             FriendLocationSnapshot(
                 position = livePayload(userId, shareSpeedHeading = true, latest),
@@ -140,7 +140,7 @@ class UserLocationService(
                 )
             }
 
-        notificationService.notifyLocationSnapshot(userId, listOfNotNull(selfSnapshot) + friendSnapshots)
+        notificationService.notifyLocationSnapshot(sessionId, listOfNotNull(selfSnapshot) + friendSnapshots)
     }
 
     /** Current position + telemetry (no trail). Altitude/battery/distance are always shared once visible. */

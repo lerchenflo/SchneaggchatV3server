@@ -237,14 +237,14 @@ class NotificationService(
     }
 
     /**
-     * Push the connecting user a one-time snapshot of which of their friends are currently online.
+     * Push the session that just connected a one-time snapshot of which friends are currently online.
      */
-    fun sendInitialFriendOnlineSnapshot(userId: ObjectId) {
+    fun sendInitialFriendOnlineSnapshot(userId: ObjectId, sessionId: String) {
         val onlineFriendIds = friendsLookupService.getFriends(userId)
             .filter { deliveryService.isConnected(it) }
             .map { it.toHexString() }
 
-        deliveryService.send(userId, Delivery.Live(SocketConnectionMessage.FriendOnlineStatusSnapshot(onlineFriendIds)))
+        deliveryService.sendToSession(sessionId, SocketConnectionMessage.FriendOnlineStatusSnapshot(onlineFriendIds))
     }
 
     /**
@@ -355,9 +355,9 @@ class NotificationService(
         deliveryService.send(recipientId, Delivery.Live(SocketConnectionMessage.FriendLocationChange(friend = friend)))
     }
 
-    /** Push the full set of currently-visible friend positions + trails to [recipientId] (initial load). */
-    fun notifyLocationSnapshot(recipientId: ObjectId, friends: List<FriendLocationSnapshot>) {
-        deliveryService.send(recipientId, Delivery.Live(SocketConnectionMessage.FriendLocationsSnapshot(friends = friends)))
+    /** Push the full set of currently-visible friend positions + trails to one session (initial load). */
+    fun notifyLocationSnapshot(sessionId: String, friends: List<FriendLocationSnapshot>) {
+        deliveryService.sendToSession(sessionId, SocketConnectionMessage.FriendLocationsSnapshot(friends = friends))
     }
 
     /** Push one new snail-trail point of [ownerUserId] to [recipientId] (~once/minute when moving). */

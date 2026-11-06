@@ -1,6 +1,6 @@
 # Unified notification delivery - plan
 
-Status: plan, not started. Revised 2026-11-06 after a design review, see [Review](#review). Replaces `plans/DEVICE_AWARE_PUSH_PLAN.md` in the client repo.
+Status: phases 1-4 built on `beta` (2026-11-06), not deployed yet. Phases 5-8 open. Revised 2026-11-06 after a design review, see [Review](#review). Replaces `plans/DEVICE_AWARE_PUSH_PLAN.md` in the client repo.
 
 ## Goal
 
@@ -87,6 +87,7 @@ sealed interface Delivery {
         val socket: SocketConnectionMessage,
         val push: NotificationResponse,
         val id: String = ObjectId.get().toHexString(), // the message id for new messages
+        val awaitAck: Boolean = false,                 // true for new messages, goes away in phase 5
     ) : Delivery
 
     /** Push to every device, sockets ignored (wake, birthday). */
@@ -97,14 +98,14 @@ sealed interface Delivery {
 ### `DeliveryService`: the only place that decides
 
 ```kotlin
-fun send(userId: ObjectId, delivery: Delivery, skipDevice: ObjectId? = null)
-fun sendAll(userIds: Collection<ObjectId>, skipDevice: ObjectId? = null, build: (ObjectId) -> Delivery)
+fun send(userId: ObjectId, delivery: Delivery)
+fun sendAll(userIds: Collection<ObjectId>, build: (ObjectId) -> Delivery)
 fun sendToSession(sessionId: String, socket: SocketConnectionMessage) // snapshots after a connect
-fun broadcast(socket: SocketConnectionMessage, skipDevice: ObjectId? = null)
-fun pushDeviceCount(userId: ObjectId): Int                            // shown by wake
+fun broadcast(socket: SocketConnectionMessage, excludeUserId: ObjectId?)
+fun pushDeviceCount(userId: ObjectId, provider: PushProvider): Int    // shown by wake
 ```
 
-`NotificationService` keeps its `notifyX` methods, so its callers stay as they are. Each method only works out recipients and payloads and calls `DeliveryService`. `sendAll` reads the push targets of a whole group in one query, and only for `Alert` and `PushOnly`.
+Phase 6 replaces `excludeUserId` with a `skipDevice` on all of them. `NotificationService` keeps its `notifyX` methods, so its callers stay as they are. Each method only works out recipients and payloads and calls `DeliveryService`. `sendAll` reads the push targets of a whole group in one query, and only for `Alert` and `PushOnly`.
 
 `SocketConnectionHandler` keeps the session registry and exposes `sessionsOf(userId)` and `write(session, json)`. `sendMessage`, `sendNewMessage` and the delivery logic leave it. After this, only `DeliveryService` uses the socket writer and the push senders.
 
@@ -116,11 +117,13 @@ PushOnly: push to every target
 Alert, for each device in (sessions + targets):
     no target (desktop)  -> write to its sessions, done
     no session           -> push now
-    session and target   -> hold the push, then write to its sessions
+    session and target, awaitAck
+                         -> hold the push, then write to its sessions
                             released by an ack from any session of this device
                             pushed after 3 s, or when all its sessions closed
+    session and target, no awaitAck
+                         -> write to its sessions, push when every write failed
 
-skipDevice is left out everywhere.
 A session without a device id (token issued before the deploy) -> write only.
 A target without a device id (legacy token) -> push now.
 ```
@@ -233,13 +236,13 @@ All on one branch from `beta`. Each phase compiles and works on its own.
 
 **Phase 3 - device identity.** `sid` claim, `currentDeviceOrNull()`, `deviceId` on `SocketConnection`, the handshake check. Push fields, index, `DeviceDirectory`, legacy read. `setnotificationtoken` writes both. `DeviceSessions` replaces the direct deletes. Remove the unauthenticated delete branch of `logout`.
 
-**Phase 4 - per-device rule.** Switch the rule, key `PendingPushRegistry` by device, drain it on shutdown, drop `acksMessages`. The main bug is fixed here, for released clients too. `sendToSession` for the snapshots.
+**Phase 4 - per-device rule.** Switch the rule, key `PendingPushRegistry` by device, drain it on shutdown, drop `acksMessages` and the `X-Socket-Acks` read. The main bug is fixed here, for released clients too. `sendToSession` for the snapshots.
 
-**Phase 5 - generic ack.** Client: send `DeliveryAck` for a stamped message after storing it and showing the notification, before media downloads. Drop duplicates by `deliveryId`. Server: stamp `Alert`, send `deliveryId` with the push, move reactions, friend requests and events to `Alert`.
+**Phase 5 - generic ack.** Client: send `DeliveryAck` for a stamped message after storing it and showing the notification, before media downloads. Drop duplicates by `deliveryId`. Server: stamp `Alert`, send `deliveryId` with the push, remove `awaitAck` so reactions, friend requests and events wait for an ack too.
 
 **Phase 6 - actor's other devices.** Client: no notification for own messages. Server: `Actor(userId, deviceId)` on `notifyMessageUpdate`, `notifyMapUpdate` and the reaction path (12 call sites), plus the extra `Live` delivery.
 
-**Phase 7 - cleanup.** Remove `MessageAck`, the `X-Socket-Acks` read, the old token collections and their code, and `notificationToken` / `isAndroid` on logout.
+**Phase 7 - cleanup.** Remove `MessageAck`, the old token collections and their code, and `notificationToken` / `isAndroid` on logout.
 
 **Phase 8 - read elsewhere.** Socket message and silent push that clear a chat's notification. Silent types need a flag the client skips, because Android shows a generic notification for an unknown push type. So the client learns the flag first.
 
@@ -247,7 +250,7 @@ All on one branch from `beta`. Each phase compiles and works on its own.
 
 No compatibility code is needed for this, only the right order:
 
-1. **Server, phases 1-4.** Works with the released apps, nothing on the wire changes.
+1. **Server, phases 1-4.** Works with the released apps, nothing on the wire changes. Reactions, friend requests and events are per device too, but a socket write still counts as delivered for them until phase 5. A v3.0.17 app does not ack, so it gets a push on top of each live message.
 2. **Client release** with the client parts of phases 5 and 6. They do nothing until the server stamps messages, and an app on this version works with the server from step 1.
 3. **After the forced update, server, phases 5 and 6.** Doing this before step 2 would give old apps a push on top of each live reaction, friend request and event, and own messages would ring their other devices.
 4. **Later, phase 7**, once the old token rows stopped being used (metric below).

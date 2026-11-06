@@ -15,7 +15,7 @@ sealed interface Delivery {
     data class Alert(
         val socket: SocketConnectionMessage,
         val push: NotificationResponse,
-        /** What an ack refers to. New messages use their message id, the client acks that today. */
+        /** What an ack refers to. New messages use their message id, the client acks that. */
         val id: String = ObjectId.get().toHexString(),
         /**
          * Hold the push until the client confirmed the socket message. False means a socket write

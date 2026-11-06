@@ -62,9 +62,6 @@ class SocketConnectionHandler(
 
         /** Outbound bytes allowed to pile up behind a slow send before the session is cut off. */
         private const val SEND_BUFFER_LIMIT_BYTES = 512 * 1024
-
-        /** Handshake header a client sets when it confirms new messages with `messageack`. */
-        const val ACK_SUPPORT_HEADER = "X-Socket-Acks"
     }
 
     var connections : CopyOnWriteArrayList<SocketConnection> = CopyOnWriteArrayList()
@@ -130,7 +127,8 @@ class SocketConnectionHandler(
     }
 
     override fun handleTextMessage(session: WebSocketSession, message: TextMessage) {
-        val senderId = connections.find { it.sessionId == session.id }?.userId ?: return
+        val connection = connections.find { it.sessionId == session.id } ?: return
+        val senderId = connection.userId
 
         val parsed = try {
             Json.mapper.readValue(message.payload, SocketConnectionMessage::class.java)
@@ -152,7 +150,7 @@ class SocketConnectionHandler(
                     ),
                 )
             }
-            is SocketConnectionMessage.MessageAck -> pendingPushRegistry.ack(senderId, parsed.messageId)
+            is SocketConnectionMessage.MessageAck -> connection.deviceId?.let { pendingPushRegistry.ack(it, parsed.messageId) }
             // All other message types are server -> client only; ignore if received inbound.
             else -> AppLogger.warn("Ignoring unsupported inbound socket message type", user = senderId, tag = "handle_socket_unsupported_type")
         }
@@ -265,17 +263,16 @@ class SocketConnectionHandler(
                 userId = userId,
                 session = safeSession,
                 deviceId = deviceId,
-                acksMessages = session.handshakeHeaders.getFirst(ACK_SUPPORT_HEADER) == "1",
             )
         }
 
         //println("Total connections: ${connections.size}")
 
         // Initial load: push the connecting user the current locations of all friends they may see.
-        userLocationService.sendInitialLocationSnapshot(userId)
+        userLocationService.sendInitialLocationSnapshot(userId, session.id)
 
         // Initial load: push the connecting user which of their friends are currently online.
-        notificationService.sendInitialFriendOnlineSnapshot(userId)
+        notificationService.sendInitialFriendOnlineSnapshot(userId, session.id)
 
         // This was the user's first active session -> they just went online.
         if (wasOffline) {

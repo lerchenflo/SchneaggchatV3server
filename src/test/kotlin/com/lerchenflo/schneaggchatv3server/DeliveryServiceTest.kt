@@ -30,29 +30,37 @@ class DeliveryServiceTest {
     private val service = DeliveryService(sockets, deviceDirectory, pushDispatcher, pendingPushRegistry)
 
     private val user = ObjectId()
+    private val phone = ObjectId()
+    private val secondPhone = ObjectId()
+    private val desktop = ObjectId()
+
     private val socket = SocketConnectionMessage.FriendOnlineStatusSnapshot(emptyList())
     private val notification = NotificationResponse.SystemNotificationResponse("title", "text")
-    private val target = PushTarget(user, PushProvider.FCM, "token")
 
-    private fun session(id: String, acks: Boolean = true, writeWorks: Boolean = true): SocketConnection {
-        val connection = SocketConnection(sessionId = id, userId = user, session = mockk(relaxed = true), acksMessages = acks)
+    private fun session(id: String, device: ObjectId?, writeWorks: Boolean = true): SocketConnection {
+        val connection = SocketConnection(sessionId = id, userId = user, session = mockk(relaxed = true), deviceId = device)
         every { sockets.write(connection, any()) } returns writeWorks
         return connection
     }
 
-    private fun userHas(vararg sessions: SocketConnection) {
-        every { sockets.sessionsOf(user) } returns sessions.toList()
-        every { deviceDirectory.targetsOf(any<Collection<ObjectId>>()) } returns mapOf(user to listOf(target))
+    private fun target(token: String, device: ObjectId?) = PushTarget(user, PushProvider.FCM, token, deviceId = device)
+
+    private fun userHas(sessions: List<SocketConnection>, targets: List<PushTarget>) {
+        every { sockets.sessionsOf(user) } returns sessions
+        every { deviceDirectory.targetsOf(any<Collection<ObjectId>>()) } returns mapOf(user to targets)
     }
 
-    private fun verifyPushed() = verify(exactly = 1) { pushDispatcher.push(listOf(target), notification, any()) }
+    private fun verifyPushed(vararg targets: PushTarget) =
+        verify(exactly = 1) { pushDispatcher.push(targets.toList(), notification, any()) }
 
     private fun verifyNotPushed() = verify(exactly = 0) { pushDispatcher.push(any(), any(), any()) }
 
+    private fun verifyNothingHeld() = verify(exactly = 0) { pendingPushRegistry.await(any(), any(), any(), any()) }
+
     @Test
     fun `live writes to every session and never reads push targets`() {
-        val first = session("a")
-        val second = session("b")
+        val first = session("a", phone)
+        val second = session("b", desktop)
         every { sockets.sessionsOf(user) } returns listOf(first, second)
 
         service.send(user, Delivery.Live(socket))
@@ -65,76 +73,143 @@ class DeliveryServiceTest {
 
     @Test
     fun `push only ignores the sockets`() {
-        userHas(session("a"))
+        val phoneTarget = target("token", phone)
+        userHas(listOf(session("a", phone)), listOf(phoneTarget))
         val options = PushOptions(ttlSeconds = 0)
 
         service.send(user, Delivery.PushOnly(notification, options))
 
-        verify(exactly = 1) { pushDispatcher.push(listOf(target), notification, options) }
+        verify(exactly = 1) { pushDispatcher.push(listOf(phoneTarget), notification, options) }
         verify(exactly = 0) { sockets.write(any(), any()) }
     }
 
     @Test
-    fun `alert without a session pushes right away`() {
-        userHas()
+    fun `a device without a session gets the push right away`() {
+        val phoneTarget = target("token", phone)
+        userHas(emptyList(), listOf(phoneTarget))
 
         service.send(user, Delivery.Alert(socket, notification))
 
-        verifyPushed()
+        verifyPushed(phoneTarget)
+        verifyNothingHeld()
     }
 
     @Test
-    fun `alert without ack counts a socket write as delivered`() {
-        userHas(session("a"))
+    fun `the main bug - an open desktop does not silence the phone`() {
+        val desktopSession = session("d", desktop)
+        val phoneTarget = target("token", phone)
+        userHas(listOf(desktopSession), listOf(phoneTarget))
 
-        service.send(user, Delivery.Alert(socket, notification))
+        service.send(user, Delivery.Alert(socket, notification, awaitAck = true))
 
-        verifyNotPushed()
+        verify(exactly = 1) { sockets.write(desktopSession, any()) }
+        verifyPushed(phoneTarget)
+        verifyNothingHeld()
     }
 
     @Test
-    fun `alert pushes when every write fails`() {
-        userHas(session("a", writeWorks = false))
-
-        service.send(user, Delivery.Alert(socket, notification))
-
-        verifyPushed()
-    }
-
-    @Test
-    fun `alert waiting for an ack holds the push before writing`() {
-        val connection = session("a")
-        userHas(connection)
+    fun `a phone in the foreground does not silence the second phone`() {
+        val foreground = session("a", phone)
+        val phoneTarget = target("one", phone)
+        val pocketTarget = target("two", secondPhone)
+        userHas(listOf(foreground), listOf(phoneTarget, pocketTarget))
         val held = slot<() -> Unit>()
 
         service.send(user, Delivery.Alert(socket, notification, id = "m1", awaitAck = true))
 
-        verify(exactly = 1) { pendingPushRegistry.await(user, "m1", listOf("a"), capture(held)) }
-        verifyNotPushed()
+        verifyPushed(pocketTarget)
+        verify(exactly = 1) { pendingPushRegistry.await(phone, "m1", listOf("a"), capture(held)) }
 
         held.captured()
-        verifyPushed()
+        verifyPushed(phoneTarget)
     }
 
     @Test
-    fun `a session of an app without acks counts as delivered`() {
-        userHas(session("a", acks = false))
+    fun `a device that has to ack holds its push before the write`() {
+        val connection = session("a", phone)
+        val phoneTarget = target("token", phone)
+        userHas(listOf(connection), listOf(phoneTarget))
+
+        service.send(user, Delivery.Alert(socket, notification, id = "m1", awaitAck = true))
+
+        verifyNotPushed()
+        verify(ordering = io.mockk.Ordering.ORDERED) {
+            pendingPushRegistry.await(phone, "m1", listOf("a"), any())
+            sockets.write(connection, any())
+        }
+    }
+
+    @Test
+    fun `all sessions of a device wait for the same ack`() {
+        userHas(listOf(session("a", phone), session("b", phone)), listOf(target("token", phone)))
+
+        service.send(user, Delivery.Alert(socket, notification, id = "m1", awaitAck = true))
+
+        verify(exactly = 1) { pendingPushRegistry.await(phone, "m1", listOf("a", "b"), any()) }
+    }
+
+    @Test
+    fun `a desktop has no push, so nothing is held for it`() {
+        val desktopSession = session("d", desktop)
+        userHas(listOf(desktopSession), emptyList())
 
         service.send(user, Delivery.Alert(socket, notification, awaitAck = true))
 
-        verify(exactly = 0) { pendingPushRegistry.await(any(), any(), any(), any()) }
+        verify(exactly = 1) { sockets.write(desktopSession, any()) }
+        verifyNothingHeld()
         verifyNotPushed()
     }
 
     @Test
-    fun `every session gets the write after the first one worked`() {
-        val first = session("a", acks = false)
-        val second = session("b", acks = false)
-        userHas(first, second)
+    fun `without an ack a socket write counts as delivered for its device`() {
+        userHas(listOf(session("a", phone)), listOf(target("token", phone)))
+
+        service.send(user, Delivery.Alert(socket, notification))
+
+        verifyNothingHeld()
+        verifyNotPushed()
+    }
+
+    @Test
+    fun `without an ack a failed write falls back to the push`() {
+        val phoneTarget = target("token", phone)
+        userHas(listOf(session("a", phone, writeWorks = false)), listOf(phoneTarget))
+
+        service.send(user, Delivery.Alert(socket, notification))
+
+        verifyPushed(phoneTarget)
+    }
+
+    @Test
+    fun `every session of a device gets the write after the first one worked`() {
+        val second = session("b", phone)
+        userHas(listOf(session("a", phone), second), listOf(target("token", phone)))
 
         service.send(user, Delivery.Alert(socket, notification))
 
         verify(exactly = 1) { sockets.write(second, any()) }
+    }
+
+    @Test
+    fun `a legacy token is always pushed`() {
+        val legacy = target("old", null)
+        userHas(listOf(session("a", phone)), listOf(legacy))
+
+        service.send(user, Delivery.Alert(socket, notification, awaitAck = true))
+
+        verifyPushed(legacy)
+    }
+
+    @Test
+    fun `a session without a device only gets the write`() {
+        val unknown = session("a", null)
+        userHas(listOf(unknown), emptyList())
+
+        service.send(user, Delivery.Alert(socket, notification, awaitAck = true))
+
+        verify(exactly = 1) { sockets.write(unknown, any()) }
+        verifyNothingHeld()
+        verifyNotPushed()
     }
 
     @Test
@@ -146,5 +221,17 @@ class DeliveryServiceTest {
         service.sendAll(listOf(user, other)) { Delivery.Alert(socket, notification) }
 
         verify(exactly = 1) { deviceDirectory.targetsOf(any<Collection<ObjectId>>()) }
+    }
+
+    @Test
+    fun `send to session reaches only that session`() {
+        val wanted = session("a", phone)
+        val other = session("b", desktop)
+        every { sockets.connections } returns java.util.concurrent.CopyOnWriteArrayList(listOf(wanted, other))
+
+        service.sendToSession("a", socket)
+
+        verify(exactly = 1) { sockets.write(wanted, any()) }
+        verify(exactly = 0) { sockets.write(other, any()) }
     }
 }
