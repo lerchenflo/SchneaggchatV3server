@@ -44,6 +44,15 @@ data class ServerMetricsSnapshot(
     val emailsSent: Long,
     val emailsFailed: Long,
 
+    // Socket or push decision. Defaults for snapshots written before these fields existed.
+    val pushesImmediate: Long = 0,
+    val pushesHeld: Long = 0,
+    val pushesAcked: Long = 0,
+    val pushesAckTimedOut: Long = 0,
+    val pushesSessionClosed: Long = 0,
+    /** Mean time from holding a push to its ack, 0 without acks. */
+    val ackLatencyMs: Double = 0.0,
+
     // App activity
     val messagesSent: Long,
     val newAccounts: Long,

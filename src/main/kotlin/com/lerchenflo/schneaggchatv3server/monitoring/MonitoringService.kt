@@ -58,12 +58,14 @@ class MonitoringService(
         val GAUGES = listOf(
             "heapUsedMb", "heapMaxMb", "nonHeapUsedMb", "processCpuPercent", "systemCpuPercent",
             "threadCount", "socketConnections", "socketUsers", "mongoPingMs", "redisPingMs",
+            "ackLatencyMs",
         )
 
         /** Summed per chart column. */
         val COUNTERS = listOf(
             "gcCount", "gcTimeMs", "fcmSent", "fcmFailed", "apnsSent", "apnsFailed", "emailsSent",
             "emailsFailed", "messagesSent", "newAccounts", "logins", "logsDropped",
+            "pushesImmediate", "pushesHeld", "pushesAcked", "pushesAckTimedOut", "pushesSessionClosed",
         )
     }
 

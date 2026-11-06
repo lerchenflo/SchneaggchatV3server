@@ -599,21 +599,13 @@ class MessageService(
                 )
             } ?: throw OptimisticLockingFailureException("Message was modified by another request")
 
-            val deliveredOverSocket = notificationService.notifyMessageUpdate(
+            notificationService.notifyMessageUpdate(
                 message = savedMessage,
                 newMessage = false,
                 deleted = false,
-                changingUserId = reactingUserId
+                changingUserId = reactingUserId,
+                addedReaction = if (isAdd) content else null,
             )
-
-            if (isAdd) {
-                notificationService.notifyReactionAdded(
-                    message = savedMessage,
-                    reactorId = reactingUserId,
-                    reactionContent = content,
-                    deliveredOverSocket = deliveredOverSocket,
-                )
-            }
 
             savedMessage.toMessageResponse(reactingUserId)
         }

@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.notifications.websocket
 
+import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetrics
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import jakarta.annotation.PreDestroy
 import org.bson.types.ObjectId
@@ -36,6 +37,7 @@ class PendingPushRegistry {
         /** Sessions the message was written to that have neither acked nor closed yet. */
         val sessionIds: MutableSet<String>,
         val push: () -> Unit,
+        val heldAtMs: Long = System.currentTimeMillis(),
     ) {
         var timeout: ScheduledFuture<*>? = null
     }
@@ -56,12 +58,18 @@ class PendingPushRegistry {
         val key = Key(userId, messageId)
         val entry = Pending(sessionIds.toMutableSet(), push)
         pending[key] = entry
-        entry.timeout = scheduler.schedule({ fire(key, entry) }, ACK_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        ServerMetrics.pushesHeld.incrementAndGet()
+        entry.timeout = scheduler.schedule({
+            if (fire(key, entry)) ServerMetrics.pushesAckTimedOut.incrementAndGet()
+        }, ACK_TIMEOUT_MS, TimeUnit.MILLISECONDS)
     }
 
     /** The client confirmed it received [messageId] - its push is not needed. */
     fun ack(userId: ObjectId, messageId: String) {
-        pending.remove(Key(userId, messageId))?.timeout?.cancel(false)
+        val entry = pending.remove(Key(userId, messageId)) ?: return
+        entry.timeout?.cancel(false)
+        ServerMetrics.pushesAcked.incrementAndGet()
+        ServerMetrics.ackLatencyTotalMs.addAndGet(System.currentTimeMillis() - entry.heldAtMs)
     }
 
     /** [sessionId] closed: everything only it was still waiting on gets pushed now. */
@@ -72,14 +80,18 @@ class PendingPushRegistry {
             }
             if (noSessionLeft) {
                 entry.timeout?.cancel(false)
-                scheduler.execute { fire(key, entry) }
+                scheduler.execute {
+                    if (fire(key, entry)) ServerMetrics.pushesSessionClosed.incrementAndGet()
+                }
             }
         }
     }
 
     /** Sends [entry]'s push unless an ack or a racing fire already took it out of [pending]. */
-    private fun fire(key: Key, entry: Pending) {
-        if (pending.remove(key, entry)) runPush(entry.push, key.userId)
+    private fun fire(key: Key, entry: Pending): Boolean {
+        if (!pending.remove(key, entry)) return false
+        runPush(entry.push, key.userId)
+        return true
     }
 
     private fun runPush(push: () -> Unit, userId: ObjectId) {
