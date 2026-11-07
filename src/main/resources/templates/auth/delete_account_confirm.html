@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Confirm Account Deletion</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .warning { color: #d32f2f; font-weight: bold; margin: 20px 0; }
+        .button { background-color: #d32f2f; color: white; padding: 10px 20px; border: none; cursor: pointer; }
+        .cancel { background-color: #666; color: white; padding: 10px 20px; border: none; cursor: pointer; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Confirm Account Deletion</h1>
+    <div class="warning">
+        WARNING: This action cannot be undone. All your data will be permanently deleted.
+    </div>
+    <p>Are you sure you want to delete your account?</p>
+    <form action="/auth/confirm_delete_account" method="post">
+        <input type="hidden" name="confirmToken" th:value="${confirmToken}">
+        <button type="submit" class="button">Yes, Delete My Account</button>
+        <a href="/" class="cancel">Cancel</a>
+    </form>
+</body>
+</html>

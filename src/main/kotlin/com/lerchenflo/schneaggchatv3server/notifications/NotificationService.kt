@@ -26,6 +26,8 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.toUserResponseFor
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -35,6 +37,10 @@ import kotlin.time.Instant
  * devices. Not every update has a push: message edits etc. do not matter to an offline client, it
  * syncs on app start.
  */
+//Late is worthless here: a birthday is over after a day, and police move on within an hour.
+private val BIRTHDAY_PUSH_TTL_SECONDS = 1.days.inWholeSeconds
+private val MAP_SIGHTING_PUSH_TTL_SECONDS = 1.hours.inWholeSeconds
+
 @Service
 class NotificationService(
     private val deliveryService: DeliveryService,
@@ -321,7 +327,7 @@ class NotificationService(
             birthdayUserName = name,
             ownBirthday = ownBirthday,
         )
-        deliveryService.send(recipientId, Delivery.PushOnly(notification))
+        deliveryService.send(recipientId, Delivery.PushOnly(notification, PushOptions(ttlSeconds = BIRTHDAY_PUSH_TTL_SECONDS)))
     }
 
     /** Wake is Android only, and a wake that arrives late is worse than none, so TTL 0. */
@@ -359,7 +365,7 @@ class NotificationService(
             sightingType = sighting,
         )
         val recipients = userLookupService.findMapSightingPushUserIds().filter { it != excludeUserId }
-        deliveryService.sendAll(recipients) { Delivery.PushOnly(push) }
+        deliveryService.sendAll(recipients) { Delivery.PushOnly(push, PushOptions(ttlSeconds = MAP_SIGHTING_PUSH_TTL_SECONDS)) }
     }
 
     /** Is the user currently connected via a WebSocket? Lets callers skip work for offline users. */

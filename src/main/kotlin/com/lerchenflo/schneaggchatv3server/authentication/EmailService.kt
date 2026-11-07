@@ -41,9 +41,9 @@ class EmailService(
     ) {
 
     private val baseUrl get() = if (apnsDebug)
-        "https://schneaggchatv3test.lerchenflo.eu"
+        "https://schneaggchattest.lerchenflo.eu"
     else
-        "https://schneaggchatv3.lerchenflo.eu"
+        "https://schneaggchat.lerchenflo.eu"
 
 
     /**

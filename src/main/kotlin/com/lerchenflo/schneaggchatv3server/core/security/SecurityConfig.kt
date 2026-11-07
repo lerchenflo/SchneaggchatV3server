@@ -103,6 +103,10 @@ class SecurityConfig(
                     .requestMatchers("/i18n/**")
                     .permitAll()
 
+                    //Search engines
+                    .requestMatchers("/robots.txt", "/sitemap.xml")
+                    .permitAll()
+
 
 
                     //Allow forward of all Errors.
