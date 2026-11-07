@@ -19,7 +19,7 @@ class RateLimitFilter(
 ) : OncePerRequestFilter() {
 
     private val staticPrefixes = listOf("/css/", "/js/", "/web_images/", "/i18n/")
-    private val staticSuffixes = listOf(".html", ".ico", ".png", ".js", ".css", ".xml", ".webp")
+    private val staticSuffixes = listOf(".html", ".ico", ".png", ".js", ".css", ".xml", ".txt", ".webp")
 
     override fun doFilterInternal(
         request: HttpServletRequest,

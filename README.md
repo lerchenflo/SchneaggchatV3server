@@ -1,3 +1,6 @@
+## Webseite
+https://schneaggchat.lerchenflo.eu/
+
 # SchneaggchatV3server
 Schneaggchat server for v3
 

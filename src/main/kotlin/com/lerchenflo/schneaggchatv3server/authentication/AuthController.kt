@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import java.util.Locale.getDefault
 
-//https://schneaggchatv3.eu/auth
+//https://schneaggchat.lerchenflo.eu/auth
 
 @RestController
 @RequestMapping("/auth")
@@ -88,7 +88,7 @@ class AuthController(
         val allDevices: Boolean = false,
     )
 
-    //https://schneaggchat.eu/auth/register
+    //https://schneaggchat.lerchenflo.eu/auth/register
     @PostMapping("/register", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun register(
         @RequestParam("username") username: String,

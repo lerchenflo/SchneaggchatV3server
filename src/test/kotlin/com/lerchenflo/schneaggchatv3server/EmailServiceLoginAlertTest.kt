@@ -129,7 +129,7 @@ class EmailServiceLoginAlertTest {
         assertTrue(text.contains("- Unknown device (unknown type), signed in since"), text)
         // Private address -> no reverse DNS line
         assertFalse(text.contains("Hostname:"), text)
-        assertTrue(text.contains("https://schneaggchatv3test.lerchenflo.eu/reset_password.html"), text)
+        assertTrue(text.contains("https://schneaggchattest.lerchenflo.eu/reset_password.html"), text)
         // Sending is not written to the logs collection
         verify(exactly = 0) { loggingService.log(any(), any(), any()) }
     }
