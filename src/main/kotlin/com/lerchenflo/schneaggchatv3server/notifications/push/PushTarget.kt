@@ -14,7 +14,7 @@ data class PushTarget(
 )
 
 data class PushOptions(
-    /** How long the push service keeps trying. Null keeps its default, 0 means now or never. */
+    /** How long the push service keeps trying. Null means 4 weeks, 0 means now or never. */
     val ttlSeconds: Long? = null,
     val providers: Set<PushProvider> = PushProvider.entries.toSet(),
 )

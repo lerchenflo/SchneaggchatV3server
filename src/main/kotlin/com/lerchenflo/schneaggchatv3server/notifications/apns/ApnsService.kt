@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.lerchenflo.schneaggchatv3server.notifications.apns
 
 import com.lerchenflo.schneaggchatv3server.monitoring.ServerMetrics
@@ -20,6 +22,25 @@ import jakarta.annotation.PreDestroy
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import java.io.File
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+import kotlin.time.toJavaInstant
+
+//APNs allows up to 30 days. 4 weeks is also FCM's default, so iPhones and Android phones wait equally long.
+private val DEFAULT_TTL = 28.days
+
+/**
+ * The `apns-expiration` of a push. Pushy sends null as 0, and at 0 APNs tries once and stores
+ * nothing, so an iPhone that is offline in that moment never gets the push. Pushy forces
+ * java.time here.
+ */
+internal fun apnsExpiration(ttlSeconds: Long?, now: Instant): java.time.Instant? {
+    val ttl = ttlSeconds?.seconds ?: DEFAULT_TTL
+    return (now + ttl).toJavaInstant().takeIf { ttl.isPositive() }
+}
 
 @Service
 class ApnsService(
@@ -83,7 +104,7 @@ class ApnsService(
             /* token = */ target.token,
             /* topic = */ bundleId,
             /* payload = */ buildPayload(notification),
-            /* invalidationTime = */ null,
+            /* invalidationTime = */ apnsExpiration(options.ttlSeconds, Clock.System.now()),
             /* priority = */ DeliveryPriority.IMMEDIATE,
             /* pushType = */ PushType.ALERT,
         )
@@ -100,11 +121,12 @@ class ApnsService(
         }
     }
 
-    private fun onRejected(target: PushTarget, reason: String) {
+    internal fun onRejected(target: PushTarget, reason: String) {
         ServerMetrics.apnsFailed.incrementAndGet()
         AppLogger.error("[APNs] Error sending notification: $reason", user = target.userId, tag = "send_apns_failed")
         when (reason) {
-            "Unregistered", "BadDeviceToken", "DeviceTokenNotForTopic", "TopicDisallowed" -> deviceDirectory.clearPushToken(target.token)
+            // Not TopicDisallowed: that is our APNs setup, and deleting working tokens would stop the pushes for good
+            "Unregistered", "ExpiredToken", "BadDeviceToken", "DeviceTokenNotForTopic" -> deviceDirectory.clearPushToken(target.token)
             else -> AppLogger.warn("[APNs] Rejected: $reason for token ${target.token}", user = target.userId, tag = "send_apns_rejected")
         }
     }
@@ -116,7 +138,7 @@ class ApnsService(
     }
 
 
-    private fun buildPayload(notification: NotificationResponse): String {
+    internal fun buildPayload(notification: NotificationResponse): String {
         // Fallback alert shown when the Notification Service Extension times out or isn't available.
         // apns-priority: 10 (IMMEDIATE) is set via DeliveryPriority.IMMEDIATE in send.
         val fallbackTitle = when (notification) {
@@ -154,13 +176,14 @@ class ApnsService(
             }
         }
 
+        // No interruption-level, so iOS uses active: shown at once with sound, and Focus and the
+        // scheduled summary stay the user's choice. Delivery depends on priority and expiration.
         val payload: Map<String, Any> = mapOf(
             "aps" to mapOf(
                 "alert" to mapOf("title" to fallbackTitle, "body" to fallbackBody),
                 "sound" to "default",
                 "mutable-content" to 1,
                 "content-available" to 1,
-                "interruption-level" to "time-sensitive",
             )
         ) + notification.toPushData()
         return Json.mapper.writeValueAsString(payload)
