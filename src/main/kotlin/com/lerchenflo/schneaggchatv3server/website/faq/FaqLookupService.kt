@@ -2,7 +2,9 @@ package com.lerchenflo.schneaggchatv3server.website.faq
 
 import com.lerchenflo.schneaggchatv3server.website.faq.model.FaqEntry
 import com.lerchenflo.schneaggchatv3server.website.faq.model.FaqListResponse
+import com.lerchenflo.schneaggchatv3server.website.faq.model.FaqPageSection
 import com.lerchenflo.schneaggchatv3server.website.faq.model.toFaqEntryResponse
+import com.lerchenflo.schneaggchatv3server.website.faq.model.toFaqPageSection
 import com.lerchenflo.schneaggchatv3server.repository.FaqRepository
 import org.springframework.stereotype.Service
 
@@ -18,6 +20,13 @@ class FaqLookupService(
                 .map { it.toFaqEntryResponse() },
         )
     }
+
+    /** The German entries per category, for the FAQ page the server renders. */
+    fun germanSections(): List<FaqPageSection> =
+        faqRepository.findByDeletedFalse()
+            .sortedWith(faqDisplayOrder)
+            .groupBy { it.category }
+            .map { (category, entries) -> category.toFaqPageSection(entries) }
 }
 
 /**

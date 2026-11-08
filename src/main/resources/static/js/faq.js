@@ -1,5 +1,6 @@
 // FAQ rendering. The entries live in the database and are managed from the admin panel
-// (/chefdev.html) - this file only fetches and renders them.
+// (/chefdev.html). The server already renders the German entries into the page, for crawlers
+// without JavaScript; this file loads them again and replaces them, for search and language.
 //
 // Every entry ships all three languages at once, so switching language re-renders from what is
 // already loaded. An entry without a translation falls back to German, matching how a missing key

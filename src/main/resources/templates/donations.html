@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
 
 <head>
     <meta charset="UTF-8">
@@ -41,14 +41,21 @@
             <!-- Total Donations -->
             <div class="total-donations">
                 <h3 data-i18n="donations_total_heading">Gesamte Spenden</h3>
-                <div class="total-amount">€0.00</div>
+                <div class="total-amount" th:text="${donationsPage.total}">€0.00</div>
                 <p style="color: #94a3b8;" data-i18n="donations_total_thanks">Vielen Dank an alle Unterstützer!</p>
             </div>
 
             <!-- Recent Donations -->
             <h2 class="section-title" style="margin-top: 4rem; font-size: 2rem;" data-i18n="donations_recent_heading">Aktuelle Spenden</h2>
-            <!-- Donations will be dynamically loaded here -->
-            <div class="donations-grid"></div>
+            <!-- The server renders the donations without dates, donations-data.js renders them again with dates -->
+            <div class="donations-grid">
+                <div class="donation-card" th:each="donation : ${donationsPage.donations}">
+                    <div class="donation-icon"><i class="fas fa-heart"></i></div>
+                    <h4 class="donation-name" th:text="${donation.name}">Name</h4>
+                    <p class="donation-amount" th:text="${donation.amount}">€0.00</p>
+                    <p class="donation-message" th:if="${donation.message != null}" th:text="${donation.message}">"Nachricht"</p>
+                </div>
+            </div>
 
             <!-- Update Info -->
             <p class="update-info" data-i18n="donations_update_info">
