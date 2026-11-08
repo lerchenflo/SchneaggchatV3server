@@ -15,8 +15,9 @@ import kotlin.time.Instant
  * One feature request or bug report on the in-app feedback board. Title, description and tags are
  * immutable after creation; only votes, [status] (admin) and deletion change it.
  *
- * Not synced to clients (they fetch the board live), so user-created entries are hard deleted.
- * Seeded entries are the exception, see [deleted].
+ * Synced to clients by `/feedback/sync` (id/timestamp diff on [updatedAt]). The diff reports every
+ * entry the client has but the server no longer shows as deleted, so user-created entries can be
+ * hard deleted. Seeded entries are the exception, see [deleted].
  */
 @Document("feedback_entries")
 @TypeAlias("feedbackentry")
@@ -49,6 +50,19 @@ data class FeedbackEntry(
     val votes: Map<String, FeedbackVote> = emptyMap(),
 
     val createdAt: Instant,
+
+    /**
+     * Sync cursor: changes on every write that changes the entry's response - votes, status and
+     * comments (count and latest dev comment). Entries stored before this field existed fall back to
+     * [createdAt]. Usernames and admin roles are read live, so a rename does not move it.
+     */
+    val updatedAt: Instant = createdAt,
+
+    /**
+     * Last change worth highlighting in the client: creation, a status change, or a comment by
+     * someone other than the creator. Votes and deleted comments do not move it.
+     */
+    val activityAt: Instant = createdAt,
 
     /**
      * Tombstone for deleted seeded entries only. A seeded entry an admin deleted must stay deleted,

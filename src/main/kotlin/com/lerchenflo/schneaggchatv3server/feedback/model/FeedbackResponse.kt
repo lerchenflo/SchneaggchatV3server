@@ -6,6 +6,9 @@ data class FeedbackEntryResponse(
     val id: String,
     val type: FeedbackType,
     val title: String,
+    val description: String,
+    /** First 200 characters of [description]. Only old clients still read it. */
+    @Deprecated("Old clients only, use description. Remove in the next release.")
     val descriptionPreview: String,
     val tags: List<FeedbackTag>,
     val status: FeedbackStatus,
@@ -20,11 +23,29 @@ data class FeedbackEntryResponse(
     val canDelete: Boolean,
     @get:JsonProperty("isSeeded") val isSeeded: Boolean,
     val createdAt: Long,
+    /** Epoch millis. The client sends it back as the IdTimeStamp timestamp on `/feedback/sync`. */
+    val updatedAt: Long,
+    /** Epoch millis, see [FeedbackEntry.activityAt]. Compare with a stored `serverTime`, not the device clock. */
+    val activityAt: Long,
 )
 
 data class FeedbackListResponse(
     val viewerIsAdmin: Boolean,
     val entries: List<FeedbackEntryResponse>,
+)
+
+data class FeedbackSyncResponse(
+    val viewerIsAdmin: Boolean,
+    val updatedEntries: List<FeedbackEntryResponse>,
+    /** Ids the client sent that are deleted or gone. Only filled on page 0. */
+    val deletedEntries: List<String>,
+    val moreEntries: Boolean,
+    /**
+     * Server clock in epoch millis, read before the entries. A client that stores it as "last seen"
+     * never misses a later [FeedbackEntryResponse.activityAt] or `createdAt`, even with a wrong
+     * device clock.
+     */
+    val serverTime: Long,
 )
 
 data class FeedbackCommentResponse(
