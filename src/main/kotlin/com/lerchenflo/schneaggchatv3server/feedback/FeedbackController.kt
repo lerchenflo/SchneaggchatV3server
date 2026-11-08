@@ -35,6 +35,8 @@ class FeedbackController(
         val tags: List<FeedbackTag>,
         @field:Size(max = 400, message = "Location too long")
         val location: String? = null,
+        /** FEATURE only, ignored for bugs. Does not count toward the tag limit. */
+        val premium: Boolean = false,
         @field:Size(max = 60, message = "App version too long")
         val appVersion: String? = null,
         @field:Size(max = 40, message = "Platform too long")
@@ -109,6 +111,7 @@ class FeedbackController(
             description = request.description,
             tags = request.tags,
             location = request.location,
+            premium = request.premium,
             appVersion = request.appVersion,
             platform = request.platform,
             requesterId = requesterId,

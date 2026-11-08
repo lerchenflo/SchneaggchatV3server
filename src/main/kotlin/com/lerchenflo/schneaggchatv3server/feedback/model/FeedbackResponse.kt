@@ -22,6 +22,7 @@ data class FeedbackEntryResponse(
     @get:JsonProperty("isOwn") val isOwn: Boolean,
     val canDelete: Boolean,
     @get:JsonProperty("isSeeded") val isSeeded: Boolean,
+    @get:JsonProperty("isPremium") val isPremium: Boolean,
     val createdAt: Long,
     /** Epoch millis. The client sends it back as the IdTimeStamp timestamp on `/feedback/sync`. */
     val updatedAt: Long,

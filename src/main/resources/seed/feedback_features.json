@@ -1,6 +1,7 @@
 [
   {
     "seedKey": "language-vorarlbergerisch",
+    "premium": true,
     "title": "Vorarlbergerisch als App-Sprache",
     "description": "Die ganze App gibt es auch auf Vorarlbergerisch – zusätzlich zu Englisch, Deutsch und Italienisch.",
     "tags": ["SETTINGS", "UI"],
@@ -8,6 +9,7 @@
   },
   {
     "seedKey": "polls-custom-answers",
+    "premium": true,
     "title": "Umfragen mit eigenen Antworten und Stimmenlimit",
     "description": "Umfragen in jedem Chat erstellen. Mitglieder können eigene Optionen hinzufügen, und du kannst begrenzen, wie viele Stimmen jede Person oder Option bekommt. Markdown funktioniert im Umfragetext.",
     "tags": ["CHAT"],
@@ -15,6 +17,7 @@
   },
   {
     "seedKey": "user-descriptions",
+    "premium": true,
     "title": "Userbeschreibungen von Freunden",
     "description": "Freunde können gemeinsam einen Text über dich schreiben, der in deinem Profil angezeigt wird.",
     "tags": ["CHAT"],
@@ -22,6 +25,7 @@
   },
   {
     "seedKey": "message-reactions",
+    "premium": true,
     "title": "Nachrichten-Reaktionen (auch mit Text)",
     "description": "Reagiere auf jede Nachricht mit einem Emoji oder einem kurzen Text. Wer wann reagiert hat, siehst du in den Nachrichtendetails.",
     "tags": ["CHAT"],
@@ -36,6 +40,7 @@
   },
   {
     "seedKey": "birthdays",
+    "premium": true,
     "title": "Geburtstagserinnerungen und Geburtstagsliste",
     "description": "Geburtstage deiner Freunde werden in der Chatauswahl, in einer Geburtstagsliste und im Event-Kalender angezeigt, und am Tag selbst bekommst du eine Benachrichtigung.",
     "tags": ["NOTIFICATIONS", "EVENTS"],
@@ -43,6 +48,7 @@
   },
   {
     "seedKey": "location-sharing",
+    "premium": true,
     "title": "Live-Standort mit Verlauf teilen",
     "description": "Teile deinen Standort mit ausgewählten Freunden und sieh auf der Schneaggmap, wo sie sind – inklusive Kompass mit Richtung und Entfernung.",
     "tags": ["MAP"],
@@ -50,6 +56,7 @@
   },
   {
     "seedKey": "schneaggmap-places",
+    "premium": true,
     "title": "Bearbeitbare Karte mit öffentlichen Orten",
     "description": "Alle können Orte auf der Schneaggmap hinzufügen und bearbeiten (Eis, WLAN, Sportplätze und vieles mehr), nach Typ gruppiert und durchsuchbar.",
     "tags": ["MAP"],
@@ -57,6 +64,7 @@
   },
   {
     "seedKey": "annotations",
+    "premium": true,
     "title": "@Annotations für User, Orte, Spiele und Events",
     "description": "Erwähne User, Orte auf der Karte, Spiele und Events in Nachrichten und Umfragen mit @ – ein Tipp darauf öffnet das verlinkte Element.",
     "tags": ["CHAT"],
@@ -64,6 +72,7 @@
   },
   {
     "seedKey": "wake-feature",
+    "premium": true,
     "title": "Freunde aufwecken",
     "description": "Spiele einen Weckton auf dem Handy eines Freundes ab, auch wenn es auf lautlos ist. Nur Freunde, die du ausdrücklich erlaubst, können dich wecken.",
     "tags": ["NOTIFICATIONS"],
@@ -201,5 +210,13 @@
     "description": "Nachrichten über Android Auto lesen und beantworten.",
     "tags": ["NOTIFICATIONS"],
     "location": "Automatisch, sobald Android Auto verbunden ist"
+  },
+  {
+    "seedKey": "app-broken-button",
+    "premium": true,
+    "title": "App-kaputt-Button",
+    "description": "Funktioniert etwas nicht wie vorgesehen? Der Button löscht die lokalen App-Daten und lädt alles neu vom Server. Das behebt die meisten gängigen Fehler.",
+    "tags": ["SETTINGS"],
+    "location": "Einstellungen → Miscellaneous → App kaputt"
   }
 ]

@@ -33,6 +33,13 @@ data class FeedbackEntry(
     /** FEATURE only: where the feature can be found in the app. */
     val location: String? = null,
 
+    /**
+     * FEATURE only: marked as a premium feature, shown with a highlight in the client. Picked by the
+     * creator on create, for seeds taken from the seed file. Not a [FeedbackTag], so released clients
+     * with a closed tag enum still parse the entry.
+     */
+    val premium: Boolean = false,
+
     /** Null for seeded entries. */
     val creatorId: ObjectId? = null,
 
