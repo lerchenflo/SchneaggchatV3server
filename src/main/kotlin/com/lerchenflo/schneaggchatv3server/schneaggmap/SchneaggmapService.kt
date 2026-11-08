@@ -180,7 +180,13 @@ class SchneaggmapService(
             }
             notificationService.notifyMapUpdate(saved, newEntry = existing == null, deleted = false, excludeUserId = requesterId) //Exclude creator, he gets the new entry with the response when upserting
             newSighting(existing, saved, now)?.let { sighting ->
-                notificationService.notifyMapSighting(saved, sighting, requesterId)
+                // The entry is already saved: a failed push must not turn the request into an error,
+                // or the client retries and creates a duplicate entry.
+                try {
+                    notificationService.notifyMapSighting(saved, sighting, requesterId)
+                } catch (e: Exception) {
+                    AppLogger.error("MAP: sighting push for \"${saved.name}\" failed", user = requesterId, error = e)
+                }
             }
             saved
         }

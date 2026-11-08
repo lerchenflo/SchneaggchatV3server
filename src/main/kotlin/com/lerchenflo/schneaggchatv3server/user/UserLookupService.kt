@@ -5,18 +5,23 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import org.bson.types.ObjectId
+import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.isEqualTo
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import kotlin.jvm.optionals.getOrNull
 
 /**
- * Simple service for looking up users. Only dependency is the repository, which is always available
- *  -> This service can be used in any other service
+ * Simple service for looking up users. Only dependencies are the repository and MongoTemplate, which
+ * are always available -> This service can be used in any other service
  */
 @Service
 class UserLookupService(
     private val userRepository: UserRepository,
+    private val mongoTemplate: MongoTemplate,
 ) {
     init {
         // Lets every log line show the username next to the id
@@ -79,8 +84,17 @@ class UserLookupService(
         return optuser
     }
 
-    /** Everyone who turned on police and mobile radar pushes. Off unless a user enabled it. */
-    fun findMapSightingPushUserIds(): List<ObjectId> = userRepository.findIdsWithMapSightingPush().map { it.id }
+    /**
+     * Everyone who turned on police and mobile radar pushes. Off unless a user enabled it.
+     * Reads only the ids: a repository projection built a full [User] from the id-only document and
+     * failed on the missing fields.
+     */
+    fun findMapSightingPushUserIds(): List<ObjectId> = mongoTemplate.findDistinct(
+        Query(Criteria.where("settings.mapSightingPush").isEqualTo(true)),
+        "_id",
+        User::class.java,
+        ObjectId::class.java,
+    )
 
     fun deleteUser(userId: ObjectId) {
         userRepository.deleteById(userId)

@@ -5,15 +5,7 @@ import org.bson.types.ObjectId
 import org.springframework.data.mongodb.repository.MongoRepository
 import org.springframework.data.mongodb.repository.Query
 
-/** Only the id, for queries over all users that do not need the rest of the document. */
-interface UserIdOnly {
-    val id: ObjectId
-}
-
 interface UserRepository : MongoRepository<User, ObjectId> {
-
-    @Query(value = "{ 'settings.mapSightingPush': true }", fields = "{ '_id': 1 }")
-    fun findIdsWithMapSightingPush(): List<UserIdOnly>
 
     fun findByUsername(username: String): User?
 
