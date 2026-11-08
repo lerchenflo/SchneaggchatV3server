@@ -179,6 +179,9 @@ class FeedbackService(
                     "\"Didn't know\" votes are only allowed on implemented features"
                 }
             }
+            if (vote == FeedbackVote.NOT_NEEDED) {
+                require(entry.type == FeedbackType.FEATURE) { "\"Don't need it, but fine\" votes are only allowed on features" }
+            }
 
             val newVotes = if (vote == FeedbackVote.NONE) entry.votes - voterKey else entry.votes + (voterKey to vote)
             if (newVotes == entry.votes) entry
@@ -272,6 +275,7 @@ class FeedbackService(
 
             // "Didn't know" only means something on an implemented feature - drop those votes once
             // the entry leaves that status, so they cannot resurface if it is set back later.
+            // NOT_NEEDED votes stay: they apply to a feature in every status.
             val newVotes = if (status == FeedbackStatus.IMPLEMENTED) entry.votes
             else entry.votes.filterValues { it != FeedbackVote.DIDNT_KNOW }
 
@@ -352,8 +356,13 @@ class FeedbackService(
         return entries.map { entry ->
             val countDidntKnow = entry.type == FeedbackType.FEATURE && entry.status == FeedbackStatus.IMPLEMENTED
             val isOwn = entry.creatorId != null && entry.creatorId == viewerId
-            val myVote = entry.votes[viewerKey]
+            val isFeature = entry.type == FeedbackType.FEATURE
+            val storedVote = entry.votes[viewerKey]
+            val isNotNeeded = isFeature && storedVote == FeedbackVote.NOT_NEEDED
+            // NOT_NEEDED goes out as NONE + isNotNeeded, see FeedbackVote.
+            val myVote = storedVote
                 ?.takeIf { it != FeedbackVote.DIDNT_KNOW || countDidntKnow }
+                ?.takeIf { it != FeedbackVote.NOT_NEEDED }
                 ?: FeedbackVote.NONE
 
             FeedbackEntryResponse(
@@ -367,7 +376,9 @@ class FeedbackService(
                 upvotes = entry.votes.values.count { it == FeedbackVote.UP },
                 downvotes = entry.votes.values.count { it == FeedbackVote.DOWN },
                 didntKnowCount = if (countDidntKnow) entry.votes.values.count { it == FeedbackVote.DIDNT_KNOW } else 0,
+                notNeededCount = if (isFeature) entry.votes.values.count { it == FeedbackVote.NOT_NEEDED } else 0,
                 myVote = myVote,
+                isNotNeeded = isNotNeeded,
                 commentCount = commentCounts[entry.id] ?: 0,
                 latestDevComment = latestDevComments[entry.id],
                 creatorName = entry.creatorId?.let { creatorNames[it] },

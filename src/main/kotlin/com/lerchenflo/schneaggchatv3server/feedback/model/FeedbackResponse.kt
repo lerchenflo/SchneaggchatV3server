@@ -15,7 +15,12 @@ data class FeedbackEntryResponse(
     val upvotes: Int,
     val downvotes: Int,
     val didntKnowCount: Int,
+    /** FEATURE only, 0 for bugs. Neutral: not part of [upvotes] or [downvotes]. */
+    val notNeededCount: Int,
+    /** Never [FeedbackVote.NOT_NEEDED] (released clients cannot parse it), see [isNotNeeded]. */
     val myVote: FeedbackVote,
+    /** The viewer's vote is [FeedbackVote.NOT_NEEDED]; [myVote] is [FeedbackVote.NONE] then. */
+    @get:JsonProperty("isNotNeeded") val isNotNeeded: Boolean,
     val commentCount: Int,
     val latestDevComment: String?,
     val creatorName: String?,
