@@ -11,9 +11,12 @@ import com.lerchenflo.schneaggchatv3server.repository.FeedbackEntryRepository
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
+import com.lerchenflo.schneaggchatv3server.util.withOptimisticRetry
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Service
+import kotlin.jvm.optionals.getOrNull
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.ExperimentalTime
 
 /**
@@ -21,8 +24,9 @@ import kotlin.time.ExperimentalTime
  * board, so users can vote on (and discover) existing features.
  *
  * Runs on every startup and inserts only seeds whose [FeedbackEntry.seedKey] is not in the
- * collection yet. Existing seeded entries are never modified. Seeds an admin deleted stay in the
- * collection as `deleted = true` tombstones, so they count as present and are not re-inserted.
+ * collection yet. Existing seeded entries are never modified, except for [FeedbackEntry.premium],
+ * which follows the seed file. Seeds an admin deleted stay in the collection as `deleted = true`
+ * tombstones, so they count as present and are not re-inserted.
  */
 @Service
 class FeedbackSeedService(
@@ -35,6 +39,7 @@ class FeedbackSeedService(
         val description: String = "",
         val tags: List<String> = emptyList(),
         val location: String? = null,
+        val premium: Boolean = false,
     )
 
     fun seedMissingEntries() {
@@ -51,7 +56,8 @@ class FeedbackSeedService(
             return
         }
 
-        val existingKeys = entryRepository.findBySeedKeyNotNull().mapNotNull { it.seedKey }.toSet()
+        val existing = entryRepository.findBySeedKeyNotNull()
+        val existingKeys = existing.mapNotNull { it.seedKey }.toSet()
         val now = Clock.System.now()
 
         val missing = seeds
@@ -59,10 +65,41 @@ class FeedbackSeedService(
             .distinctBy { it.seedKey }
             .mapNotNull { seed -> seed.toEntryOrNull(now) }
 
-        if (missing.isEmpty()) return
+        if (missing.isNotEmpty()) {
+            entryRepository.saveAll(missing)
+            AppLogger.info("Seeded ${missing.size} feedback entries")
+        }
 
-        entryRepository.saveAll(missing)
-        AppLogger.info("Seeded ${missing.size} feedback entries")
+        updatePremiumFlags(seeds, existing)
+    }
+
+    /**
+     * Brings [FeedbackEntry.premium] of already seeded entries in line with the seed file. Moves
+     * [FeedbackEntry.updatedAt] so synced clients fetch the entry again, but not
+     * [FeedbackEntry.activityAt]: the flag is no news a client should highlight.
+     */
+    private fun updatePremiumFlags(seeds: List<FeedbackSeed>, existing: List<FeedbackEntry>) {
+        val premiumByKey = seeds.filter { it.seedKey.isNotBlank() }.associate { it.seedKey to it.premium }
+        val outdated = existing.filter { entry ->
+            val premium = premiumByKey[entry.seedKey] ?: return@filter false
+            !entry.deleted && entry.premium != premium
+        }
+
+        outdated.forEach { stale ->
+            withOptimisticRetry {
+                val entry = entryRepository.findById(stale.id).getOrNull() ?: return@forEach
+                val premium = premiumByKey[entry.seedKey] ?: return@forEach
+                if (entry.deleted || entry.premium == premium) return@forEach
+                entryRepository.save(
+                    entry.copy(
+                        premium = premium,
+                        updatedAt = maxOf(Clock.System.now(), entry.updatedAt + 1.milliseconds),
+                    )
+                )
+            }
+        }
+
+        if (outdated.isNotEmpty()) AppLogger.info("Updated the premium flag of ${outdated.size} seeded feedback entries")
     }
 
     private fun FeedbackSeed.toEntryOrNull(now: kotlin.time.Instant): FeedbackEntry? {
@@ -88,6 +125,7 @@ class FeedbackSeedService(
             tags = parsedTags,
             status = FeedbackStatus.IMPLEMENTED,
             location = trimmedLocation,
+            premium = premium,
             creatorId = null,
             seedKey = seedKey,
             createdAt = now,

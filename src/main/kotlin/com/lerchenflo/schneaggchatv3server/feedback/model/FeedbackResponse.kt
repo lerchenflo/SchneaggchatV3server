@@ -6,25 +6,52 @@ data class FeedbackEntryResponse(
     val id: String,
     val type: FeedbackType,
     val title: String,
+    val description: String,
+    /** First 200 characters of [description]. Only old clients still read it. */
+    @Deprecated("Old clients only, use description. Remove in the next release.")
     val descriptionPreview: String,
     val tags: List<FeedbackTag>,
     val status: FeedbackStatus,
     val upvotes: Int,
     val downvotes: Int,
     val didntKnowCount: Int,
+    /** FEATURE only, 0 for bugs. Neutral: not part of [upvotes] or [downvotes]. */
+    val notNeededCount: Int,
+    /** Never [FeedbackVote.NOT_NEEDED] (released clients cannot parse it), see [isNotNeeded]. */
     val myVote: FeedbackVote,
+    /** The viewer's vote is [FeedbackVote.NOT_NEEDED]; [myVote] is [FeedbackVote.NONE] then. */
+    @get:JsonProperty("isNotNeeded") val isNotNeeded: Boolean,
     val commentCount: Int,
     val latestDevComment: String?,
     val creatorName: String?,
     @get:JsonProperty("isOwn") val isOwn: Boolean,
     val canDelete: Boolean,
     @get:JsonProperty("isSeeded") val isSeeded: Boolean,
+    @get:JsonProperty("isPremium") val isPremium: Boolean,
     val createdAt: Long,
+    /** Epoch millis. The client sends it back as the IdTimeStamp timestamp on `/feedback/sync`. */
+    val updatedAt: Long,
+    /** Epoch millis, see [FeedbackEntry.activityAt]. Compare with a stored `serverTime`, not the device clock. */
+    val activityAt: Long,
 )
 
 data class FeedbackListResponse(
     val viewerIsAdmin: Boolean,
     val entries: List<FeedbackEntryResponse>,
+)
+
+data class FeedbackSyncResponse(
+    val viewerIsAdmin: Boolean,
+    val updatedEntries: List<FeedbackEntryResponse>,
+    /** Ids the client sent that are deleted or gone. Only filled on page 0. */
+    val deletedEntries: List<String>,
+    val moreEntries: Boolean,
+    /**
+     * Server clock in epoch millis, read before the entries. A client that stores it as "last seen"
+     * never misses a later [FeedbackEntryResponse.activityAt] or `createdAt`, even with a wrong
+     * device clock.
+     */
+    val serverTime: Long,
 )
 
 data class FeedbackCommentResponse(

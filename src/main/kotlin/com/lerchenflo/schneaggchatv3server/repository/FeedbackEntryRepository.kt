@@ -8,6 +8,8 @@ import org.springframework.data.mongodb.repository.MongoRepository
 interface FeedbackEntryRepository : MongoRepository<FeedbackEntry, ObjectId> {
     fun findByTypeAndDeletedFalse(type: FeedbackType): List<FeedbackEntry>
 
+    fun findByDeletedFalse(): List<FeedbackEntry>
+
     /** Includes tombstoned seeds - used by the seeder so deleted seeds are not re-inserted. */
     fun findBySeedKeyNotNull(): List<FeedbackEntry>
 }

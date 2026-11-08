@@ -9,6 +9,7 @@ import com.lerchenflo.schneaggchatv3server.feedback.model.*
 import com.lerchenflo.schneaggchatv3server.repository.FeedbackCommentRepository
 import com.lerchenflo.schneaggchatv3server.repository.FeedbackEntryRepository
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
+import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRole
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
@@ -25,11 +26,14 @@ import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import kotlin.jvm.optionals.getOrNull
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 /**
  * In-app feedback board: feature requests and bug reports that users vote and comment on.
- * Clients fetch the board live - there is no sync endpoint and no push notification.
+ * Clients keep the board locally and catch up through [sync]. There is no socket message and no
+ * push notification. Every write that changes an entry's response moves [FeedbackEntry.updatedAt].
  */
 @Service
 class FeedbackService(
@@ -43,11 +47,50 @@ class FeedbackService(
 ) {
 
     private companion object {
+        /** Length of the deprecated [FeedbackEntryResponse.descriptionPreview]. Remove with it. */
         const val DESCRIPTION_PREVIEW_LENGTH = 200
     }
 
     // ─── Reads ────────────────────────────────────────────────────────────────
 
+    /**
+     * Id/timestamp diff like `/map/sync`, over all live entries of both types: entries the client
+     * lacks or has with an older [FeedbackEntry.updatedAt], newest first, plus (page 0 only) the ids
+     * the client has that are gone. Every user may see every entry, so nothing is filtered by viewer.
+     */
+    fun sync(
+        clientEntries: List<UserService.IdTimeStamp>,
+        page: Int,
+        pageSize: Int,
+        viewerId: ObjectId,
+    ): FeedbackSyncResponse {
+        // Read before the entries: a write that lands in between is newer than serverTime, so the
+        // client still highlights it next time instead of counting it as seen.
+        val serverTime = Clock.System.now()
+        val clientMap = clientEntries.associate { it.id to it.timeStamp }
+        val entries = entryRepository.findByDeletedFalse()
+        val serverIds = entries.map { it.id.toHexString() }.toSet()
+
+        val changed = entries.filter { entry ->
+            // Unknown id or unreadable timestamp: send the entry again.
+            val clientTimestamp = clientMap[entry.id.toHexString()]?.toLongOrNull() ?: return@filter true
+            entry.updatedAt.toEpochMilliseconds() > clientTimestamp
+        }.sortedByDescending { it.updatedAt }
+
+        val start = (page.toLong() * pageSize).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        val viewerIsAdmin = isAdmin(viewerId)
+
+        return FeedbackSyncResponse(
+            viewerIsAdmin = viewerIsAdmin,
+            updatedEntries = toEntryResponses(changed.drop(start).take(pageSize), viewerId, viewerIsAdmin),
+            deletedEntries = if (page == 0) clientMap.keys.filter { it !in serverIds } else emptyList(),
+            moreEntries = start.toLong() + pageSize < changed.size,
+            serverTime = serverTime.toEpochMilliseconds(),
+        )
+    }
+
+    /** Live fetch of old clients. New clients use [sync]. Remove in the next release. */
+    @Deprecated("Old clients only, use sync. Remove in the next release.")
     fun list(type: FeedbackType, viewerId: ObjectId): FeedbackListResponse {
         val viewerIsAdmin = isAdmin(viewerId)
         val entries = entryRepository.findByTypeAndDeletedFalse(type)
@@ -82,6 +125,7 @@ class FeedbackService(
         description: String,
         tags: List<FeedbackTag>,
         location: String?,
+        premium: Boolean,
         appVersion: String?,
         platform: String?,
         requesterId: ObjectId,
@@ -110,6 +154,8 @@ class FeedbackService(
                 tags = tags,
                 status = FeedbackStatus.initialFor(type),
                 location = trimmedLocation,
+                // Like location, premium only exists on features - silently dropped for bugs.
+                premium = premium && type == FeedbackType.FEATURE,
                 creatorId = requesterId,
                 appVersion = trimmedAppVersion,
                 platform = trimmedPlatform,
@@ -133,9 +179,13 @@ class FeedbackService(
                     "\"Didn't know\" votes are only allowed on implemented features"
                 }
             }
+            if (vote == FeedbackVote.NOT_NEEDED) {
+                require(entry.type == FeedbackType.FEATURE) { "\"Don't need it, but fine\" votes are only allowed on features" }
+            }
 
             val newVotes = if (vote == FeedbackVote.NONE) entry.votes - voterKey else entry.votes + (voterKey to vote)
-            if (newVotes == entry.votes) entry else entryRepository.save(entry.copy(votes = newVotes))
+            if (newVotes == entry.votes) entry
+            else entryRepository.save(entry.copy(votes = newVotes, updatedAt = nextStamp(entry)))
         }
 
         return toEntryResponses(listOf(saved), requesterId, isAdmin(requesterId)).single()
@@ -156,7 +206,7 @@ class FeedbackService(
         require(ValidationUtils.validateFeedbackAppVersion(trimmedAppVersion)) { "App version too long" }
         require(ValidationUtils.validateFeedbackPlatform(trimmedPlatform)) { "Platform too long" }
 
-        findActiveEntry(entryId)
+        val entry = findActiveEntry(entryId)
         requireWithinRateLimit(requesterId, RateLimitTier.FEEDBACK_COMMENT)
 
         val author = userLookupService.findById(requesterId)
@@ -174,6 +224,9 @@ class FeedbackService(
                 createdAt = Clock.System.now(),
             )
         )
+        // A creator answering on their own entry is nothing new for them, so only others' comments
+        // count as activity.
+        touchEntry(entryId, activity = entry.creatorId != requesterId)
         loggingService.log(requesterId, LogType.FEEDBACK_COMMENT_CREATED, "entry=${entryId.toHexString()}")
 
         return saved.toResponse(author.username, requesterId, authorIsAdmin)
@@ -194,7 +247,7 @@ class FeedbackService(
             // Tombstone instead of hard delete, so the seeder does not re-insert it on the next start.
             withOptimisticRetry {
                 val fresh = findActiveEntry(entryId)
-                entryRepository.save(fresh.copy(deleted = true, votes = emptyMap()))
+                entryRepository.save(fresh.copy(deleted = true, votes = emptyMap(), updatedAt = nextStamp(fresh)))
             }
         } else {
             entryRepository.deleteById(entryId)
@@ -210,6 +263,7 @@ class FeedbackService(
         }
 
         commentRepository.deleteById(commentId)
+        touchEntry(comment.entryId, activity = false)
         loggingService.log(requesterId, LogType.FEEDBACK_COMMENT_DELETED, "comment=${commentId.toHexString()}")
     }
 
@@ -221,10 +275,20 @@ class FeedbackService(
 
             // "Didn't know" only means something on an implemented feature - drop those votes once
             // the entry leaves that status, so they cannot resurface if it is set back later.
+            // NOT_NEEDED votes stay: they apply to a feature in every status.
             val newVotes = if (status == FeedbackStatus.IMPLEMENTED) entry.votes
             else entry.votes.filterValues { it != FeedbackVote.DIDNT_KNOW }
 
-            entryRepository.save(entry.copy(status = status, votes = newVotes))
+            val stamp = nextStamp(entry)
+            entryRepository.save(
+                entry.copy(
+                    status = status,
+                    votes = newVotes,
+                    updatedAt = stamp,
+                    // Setting the same status again is no news for the creator.
+                    activityAt = if (status != entry.status) stamp else entry.activityAt,
+                )
+            )
         }
         loggingService.log(adminId, LogType.FEEDBACK_STATUS_CHANGED, "entry=${entryId.toHexString()} status=$status")
 
@@ -237,6 +301,28 @@ class FeedbackService(
         entryRepository.findById(entryId).getOrNull()?.takeIf { !it.deleted } ?: throw entryNotFound()
 
     private fun entryNotFound() = ResponseStatusException(HttpStatus.NOT_FOUND, "Feedback entry not found")
+
+    /**
+     * Next [FeedbackEntry.updatedAt] for [entry]: now, but at least 1 ms after the current value. Two
+     * writes in the same millisecond would otherwise share a timestamp, and a client that synced
+     * between them would never get the second one.
+     */
+    private fun nextStamp(entry: FeedbackEntry): Instant =
+        maxOf(Clock.System.now(), entry.updatedAt + 1.milliseconds)
+
+    /**
+     * Moves the sync cursor (and with [activity] also [FeedbackEntry.activityAt]) of an entry whose
+     * response changed while the entry document did not: comment count, latest dev comment. Runs after
+     * the comment write, so a client that gets the new timestamp also gets the comment. Skips a
+     * deleted or missing entry.
+     */
+    private fun touchEntry(entryId: ObjectId, activity: Boolean) {
+        withOptimisticRetry {
+            val entry = entryRepository.findById(entryId).getOrNull()?.takeIf { !it.deleted } ?: return
+            val stamp = nextStamp(entry)
+            entryRepository.save(entry.copy(updatedAt = stamp, activityAt = if (activity) stamp else entry.activityAt))
+        }
+    }
 
     private fun isAdmin(userId: ObjectId): Boolean =
         userLookupService.findById(userId)?.role == UserRole.ADMIN
@@ -251,6 +337,7 @@ class FeedbackService(
      * Builds responses for a batch of entries with a constant number of queries: one aggregation for
      * the comment counts, one find for the dev comments, one user lookup for creator names.
      */
+    @Suppress("DEPRECATION") // descriptionPreview stays until old clients are gone
     private fun toEntryResponses(
         entries: List<FeedbackEntry>,
         viewerId: ObjectId,
@@ -269,28 +356,39 @@ class FeedbackService(
         return entries.map { entry ->
             val countDidntKnow = entry.type == FeedbackType.FEATURE && entry.status == FeedbackStatus.IMPLEMENTED
             val isOwn = entry.creatorId != null && entry.creatorId == viewerId
-            val myVote = entry.votes[viewerKey]
+            val isFeature = entry.type == FeedbackType.FEATURE
+            val storedVote = entry.votes[viewerKey]
+            val isNotNeeded = isFeature && storedVote == FeedbackVote.NOT_NEEDED
+            // NOT_NEEDED goes out as NONE + isNotNeeded, see FeedbackVote.
+            val myVote = storedVote
                 ?.takeIf { it != FeedbackVote.DIDNT_KNOW || countDidntKnow }
+                ?.takeIf { it != FeedbackVote.NOT_NEEDED }
                 ?: FeedbackVote.NONE
 
             FeedbackEntryResponse(
                 id = entry.id.toHexString(),
                 type = entry.type,
                 title = entry.title,
+                description = entry.description,
                 descriptionPreview = previewOf(entry.description),
                 tags = entry.tags,
                 status = entry.status,
                 upvotes = entry.votes.values.count { it == FeedbackVote.UP },
                 downvotes = entry.votes.values.count { it == FeedbackVote.DOWN },
                 didntKnowCount = if (countDidntKnow) entry.votes.values.count { it == FeedbackVote.DIDNT_KNOW } else 0,
+                notNeededCount = if (isFeature) entry.votes.values.count { it == FeedbackVote.NOT_NEEDED } else 0,
                 myVote = myVote,
+                isNotNeeded = isNotNeeded,
                 commentCount = commentCounts[entry.id] ?: 0,
                 latestDevComment = latestDevComments[entry.id],
                 creatorName = entry.creatorId?.let { creatorNames[it] },
                 isOwn = isOwn,
                 canDelete = isOwn || viewerIsAdmin,
                 isSeeded = entry.seedKey != null,
+                isPremium = entry.premium,
                 createdAt = entry.createdAt.toEpochMilliseconds(),
+                updatedAt = entry.updatedAt.toEpochMilliseconds(),
+                activityAt = entry.activityAt.toEpochMilliseconds(),
             )
         }
     }
@@ -307,6 +405,7 @@ class FeedbackService(
             .associate { it.id to it.count }
     }
 
+    /** For the deprecated [FeedbackEntryResponse.descriptionPreview]. Remove with it. */
     private fun previewOf(description: String): String =
         if (description.length <= DESCRIPTION_PREVIEW_LENGTH) description
         else description.take(DESCRIPTION_PREVIEW_LENGTH) + "…"

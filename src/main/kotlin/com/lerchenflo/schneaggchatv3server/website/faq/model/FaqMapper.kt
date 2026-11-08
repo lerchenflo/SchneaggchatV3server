@@ -5,6 +5,11 @@ fun FaqText.toFaqTextResponse(): FaqTextResponse = FaqTextResponse(
     answer = answer,
 )
 
+fun FaqCategory.toFaqPageSection(entries: List<FaqEntry>): FaqPageSection = FaqPageSection(
+    label = germanLabel,
+    entries = entries.map { it.german.toFaqTextResponse() },
+)
+
 fun FaqEntry.toFaqEntryResponse(): FaqEntryResponse = FaqEntryResponse(
     id = id.toHexString(),
     category = category.name,

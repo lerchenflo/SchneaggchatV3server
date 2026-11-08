@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
 
 <head>
     <meta charset="UTF-8">
@@ -34,14 +34,24 @@
                 </button>
             </div>
 
-            <!-- Categories and entries are loaded from the database -->
-            <div id="faq-categories"></div>
+            <!-- The server renders the German entries, faq.js renders them again in the chosen language -->
+            <div id="faq-categories">
+                <section class="faq-category" th:each="section : ${faqSections}">
+                    <h2 class="faq-category-title" th:text="${section.label}">Allgemein</h2>
+                    <div class="faq-list">
+                        <details class="faq-item" th:each="entry : ${section.entries}">
+                            <summary class="faq-question"><span th:text="${entry.question}">Frage</span><i class="fa-solid fa-chevron-down faq-chevron"></i></summary>
+                            <p class="faq-answer" th:text="${entry.answer}">Antwort</p>
+                        </details>
+                    </div>
+                </section>
+            </div>
 
             <p id="faq-no-results" class="update-info hidden" data-i18n="faq_search_noresults">
                 Keine Frage passt zu deiner Suche.
             </p>
 
-            <p id="faq-empty" class="update-info hidden" data-i18n="faq_empty">
+            <p id="faq-empty" th:class="${faqSections.isEmpty()} ? 'update-info' : 'update-info hidden'" data-i18n="faq_empty">
                 Hier stehen bald Antworten. Schau später nochmal vorbei.
             </p>
 

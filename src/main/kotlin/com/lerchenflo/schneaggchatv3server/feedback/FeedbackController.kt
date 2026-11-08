@@ -3,6 +3,7 @@ package com.lerchenflo.schneaggchatv3server.feedback
 import com.lerchenflo.schneaggchatv3server.core.security.AdminGuard
 import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
 import com.lerchenflo.schneaggchatv3server.feedback.model.*
+import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -34,6 +35,8 @@ class FeedbackController(
         val tags: List<FeedbackTag>,
         @field:Size(max = 400, message = "Location too long")
         val location: String? = null,
+        /** FEATURE only, ignored for bugs. Does not count toward the tag limit. */
+        val premium: Boolean = false,
         @field:Size(max = 60, message = "App version too long")
         val appVersion: String? = null,
         @field:Size(max = 40, message = "Platform too long")
@@ -64,6 +67,25 @@ class FeedbackController(
         val status: FeedbackStatus,
     )
 
+    /**
+     * Delta sync of the whole board (features and bugs), see [FeedbackService.sync]. The body lists
+     * every entry the client has, with the `updatedAt` it last got as timestamp.
+     */
+    @PostMapping("/sync")
+    fun sync(
+        @RequestParam(value = "page", defaultValue = "0") page: Int,
+        @RequestParam(value = "page_size", defaultValue = "400") pageSize: Int,
+        @RequestBody clientEntries: List<UserService.IdTimeStamp>,
+    ): FeedbackSyncResponse {
+        val requesterId = requireAuth()
+        require(ValidationUtils.validatePaginationPage(page)) { "Invalid page number" }
+        require(ValidationUtils.validatePaginationPageSize(pageSize)) { "Invalid page size" }
+        return feedbackService.sync(clientEntries, page, pageSize, requesterId)
+    }
+
+    /** Live fetch of old clients. New clients use [sync]. Remove in the next release. */
+    @Deprecated("Old clients only, use /feedback/sync. Remove in the next release.")
+    @Suppress("DEPRECATION")
     @GetMapping("/list")
     fun list(@RequestParam type: String): FeedbackListResponse {
         val requesterId = requireAuth()
@@ -89,6 +111,7 @@ class FeedbackController(
             description = request.description,
             tags = request.tags,
             location = request.location,
+            premium = request.premium,
             appVersion = request.appVersion,
             platform = request.platform,
             requesterId = requesterId,
