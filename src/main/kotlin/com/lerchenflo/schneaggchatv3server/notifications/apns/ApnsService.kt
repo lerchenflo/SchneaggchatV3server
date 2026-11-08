@@ -9,6 +9,7 @@ import com.eatthepath.pushy.apns.DeliveryPriority
 import com.eatthepath.pushy.apns.PushType
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventChangeKind
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.NotificationResponse
 import com.lerchenflo.schneaggchatv3server.notifications.firebase.model.toPushData
 import com.lerchenflo.schneaggchatv3server.notifications.push.DeviceDirectory
@@ -138,6 +139,18 @@ class ApnsService(
     }
 
 
+    /** "1 day", "2 h 30 min", "45 min" - English, only for the fallback alert. */
+    private fun formatLeadTime(minutes: Int): String {
+        val days = minutes / (24 * 60)
+        val hours = minutes % (24 * 60) / 60
+        val rest = minutes % 60
+        return listOfNotNull(
+            days.takeIf { it > 0 }?.let { if (it == 1) "1 day" else "$it days" },
+            hours.takeIf { it > 0 }?.let { "$it h" },
+            rest.takeIf { it > 0 || minutes == 0 }?.let { "$it min" },
+        ).joinToString(" ")
+    }
+
     internal fun buildPayload(notification: NotificationResponse): String {
         // Fallback alert shown when the Notification Service Extension times out or isn't available.
         // apns-priority: 10 (IMMEDIATE) is set via DeliveryPriority.IMMEDIATE in send.
@@ -151,6 +164,8 @@ class ApnsService(
                 if (notification.ownBirthday) "Happy Birthday!" else "Schneaggchat"
             is NotificationResponse.WakeNotificationResponse -> notification.senderName
             is NotificationResponse.EventNotificationResponse -> notification.creatorName
+            is NotificationResponse.EventReminderNotificationResponse -> "Reminder: ${notification.eventTitle}"
+            is NotificationResponse.EventUpdateNotificationResponse -> notification.eventTitle
             is NotificationResponse.MapSightingNotificationResponse -> notification.entryName
         }
         val fallbackBody = when (notification) {
@@ -170,6 +185,14 @@ class ApnsService(
             is NotificationResponse.WakeNotificationResponse ->
                 notification.reason.ifEmpty { "wants to wake you" }
             is NotificationResponse.EventNotificationResponse -> notification.eventTitle
+            is NotificationResponse.EventReminderNotificationResponse -> "Starts in ${formatLeadTime(notification.leadMinutes)}"
+            is NotificationResponse.EventUpdateNotificationResponse -> when {
+                EventChangeKind.CANCELLED in notification.changes -> "The event was cancelled"
+                EventChangeKind.START in notification.changes && EventChangeKind.LOCATION in notification.changes ->
+                    "New start time and location"
+                EventChangeKind.START in notification.changes -> "The start time changed"
+                else -> "The location changed"
+            }
             is NotificationResponse.MapSightingNotificationResponse -> when (notification.sightingType) {
                 MapSightingType.POLICE -> "Police seen"
                 MapSightingType.RADAR -> "Mobile radar seen"

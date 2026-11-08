@@ -181,6 +181,15 @@ object ValidationUtils {
         return true
     }
 
+    /** Null = not sent, keeps the stored reminders. Duplicates are merged before the limits apply. */
+    fun validateEventReminders(reminderMinutes: List<Int>?): Boolean {
+        if (reminderMinutes == null) return true
+        if (reminderMinutes.size > 20) return false
+        val distinct = reminderMinutes.distinct()
+        if (distinct.size > 5) return false
+        return distinct.all { it in 5..20160 && it % 5 == 0 }
+    }
+
     fun validateEventMaxUsers(maxUsers: Int?): Boolean {
         if (maxUsers == null) return true
         if (maxUsers < 1 || maxUsers > 1000) return false

@@ -2,8 +2,8 @@
 
 package com.lerchenflo.schneaggchatv3server.events
 
-import com.google.protobuf.LazyStringArrayList.emptyList
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventChangeKind
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinRequest
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventJoinResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventRequest
@@ -13,8 +13,11 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationS
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventSyncResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.SentReminder
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.hasEnded
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.isReminderHandled
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.reminderDueAt
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toDurationOrNull
-import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.SystemEventType
@@ -23,6 +26,7 @@ import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService.IdTimeStamp
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
+import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.requireOrLog
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
@@ -30,6 +34,7 @@ import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -83,13 +88,7 @@ class EventService(
             .sortedByDescending { it.updatedAt.toEpochMilliseconds() }
             .drop(start).take(pageSize)
 
-        val editorNames = userLookupService
-            .findAllById(pagedEntries.map { it.creatorId }.distinct())
-            .associate { it.id to it.username }
-
-        val paged = pagedEntries.map {
-            it.toResponse(creatorName = editorNames[it.creatorId] ?: "Unknown")
-        }
+        val paged = eventsLookupService.toResponses(pagedEntries)
         val moreEntries = (start + pageSize) < eventsToUpdate.size
 
         val deletedEntries = if (page == 0) eventsToRemove.keys.toList() else emptyList()
@@ -175,6 +174,10 @@ class EventService(
             }
         }
 
+        val reminderMinutes = eventRequest.reminderMinutes?.distinct()?.sortedDescending()
+            ?: existing?.reminderMinutes
+            ?: emptyList()
+
         val event = Event(
             id = existing?.id ?: ObjectId.get(),
             creatorId = existing?.creatorId ?: upsertingUser,
@@ -192,12 +195,14 @@ class EventService(
             visibility = eventRequest.visibility,
             maxUsers = eventRequest.maxUsers,
             groupDeleteDelay = eventRequest.groupDeleteDelay,
+            reminderMinutes = reminderMinutes,
+            sentReminders = sentRemindersAfterSave(existing, startDate, reminderMinutes, now),
             createdAt = existing?.createdAt ?: now,
             updatedAt = now,
             updatedBy = upsertingUser,
         )
 
-        val response = eventsLookupService.save(event).toResponse(creatorName = userLookupService.getUsername(upsertingUser))
+        val response = eventsLookupService.toResponse(eventsLookupService.save(event))
 
         // Content-diff so a no-op resubmission triggers neither the client notification nor the
         // group system message - only a real change (or a brand-new event) should notify anyone.
@@ -212,6 +217,7 @@ class EventService(
                 || existing.visibility != event.visibility
                 || existing.maxUsers != event.maxUsers
                 || existing.groupDeleteDelay != event.groupDeleteDelay
+                || existing.reminderMinutes != event.reminderMinutes
 
         if (contentChanged) {
             notificationService.notifyEventUpdate(
@@ -221,20 +227,126 @@ class EventService(
             )
         }
 
+        val changes = if (existing == null) emptyList() else buildList {
+            if (existing.startDate != event.startDate) add(EventChangeKind.START)
+            if (existing.location != event.location) add(EventChangeKind.LOCATION)
+        }
+
         // Only for an actual update on an event that already had a group - a brand-new group
         // (whether from a new event or a groupless event gaining one now) already gets its own
         // GROUP_CREATED system message from groupService.createGroup above. And only if the
         // event's content actually changed - a no-op resubmission must not spam the group chat.
+        // Start and location get their own message each, every other field the generic one. The
+        // reminders are left out: they are the creator's settings, no news for the chat.
         if (existing?.groupId != null && contentChanged) {
-            systemMessageService.groupEvent(
-                groupId = existing.groupId,
-                eventType = SystemEventType.EVENT_CHANGED,
-                actorId = upsertingUser,
-                text = event.title,
+            val otherFieldsChanged = existing.type != event.type
+                    || existing.title != event.title
+                    || existing.description != event.description
+                    || existing.closeDate != event.closeDate
+                    || existing.invitedUsers != event.invitedUsers
+                    || existing.visibility != event.visibility
+                    || existing.maxUsers != event.maxUsers
+                    || existing.groupDeleteDelay != event.groupDeleteDelay
+
+            if (EventChangeKind.START in changes) {
+                systemMessageService.groupEvent(
+                    groupId = existing.groupId,
+                    eventType = SystemEventType.EVENT_START_CHANGED,
+                    actorId = upsertingUser,
+                    text = event.title,
+                    timestamp = event.startDate.toEpochMilliseconds(),
+                )
+            }
+            if (EventChangeKind.LOCATION in changes) {
+                systemMessageService.groupEvent(
+                    groupId = existing.groupId,
+                    eventType = SystemEventType.EVENT_LOCATION_CHANGED,
+                    actorId = upsertingUser,
+                    text = event.title,
+                )
+            }
+            if (otherFieldsChanged) {
+                systemMessageService.groupEvent(
+                    groupId = existing.groupId,
+                    eventType = SystemEventType.EVENT_CHANGED,
+                    actorId = upsertingUser,
+                    text = event.title,
+                )
+            }
+        }
+
+        if (changes.isNotEmpty() && !event.hasEnded(now)) {
+            notificationService.notifyEventChangeAlert(
+                recipients = changeAlertRecipients(event) - upsertingUser,
+                eventId = response.id,
+                eventTitle = event.title,
+                changes = changes,
+                startDate = event.startDate,
+                endDate = event.closeDate ?: event.startDate,
+                actorName = userLookupService.getUsername(upsertingUser),
             )
         }
 
         return response
+    }
+
+    /**
+     * The handled reminders an edit keeps: those of the new start (all others are stale once the
+     * start moved). On top, a reminder that is new - a new lead time, a moved start or a new
+     * event - and already past is marked handled, so it is never sent late. A reminder that was
+     * set before and just became due stays open: the scheduler sends it on its next run.
+     *
+     * Re-reads the stored entries so a reminder the scheduler claimed while this edit ran is kept.
+     */
+    private fun sentRemindersAfterSave(existing: Event?, startDate: Instant, reminderMinutes: List<Int>, now: Instant): List<SentReminder> {
+        val stored = existing?.let { eventsLookupService.findById(it.id)?.sentReminders ?: it.sentReminders }.orEmpty()
+        val kept = stored.filter { it.startDate == startDate }.distinct()
+
+        val alreadySet = existing?.takeIf { it.startDate == startDate }?.reminderMinutes.orEmpty().toSet()
+        val skipped = reminderMinutes
+            .filter { lead -> lead !in alreadySet && kept.none { it.leadMinutes == lead } }
+            .filter { lead -> startDate - lead.minutes <= now }
+            .map { SentReminder(leadMinutes = it, startDate = startDate) }
+
+        return kept + skipped
+    }
+
+    /** Going users plus invited users who did not answer at all (no SEEN, no DISMISSED entry). */
+    private fun changeAlertRecipients(event: Event): Set<ObjectId> {
+        val answered = event.participations.map { it.userId }.toSet()
+        val going = event.participations.filter { it.status == EventParticipationStatus.ACCEPTED }.map { it.userId }
+        return (going + event.invitedUsers.filter { it !in answered }).toSet()
+    }
+
+    /** Going users plus the creator. */
+    private fun reminderRecipients(event: Event): Set<ObjectId> =
+        (event.participations.filter { it.status == EventParticipationStatus.ACCEPTED }.map { it.userId } + event.creatorId).toSet()
+
+    /**
+     * Sends every due reminder of the upcoming events, see [Event.reminderMinutes]. When several
+     * reminders of one event are due at once (the server was down), only the one with the
+     * shortest lead time is sent and the others are marked handled with it.
+     */
+    fun sendDueReminders(now: Instant = Clock.System.now()) {
+        eventsLookupService.getUpcomingEventsWithReminders(now).forEach { event ->
+            runCatching {
+                val due = event.reminderMinutes.filter { event.reminderDueAt(it) <= now && !event.isReminderHandled(it) }
+                if (due.isEmpty()) return@forEach
+
+                val lead = due.min()
+                if (!eventsLookupService.claimReminders(event, claimedLead = lead, leadMinutes = due)) return@forEach
+
+                notificationService.notifyEventReminder(
+                    recipients = reminderRecipients(event),
+                    eventId = event.id.toHexString(),
+                    eventTitle = event.title,
+                    startDate = event.startDate,
+                    leadMinutes = lead,
+                )
+            }.onFailure { e ->
+                AppLogger.error("Event reminder for ${event.id.toHexString()} failed: ${e.message}", tag = "send_event_reminder_failed", error = e)
+            }
+        }
     }
 
     /**
@@ -252,21 +364,42 @@ class EventService(
         ) { "You can not change this event, you are not the creator" }
 
         val groupId = event.groupId
-        val creatorName = userLookupService.getUsername(event.creatorId)
+        val now = Clock.System.now()
 
         if (deleteEvent) {
             eventsLookupService.deleteEvent(event)
             notificationService.notifyEventUpdate(
-                eventResponse = event.toResponse(creatorName = creatorName),
+                eventResponse = eventsLookupService.toResponse(event),
                 newEntry = false,
                 deleted = true
             )
+
+            // Deleting an event that is over is cleanup, not a cancellation
+            if (!event.hasEnded(now)) {
+                notificationService.notifyEventChangeAlert(
+                    recipients = changeAlertRecipients(event) - requestingUser,
+                    eventId = event.id.toHexString(),
+                    eventTitle = event.title,
+                    changes = listOf(EventChangeKind.CANCELLED),
+                    startDate = event.startDate,
+                    endDate = event.closeDate ?: event.startDate,
+                    actorName = userLookupService.getUsername(requestingUser),
+                )
+                if (groupId != null && !deleteGroup) {
+                    systemMessageService.groupEvent(
+                        groupId = groupId,
+                        eventType = SystemEventType.EVENT_CANCELLED,
+                        actorId = requestingUser,
+                        text = event.title,
+                    )
+                }
+            }
         } else {
             val detached = eventsLookupService.save(
-                event.copy(groupId = null, updatedAt = Clock.System.now(), updatedBy = requestingUser)
+                event.copy(groupId = null, updatedAt = now, updatedBy = requestingUser)
             )
             notificationService.notifyEventUpdate(
-                eventResponse = detached.toResponse(creatorName = creatorName),
+                eventResponse = eventsLookupService.toResponse(detached),
                 newEntry = false,
                 deleted = false
             )
@@ -322,8 +455,7 @@ class EventService(
             userId = joiningUser,
             status = EventParticipationStatus.ACCEPTED
         )
-        val eventResponse = (updatedEvent ?: event)
-            .toResponse(creatorName = userLookupService.getUsername(event.creatorId))
+        val eventResponse = eventsLookupService.toResponse(updatedEvent ?: event)
 
         if (updatedEvent != null) {
             notificationService.notifyEventUpdate(
@@ -381,16 +513,14 @@ class EventService(
             }
         }
 
-        val creatorName = userLookupService.getUsername(event.creatorId)
-
         //null = the write was a no-op (SEEN on an already answered event); nothing changed, nothing to push
         val updated = eventsLookupService.upsertParticipation(
             eventId = event.id,
             userId = requestingUser,
             status = status
-        ) ?: return event.toResponse(creatorName = creatorName)
+        ) ?: return eventsLookupService.toResponse(event)
 
-        val response = updated.toResponse(creatorName = creatorName)
+        val response = eventsLookupService.toResponse(updated)
 
         //updatedBy stays untouched - it means "last content editor", and a response is not an edit
         notificationService.notifyEventUpdate(

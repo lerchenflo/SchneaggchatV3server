@@ -23,6 +23,8 @@ sealed interface Delivery {
          * docs/UNIFIED_NOTIFICATIONS_PLAN.md).
          */
         val awaitAck: Boolean = false,
+        /** Applies to the push only. */
+        val options: PushOptions = PushOptions(),
     ) : Delivery
 
     /** Push to every device, sockets ignored. */
