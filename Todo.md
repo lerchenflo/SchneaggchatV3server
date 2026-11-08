@@ -58,16 +58,12 @@ Source: user request (2026-11-06), GitHub issue #947. The client items are in th
 
 ## Event reminders
 
-Source: user request (2026-10-18), decided in the interview of 2026-11-05. Not started, comes after the device-aware push work.
+Source: user request (2026-10-18), decided in the interview of 2026-11-05 and 2026-11-08 (client plan `SchneaggchatV3/plans/EVENT_NOTIFICATIONS_PLAN.md`).
 
-The event creator picks the reminders per event, several at once, from fixed presets: none, 1 hour, 6 hours, 1 day, 2 days before the start. Replaces the older wish for a day-before and a day-of reminder.
+Server part built 2026-11-08 (not committed yet): `Event.reminderMinutes` + `sentReminders`, `EventReminderScheduler` (every 60 s), push `event_reminder` / socket `eventreminder`, change alert push `event_update` / socket `eventupdatealert` (START, LOCATION, CANCELLED), system messages `EVENT_START_CHANGED` / `EVENT_LOCATION_CHANGED` / `EVENT_CANCELLED`, `userName` on participations and `invitedUserNames` on events.
 
-- [ ] Field on `Event`: the picked lead times (empty = none), set on create and edit. Still open: what events from released clients get, which do not send the field.
-- [ ] Scheduler next to `notifications/BirthdayNotificationScheduler.kt` that runs every few minutes, not daily like the birthdays, finds due reminders and sends them through `NotificationService` (socket, FCM, APNs).
-- [ ] Recipients: users with `EventParticipationStatus.ACCEPTED` plus the creator. No opt-out for now.
-- [ ] Send each reminder only once: remember it per event and lead time, reset when `startDate` changes, skip ended events (`Event.hasEnded`) and skip lead times that are already past when the event gets created.
-- [ ] Payload: a new `NotificationResponse` subtype or a flag on `EventNotificationResponse`. Older clients drop an unknown `_class`, and a reused `event` type would show as a new event, so check what released clients do with either. Add the APNs fallback title/body in `ApnsService.buildPayload`.
-- [ ] Client: lead time picker on the event create and edit screens, show the reminder (texts in all locales) and open the event on tap.
+- [ ] Release order: the client release with these types must go out before this server reaches `main`. Older apps show the new pushes as a generic notification and the new system messages as "Chat updated".
+- [ ] Client: reminder picker, showing reminders and change alerts, the new system message texts, names in the participant list (client agent, see the plan).
 
 ---
 

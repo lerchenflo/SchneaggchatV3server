@@ -2,6 +2,7 @@ package com.lerchenflo.schneaggchatv3server.notifications.websocket.model
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventChangeKind
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.group.groupextensions.model.GroupExtensionResponse
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
@@ -23,6 +24,8 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
     JsonSubTypes.Type(value = SocketConnectionMessage.GroupChange::class, name = "groupchange"),
     JsonSubTypes.Type(value = SocketConnectionMessage.GroupExtensionChange::class, name = "groupextensionchange"),
     JsonSubTypes.Type(value = SocketConnectionMessage.EventChange::class, name = "eventchange"),
+    JsonSubTypes.Type(value = SocketConnectionMessage.EventReminder::class, name = "eventreminder"),
+    JsonSubTypes.Type(value = SocketConnectionMessage.EventUpdateAlert::class, name = "eventupdatealert"),
     JsonSubTypes.Type(value = SocketConnectionMessage.FriendRequest::class, name = "friendrequest"),
     JsonSubTypes.Type(value = SocketConnectionMessage.MapChange::class, name = "mapchange"),
     JsonSubTypes.Type(value = SocketConnectionMessage.LocationUpdate::class, name = "locationupdate"),
@@ -45,6 +48,26 @@ sealed interface SocketConnectionMessage {
     data class GroupExtensionChange(val extension: GroupExtensionResponse, val deleted: Boolean) : SocketConnectionMessage
 
     data class EventChange(val event: EventResponse, val newEntry: Boolean, val deleted: Boolean, ) : SocketConnectionMessage
+
+    /** OUTBOUND: socket twin of the `event_reminder` push. [startDate] is epoch millis. */
+    data class EventReminder(
+        val eventId: String,
+        val eventTitle: String,
+        val startDate: Long,
+        val leadMinutes: Int,
+    ) : SocketConnectionMessage
+
+    /**
+     * OUTBOUND: socket twin of the `event_update` push. The event data itself still comes with
+     * [EventChange]; this one only says what to tell the user.
+     */
+    data class EventUpdateAlert(
+        val eventId: String,
+        val eventTitle: String,
+        val changes: List<EventChangeKind>,
+        val startDate: Long,
+        val actorName: String,
+    ) : SocketConnectionMessage
 
     data class FriendRequest(val requestingUser: String, val requestingUserName: String, val accepted: Boolean, ) : SocketConnectionMessage
 

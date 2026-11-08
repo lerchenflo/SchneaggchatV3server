@@ -88,7 +88,7 @@ class DeliveryService(
                 // Registered before the write, so an ack can never arrive ahead of it. A failed
                 // write closes its session, and that releases the push.
                 pendingPushRegistry.await(deviceId, alert.id, sessions.map { it.sessionId }) {
-                    pushDispatcher.push(targets, alert.push)
+                    pushDispatcher.push(targets, alert.push, alert.options)
                 }
                 write(sessions, alert.socket)
             }
@@ -101,7 +101,7 @@ class DeliveryService(
         if (targets.isEmpty()) return
 
         ServerMetrics.pushesImmediate.incrementAndGet()
-        pushDispatcher.push(targets, alert.push)
+        pushDispatcher.push(targets, alert.push, alert.options)
     }
 
     /** @return whether at least one session took it. A session whose write fails gets closed. */

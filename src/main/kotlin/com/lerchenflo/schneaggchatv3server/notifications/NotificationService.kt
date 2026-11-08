@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.notifications
 
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventChangeKind
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
@@ -26,6 +27,7 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.toUserResponseFor
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.ExperimentalTime
@@ -319,6 +321,63 @@ class NotificationService(
             }
         }
     }
+
+    /**
+     * An event reminder: socket for connected devices, push for the others. A reminder after the
+     * start is worthless, so the push expires at [startDate].
+     */
+    fun notifyEventReminder(recipients: Collection<ObjectId>, eventId: String, eventTitle: String, startDate: Instant, leadMinutes: Int) {
+        val socket = SocketConnectionMessage.EventReminder(
+            eventId = eventId,
+            eventTitle = eventTitle,
+            startDate = startDate.toEpochMilliseconds(),
+            leadMinutes = leadMinutes,
+        )
+        val push = NotificationResponse.EventReminderNotificationResponse(
+            eventId = eventId,
+            eventTitle = eventTitle,
+            startDate = startDate.toEpochMilliseconds(),
+            leadMinutes = leadMinutes,
+        )
+        val options = PushOptions(ttlSeconds = secondsUntil(startDate))
+        deliveryService.sendAll(recipients.distinct()) { Delivery.Alert(socket, push, options = options) }
+    }
+
+    /**
+     * Tells [recipients] that an event moved, got a new location or was cancelled. Comes on top of
+     * the [SocketConnectionMessage.EventChange] that carries the event data. The push expires at
+     * [endDate]: news about an event that is over is worthless.
+     */
+    fun notifyEventChangeAlert(
+        recipients: Collection<ObjectId>,
+        eventId: String,
+        eventTitle: String,
+        changes: List<EventChangeKind>,
+        startDate: Instant,
+        endDate: Instant,
+        actorName: String,
+    ) {
+        if (recipients.isEmpty() || changes.isEmpty()) return
+        val socket = SocketConnectionMessage.EventUpdateAlert(
+            eventId = eventId,
+            eventTitle = eventTitle,
+            changes = changes,
+            startDate = startDate.toEpochMilliseconds(),
+            actorName = actorName,
+        )
+        val push = NotificationResponse.EventUpdateNotificationResponse(
+            eventId = eventId,
+            eventTitle = eventTitle,
+            changes = changes,
+            startDate = startDate.toEpochMilliseconds(),
+            actorName = actorName,
+        )
+        val options = PushOptions(ttlSeconds = secondsUntil(endDate))
+        deliveryService.sendAll(recipients.distinct()) { Delivery.Alert(socket, push, options = options) }
+    }
+
+    private fun secondsUntil(time: Instant): Long =
+        (time - Clock.System.now()).inWholeSeconds.coerceAtLeast(0)
 
     fun notifyBirthday(birthdayUserId: ObjectId, recipientId: ObjectId, ownBirthday: Boolean) {
         val name = userLookupService.getUsername(birthdayUserId)

@@ -8,6 +8,7 @@ fun SystemEvent.toSystemEventResponse(): SystemEventResponse {
         targets = this.targets.map { it.toSystemEventParticipantResponse() },
         text = this.text,
         previousText = this.previousText,
+        timestamp = this.timestamp,
     )
 }
 

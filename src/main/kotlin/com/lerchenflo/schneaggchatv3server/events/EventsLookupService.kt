@@ -5,8 +5,13 @@ package com.lerchenflo.schneaggchatv3server.events
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipation
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationStatus
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.SentReminder
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.hasEnded
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.referencedUserIds
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.repository.EventRepository
+import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import org.bson.types.ObjectId
 import org.springframework.data.mongodb.core.FindAndModifyOptions
 import org.springframework.data.mongodb.core.MongoTemplate
@@ -17,12 +22,63 @@ import org.springframework.stereotype.Service
 import kotlin.jvm.optionals.getOrNull
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @Service
 class EventsLookupService(
     private val eventRepository: EventRepository,
     private val mongoTemplate: MongoTemplate,
+    private val userLookupService: UserLookupService,
 ) {
+    /** The response of [event], with the names of every user it references. */
+    fun toResponse(event: Event): EventResponse = toResponses(listOf(event)).first()
+
+    /** Like [toResponse], with one user lookup for all [events]. */
+    fun toResponses(events: List<Event>): List<EventResponse> {
+        if (events.isEmpty()) return emptyList()
+        val names = userLookupService
+            .findAllById(events.flatMap { it.referencedUserIds() }.distinct())
+            .associate { it.id to it.username }
+        return events.map { it.toResponse(names) }
+    }
+
+    /**
+     * Events that have not started yet and have at least one reminder. The scheduler picks the due
+     * reminders from these in memory: there are few future events, and the due time depends on
+     * each event's own lead times.
+     */
+    fun getUpcomingEventsWithReminders(now: Instant): List<Event> {
+        val query = Query(
+            Criteria.where("reminderMinutes.0").exists(true)
+                .and("startDate.epochSeconds").gt(now.epochSeconds)
+        )
+        return mongoTemplate.find(query, Event::class.java)
+    }
+
+    /**
+     * Marks the reminders [leadMinutes] of [event] as handled for its current start, in one atomic
+     * write. Only succeeds while the start is still the one [event] was read with and
+     * [claimedLead] is not handled yet, so two scheduler runs (or a run and an edit that moved the
+     * start) can never send the same reminder twice.
+     *
+     * @return true when this caller claimed the reminder and must send it.
+     */
+    fun claimReminders(event: Event, claimedLead: Int, leadMinutes: Collection<Int>): Boolean {
+        val entries = leadMinutes.distinct().map { SentReminder(leadMinutes = it, startDate = event.startDate) }
+        val query = Query(
+            Criteria.where("_id").`is`(event.id)
+                .and("startDate.epochSeconds").`is`(event.startDate.epochSeconds)
+                .and("startDate.nanosecondsOfSecond").`is`(event.startDate.nanosecondsOfSecond)
+                .and("sentReminders").not().elemMatch(
+                    Criteria.where("leadMinutes").`is`(claimedLead)
+                        .and("startDate.epochSeconds").`is`(event.startDate.epochSeconds)
+                        .and("startDate.nanosecondsOfSecond").`is`(event.startDate.nanosecondsOfSecond)
+                )
+        )
+        val update = Update().addToSet("sentReminders").each(*entries.toTypedArray())
+        return mongoTemplate.updateFirst(query, update, Event::class.java).modifiedCount > 0
+    }
+
     fun getAllEvents(): List<Event> {
         return eventRepository.findAll()
     }

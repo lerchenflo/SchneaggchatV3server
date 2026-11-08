@@ -19,6 +19,9 @@ enum class SystemEventType {
     GROUP_DESCRIPTION_CHANGED,
     GROUP_PICTURE_CHANGED,
     EVENT_CHANGED,      // an event's details changed - posted into the event's connected group chat
+    EVENT_START_CHANGED,    // the event's start moved - timestamp is the new start
+    EVENT_LOCATION_CHANGED, // the event's location was set, moved or removed
+    EVENT_CANCELLED,        // the event was deleted while its group chat stays
     FRIENDSHIP_ACCEPTED,
     WAKE_SENT,
 }
@@ -39,6 +42,7 @@ data class SystemEvent(
     val targets: List<SystemEventParticipant> = emptyList(),
     val text: String? = null,          // new group name, wake reason
     val previousText: String? = null,  // old group name (GROUP_NAME_CHANGED only)
+    val timestamp: Long? = null,       // epoch millis: the new start (EVENT_START_CHANGED only)
 )
 
 data class SystemEventParticipant(
@@ -53,6 +57,7 @@ data class SystemEventResponse(
     val targets: List<SystemEventParticipantResponse>,
     val text: String?,
     val previousText: String?,
+    val timestamp: Long?,
 )
 
 data class SystemEventParticipantResponse(

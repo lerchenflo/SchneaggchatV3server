@@ -52,6 +52,7 @@ class SystemMessageService(
         targets: List<ObjectId> = emptyList(),
         text: String? = null,
         previousText: String? = null,
+        timestamp: Long? = null,
     ) {
         runCatching {
             val distinctTargets = targets.distinct()
@@ -62,6 +63,7 @@ class SystemMessageService(
                 targets = distinctTargets.map { SystemEventParticipant(it, userLookupService.getUsername(it)) },
                 text = text,
                 previousText = previousText,
+                timestamp = timestamp,
             )
 
             val readerIds = (groupLookupService.getGroupMembers(groupId).map { it.userid } + distinctTargets).distinct()

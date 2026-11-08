@@ -24,6 +24,8 @@ data class EventParticipation(
 
 data class EventParticipationResponse(
     val userId: String,
+    /** Current username, for users the viewer has no stored friend for. */
+    val userName: String,
     val status: EventParticipationStatus,
     val updatedAt: Long,
 )
