@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.message.messagemodel
 
+import com.lerchenflo.schneaggchatv3server.group.groupextensions.model.GroupExtensionType
 import org.bson.types.ObjectId
 
 /**
@@ -22,6 +23,9 @@ enum class SystemEventType {
     EVENT_START_CHANGED,    // the event's start moved - timestamp is the new start
     EVENT_LOCATION_CHANGED, // the event's location was set, moved or removed
     EVENT_CANCELLED,        // the event was deleted while its group chat stays
+    GROUP_EXTENSION_CREATED, // text = title; extensionId + extensionType set
+    GROUP_EXTENSION_RENAMED, // text = new title, previousText = old title; extensionId + extensionType set
+    GROUP_EXTENSION_DELETED, // text = title; extensionId + extensionType set
     FRIENDSHIP_ACCEPTED,
     WAKE_SENT,
 }
@@ -40,9 +44,11 @@ data class SystemEvent(
     val actorId: ObjectId,
     val actorName: String,
     val targets: List<SystemEventParticipant> = emptyList(),
-    val text: String? = null,          // new group name, wake reason
-    val previousText: String? = null,  // old group name (GROUP_NAME_CHANGED only)
+    val text: String? = null,          // new group name, wake reason, event or extension title
+    val previousText: String? = null,  // old group name (GROUP_NAME_CHANGED), old extension title (GROUP_EXTENSION_RENAMED)
     val timestamp: Long? = null,       // epoch millis: the new start (EVENT_START_CHANGED only)
+    val extensionId: ObjectId? = null,              // GROUP_EXTENSION_* only
+    val extensionType: GroupExtensionType? = null,  // GROUP_EXTENSION_* only
 )
 
 data class SystemEventParticipant(
@@ -58,6 +64,8 @@ data class SystemEventResponse(
     val text: String?,
     val previousText: String?,
     val timestamp: Long?,
+    val extensionId: String?,
+    val extensionType: GroupExtensionType?,
 )
 
 data class SystemEventParticipantResponse(

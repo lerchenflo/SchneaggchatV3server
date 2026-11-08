@@ -4,7 +4,8 @@
 
 - Change code only in this repository (the server). Never edit code in the client repository `SchneaggchatV3` (usually `~/Desktop/SchneaggchatV3`). This covers subagents too.
 - Reading the client repository is allowed: research may search it, and `flow-stability` may trace a flow across both repositories.
-- When a server change needs a client change, add it to the client repository's `plans/Todo.md`. That is the only client file agents may write to.
+- When a server change the user approved needs a client change: if a `SchneaggchatV3` session is live (`ListAgents`), send it with `SendMessage`; otherwise add it to the client repository's `plans/Todo.md`. That is the only client file agents may write to.
+- A handover describes the functionality and the exact field names, not the client's structure; the client agent designs its side. Requests from the client work the same way: they name what the server must do and the fields the client sends or reads, and this side decides the server structure and replies with the contract it built. See "Client and server projects" in the global `~/.claude/CLAUDE.md`.
 
 ## Website i18n (`src/main/resources/static/i18n/`)
 

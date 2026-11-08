@@ -9,6 +9,8 @@ fun SystemEvent.toSystemEventResponse(): SystemEventResponse {
         text = this.text,
         previousText = this.previousText,
         timestamp = this.timestamp,
+        extensionId = this.extensionId?.toHexString(),
+        extensionType = this.extensionType,
     )
 }
 

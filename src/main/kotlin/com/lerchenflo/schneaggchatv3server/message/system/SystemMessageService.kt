@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.message.system
 
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
+import com.lerchenflo.schneaggchatv3server.group.groupextensions.model.GroupExtensionType
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
@@ -53,6 +54,8 @@ class SystemMessageService(
         text: String? = null,
         previousText: String? = null,
         timestamp: Long? = null,
+        extensionId: ObjectId? = null,
+        extensionType: GroupExtensionType? = null,
     ) {
         runCatching {
             val distinctTargets = targets.distinct()
@@ -64,6 +67,8 @@ class SystemMessageService(
                 text = text,
                 previousText = previousText,
                 timestamp = timestamp,
+                extensionId = extensionId,
+                extensionType = extensionType,
             )
 
             val readerIds = (groupLookupService.getGroupMembers(groupId).map { it.userid } + distinctTargets).distinct()
