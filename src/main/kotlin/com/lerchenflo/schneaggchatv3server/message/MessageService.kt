@@ -884,6 +884,7 @@ class MessageService(
         userId: ObjectId,
     ) : Message {
         val message = messageLookupService.findById(messageId) ?: run {
+            AppLogger.warn("No message found for id $messageId")
             throw ResponseStatusException(HttpStatus.NOT_FOUND)
         }
 

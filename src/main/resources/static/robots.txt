@@ -1,4 +1,22 @@
+# Allowlist: only the public website and what it needs to render (styles, scripts, images,
+# translations, the FAQ and donation data the pages load). Everything else is the app's API.
+# delete_account and reset_password stay crawlable so search engines can read their noindex tag.
 User-agent: *
-Disallow:
+Allow: /$
+Allow: /faq.html
+Allow: /privacypolicy.html
+Allow: /donations.html
+Allow: /stats.html
+Allow: /delete_account.html
+Allow: /reset_password.html
+Allow: /reset_password_form.html
+Allow: /favicon.ico
+Allow: /css/
+Allow: /js/
+Allow: /web_images/
+Allow: /i18n/
+Allow: /public/faq
+Allow: /public/donations
+Disallow: /
 
 Sitemap: https://schneaggchat.lerchenflo.eu/sitemap.xml
