@@ -80,3 +80,11 @@ Source: user bug report (2026-10-21): two accounts with the same email, password
 Source: firebase-admin update check (2026-10-30). firebase-admin 9.10.0 deprecated sending to an FCM token (`Message.Builder.setToken`, `MulticastMessage` tokens) in favor of the Firebase Installation ID (`setFid`). Tokens still work and the release notes give no removal date. The client part is tracked in the client `plans/Todo.md` (P3).
 
 - [ ] Accept and store the FID (`/users/setnotificationtoken` in `user/UserController.kt:51`, `notifications/firebase/model/FirebaseToken.kt`, `ValidationUtils.validateNotificationToken` - an FID has a different format than a token) and send with `setFid` in `FirebaseService.constructMessage`. Keep `setToken` for the released clients until none of them is left. The token cleanup on FCM "unregistered" errors has to cover FIDs too. Done before the client starts sending FIDs.
+
+---
+
+## Automated API test in Docker
+
+Source: user request (2026-11-08), after the map sighting push crash (`UserLookupService.findMapSightingPushUserIds`). That crash only showed once a stored user had `settings.mapSightingPush = true`, so tests against empty or default data never hit it.
+
+- [ ] A Python script in `scripts/docker-test/` (next to `e2e.py`, started by `run.sh`, against the same throwaway Mongo, Redis and server containers) that fills every field with a value and then calls every endpoint. Fill: users with all profile fields and every `PersonalUserSettings` switch turned on, friendships with all settings, groups with members and every extension type with items, events with reminders and all participation states, map entries with every `LocationData` / attribute type and sightings, messages of every type (text, image, audio, poll with votes, reactions), feedback entries with votes and comments. Then call every controller route (list in the `schneaggchatv3server` skill, `references/routes.md`) with the filled data and fail on any 5XX status and on any `ERROR` line in the server log.
