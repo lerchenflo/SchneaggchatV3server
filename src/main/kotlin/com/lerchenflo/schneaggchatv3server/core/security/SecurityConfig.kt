@@ -4,21 +4,20 @@ import com.lerchenflo.schneaggchatv3server.core.security.ratelimit.RateLimitFilt
 import jakarta.servlet.DispatcherType
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.http.HttpStatus
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import org.springframework.security.web.SecurityFilterChain
-import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 
 @Configuration
 @EnableWebSecurity
 class SecurityConfig(
     private val jwtAuthFilter: JwtAuthFilter,
-    private val rateLimitFilter: RateLimitFilter
+    private val rateLimitFilter: RateLimitFilter,
+    private val unauthenticatedEntryPoint: UnauthenticatedEntryPoint,
 ) {
 
     //Create empty default user for ignoring error message
@@ -72,9 +71,10 @@ class SecurityConfig(
                     .requestMatchers("/faq.html")
                     .permitAll()
 
-                    //Admin panel shell - the HTML carries no data, everything is fetched afterwards
-                    //via /chefdev/api/** which stays authenticated + role-gated. A browser navigation
-                    //cannot carry an Authorization header, so the shell itself must be public.
+                    //Admin panel shell (ChefdevPageController, script inlined) - the HTML carries no
+                    //data, everything is fetched afterwards via /chefdev/api/** which stays
+                    //authenticated + role-gated. A browser navigation cannot carry an Authorization
+                    //header, so the shell itself must be public.
                     .requestMatchers("/chefdev.html")
                     .permitAll()
 
@@ -128,10 +128,10 @@ class SecurityConfig(
                     .authenticated()
             }
 
-            //Default error is unauthorized (401)
+            //Default error is unauthorized (401), missing website pages get 404 (see UnauthenticatedEntryPoint)
             .exceptionHandling { configurer ->
                 configurer
-                    .authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                    .authenticationEntryPoint(unauthenticatedEntryPoint)
             }
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter::class.java)
             .addFilterAfter(rateLimitFilter, JwtAuthFilter::class.java)

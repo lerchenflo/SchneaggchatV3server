@@ -1,5 +1,5 @@
-// Donations rendering. Donation data lives in the database and is managed from the admin panel
-// (/chefdev.html). The server already renders the list without dates, for crawlers without
+// Donations rendering. Donation data lives in the database and is managed from the admin panel.
+// The server already renders the list without dates, for crawlers without
 // JavaScript; this file loads it again and replaces it, with dates and the count-up animation.
 
 // Available icons for random selection - purely decorative, not persisted.
