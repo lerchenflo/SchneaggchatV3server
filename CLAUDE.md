@@ -19,6 +19,7 @@
 
 ## Local Docker test
 
-- `scripts/docker-test/run.sh` runs `./gradlew test` and an end-to-end delivery test (`e2e.py`: real server, sockets, Mongo, Redis) against throwaway containers. `run.sh unit` and `run.sh e2e` run one part. It never touches `mongodb_data` or the compose stack.
+- `scripts/docker-test/run.sh` runs `./gradlew test`, an end-to-end delivery test (`e2e.py`: sockets, pushes) and an API test (`api_test.py`: fills every field, calls every controller route, fails on 5XX, on unexpected `ERROR` log lines and on routes it never calls) against throwaway containers. `run.sh unit`, `run.sh e2e` and `run.sh api` run one part. Both end-to-end parts run the server in a container built from `./Dockerfile` (so `/app` media paths exist); the build context holds only the sources. It never touches `mongodb_data` or the compose stack.
+- A new endpoint must be added to `api_test.py`, or the API test fails with "route never called".
 - `contextLoads` only passes with Mongo running, so use this script instead of a plain `./gradlew test` when the Spring wiring changed.
 - Firebase and APNs are not configured there, so `e2e.py` proves that a push was attempted, not that it arrived.

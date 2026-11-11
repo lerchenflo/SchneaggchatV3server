@@ -60,7 +60,7 @@ Source: user request (2026-11-06), GitHub issue #947. The client items are in th
 
 Source: user request (2026-10-18), decided in the interview of 2026-11-05 and 2026-11-08 (client plan `SchneaggchatV3/plans/EVENT_NOTIFICATIONS_PLAN.md`).
 
-Server part built 2026-11-08 (not committed yet): `Event.reminderMinutes` + `sentReminders`, `EventReminderScheduler` (every 60 s), push `event_reminder` / socket `eventreminder`, change alert push `event_update` / socket `eventupdatealert` (START, LOCATION, CANCELLED), system messages `EVENT_START_CHANGED` / `EVENT_LOCATION_CHANGED` / `EVENT_CANCELLED`, `userName` on participations and `invitedUserNames` on events.
+Server part built 2026-11-08 (on `beta`): `Event.reminderMinutes` + `sentReminders`, `EventReminderScheduler` (every 60 s), push `event_reminder` / socket `eventreminder`, change alert push `event_update` / socket `eventupdatealert` (START, LOCATION, CANCELLED), system messages `EVENT_START_CHANGED` / `EVENT_LOCATION_CHANGED` / `EVENT_CANCELLED`, `userName` on participations and `invitedUserNames` on events.
 
 - [ ] Release order: the client release with these types must go out before this server reaches `main`. Older apps show the new pushes as a generic notification and the new system messages as "Chat updated".
 - [ ] Client: reminder picker, showing reminders and change alerts, the new system message texts, names in the participant list (client agent, see the plan).
@@ -81,10 +81,3 @@ Source: firebase-admin update check (2026-10-30). firebase-admin 9.10.0 deprecat
 
 - [ ] Accept and store the FID (`/users/setnotificationtoken` in `user/UserController.kt:51`, `notifications/firebase/model/FirebaseToken.kt`, `ValidationUtils.validateNotificationToken` - an FID has a different format than a token) and send with `setFid` in `FirebaseService.constructMessage`. Keep `setToken` for the released clients until none of them is left. The token cleanup on FCM "unregistered" errors has to cover FIDs too. Done before the client starts sending FIDs.
 
----
-
-## Automated API test in Docker
-
-Source: user request (2026-11-08), after the map sighting push crash (`UserLookupService.findMapSightingPushUserIds`). That crash only showed once a stored user had `settings.mapSightingPush = true`, so tests against empty or default data never hit it.
-
-- [ ] A Python script in `scripts/docker-test/` (next to `e2e.py`, started by `run.sh`, against the same throwaway Mongo, Redis and server containers) that fills every field with a value and then calls every endpoint. Fill: users with all profile fields and every `PersonalUserSettings` switch turned on, friendships with all settings, groups with members and every extension type with items, events with reminders and all participation states, map entries with every `LocationData` / attribute type and sightings, messages of every type (text, image, audio, poll with votes, reactions), feedback entries with votes and comments. Then call every controller route (list in the `schneaggchatv3server` skill, `references/routes.md`) with the filled data and fail on any 5XX status and on any `ERROR` line in the server log.

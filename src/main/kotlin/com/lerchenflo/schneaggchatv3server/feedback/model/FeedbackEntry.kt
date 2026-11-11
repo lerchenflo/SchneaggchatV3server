@@ -13,7 +13,8 @@ import kotlin.time.Instant
 
 /**
  * One feature request or bug report on the in-app feedback board. Title, description and tags are
- * immutable after creation; only votes, [status] (admin) and deletion change it.
+ * immutable after creation; only votes, [status] (admin) and deletion change it. Seeded entries are
+ * the exception: their texts follow the seed file (see FeedbackSeedService).
  *
  * Synced to clients by `/feedback/sync` (id/timestamp diff on [updatedAt]). The diff reports every
  * entry the client has but the server no longer shows as deleted, so user-created entries can be

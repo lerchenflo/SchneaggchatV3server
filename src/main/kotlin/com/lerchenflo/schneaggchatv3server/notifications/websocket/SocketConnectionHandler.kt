@@ -16,10 +16,8 @@ import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
 import org.bson.types.ObjectId
 import org.springframework.context.annotation.Lazy
-import org.springframework.http.HttpStatus
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.PingMessage
 import org.springframework.web.socket.PongMessage
@@ -214,6 +212,15 @@ class SocketConnectionHandler(
 
 
 
+    /** Closes a socket the server does not accept (1008, policy violation); the peer may already be gone. */
+    private fun refuse(session: WebSocketSession, reason: String) {
+        try {
+            session.close(CloseStatus.POLICY_VIOLATION.withReason(reason))
+        } catch (e: Exception) {
+            if (!e.isPeerGone()) AppLogger.warn("Could not close refused socket: ${e.describe()}", tag = "auth_socket_close_failed")
+        }
+    }
+
     override fun afterConnectionEstablished(session: WebSocketSession) {
         super.afterConnectionEstablished(session)
 
@@ -229,20 +236,21 @@ class SocketConnectionHandler(
         }
 
 
-        requestingUserId ?: run {
-                AppLogger.warn("Socket connection not authenticated", tag = "auth_socket_failed")
-                throw ResponseStatusException(
-                    /* status = */ HttpStatus.FORBIDDEN,
-                    /* reason = */ "Not logged in"
-                )
-            }
+        // Refusals close the socket instead of throwing: an exception here is logged as an ERROR
+        // with stack trace and closes with 1011 (server error), on every reconnect attempt.
+        if (requestingUserId == null) {
+            AppLogger.warn("Socket connection not authenticated", tag = "auth_socket_failed")
+            refuse(session, "Not logged in")
+            return
+        }
 
 
         //An ended device keeps its access token for some minutes, but must not get back in
         val sessionEnded = deviceId?.let { !refreshTokenRepository.existsById(it) } ?: false
         if (sessionEnded) {
             AppLogger.warn("Socket refused, session $deviceId no longer exists", user = ObjectId(requestingUserId), tag = "auth_socket_session_ended")
-            throw ResponseStatusException(HttpStatus.FORBIDDEN, "Session ended")
+            refuse(session, "Session ended")
+            return
         }
 
         //println("New socket connection from user ${userLookupService.getUsername(ObjectId(requestingUserId))} IP: ${session.handshakeHeaders["X-Real-IP"]}")

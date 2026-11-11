@@ -10,8 +10,8 @@
   {
     "seedKey": "polls-custom-answers",
     "premium": true,
-    "title": "Umfragen mit eigenen Antworten und Stimmenlimit",
-    "description": "Umfragen in jedem Chat erstellen. Mitglieder können eigene Optionen hinzufügen, und du kannst begrenzen, wie viele Stimmen jede Person oder Option bekommt. Markdown funktioniert im Umfragetext.",
+    "title": "Umfragen mit eigenen Antworten, Unterumfragen und Stimmenlimit",
+    "description": "Umfragen in jedem Chat erstellen. Mitglieder können eigene Optionen hinzufügen, und du kannst begrenzen, wie viele Stimmen jede Person oder Option bekommt. Mit Unterumfragen öffnet sich nach einer Option eine Folgeumfrage, nur für alle, die diese Option gewählt haben. Umfragen lassen sich auch nach dem Senden noch bearbeiten. Markdown funktioniert im Umfragetext.",
     "tags": ["CHAT"],
     "location": "Chat → + neben dem Textfeld → Umfrage"
   },
@@ -34,7 +34,7 @@
   {
     "seedKey": "quick-reactions",
     "title": "Anpassbare Schnellreaktionen",
-    "description": "Wähle und sortiere die Emojis, die beim langen Drücken auf eine Nachricht angeboten werden.",
+    "description": "Wähle und sortiere die Emojis, die beim langen Drücken auf eine Nachricht angeboten werden, und lege eine eigene Reaktion für Doppeltippen fest.",
     "tags": ["CHAT", "SETTINGS"],
     "location": "Einstellungen → Darstellung → Schnellreaktionen"
   },
@@ -58,7 +58,7 @@
     "seedKey": "schneaggmap-places",
     "premium": true,
     "title": "Bearbeitbare Karte mit öffentlichen Orten",
-    "description": "Alle können Orte auf der Schneaggmap hinzufügen und bearbeiten (Eis, WLAN, Sportplätze und vieles mehr), nach Typ gruppiert und durchsuchbar.",
+    "description": "Alle können Orte auf der Schneaggmap hinzufügen und bearbeiten (Eis, WLAN, Sportplätze und vieles mehr), nach Typ gruppiert und durchsuchbar. Polizei und mobile Radare können gemeldet werden, auf Wunsch mit Push-Warnung (Einstellungen → Schneaggmap → Polizei- und Radar-Warnungen).",
     "tags": ["MAP"],
     "location": "Untere Navigation → Karte"
   },
@@ -80,22 +80,141 @@
   },
   {
     "seedKey": "events",
-    "title": "Events mit Kalenderansicht",
-    "description": "Erstelle Events, lade Freunde ein, sieh wer zu- oder abgesagt hat und behalte alles in der Wochen- oder Monatsansicht im Blick. Events können in den Handykalender übernommen werden.",
+    "title": "Events mit Kalender, Erinnerungen und Teilnehmern",
+    "description": "Erstelle Events, lade Freunde ein und behalte alles in der Wochen- oder Monatsansicht im Blick. Jedes Event hat eine Detailseite mit allen Zu- und Absagen und einer Karte. Du bekommst Erinnerungen vor dem Start und eine Meldung, wenn sich Zeit oder Ort ändern oder das Event abgesagt wird. Events können in den Handykalender übernommen werden.",
     "tags": ["EVENTS"],
     "location": "Untere Navigation → Events"
   },
   {
     "seedKey": "games",
-    "title": "Spiele mit Bestenlisten und Gesamtranking",
-    "description": "Viele Einzel- und Mehrspieler-Spiele plus Werkzeuge, mit Bestenlisten pro Spiel und einem Ranking über alle Spiele.",
+    "title": "Bestenlisten und Gesamtranking",
+    "description": "Bestenlisten pro Spiel und ein Ranking über alle Spiele. Der Spielstand wird gespeichert.",
     "tags": ["GAMES"],
     "location": "Untere Navigation → Spiele"
   },
   {
+    "seedKey": "game-schneagg-rodeo",
+    "title": "Schneagg Rodeo",
+    "description": "Über die Hindernisse springen, Schnecken mit dem Lasso fangen und den Raben entkommen.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Schneagg Rodeo"
+  },
+  {
+    "seedKey": "game-wordle",
+    "title": "Wordle",
+    "description": "Das Wort mit fünf Buchstaben in sechs Versuchen erraten.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Wordle"
+  },
+  {
+    "seedKey": "game-schneaggahus",
+    "title": "Schneaggahus",
+    "description": "Mit Weichen jede Schneagg nach Hause leiten.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Schneaggahus"
+  },
+  {
+    "seedKey": "game-tictactoe",
+    "title": "Tic Tac Toe",
+    "description": "Klassisch zu zweit, Chaos zu dritt und zu viert: größere Felder, verschwindende Zeichen, Schwerkraft, Bomben und Verschiebungen.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Tic Tac Toe"
+  },
+  {
+    "seedKey": "game-c-challenge",
+    "title": "C-Challenge",
+    "description": "Ein tägliches C-Programmierrätsel.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → C-Challenge"
+  },
+  {
+    "seedKey": "game-crossword",
+    "title": "Kreuzworträtsel",
+    "description": "Das Gitter anhand der Hinweise füllen. Jeden Tag ein neues Rätsel.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Kreuzworträtsel"
+  },
+  {
+    "seedKey": "game-2048",
+    "title": "2048",
+    "description": "Gleiche Zahlen zu 2048 zusammenschieben.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → 2048"
+  },
+  {
+    "seedKey": "game-tetris",
+    "title": "Tetris",
+    "description": "Fallende Steine zu vollen Reihen zusammensetzen.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Tetris"
+  },
+  {
+    "seedKey": "game-grid-rush",
+    "title": "Grid Rush",
+    "description": "Das Feld durch Verbinden gleicher Steine leeren.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Grid Rush"
+  },
+  {
+    "seedKey": "game-odd-one-out",
+    "title": "Odd One Out",
+    "description": "Das eine abweichende Feld finden.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Odd One Out"
+  },
+  {
+    "seedKey": "game-morse",
+    "title": "Morse",
+    "description": "Morsecode gegen die Uhr senden.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Morse"
+  },
+  {
+    "seedKey": "game-yahtzee",
+    "title": "Yahtzee",
+    "description": "Würfeln und den Punkteblock füllen.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Yahtzee"
+  },
+  {
+    "seedKey": "game-undercover",
+    "title": "Undercover",
+    "description": "Den Undercover-Spieler durch Umschreibungen entlarven.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Undercover"
+  },
+  {
+    "seedKey": "game-dartcounter",
+    "title": "Dartcounter",
+    "description": "Ein 301er oder 501er Leg herunterzählen.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Dartcounter"
+  },
+  {
+    "seedKey": "tool-coinflip",
+    "title": "Münzwurf",
+    "description": "Kopf oder Zahl für eine schnelle Entscheidung.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Münzwurf"
+  },
+  {
+    "seedKey": "tool-fingerpicker",
+    "title": "Fingerauswahl",
+    "description": "Alle halten einen Finger auf den Bildschirm, der Zufall wählt die Gewinner.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Fingerauswahl"
+  },
+  {
+    "seedKey": "tool-fuel-mix",
+    "title": "Gemischrechner",
+    "description": "Ölmenge für ein Benzingemisch berechnen.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Gemischrechner"
+  },
+  {
     "seedKey": "voice-messages",
     "title": "Sprachnachrichten",
-    "description": "Sprachnachrichten in jedem Chat aufnehmen und senden.",
+    "description": "Sprachnachrichten in jedem Chat aufnehmen und senden, auch auf dem Desktop.",
     "tags": ["CHAT"],
     "location": "Chat → Mikrofon-Knopf gedrückt halten"
   },
@@ -137,9 +256,17 @@
   {
     "seedKey": "groups",
     "title": "Gruppen mit Admins, Bildern und Lösch-Countdown",
-    "description": "Erstelle Gruppen, benenne sie um, ändere das Bild, verwalte Admins und lass eine Gruppe optional nach einem Countdown löschen.",
+    "description": "Erstelle Gruppen, benenne sie um, ändere das Bild, verwalte Admins und lass eine Gruppe optional nach einem Countdown löschen. Admins können eine Gruppe auch für alle löschen.",
     "tags": ["GROUPS"],
     "location": "Chatauswahl → neuer Chat → Gruppe erstellen"
+  },
+  {
+    "seedKey": "group-extensions",
+    "premium": true,
+    "title": "Chat-Erweiterungen für Gruppen",
+    "description": "Erweitere Gruppenchats um gemeinsame Werkzeuge: einen gemeinsamen Texteditor, Geld aufteilen, eine Zitatesammlung und einen Tourenplaner.",
+    "tags": ["GROUPS"],
+    "location": "Gruppenchat → oben auf den Namen tippen → Chat-Erweiterungen"
   },
   {
     "seedKey": "system-messages",
@@ -206,6 +333,7 @@
   },
   {
     "seedKey": "android-auto",
+    "removed": true,
     "title": "Android Auto Support",
     "description": "Nachrichten über Android Auto lesen und beantworten.",
     "tags": ["NOTIFICATIONS"],
@@ -218,5 +346,13 @@
     "description": "Funktioniert etwas nicht wie vorgesehen? Der Button löscht die lokalen App-Daten und lädt alles neu vom Server. Das behebt die meisten gängigen Fehler.",
     "tags": ["SETTINGS"],
     "location": "Einstellungen → Miscellaneous → App kaputt"
+  },
+  {
+    "seedKey": "feedback-board",
+    "premium": true,
+    "title": "Feedback-Board für Wünsche und Fehler",
+    "description": "Melde Fehler und wünsch dir Features, stimme über Ideen ab, kommentiere und sieh, was geplant oder schon umgesetzt ist. Funktioniert auch offline.",
+    "tags": ["OTHER"],
+    "location": "Chatauswahl → Feedback-Knopf oder Einstellungen → Miscellaneous → Feedback"
   }
 ]

@@ -3,22 +3,30 @@
 # Runs the tests against throwaway Mongo and Redis containers. Never touches ./mongodb_data or the
 # docker-compose stack, and removes everything it started when it ends.
 #
-#   scripts/docker-test/run.sh          unit tests, then the end-to-end test
+#   scripts/docker-test/run.sh          unit tests, the end-to-end test, then the API test
 #   scripts/docker-test/run.sh unit     only ./gradlew test (contextLoads needs the containers)
 #   scripts/docker-test/run.sh e2e      only the end-to-end test
+#   scripts/docker-test/run.sh api      only the API test (fills every field, calls every route)
+#
+# The e2e and API tests run the server in a container built from ./Dockerfile, so /app (images,
+# voice messages) exists like in production. The build context holds only the sources, never
+# mongodb_data or the push keys.
 #
 # On macOS it starts Docker Desktop when the daemon is not running, and leaves it running.
 
 set -euo pipefail
 
 MODE="${1:-all}"
-case "$MODE" in all|unit|e2e) ;; *) echo "Usage: $0 [all|unit|e2e]" >&2; exit 2 ;; esac
+case "$MODE" in all|unit|e2e|api) ;; *) echo "Usage: $0 [all|unit|e2e|api]" >&2; exit 2 ;; esac
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HERE="$ROOT/scripts/docker-test"
 
 MONGO_CONTAINER=schneaggchat-test-mongo
 REDIS_CONTAINER=schneaggchat-test-redis
+SERVER_CONTAINER=schneaggchat-test-server
+SERVER_IMAGE=schneaggchat-test-server
+TEST_NETWORK=schneaggchat-test-net
 MONGO_PORT=27117
 REDIS_PORT=6479
 SERVER_PORT=18080
@@ -38,9 +46,12 @@ export APNS_BUNDLE_ID=unused
 # Debug mode creates the "testaccount" user on startup
 export APNS_DEBUG=true
 
+LOG_FOLLOWER=""
+
 cleanup() {
-    lsof -ti "tcp:$SERVER_PORT" 2>/dev/null | xargs kill 2>/dev/null || true
-    docker rm -f "$MONGO_CONTAINER" "$REDIS_CONTAINER" >/dev/null 2>&1 || true
+    [[ -n "$LOG_FOLLOWER" ]] && kill "$LOG_FOLLOWER" 2>/dev/null || true
+    docker rm -f "$SERVER_CONTAINER" "$MONGO_CONTAINER" "$REDIS_CONTAINER" >/dev/null 2>&1 || true
+    docker network rm "$TEST_NETWORK" >/dev/null 2>&1 || true
     rm -f "$SERVER_LOG"
 }
 trap cleanup EXIT
@@ -80,9 +91,11 @@ wait_for_docker() {
 }
 
 start_containers() {
-    docker rm -f "$MONGO_CONTAINER" "$REDIS_CONTAINER" >/dev/null 2>&1 || true
-    docker run -d --name "$MONGO_CONTAINER" -p "127.0.0.1:$MONGO_PORT:27017" mongo:latest >/dev/null
-    docker run -d --name "$REDIS_CONTAINER" -p "127.0.0.1:$REDIS_PORT:6379" redis:7-alpine >/dev/null
+    docker rm -f "$SERVER_CONTAINER" "$MONGO_CONTAINER" "$REDIS_CONTAINER" >/dev/null 2>&1 || true
+    docker network rm "$TEST_NETWORK" >/dev/null 2>&1 || true
+    docker network create "$TEST_NETWORK" >/dev/null
+    docker run -d --name "$MONGO_CONTAINER" --network "$TEST_NETWORK" -p "127.0.0.1:$MONGO_PORT:27017" mongo:latest >/dev/null
+    docker run -d --name "$REDIS_CONTAINER" --network "$TEST_NETWORK" -p "127.0.0.1:$REDIS_PORT:6379" redis:7-alpine >/dev/null
 
     for _ in $(seq 1 60); do
         mongo_eval 'db.runCommand({ping: 1})' >/dev/null 2>&1 && return
@@ -110,23 +123,61 @@ run_unit_tests() {
     echo "PASS users.email is unique"
 }
 
-run_e2e_test() {
+SERVER_IMAGE_BUILT=false
+
+# Only the files the Dockerfile copies go into the build context (no mongodb_data, no push keys)
+build_server_image() {
+    [[ "$SERVER_IMAGE_BUILT" == true ]] && return
+    echo "== Building the server image"
+    tar -C "$ROOT" -cf - Dockerfile gradlew gradle build.gradle.kts settings.gradle.kts src \
+        | docker build -q -t "$SERVER_IMAGE" - >/dev/null
+    SERVER_IMAGE_BUILT=true
+}
+
+# A fresh server on an empty database, its log streamed into $SERVER_LOG. Extra arguments are
+# passed to docker run (e.g. -e RATE_LIMIT_ENABLED=false).
+start_server() {
+    build_server_image
+    [[ -n "$LOG_FOLLOWER" ]] && kill "$LOG_FOLLOWER" 2>/dev/null || true
+    docker rm -f "$SERVER_CONTAINER" >/dev/null 2>&1 || true
     mongo_eval 'db.dropDatabase()' >/dev/null
+    docker exec "$REDIS_CONTAINER" redis-cli FLUSHALL >/dev/null
+    : >"$SERVER_LOG"
+    docker run -d --name "$SERVER_CONTAINER" --network "$TEST_NETWORK" -p "127.0.0.1:$SERVER_PORT:8080" \
+        -e SERVER_PORT=8080 \
+        -e SPRING_DATA_MONGODB_URI="mongodb://$MONGO_CONTAINER:27017/db" \
+        -e SPRING_DATA_REDIS_HOST="$REDIS_CONTAINER" -e SPRING_DATA_REDIS_PORT=6379 \
+        -e JWT_SECRET -e DEFAULTACCOUNT_PASSWORD -e EMAIL -e EMAIL_PASSWORD \
+        -e APNS_TEAM_ID -e APNS_KEY_ID -e APNS_BUNDLE_ID -e APNS_DEBUG \
+        "$@" "$SERVER_IMAGE" >/dev/null
+    docker logs -f "$SERVER_CONTAINER" >>"$SERVER_LOG" 2>&1 &
+    LOG_FOLLOWER=$!
+}
 
+server_failed() {
+    echo "Last server log lines:" >&2
+    tail -n 20 "$SERVER_LOG" | cut -c1-200 >&2
+    exit 1
+}
+
+run_e2e_test() {
     echo "== End-to-end test"
-    "$ROOT/gradlew" -p "$ROOT" bootRun --console=plain >"$SERVER_LOG" 2>&1 &
+    start_server
+    python3 -I "$HERE/e2e.py" "$SERVER_LOG" "$MONGO_CONTAINER" "$SERVER_PORT" "$DEFAULTACCOUNT_PASSWORD" || server_failed
+}
 
-    if ! python3 -I "$HERE/e2e.py" "$SERVER_LOG" "$MONGO_CONTAINER" "$SERVER_PORT" "$DEFAULTACCOUNT_PASSWORD"; then
-        echo "Last server log lines:" >&2
-        tail -n 20 "$SERVER_LOG" | cut -c1-200 >&2
-        exit 1
-    fi
+# Rate limiting is off here: the test sends hundreds of requests in seconds from one address.
+run_api_test() {
+    echo "== API test"
+    start_server -e RATE_LIMIT_ENABLED=false
+    python3 -I "$HERE/api_test.py" "$SERVER_LOG" "$MONGO_CONTAINER" "$SERVER_PORT" "$DEFAULTACCOUNT_PASSWORD" "$ROOT" || server_failed
 }
 
 wait_for_docker
 start_containers
 
-[[ "$MODE" != e2e ]] && run_unit_tests
-[[ "$MODE" != unit ]] && run_e2e_test
+[[ "$MODE" == all || "$MODE" == unit ]] && run_unit_tests
+[[ "$MODE" == all || "$MODE" == e2e ]] && run_e2e_test
+[[ "$MODE" == all || "$MODE" == api ]] && run_api_test
 
 echo "All done."
