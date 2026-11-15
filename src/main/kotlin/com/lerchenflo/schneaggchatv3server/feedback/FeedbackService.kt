@@ -105,15 +105,13 @@ class FeedbackService(
         val entry = findActiveEntry(entryId)
         val comments = commentRepository.findByEntryIdOrderByCreatedAtAsc(entryId)
 
-        val authorNames = usernamesById(comments.map { it.authorId })
-
         return FeedbackEntryDetailResponse(
             entry = toEntryResponses(listOf(entry), viewerId, viewerIsAdmin).single(),
             description = entry.description,
             location = entry.location,
             appVersion = entry.appVersion,
             platform = entry.platform,
-            comments = comments.map { it.toResponse(authorNames[it.authorId], viewerId, viewerIsAdmin) },
+            comments = comments.map { it.toResponse(viewerId, viewerIsAdmin) },
         )
     }
 
@@ -229,7 +227,7 @@ class FeedbackService(
         touchEntry(entryId, activity = entry.creatorId != requesterId)
         loggingService.log(requesterId, LogType.FEEDBACK_COMMENT_CREATED, "entry=${entryId.toHexString()}")
 
-        return saved.toResponse(author.username, requesterId, authorIsAdmin)
+        return saved.toResponse(requesterId, authorIsAdmin)
     }
 
     /**
@@ -327,15 +325,10 @@ class FeedbackService(
     private fun isAdmin(userId: ObjectId): Boolean =
         userLookupService.findById(userId)?.role == UserRole.ADMIN
 
-    private fun usernamesById(ids: Collection<ObjectId>): Map<ObjectId, String> {
-        val distinct = ids.distinct()
-        if (distinct.isEmpty()) return emptyMap()
-        return userLookupService.findAllById(distinct).associate { it.id to it.username }
-    }
-
     /**
      * Builds responses for a batch of entries with a constant number of queries: one aggregation for
-     * the comment counts, one find for the dev comments, one user lookup for creator names.
+     * the comment counts, one find for the dev comments. Users appear only by id (creator, comment
+     * authors); the client resolves the names.
      */
     @Suppress("DEPRECATION") // descriptionPreview stays until old clients are gone
     private fun toEntryResponses(
@@ -350,7 +343,6 @@ class FeedbackService(
         val latestDevComments = commentRepository.findByEntryIdInAndDevCommentTrue(entryIds)
             .groupBy { it.entryId }
             .mapValues { (_, comments) -> comments.maxBy { it.createdAt }.text }
-        val creatorNames = usernamesById(entries.mapNotNull { it.creatorId })
         val viewerKey = viewerId.toHexString()
 
         return entries.map { entry ->
@@ -381,7 +373,7 @@ class FeedbackService(
                 isNotNeeded = isNotNeeded,
                 commentCount = commentCounts[entry.id] ?: 0,
                 latestDevComment = latestDevComments[entry.id],
-                creatorName = entry.creatorId?.let { creatorNames[it] },
+                creatorId = entry.creatorId?.toHexString(),
                 isOwn = isOwn,
                 canDelete = isOwn || viewerIsAdmin,
                 isSeeded = entry.seedKey != null,
@@ -411,13 +403,11 @@ class FeedbackService(
         else description.take(DESCRIPTION_PREVIEW_LENGTH) + "…"
 
     private fun FeedbackComment.toResponse(
-        authorName: String?,
         viewerId: ObjectId,
         viewerIsAdmin: Boolean,
     ) = FeedbackCommentResponse(
         id = id.toHexString(),
         authorId = authorId.toHexString(),
-        authorName = authorName,
         text = text,
         isDevComment = devComment,
         canDelete = authorId == viewerId || viewerIsAdmin,

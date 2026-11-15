@@ -322,7 +322,8 @@ class NotificationService(
                 eventId = eventResponse.id,
                 eventTitle = eventResponse.title,
                 creatorId = eventResponse.creatorId,
-                creatorName = eventResponse.creatorName,
+                // The push keeps a name: it is shown before the app can look anything up
+                creatorName = userLookupService.getUsername(ObjectId(eventResponse.creatorId)),
             )
         } else null
 
@@ -369,7 +370,7 @@ class NotificationService(
         changes: List<EventChangeKind>,
         startDate: Instant,
         endDate: Instant,
-        actorName: String,
+        actorId: ObjectId,
     ) {
         if (recipients.isEmpty() || changes.isEmpty()) return
         val socket = SocketConnectionMessage.EventUpdateAlert(
@@ -377,14 +378,15 @@ class NotificationService(
             eventTitle = eventTitle,
             changes = changes,
             startDate = startDate.toEpochMilliseconds(),
-            actorName = actorName,
+            actorId = actorId.toHexString(),
         )
+        // The push keeps a name: it is shown before the app can look anything up
         val push = NotificationResponse.EventUpdateNotificationResponse(
             eventId = eventId,
             eventTitle = eventTitle,
             changes = changes,
             startDate = startDate.toEpochMilliseconds(),
-            actorName = actorName,
+            actorName = userLookupService.getUsername(actorId),
         )
         val options = PushOptions(ttlSeconds = secondsUntil(endDate))
         deliveryService.sendAll(recipients.distinct()) { Delivery.Alert(socket, push, options = options) }
@@ -417,9 +419,7 @@ class NotificationService(
     fun notifyMapUpdate(entry: MapEntry, newEntry: Boolean, deleted: Boolean, excludeUserId: ObjectId?) {
         deliveryService.broadcast(
             SocketConnectionMessage.MapChange(
-                mapEntry = entry.toMapEntryResponse(
-                    updatedByName = userLookupService.findById(entry.updatedBy)?.username ?: "Unknown"
-                ),
+                mapEntry = entry.toMapEntryResponse(),
                 newEntry = newEntry,
                 deleted = deleted,
             ),
@@ -460,6 +460,7 @@ class NotificationService(
     }
 
     fun notifyFriendRequest(requestingUser: ObjectId, receivingUser: ObjectId, accepted: Boolean) {
+        // Only the push carries the name: it is shown before the app can look anything up
         val requestingUserName = userLookupService.getUsername(requestingUser)
 
         deliveryService.send(
@@ -467,7 +468,6 @@ class NotificationService(
             Delivery.Alert(
                 socket = SocketConnectionMessage.FriendRequest(
                     requestingUser = requestingUser.toHexString(),
-                    requestingUserName = requestingUserName,
                     accepted = accepted,
                 ),
                 push = NotificationResponse.FriendRequestNotificationResponse(

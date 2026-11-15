@@ -693,14 +693,13 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
    "fields": [
     "eventType: SystemEventType",
     "actorId: ObjectId",
-    "actorName: String",
     "targets: List<SystemEventParticipant>",
     "text: String?",
     "previousText: String?"
    ],
    "x": 0,
    "y": 0,
-   "note": "Payload of a SYSTEM message. The server sends the event type plus ids and name snapshots, the client builds the text."
+   "note": "Payload of a SYSTEM message. The server sends the event type plus user ids, the client resolves the names and builds the text."
   },
   {
    "id": "syspart",
@@ -708,8 +707,7 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
    "pkg": "message",
    "kind": "embedded",
    "fields": [
-    "userId: ObjectId",
-    "userName: String"
+    "userId: ObjectId"
    ],
    "x": 0,
    "y": 0

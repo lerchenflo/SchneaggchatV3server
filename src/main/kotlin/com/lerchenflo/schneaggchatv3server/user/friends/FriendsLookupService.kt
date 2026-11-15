@@ -235,9 +235,22 @@ class FriendsLookupService(
      * declined, blocked) - the rows whose profile picture access can depend on a shared group.
      */
     fun getNonAcceptedRowsBetween(userId: ObjectId, otherUserIds: Set<ObjectId>): List<Friendship> {
-        return friendshipRepository.findByUserId1OrUserId2(userId, userId)
-            .filter { it.status != FriendshipStatus.ACCEPTED }
-            .filter { (if (it.userId1 == userId) it.userId2 else it.userId1) in otherUserIds }
+        return getRowsBetween(userId, otherUserIds).filter { it.status != FriendshipStatus.ACCEPTED }
+    }
+
+    /**
+     * Friendship rows (any status) between [userId] and any of [otherUserIds], in one query. A row
+     * stores the smaller id as `userId1`, so [userId] can be on either side.
+     */
+    fun getRowsBetween(userId: ObjectId, otherUserIds: Set<ObjectId>): List<Friendship> {
+        if (otherUserIds.isEmpty()) return emptyList()
+        val query = Query(
+            Criteria().orOperator(
+                Criteria.where("userId1").`is`(userId).and("userId2").`in`(otherUserIds),
+                Criteria.where("userId2").`is`(userId).and("userId1").`in`(otherUserIds),
+            )
+        )
+        return mongoTemplate.find(query, Friendship::class.java)
     }
 
     /**

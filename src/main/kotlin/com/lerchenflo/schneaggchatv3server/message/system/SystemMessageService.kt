@@ -5,7 +5,6 @@ import com.lerchenflo.schneaggchatv3server.group.groupextensions.model.GroupExte
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.*
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
-import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.SyncCollection
 import com.lerchenflo.schneaggchatv3server.util.VersionCounterService
@@ -37,7 +36,6 @@ class SystemMessageService(
     private val messageLookupService: MessageLookupService,
     private val versionCounterService: VersionCounterService,
     private val notificationService: NotificationService,
-    private val userLookupService: UserLookupService,
     private val groupLookupService: GroupLookupService,
 ) {
 
@@ -62,8 +60,7 @@ class SystemMessageService(
             val event = SystemEvent(
                 eventType = eventType,
                 actorId = actorId,
-                actorName = userLookupService.getUsername(actorId),
-                targets = distinctTargets.map { SystemEventParticipant(it, userLookupService.getUsername(it)) },
+                targets = distinctTargets.map { SystemEventParticipant(it) },
                 text = text,
                 previousText = previousText,
                 timestamp = timestamp,
@@ -95,8 +92,7 @@ class SystemMessageService(
             val event = SystemEvent(
                 eventType = SystemEventType.FRIENDSHIP_ACCEPTED,
                 actorId = acceptingUserId,
-                actorName = userLookupService.getUsername(acceptingUserId),
-                targets = listOf(SystemEventParticipant(requesterId, userLookupService.getUsername(requesterId))),
+                targets = listOf(SystemEventParticipant(requesterId)),
             )
 
             emit(
@@ -117,8 +113,7 @@ class SystemMessageService(
             val event = SystemEvent(
                 eventType = SystemEventType.WAKE_SENT,
                 actorId = senderId,
-                actorName = userLookupService.getUsername(senderId),
-                targets = listOf(SystemEventParticipant(targetId, userLookupService.getUsername(targetId))),
+                targets = listOf(SystemEventParticipant(targetId)),
                 text = reason,
             )
 

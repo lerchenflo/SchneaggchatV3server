@@ -14,9 +14,7 @@ data class MapEntryResponse(
     val createdBy: String,
     val createdAt: Long,
 
+    /** User id of the last editor. The client resolves the name (its user rows, else `/users/lookup`). */
     val updatedBy: String,
     val updatedAt: Long,
-
-    /** Username of [updatedBy], resolved server side so the client does not need the user in its DB. */
-    val updatedByName: String,
 )

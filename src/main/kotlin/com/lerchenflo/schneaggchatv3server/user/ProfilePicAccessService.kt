@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service
  * The single place that decides whether a viewer may see a user's profile picture, by the owner's
  * [com.lerchenflo.schneaggchatv3server.user.usermodel.ProfilePicVisibility] (rule in
  * [com.lerchenflo.schneaggchatv3server.user.usermodel.allows]). Used by `/users/profilepic/{id}`,
- * the user rows of `/users/sync` and the socket `userchange`, and the search results.
+ * the user rows of `/users/sync` and the socket `userchange`, the search results and `/users/lookup`.
  */
 @Service
 class ProfilePicAccessService(
@@ -48,6 +48,25 @@ class ProfilePicAccessService(
             requesterId = interaction?.requesterId,
             sharesGroup = sharesGroup,
         )
+    }
+
+    /**
+     * The ids of [owners] whose picture [viewerId] may see, with one friendship query and, only
+     * when an owner's setting depends on it, one co-member query.
+     */
+    fun visibleOwnerIds(viewerId: ObjectId, owners: Collection<User>): Set<ObjectId> {
+        val rows = friendsLookupService.getRowsBetween(viewerId, owners.map { it.id }.toSet())
+            .associateBy { if (it.userId1 == viewerId) it.userId2 else it.userId1 }
+        val coMembers by lazy { groupLookupService.getCoMemberIds(viewerId) }
+
+        return owners.filter { owner ->
+            owner.id == viewerId || owner.settings.profilePicVisibility.allows(
+                ownerId = owner.id,
+                friendshipStatus = rows[owner.id]?.status,
+                requesterId = rows[owner.id]?.requesterId,
+                sharesGroup = { owner.id in coMembers },
+            )
+        }.map { it.id }.toSet()
     }
 
     /** Everyone who shares a group with [userId], for [canSee] batches. */

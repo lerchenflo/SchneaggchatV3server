@@ -117,3 +117,21 @@ data class NewFriendsUserResponse(
     // Null when the requester may not see this user's picture, as on UserResponse.
     val profilePicUpdatedAt: Long? = null,
 )
+
+/**
+ * Reply of `/users/lookup`. In-app data carries user ids instead of names; the client resolves the
+ * ids it has no user row for here. Every requested id is in exactly one of the two lists.
+ */
+data class UserLookupResponse(
+    val users: List<LookedUpUserResponse>,
+    /** Deleted accounts and ids that never existed - the server can not tell them apart. */
+    val deletedUserIds: List<String>,
+)
+
+data class LookedUpUserResponse(
+    val id: String,
+    /** The plain username, never a nickname (the client has its own nicknames). */
+    val username: String,
+    // Null when the requester may not see this user's picture, as on UserResponse.
+    val profilePicUpdatedAt: Long?,
+)

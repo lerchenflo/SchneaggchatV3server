@@ -76,6 +76,9 @@ def norm(route):
 
 
 called, failures = set(), []
+# Every JSON body and socket frame, scanned at the end for name fields that were replaced by user ids
+bodies, socket_frames = [], []
+NAME_KEYS = {'memberName', 'actorName', 'userName', 'invitedUserNames', 'creatorName', 'authorName', 'updatedByName', 'requestingUserName'}
 
 
 def call(method, route, token=None, ok=None, vars=None, **kw):
@@ -93,6 +96,8 @@ def call(method, route, token=None, ok=None, vars=None, **kw):
         print(f'FAIL {label} -> {code} {text[:200]}')
     else:
         print(f'ok   {label} -> {code}')
+    if text[:1] in '{[':
+        bodies.append((f'{method} {norm(route)}', text))
     try:
         return code, json.loads(text)
     except Exception:
@@ -200,6 +205,7 @@ class WS:
                     if op == 1:
                         try:
                             s.messages.append(json.loads(payload))
+                            socket_frames.append(s.messages[-1])
                         except Exception:
                             pass
         except Exception:
@@ -409,6 +415,35 @@ check(isinstance(found, list) and found and all('profilePicUpdatedAt' in r for r
 call('POST', '/users/settings', ta, body={'profilePicVisibility': 'FRIENDS_AND_GROUPS'}, ok=200)
 check(pic_on_socket(ws_e, a) is None, 'owner back to friends and groups: userchange carries a null timestamp')
 ws_e.close()
+
+
+# User names by id: in-app data carries ids, /users/lookup resolves them
+def lookup(tok, ids, ok=200):
+    code, body = call('POST', '/users/lookup', tok, body={'userIds': ids}, ok=ok)
+    return body if isinstance(body, dict) else {}
+
+
+def looked_up(body, user_id):
+    return next((u for u in body.get('users', []) if u.get('id') == user_id), {})
+
+
+gone = '0' * 24
+found = lookup(te, [a, b, e, gone, a])
+check(sorted(u.get('id') for u in found.get('users', [])) == sorted([a, b, e]) and found.get('deletedUserIds') == [gone],
+      f'lookup: every id once, unknown id in deletedUserIds: {found}')
+check(looked_up(found, a).get('username') == 'testaccount' and looked_up(found, b).get('username') == 'bob', 'lookup: plain usernames')
+check('profilePicUpdatedAt' in looked_up(found, a) and looked_up(found, a)['profilePicUpdatedAt'] is None,
+      'lookup: pending sender does not see the hidden picture')
+check(looked_up(found, b).get('profilePicUpdatedAt', 0) is None, 'lookup: no row, no shared group: hidden picture')
+check(isinstance(looked_up(found, e).get('profilePicUpdatedAt'), int), 'lookup: own picture timestamp')
+found = lookup(ta, [e, b])
+check(isinstance(looked_up(found, e).get('profilePicUpdatedAt'), int), 'lookup: pending receiver sees the sender picture')
+check(isinstance(looked_up(found, b).get('profilePicUpdatedAt'), int), 'lookup: a friend sees the picture')
+found = lookup(ta, [])
+check(found.get('users') == [] and found.get('deletedUserIds') == [], f'lookup: empty list gives empty lists: {found}')
+lookup(ta, [a] * 101, ok=400)
+lookup(ta, ['nope'], ok=400)
+call('POST', '/users/lookup', ta, body={}, ok=400)
 call('POST', '/users/verificationemail', te)
 call('GET', '/users/availableusers', ta, params={'searchterm': 'er'}, ok=200)
 call('POST', '/users/sync', ta, body=[], ok=200)
@@ -444,8 +479,14 @@ code, ev = call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype
 ev_c = ev.get('id')
 call('POST', '/events/participation', tb, body={'eventId': ev_c, 'status': 'ACCEPTED'}, ok=200)
 # Move start and location: change alerts and system messages
+ws_b = WS(tb)
+time.sleep(.4)
 call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', {**event_a, 'eventId': ev_a, 'startDate': NOW + 2 * DAY + HOUR,
                                                                                                   'location': {'lat': 47.6, 'long': 9.8}, 'title': 'Kicken am Strand'})]))))
+time.sleep(.6)
+alerts = [m for m in ws_b.messages if m.get('_class') == 'eventupdatealert']
+check(bool(alerts) and all(m.get('actorId') == a for m in alerts), f'socket eventupdatealert carries the actor id: {alerts}')
+ws_b.close()
 for tok, status in [(tb, 'ACCEPTED'), (tc, 'DISMISSED'), (td, 'SEEN')]:
     call('POST', '/events/participation', tok, body={'eventId': ev_a, 'status': status}, ok=200)
 call('POST', '/events/join', td, body={'eventId': ev_b}, ok=200)
@@ -471,7 +512,13 @@ call('POST', '/groups/setexpiry', ta, body={'groupId': group2, 'expiresAt': NOW 
 # always sees carol's picture. Adding dave next to carol then touches their friendship row.
 for tok, name in [(tc, 'carol'), (td, 'dave')]:  # seeded users have no picture file yet (404)
     call('POST', '/users/setprofilepic', tok, ok=200, **dict(zip(('data', 'ctype'), multipart([('profilepic', PNG, f'{name}.png', 'image/png')]))))
+ws_d = WS(td)
+time.sleep(.4)
 call('POST', '/users/addfriend/{id}', tc, vars={'id': d}, ok=200)
+time.sleep(.6)
+requests = [m for m in ws_d.messages if m.get('_class') == 'friendrequest']
+check(bool(requests) and requests[-1].get('requestingUser') == c, f'socket friendrequest carries the requester id: {requests}')
+ws_d.close()
 call('GET', '/users/profilepic/{id}', td, vars={'id': c}, ok=200)
 call('GET', '/users/profilepic/{id}', tc, vars={'id': d}, ok=403)
 check(pic_on_sync_row(tc, d) is None, 'pending sender, no shared group: null timestamp on the sync row')
@@ -495,11 +542,13 @@ call('POST', '/groups/changemembers', ta, body={'action': 'ADD_USER', 'groupMemb
 check(isinstance(pic_on_socket(ws_c, d), int), 'shared group joined: userchange carries the timestamp')
 call('GET', '/users/profilepic/{id}', tc, vars={'id': d}, ok=200)
 check(isinstance(pic_on_sync_row(tc, d), int), 'shared group: timestamp on the sync row')
+check(isinstance(looked_up(lookup(tc, [d]), d).get('profilePicUpdatedAt'), int), 'lookup: shared group shows the picture')
 for action, member in [('MAKE_ADMIN', b), ('REMOVE_ADMIN', b), ('MAKE_ADMIN', b), ('REMOVE_USER', d)]:
     call('POST', '/groups/changemembers', ta, body={'action': action, 'groupMemberId': member, 'groupId': group2}, ok=200)
 check(pic_on_socket(ws_c, d) is None, 'shared group left: userchange carries a null timestamp')
 call('GET', '/users/profilepic/{id}', tc, vars={'id': d}, ok=403)
 check(pic_on_sync_row(tc, d) is None, 'shared group left: null timestamp on the sync row')
+check(looked_up(lookup(tc, [d]), d).get('profilePicUpdatedAt', 0) is None, 'lookup: shared group left hides the picture')
 ws_c.close()
 
 # The touch is a MongoTemplate update: updatedAt must stay the kotlin.time.Instant sub-document,
@@ -629,7 +678,10 @@ code, cm = call('POST', '/feedback/comment', tc, body={'entryId': fe, 'text': 'J
 call('POST', '/feedback/comment', ta, body={'entryId': fe, 'text': 'Kommt im nächsten Update', 'appVersion': '3.0.19', 'platform': 'Android'}, ok=200)
 call('POST', '/feedback/status', ta, body={'entryId': fe, 'status': 'PLANNED'}, ok=200)
 call('POST', '/feedback/status', ta, body={'entryId': fb, 'status': 'CONFIRMED'}, ok=200)
-call('GET', '/feedback/details', tb, params={'entryid': fe}, ok=200)
+code, detail = call('GET', '/feedback/details', tb, params={'entryid': fe}, ok=200)
+detail = detail if isinstance(detail, dict) else {}
+check((detail.get('entry') or {}).get('creatorId') == b, 'feedback entry carries the creator id')
+check(all(x.get('authorId') for x in detail.get('comments', [])), 'feedback comments carry the author id')
 call('GET', '/feedback/list', tb, params={'type': 'FEATURE'}, ok=200)
 call('DELETE', '/feedback/deletecomment', tc, params={'commentid': cm.get('id') if isinstance(cm, dict) else '0' * 24}, ok=200)
 call('POST', '/feedback/sync', tb, body=[{'id': fe, 'timeStamp': '0'}], params={'page': 0, 'page_size': 400}, ok=200)
@@ -639,8 +691,11 @@ texts = {lang: {'title': f'Neu ({lang})', 'body': f'Text ({lang})'} for lang in 
 code, an = call('POST', '/announcements/admin/create', ta, body={'id': None, **texts, 'expiresAt': NOW + 7 * DAY}, ok=200)
 an_id = an.get('id') if isinstance(an, dict) else 1
 call('POST', '/announcements/admin/update', ta, body={'id': an_id, **texts, 'german': {'title': 'Neu (geändert)', 'body': 'Mehr Text'}, 'expiresAt': NOW + 8 * DAY}, ok=200)
-call('GET', '/announcements/admin/list', ta, ok=200)
-call('GET', '/announcements/latest', tb, ok=200)
+code, listed = call('GET', '/announcements/admin/list', ta, ok=200)
+check(isinstance(listed, list) and any(x.get('creatorId') == a for x in listed), 'admin announcement list carries the creator id')
+code, latest = call('GET', '/announcements/latest', tb, ok=200)
+shown = (latest or {}).get('announcement') if isinstance(latest, dict) else None
+check(shown is None or shown.get('creatorId', 'missing') is None, 'latest announcement hides the creator')
 
 # ─── Games ────────────────────────────────────────────────────────────────────
 games = enum_entries('games/model/Game.kt', 'Game')
@@ -740,6 +795,30 @@ if sent.strip() in ('', '0'):
 else:
     print(f'ok   event reminder sent ({sent.strip()} entry)')
 time.sleep(1.5)
+print('\n== Name fields replaced by user ids')
+
+
+def name_keys(obj):
+    if isinstance(obj, dict):
+        return {k for k in obj if k in NAME_KEYS} | {x for v in obj.values() for x in name_keys(v)}
+    if isinstance(obj, list):
+        return {x for v in obj for x in name_keys(v)}
+    return set()
+
+
+leaks = set()
+for route, text in bodies:
+    if route.split()[1].startswith('/chefdev'):  # the admin panel is not in-app data
+        continue
+    try:
+        leaks |= {(route, k) for k in name_keys(json.loads(text))}
+    except Exception:
+        pass
+leaks |= {('socket ' + str(m.get('_class')), k) for m in socket_frames for k in name_keys(m)}
+for route, key in sorted(leaks):
+    failures.append(f'name field {key} in {route}')
+    print(f'FAIL name field {key} in {route}')
+print(f'{len(bodies)} bodies and {len(socket_frames)} socket frames scanned, {len(leaks)} name fields')
 print('\n== Coverage')
 missing = sorted(source_routes() - called)
 for m, r in missing:

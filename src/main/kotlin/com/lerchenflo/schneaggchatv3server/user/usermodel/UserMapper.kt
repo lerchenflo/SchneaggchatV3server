@@ -117,3 +117,12 @@ fun User.toUserResponseFor(interaction: FriendsLookupService.UserInteraction, pr
         )
     }
 }
+
+/** This user as a `/users/lookup` entry. [profilePicVisible] comes from ProfilePicAccessService. */
+fun User.toLookedUpUserResponse(profilePicVisible: Boolean): LookedUpUserResponse {
+    return LookedUpUserResponse(
+        id = id.toHexString(),
+        username = username,
+        profilePicUpdatedAt = profilePicUpdatedAt.toEpochMilliseconds().takeIf { profilePicVisible },
+    )
+}

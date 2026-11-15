@@ -15,8 +15,8 @@ data class AnnouncementResponse(
     val expiresAt: Long,
     val createdAt: Long,
     val updatedAt: Long,
-    // Only filled for the admin endpoints
-    val creatorName: String?,
+    // User id of the admin who wrote it. Only filled for the admin endpoints; the client resolves the name
+    val creatorId: String?,
 )
 
 /** "Nothing to show" is a normal reply with a null [announcement], not an empty body. */

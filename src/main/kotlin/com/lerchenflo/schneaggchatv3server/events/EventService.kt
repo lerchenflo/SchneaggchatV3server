@@ -18,6 +18,7 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.hasEnded
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.isReminderHandled
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.reminderDueAt
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.toDurationOrNull
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.SystemEventType
@@ -88,7 +89,7 @@ class EventService(
             .sortedByDescending { it.updatedAt.toEpochMilliseconds() }
             .drop(start).take(pageSize)
 
-        val paged = eventsLookupService.toResponses(pagedEntries)
+        val paged = pagedEntries.map { it.toResponse() }
         val moreEntries = (start + pageSize) < eventsToUpdate.size
 
         val deletedEntries = if (page == 0) eventsToRemove.keys.toList() else emptyList()
@@ -202,7 +203,7 @@ class EventService(
             updatedBy = upsertingUser,
         )
 
-        val response = eventsLookupService.toResponse(eventsLookupService.save(event))
+        val response = eventsLookupService.save(event).toResponse()
 
         // Content-diff so a no-op resubmission triggers neither the client notification nor the
         // group system message - only a real change (or a brand-new event) should notify anyone.
@@ -283,7 +284,7 @@ class EventService(
                 changes = changes,
                 startDate = event.startDate,
                 endDate = event.closeDate ?: event.startDate,
-                actorName = userLookupService.getUsername(upsertingUser),
+                actorId = upsertingUser,
             )
         }
 
@@ -369,7 +370,7 @@ class EventService(
         if (deleteEvent) {
             eventsLookupService.deleteEvent(event)
             notificationService.notifyEventUpdate(
-                eventResponse = eventsLookupService.toResponse(event),
+                eventResponse = event.toResponse(),
                 newEntry = false,
                 deleted = true
             )
@@ -383,7 +384,7 @@ class EventService(
                     changes = listOf(EventChangeKind.CANCELLED),
                     startDate = event.startDate,
                     endDate = event.closeDate ?: event.startDate,
-                    actorName = userLookupService.getUsername(requestingUser),
+                    actorId = requestingUser,
                 )
                 if (groupId != null && !deleteGroup) {
                     systemMessageService.groupEvent(
@@ -399,7 +400,7 @@ class EventService(
                 event.copy(groupId = null, updatedAt = now, updatedBy = requestingUser)
             )
             notificationService.notifyEventUpdate(
-                eventResponse = eventsLookupService.toResponse(detached),
+                eventResponse = detached.toResponse(),
                 newEntry = false,
                 deleted = false
             )
@@ -455,7 +456,7 @@ class EventService(
             userId = joiningUser,
             status = EventParticipationStatus.ACCEPTED
         )
-        val eventResponse = eventsLookupService.toResponse(updatedEvent ?: event)
+        val eventResponse = (updatedEvent ?: event).toResponse()
 
         if (updatedEvent != null) {
             notificationService.notifyEventUpdate(
@@ -518,9 +519,9 @@ class EventService(
             eventId = event.id,
             userId = requestingUser,
             status = status
-        ) ?: return eventsLookupService.toResponse(event)
+        ) ?: return event.toResponse()
 
-        val response = eventsLookupService.toResponse(updated)
+        val response = updated.toResponse()
 
         //updatedBy stays untouched - it means "last content editor", and a response is not an edit
         notificationService.notifyEventUpdate(

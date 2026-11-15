@@ -23,7 +23,8 @@ data class FeedbackEntryResponse(
     @get:JsonProperty("isNotNeeded") val isNotNeeded: Boolean,
     val commentCount: Int,
     val latestDevComment: String?,
-    val creatorName: String?,
+    /** The creator's user id, for every viewer; null for seeded entries. The client resolves the name. */
+    val creatorId: String?,
     @get:JsonProperty("isOwn") val isOwn: Boolean,
     val canDelete: Boolean,
     @get:JsonProperty("isSeeded") val isSeeded: Boolean,
@@ -56,8 +57,8 @@ data class FeedbackSyncResponse(
 
 data class FeedbackCommentResponse(
     val id: String,
+    /** The client resolves the name (its user rows, else `/users/lookup`). */
     val authorId: String,
-    val authorName: String?,
     val text: String,
     @get:JsonProperty("isDevComment") val isDevComment: Boolean,
     val canDelete: Boolean,

@@ -66,10 +66,12 @@ sealed interface SocketConnectionMessage {
         val eventTitle: String,
         val changes: List<EventChangeKind>,
         val startDate: Long,
-        val actorName: String,
+        /** Who made the change. The client resolves the name (its user rows, else `/users/lookup`). */
+        val actorId: String,
     ) : SocketConnectionMessage
 
-    data class FriendRequest(val requestingUser: String, val requestingUserName: String, val accepted: Boolean, ) : SocketConnectionMessage
+    /** [requestingUser] is a user id; the client resolves the name like every other user id. */
+    data class FriendRequest(val requestingUser: String, val accepted: Boolean, ) : SocketConnectionMessage
 
     data class MapChange(val mapEntry: MapEntryResponse, val newEntry: Boolean, val deleted: Boolean) : SocketConnectionMessage
 

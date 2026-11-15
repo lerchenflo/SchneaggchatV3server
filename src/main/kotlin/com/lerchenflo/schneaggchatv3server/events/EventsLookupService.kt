@@ -5,13 +5,9 @@ package com.lerchenflo.schneaggchatv3server.events
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipation
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationStatus
-import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.SentReminder
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.hasEnded
-import com.lerchenflo.schneaggchatv3server.events.eventmodel.referencedUserIds
-import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.repository.EventRepository
-import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import org.bson.types.ObjectId
 import org.springframework.data.mongodb.core.FindAndModifyOptions
 import org.springframework.data.mongodb.core.MongoTemplate
@@ -28,20 +24,7 @@ import kotlin.time.Instant
 class EventsLookupService(
     private val eventRepository: EventRepository,
     private val mongoTemplate: MongoTemplate,
-    private val userLookupService: UserLookupService,
 ) {
-    /** The response of [event], with the names of every user it references. */
-    fun toResponse(event: Event): EventResponse = toResponses(listOf(event)).first()
-
-    /** Like [toResponse], with one user lookup for all [events]. */
-    fun toResponses(events: List<Event>): List<EventResponse> {
-        if (events.isEmpty()) return emptyList()
-        val names = userLookupService
-            .findAllById(events.flatMap { it.referencedUserIds() }.distinct())
-            .associate { it.id to it.username }
-        return events.map { it.toResponse(names) }
-    }
-
     /**
      * Events that have not started yet and have at least one reminder. The scheduler picks the due
      * reminders from these in memory: there are few future events, and the due time depends on

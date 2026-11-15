@@ -32,17 +32,14 @@ enum class SystemEventType {
 
 /**
  * Structured payload embedded on a `MessageType.SYSTEM` [Message]. The server does not render a
- * sentence - it hands the client [eventType] plus ids and name snapshots, and the client builds
- * the localized string from its own resources.
- *
- * Names are snapshotted (not just ids) for the same reason [com.lerchenflo.schneaggchatv3server.group.model.GroupMemberResponse.memberName]
- * is: a client must still be able to render "Flo removed Max" once Max is no longer in the group
- * (or synced locally) to resolve their name from.
+ * sentence - it hands the client [eventType] plus user ids, and the client builds the localized
+ * string from its own resources. Names are resolved on the client (its user rows, else
+ * `/users/lookup`), so a rename or a deleted account shows correctly in old messages too.
+ * Documents written before 2026-11-15 still hold `actorName` / `targets.userName`; nothing reads them.
  */
 data class SystemEvent(
     val eventType: SystemEventType,
     val actorId: ObjectId,
-    val actorName: String,
     val targets: List<SystemEventParticipant> = emptyList(),
     val text: String? = null,          // new group name, wake reason, event or extension title
     val previousText: String? = null,  // old group name (GROUP_NAME_CHANGED), old extension title (GROUP_EXTENSION_RENAMED)
@@ -53,13 +50,11 @@ data class SystemEvent(
 
 data class SystemEventParticipant(
     val userId: ObjectId,
-    val userName: String,
 )
 
 data class SystemEventResponse(
     val eventType: SystemEventType,
     val actorId: String,
-    val actorName: String,
     val targets: List<SystemEventParticipantResponse>,
     val text: String?,
     val previousText: String?,
@@ -70,5 +65,4 @@ data class SystemEventResponse(
 
 data class SystemEventParticipantResponse(
     val userId: String,
-    val userName: String,
 )

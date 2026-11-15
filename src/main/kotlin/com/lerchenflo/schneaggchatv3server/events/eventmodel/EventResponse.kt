@@ -12,9 +12,8 @@ data class EventResponse(
     val location: LatLong?,
     val startDate: Long,
     val closeDate: Long?,
+    /** User ids. Names are resolved on the client (its user rows, else `/users/lookup`), as for every user id here. */
     val invitedUsers: List<String>,
-    /** Same users as [invitedUsers], with their current username. */
-    val invitedUserNames: List<EventUserNameResponse>,
     val participations: List<EventParticipationResponse> = emptyList(),
     val visibility: EventVisibility,
     val maxUsers: Int? = null,
@@ -24,13 +23,6 @@ data class EventResponse(
     val createdAt: Long = 0L,
     val updatedAt: Long = 0L,
     val updatedBy: String,
-
-    val creatorName: String,
-)
-
-data class EventUserNameResponse(
-    val userId: String,
-    val userName: String,
 )
 
 data class EventSyncResponse(

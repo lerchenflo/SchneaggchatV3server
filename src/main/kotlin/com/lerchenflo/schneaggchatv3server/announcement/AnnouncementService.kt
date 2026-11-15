@@ -40,15 +40,12 @@ class AnnouncementService(
         return announcementLookupService.findNewestActive(
             aboveId = user.settings.lastDismissedAnnouncementId,
             now = Clock.System.now(),
-        )?.toAnnouncementResponse(creatorName = null)
+        )?.toAnnouncementResponse(withCreator = false)
     }
 
     fun listAll(): List<AnnouncementResponse> {
         val announcements = announcementLookupService.findAllNewestFirst()
-        val creatorNames = userLookupService.findAllById(announcements.map { it.createdBy }.distinct())
-            .associate { it.id to it.username }
-
-        return announcements.map { it.toAnnouncementResponse(creatorName = creatorNames[it.createdBy]) }
+        return announcements.map { it.toAnnouncementResponse(withCreator = true) }
     }
 
     fun create(
@@ -81,7 +78,7 @@ class AnnouncementService(
                 updatedAt = now,
             )
         )
-        return saved.toAnnouncementResponse(creatorName = userLookupService.findById(saved.createdBy)?.username)
+        return saved.toAnnouncementResponse(withCreator = true)
     }
 
     /** Edits texts and expiry. Keeps the number, so users who dismissed it never see it again. */
@@ -110,7 +107,7 @@ class AnnouncementService(
                 updatedAt = now,
             )
         )
-        return saved.toAnnouncementResponse(creatorName = userLookupService.findById(saved.createdBy)?.username)
+        return saved.toAnnouncementResponse(withCreator = true)
     }
 
     /** Hard delete. Deleting an id that is already gone is a no-op, e.g. two admins at once. */

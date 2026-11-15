@@ -7,6 +7,7 @@ import com.lerchenflo.schneaggchatv3server.events.eventmodel.Event
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventParticipationStatus
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.hasEnded
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.toResponse
 import com.lerchenflo.schneaggchatv3server.group.groupextensions.GroupExtensionLookupService
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
@@ -138,11 +139,7 @@ class GroupService(
                 createdAt = group.createdAt.toEpochMilliseconds(),
                 creatorId = group.creatorId.toHexString(),
                 expiresAt = group.expiresAt?.toEpochMilliseconds(),
-                members = members.map { member ->
-                    member.toGroupMemberResponse(
-                        memberName = userLookupService.getUsername(member.userid)
-                    )
-                }
+                members = members.map { it.toGroupMemberResponse() }
             ),
             deleted = false
         )
@@ -459,7 +456,7 @@ class GroupService(
                 eventsLookupService.findByGroupId(groupId)?.takeIf { groupMember != it.creatorId }?.let { event ->
                     eventsLookupService.setParticipationIfPresent(event.id, groupMember, statusAfterRemoval)?.let { updated ->
                         notificationService.notifyEventUpdate(
-                            eventResponse = eventsLookupService.toResponse(updated),
+                            eventResponse = updated.toResponse(),
                             newEntry = false,
                             deleted = false
                         )
@@ -557,7 +554,7 @@ class GroupService(
 
         pendingEventUpdate?.let { event ->
             notificationService.notifyEventUpdate(
-                eventResponse = eventsLookupService.toResponse(event),
+                eventResponse = event.toResponse(),
                 newEntry = false,
                 deleted = false
             )
@@ -700,7 +697,7 @@ class GroupService(
             if (deleteConnectedEvent) {
                 eventsLookupService.deleteEvent(event)
                 notificationService.notifyEventUpdate(
-                    eventResponse = eventsLookupService.toResponse(event),
+                    eventResponse = event.toResponse(),
                     newEntry = false,
                     deleted = true
                 )
@@ -709,7 +706,7 @@ class GroupService(
                     event.copy(groupId = null, updatedAt = Clock.System.now(), updatedBy = deletedBy ?: event.updatedBy)
                 )
                 notificationService.notifyEventUpdate(
-                    eventResponse = eventsLookupService.toResponse(detached),
+                    eventResponse = detached.toResponse(),
                     newEntry = false,
                     deleted = false
                 )

@@ -190,7 +190,7 @@ Ship before stage 2b, each as its own small release (they do not need the new mo
 | `MessageResponse` | `messageId, chatId, senderId (nullable), createdVersion, msgType, content, pollResponse, systemEventResponse, answerId, sendDate, lastChanged, deleted, edited, version, readers, reactions, clientMessageId` |
 | `POST /messages/setread` | `chatId`, `timestamp` |
 | `POST /chats/sync` | request: list of `{id, timeStamp}`; response: `updatedChats`, `leftChats` (ids), `deletedChats` (ids) |
-| Chat response | `id, type, name?, description?, updatedAt, profilePicUpdatedAt, createdAt, creatorId?, expiresAt?, membershipVersion, historyVisibility, ownMuted, members: [{userId, joinedAt, role, color, memberName}]` |
+| Chat response | `id, type, name?, description?, updatedAt, profilePicUpdatedAt, createdAt, creatorId?, expiresAt?, membershipVersion, historyVisibility, ownMuted, members: [{userId, joinedAt, role, color}]` (no names: the client resolves user ids through `/users/lookup`) |
 | `/chats/create`, `/chats/{id}/profilepic`, `/chats/{id}/setname`, `setdescription`, `setprofilepic`, `setexpiry`, `setmuted`, `sethistoryvisibility`, `/chats/changemembers`, `/chats/delete` | replace `/groups/*` |
 | `GET /chats/{id}/messages?beforeVersion=&limit=` | list of `MessageResponse`, newest first by `createdVersion` |
 | `/users/sync` | plus users sharing a chat with me (simple shape) |

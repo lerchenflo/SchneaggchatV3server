@@ -6,15 +6,7 @@ Collected follow-ups and checks for the server, so no thought gets lost. Each it
 
 ## From the client (handovers)
 
-**Most important, do this first** (user, 2026-11-13): "User names by id". It comes before every other item in this file and ships with the next release. The client waits for your reply with the contract before it builds its side. "Feedback: edit entries and own comments" comes after it. ("Profile picture privacy setting" is built on `beta`, 2026-11-15, contract in the client plan `SchneaggchatV3/plans/PROFILE_PICTURE_PRIVACY_PLAN.md`.)
-
-- [ ] **MOST IMPORTANT** **User names by id** (built after the picture setting; client session, user approved 2026-11-12; client `plans/Todo.md` "User names by id instead of names sent as strings", essential for the next release).
-  - New lookup: the client sends a list of user ids and gets back, per id, the user's current name. Any logged-in user may look up any id (usernames are already searchable). Unknown or deleted ids: leave them out or mark them, please say which.
-  - Per id also `profilePicUpdatedAt` (epoch ms), but only when the requester may see that user's picture; otherwise null, and the client shows a placeholder. The picture itself still loads through `/users/profilepic/{id}`. Decide access with `ProfilePicAccessService` (the rule the picture setting uses).
-  - Group co-members without a friendship row get their picture visibility only through this lookup (agreed with the client, 2026-11-15). The lookup needs a refresh signal for names anyway; it must also cover a shared group joined or left and the owner's `profilePicVisibility` changing, so the client can drop a picture that became hidden.
-  - Remove with this release every field that sends another user's name as text in in-app data (the client reads names through the lookup instead). Known on the client side: `actorName` and `userName` in system events, `memberName` (group members), `invitedUserNames` and `creatorName` (events), `requestingUserName` and `actorName` (socket messages), `creatorName` and `authorName` (feedback), `creatorName` (announcements). Please check the server for more. Push payloads keep their names (they are shown before the app can look anything up).
-  - Compatibility: the user decided the old fields go with this release, since old app versions are forced to update; keep the deploy order in mind (server before the forced client update).
-  - Client needs from the reply: the lookup path, request and response field names, the setting's field name and values (read in the own user, set through which endpoint), and which name fields are actually removed.
+**Next** (user, 2026-11-13: it comes right after "User names by id"): "Feedback: edit entries and own comments". ("Profile picture privacy setting" and "User names by id" are built on `beta`, 2026-11-15; contracts in the client plans `SchneaggchatV3/plans/PROFILE_PICTURE_PRIVACY_PLAN.md` and `SchneaggchatV3/plans/USER_NAMES_BY_ID_PLAN.md`.)
 
 - [ ] **Feedback: edit entries and own comments** (client session, user approved 2026-11-12; client `plans/Todo.md` "Feedback entries can't be edited", essential for the next update). Today `FeedbackController` has no edit endpoint.
   - Who may edit an entry: its creator and admins. Seeded entries stay read-only for everyone (the seed file is their source and would overwrite edits).

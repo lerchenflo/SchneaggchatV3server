@@ -8,7 +8,6 @@ import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.group.model.toGroupMemberResponse
 import com.lerchenflo.schneaggchatv3server.repository.GroupMemberRepository
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
-import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
@@ -22,7 +21,6 @@ import kotlin.time.Instant
 class GroupLookupService(
     private val groupRepository: GroupRepository,
     private val groupMemberRepository: GroupMemberRepository,
-    private val userLookupService: UserLookupService,
 ) {
     fun getUserGroupIds(userId: ObjectId): List<ObjectId> {
         return getNonDeletedGroups(getMemberGroupIds(userId)).map { it.id }
@@ -72,7 +70,7 @@ class GroupLookupService(
             createdAt = group.createdAt.toEpochMilliseconds(),
             creatorId = group.creatorId.toHexString(),
             expiresAt = group.expiresAt?.toEpochMilliseconds(),
-            members = members.map { it.toGroupMemberResponse(userLookupService.getUsername(it.userid)) }
+            members = members.map { it.toGroupMemberResponse() }
         )
     }
 

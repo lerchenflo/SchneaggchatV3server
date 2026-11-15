@@ -2,7 +2,6 @@ package com.lerchenflo.schneaggchatv3server.user
 
 import com.lerchenflo.schneaggchatv3server.authentication.DeviceSessions
 import com.lerchenflo.schneaggchatv3server.core.security.HashEncoder
-import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.GroupService
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
@@ -17,9 +16,11 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.PinnedChat
 import com.lerchenflo.schneaggchatv3server.user.usermodel.ProfilePicVisibility
 import com.lerchenflo.schneaggchatv3server.user.usermodel.allows
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
+import com.lerchenflo.schneaggchatv3server.user.usermodel.UserLookupResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.toFriendUserResponse
+import com.lerchenflo.schneaggchatv3server.user.usermodel.toLookedUpUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.toSelfUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.toSimpleUserResponse
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
@@ -47,7 +48,6 @@ class UserService(
     private val friendsLookupService: FriendsLookupService,
     private val friendsSettingsService: FriendsSettingsService,
 
-    private val groupLookupService: GroupLookupService,
     private val groupService: GroupService,
 
     private val messageLookupService: MessageLookupService,
@@ -65,6 +65,9 @@ class UserService(
     companion object {
         /** Username of the Google Play / App Store review account, see [ensureTestaccount]. */
         const val TESTACCOUNT_USERNAME = "testaccount"
+
+        /** Most ids one `/users/lookup` call may ask for. Part of the client contract. */
+        const val LOOKUP_MAX_IDS = 100
     }
 
     fun ensureTestaccount(): User {
@@ -267,16 +270,28 @@ class UserService(
             updatedAt = Clock.System.now()
         )
         userRepository.save(updatedUser)
+        //Users with a friendship row get the new name now. Everybody else (group co-members, event
+        //participants) knows this user only by id and gets the name from /users/lookup, which the
+        //client repeats about once a day per id.
         notificationService.notifyUserUpdate(updatedUser, deleted = false)
+    }
 
-        //Group co-members who are not friends only know this user by GroupMemberResponse.memberName.
-        //Bumping updatedAt also brings the new name to members who are offline right now, on their
-        //next /groups/sync.
-        groupLookupService.getUserGroupIds(requestingUserId).forEach { groupId ->
-            val group = groupLookupService.getGroupById(groupId) ?: return@forEach
-            groupLookupService.saveGroup(group.copy(updatedAt = updatedUser.updatedAt))
-            notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), deleted = false)
-        }
+    /**
+     * Name and picture timestamp for each of [userIds] (`/users/lookup`). In-app data carries user ids
+     * instead of names; this resolves the ids a client has no user row for. Any logged-in user may
+     * look up any id - names are searchable anyway - but the picture timestamp follows the owner's
+     * ProfilePicVisibility, as on `/users/profilepic/{id}`.
+     */
+    fun lookupUsers(requesterId: ObjectId, userIds: Collection<ObjectId>): UserLookupResponse {
+        val ids = userIds.distinct()
+        val users = userRepository.findAllById(ids).toList()
+        val visible = profilePicAccessService.visibleOwnerIds(requesterId, users)
+        val foundIds = users.map { it.id }.toSet()
+
+        return UserLookupResponse(
+            users = users.map { it.toLookedUpUserResponse(profilePicVisible = it.id in visible) },
+            deletedUserIds = ids.filter { it !in foundIds }.map { it.toHexString() },
+        )
     }
 
     sealed interface ProfilePicResult {
