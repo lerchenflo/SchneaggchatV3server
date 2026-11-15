@@ -99,6 +99,30 @@ def call(method, route, token=None, ok=None, vars=None, **kw):
         return code, text
 
 
+def check(ok, label):
+    """Records a content check that is not a status code."""
+    if ok:
+        print(f'ok   {label}')
+    else:
+        failures.append(label)
+        print(f'FAIL {label}')
+
+
+def pic_on_sync_row(tok, user_id):
+    """profilePicUpdatedAt of user_id's row in the token owner's /users/sync, 'missing' without a row."""
+    code, body = call('POST', '/users/sync', tok, body=[], ok=200)
+    rows = body.get('updatedUsers', []) if isinstance(body, dict) else []
+    return next((r for r in rows if r.get('id') == user_id), {}).get('profilePicUpdatedAt', 'missing')
+
+
+def pic_on_socket(ws, user_id):
+    """profilePicUpdatedAt of the newest socket userchange for user_id, 'missing' when none came."""
+    time.sleep(.6)
+    rows = [m['user'] for m in ws.messages if m.get('_class') == 'userchange' and (m.get('user') or {}).get('id') == user_id]
+    ws.messages.clear()
+    return rows[-1].get('profilePicUpdatedAt', 'missing') if rows else 'missing'
+
+
 def mongo(js):
     o = subprocess.run(['docker', 'exec', MONGO_CONTAINER, 'mongosh', '--quiet', 'db', '--eval', js], capture_output=True, text=True)
     return (o.stdout.strip() + o.stderr.strip())
@@ -148,12 +172,36 @@ class WS:
             b += s.s.recv(1)
         s.status = b.split(b'\r\n')[0].decode()
         s.s.settimeout(None)
+        s.messages = []  # JSON of every text frame the server sent
         threading.Thread(target=s.drain, daemon=True).start()
 
     def drain(s):
+        buf = b''
         try:
-            while s.s.recv(65536):
-                pass
+            while True:
+                chunk = s.s.recv(65536)
+                if not chunk:
+                    break
+                buf += chunk
+                # Server frames are never masked: opcode, length (7 bit, 16 bit or 64 bit), payload
+                while len(buf) >= 2:
+                    op, n, i = buf[0] & 0x0f, buf[1] & 0x7f, 2
+                    if n == 126:
+                        if len(buf) < 4:
+                            break
+                        n, i = struct.unpack('>H', buf[2:4])[0], 4
+                    elif n == 127:
+                        if len(buf) < 10:
+                            break
+                        n, i = struct.unpack('>Q', buf[2:10])[0], 10
+                    if len(buf) < i + n:
+                        break
+                    payload, buf = buf[i:i + n], buf[i + n:]
+                    if op == 1:
+                        try:
+                            s.messages.append(json.loads(payload))
+                        except Exception:
+                            pass
         except Exception:
             pass
 
@@ -317,7 +365,7 @@ settings = {
     'mergeMapLocations': True, 'mergeMapUsers': True, 'sortMapUsersByPinned': True, 'mapSightingPush': True,
     'mapStyle': 'satellite', 'pinnedChats': [{'chatId': b, 'group': False, 'pinTimePoint': NOW}],
     'quickReactions': ['👍', '😂', '❤️', 'nice'], 'resetQuickReactions': False, 'developerSettings': True,
-    'lastContributePopupShown': NOW, 'lastDismissedAnnouncementId': 1,
+    'lastContributePopupShown': NOW, 'lastDismissedAnnouncementId': 1, 'profilePicVisibility': 'FRIENDS_AND_GROUPS',
 }
 for t in (ta, tb, tc, td):
     call('POST', '/users/settings', t, body=settings, ok=200)
@@ -332,7 +380,35 @@ call('POST', '/users/setnotificationtoken', ta, body={'token': 'fcm-alice-pixel'
 call('POST', '/users/setnotificationtoken', tb, body={'token': 'ab' * 32, 'isAndroid': False}, ok=200)
 call('POST', '/users/setprofilepic', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([('profilepic', PNG, 'alice.png', 'image/png')]))))
 call('GET', '/users/profilepic/{id}', ta, vars={'id': a}, ok=200)
-call('GET', '/users/profilepic/{id}', ta, vars={'id': e})
+# Profile picture privacy. erin -> alice is pending (erin sent it), and they share no group.
+call('GET', '/users/profilepic/{id}', ta, vars={'id': e}, ok=200)  # the receiver sees the sender's picture
+call('GET', '/users/profilepic/{id}', te, vars={'id': a}, ok=403)  # the sender does not: alice is friends and groups
+call('GET', '/users/profilepic/{id}', te, vars={'id': '0' * 24}, ok=404)
+call('POST', '/users/settings', te, body={'profilePicVisibility': 'EVERYONE'}, ok=400)
+
+
+def alice_pic_for_erin():
+    code, body = call('POST', '/users/sync', te, body=[], ok=200)
+    rows = body.get('updatedUsers', []) if isinstance(body, dict) else []
+    return next((r for r in rows if r.get('id') == a), {})
+
+
+check(alice_pic_for_erin().get('profilePicUpdatedAt', 0) is None, 'hidden picture: null timestamp on the sync row')
+ws_e = WS(te)
+time.sleep(.4)
+ws_e.messages.clear()
+call('POST', '/users/settings', ta, body={'profilePicVisibility': 'PUBLIC'}, ok=200)
+check(isinstance(pic_on_socket(ws_e, a), int), 'owner turns public: userchange to the pending sender carries the timestamp')
+call('GET', '/users/profilepic/{id}', te, vars={'id': a}, ok=200)
+check(isinstance(alice_pic_for_erin().get('profilePicUpdatedAt'), int), 'public picture: timestamp on the sync row')
+code, found = call('GET', '/users/availableusers', te, params={'searchterm': 'bo'}, ok=200)
+bob_row = next((r for r in found if r.get('id') == b), {}) if isinstance(found, list) else {}
+check('profilePicUpdatedAt' in bob_row and bob_row['profilePicUpdatedAt'] is None, 'search result: hidden picture has a null timestamp')
+code, found = call('GET', '/users/availableusers', te, ok=200)
+check(isinstance(found, list) and found and all('profilePicUpdatedAt' in r for r in found), 'search without a term: every result has the field')
+call('POST', '/users/settings', ta, body={'profilePicVisibility': 'FRIENDS_AND_GROUPS'}, ok=200)
+check(pic_on_socket(ws_e, a) is None, 'owner back to friends and groups: userchange carries a null timestamp')
+ws_e.close()
 call('POST', '/users/verificationemail', te)
 call('GET', '/users/availableusers', ta, params={'searchterm': 'er'}, ok=200)
 call('POST', '/users/sync', ta, body=[], ok=200)
@@ -390,8 +466,50 @@ call('GET', '/groups/profilepic/{id}', ta, vars={'id': group}, ok=200)
 call('POST', '/groups/setdescription', ta, params={'groupid': group}, text='Neue Beschreibung', ok=200)
 call('POST', '/groups/setGroupName', ta, params={'groupid': group}, text='Kicker', ok=200)
 call('POST', '/groups/setexpiry', ta, body={'groupId': group2, 'expiresAt': NOW + 30 * DAY}, ok=200)
-for action, member in [('ADD_USER', d), ('MAKE_ADMIN', b), ('REMOVE_ADMIN', b), ('MAKE_ADMIN', b), ('REMOVE_USER', d)]:
+# Picture access through a shared group. A pending request carol -> dave: carol sent it, so dave's
+# setting (friends and groups) decides for her, and they share no group yet. Dave, the receiver,
+# always sees carol's picture. Adding dave next to carol then touches their friendship row.
+for tok, name in [(tc, 'carol'), (td, 'dave')]:  # seeded users have no picture file yet (404)
+    call('POST', '/users/setprofilepic', tok, ok=200, **dict(zip(('data', 'ctype'), multipart([('profilepic', PNG, f'{name}.png', 'image/png')]))))
+call('POST', '/users/addfriend/{id}', tc, vars={'id': d}, ok=200)
+call('GET', '/users/profilepic/{id}', td, vars={'id': c}, ok=200)
+call('GET', '/users/profilepic/{id}', tc, vars={'id': d}, ok=403)
+check(pic_on_sync_row(tc, d) is None, 'pending sender, no shared group: null timestamp on the sync row')
+check(isinstance(pic_on_sync_row(td, c), int), 'pending receiver: timestamp on the sync row')
+
+
+def carol_dave_row():
+    out = mongo(f"""const f = db.friendships.findOne({{$or: [{{userId1: ObjectId('{c}'), userId2: ObjectId('{d}')}}, {{userId1: ObjectId('{d}'), userId2: ObjectId('{c}')}}]}});
+print(JSON.stringify({{date: f.updatedAt instanceof Date, keys: Object.keys(f.updatedAt).sort(), sec: Number(f.updatedAt.epochSeconds), nanos: Number(f.updatedAt.nanosecondsOfSecond)}}))""")
+    try:
+        return json.loads(out.splitlines()[-1])
+    except Exception:
+        return {'unreadable': out[:200]}
+
+
+row_before = carol_dave_row()
+ws_c = WS(tc)
+time.sleep(.4)
+ws_c.messages.clear()
+call('POST', '/groups/changemembers', ta, body={'action': 'ADD_USER', 'groupMemberId': d, 'groupId': group2}, ok=200)
+check(isinstance(pic_on_socket(ws_c, d), int), 'shared group joined: userchange carries the timestamp')
+call('GET', '/users/profilepic/{id}', tc, vars={'id': d}, ok=200)
+check(isinstance(pic_on_sync_row(tc, d), int), 'shared group: timestamp on the sync row')
+for action, member in [('MAKE_ADMIN', b), ('REMOVE_ADMIN', b), ('MAKE_ADMIN', b), ('REMOVE_USER', d)]:
     call('POST', '/groups/changemembers', ta, body={'action': action, 'groupMemberId': member, 'groupId': group2}, ok=200)
+check(pic_on_socket(ws_c, d) is None, 'shared group left: userchange carries a null timestamp')
+call('GET', '/users/profilepic/{id}', tc, vars={'id': d}, ok=403)
+check(pic_on_sync_row(tc, d) is None, 'shared group left: null timestamp on the sync row')
+ws_c.close()
+
+# The touch is a MongoTemplate update: updatedAt must stay the kotlin.time.Instant sub-document,
+# never a BSON Date, and it must have moved
+row_after = carol_dave_row()
+check(row_after.get('date') is False and row_after.get('keys') == ['epochSeconds', 'nanosecondsOfSecond'],
+      f'touched friendship row keeps the kotlin.time.Instant shape: {row_after}')
+check((row_after.get('sec', 0), row_after.get('nanos', 0)) > (row_before.get('sec', 0), row_before.get('nanos', 0)),
+      f'shared group change moved the friendship row: {row_before} -> {row_after}')
+call('POST', '/users/denyfriend/{id}', td, vars={'id': c}, ok=200)  # back to no row, as before
 
 # ─── Messages ─────────────────────────────────────────────────────────────────
 

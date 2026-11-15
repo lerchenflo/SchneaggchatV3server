@@ -28,6 +28,13 @@ class RequestLogContext(
     @Volatile
     var failureReason: String? = null
 
+    /**
+     * Set by a handler whose 4XX answer is normal behaviour (e.g. a profile picture hidden by its
+     * owner's setting): `RequestLogFilter` still counts the request, but writes no request log row.
+     */
+    @Volatile
+    var expectedFailure: Boolean = false
+
     companion object {
         private val holder = ThreadLocal<RequestLogContext?>()
 

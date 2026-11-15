@@ -125,6 +125,9 @@ class GroupService(
             logType = LogType.GROUP_CREATED,
         )
 
+        // Members who are not friends now share a group: their picture access may change
+        friendsService.onSharedGroupChanged(membersInternal, membersInternal)
+
         notificationService.notifyGroupUpdate(
             GroupResponse(
                 id = group.id.toHexString(),
@@ -484,6 +487,8 @@ class GroupService(
                 groupMemberRepository.delete(focusedMember)
                 removedMemberId = groupMember
 
+                friendsService.onSharedGroupChanged(listOf(groupMember), groupMembers.map { it.userid })
+
                 pendingEvent = if (requestingUser == groupMember) {
                     SystemEventType.GROUP_MEMBER_LEFT
                 } else {
@@ -587,6 +592,7 @@ class GroupService(
                 } else {
                     if (remainingMembers.none { it.admin }) promoteLongestMember(remainingMembers)
 
+                    // No onSharedGroupChanged: the account and its rows are gone right after
                     groupLookupService.removeGroupMember(groupId, userId)
                     groupLookupService.getGroupById(groupId)?.let {
                         groupLookupService.saveGroup(it.copy(updatedAt = Clock.System.now()))
@@ -622,6 +628,8 @@ class GroupService(
         } catch (e: DuplicateKeyException) {
             throw IllegalArgumentException("User is already in this group")
         }
+
+        friendsService.onSharedGroupChanged(listOf(memberId), groupMembers.map { it.userid })
     }
 
     /**
@@ -669,9 +677,11 @@ class GroupService(
         val group = groupLookupService.getGroupById(groupId) ?: return
         val response = groupLookupService.getGroupAsGroupResponse(groupId)
 
-        groupLookupService.getGroupMembers(groupId).forEach { member ->
+        val memberIds = groupLookupService.getGroupMembers(groupId).map { member ->
             groupMemberRepository.delete(member)
+            member.userid
         }
+        friendsService.onSharedGroupChanged(memberIds, memberIds)
 
         groupLookupService.saveGroup(group.copy(deleted = true))
 

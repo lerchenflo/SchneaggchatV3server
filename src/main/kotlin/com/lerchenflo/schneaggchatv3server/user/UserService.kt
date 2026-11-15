@@ -14,6 +14,8 @@ import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.Friendsh
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.PinnedChat
+import com.lerchenflo.schneaggchatv3server.user.usermodel.ProfilePicVisibility
+import com.lerchenflo.schneaggchatv3server.user.usermodel.allows
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
@@ -54,6 +56,7 @@ class UserService(
     private val deviceSessions: DeviceSessions,
     private val imageManager: ImageManager,
     private val notificationService: NotificationService,
+    private val profilePicAccessService: ProfilePicAccessService,
 
     @Value("\${defaultaccount.password}") private val defaultPassword: String,
 
@@ -138,6 +141,9 @@ class UserService(
 
         val finalExistingToUpdate = usersToUpdate + usersToAdd
 
+        // Loaded once, and only if a row's picture access depends on a shared group
+        val coMembers by lazy { profilePicAccessService.coMemberIds(requesterId) }
+
         val addusers = finalExistingToUpdate.map { user ->
 
             //Calculate newest lastchanged timestamp
@@ -151,6 +157,9 @@ class UserService(
                 friendshipStatus = interactionMap[user.id]?.status,
                 requesterId = interactionMap[user.id]?.requesterId,
                 lastChangedAt = newestTimestamp,
+                profilePicVisible = profilePicAccessService.canSee(requesterId, user, interactionMap[user.id]) {
+                    user.id in coMembers
+                },
                 nickName = interactionMap[user.id]?.nickName,
                 shareLocation = interactionMap[user.id]?.shareLocation ?: false,
                 shareSpeedHeading = interactionMap[user.id]?.shareSpeedHeading ?: false,
@@ -180,6 +189,7 @@ class UserService(
 
             // Pre-fetch requesting user's friends once to avoid N+1 queries
             val requestingUserFriends = friendsLookupService.getFriends(requestingUserId).toSet()
+            val coMembers by lazy { profilePicAccessService.coMemberIds(requestingUserId) }
 
             return userRepository.findAllById(usersWithNoInteraction)
                 .map { user ->
@@ -190,6 +200,7 @@ class UserService(
                         id = user.id.toHexString(),
                         username = user.username,
                         commonFriendCount = commonCount,
+                        profilePicUpdatedAt = searchResultPicTimestamp(user) { user.id in coMembers },
                     )
                 }
                 .sortedByDescending { it.commonFriendCount }
@@ -203,6 +214,7 @@ class UserService(
                 .toSet()
 
             val requestingUserFriends = friendsLookupService.getFriends(requestingUserId).toSet()
+            val coMembers by lazy { profilePicAccessService.coMemberIds(requestingUserId) }
 
             return searchResults
                 .filter { user ->
@@ -215,11 +227,26 @@ class UserService(
                     NewFriendsUserResponse(
                         id = user.id.toHexString(),
                         username = user.username,
-                        commonFriendCount = commonCount
+                        commonFriendCount = commonCount,
+                        profilePicUpdatedAt = searchResultPicTimestamp(user) { user.id in coMembers },
                     )
                 }
                 .sortedByDescending { it.commonFriendCount }
         }
+    }
+
+    /**
+     * Picture timestamp of a search result, null when hidden. Search results never have a friendship
+     * row with the requester, so only a public picture or a shared group shows it.
+     */
+    private fun searchResultPicTimestamp(user: User, sharesGroup: () -> Boolean): Long? {
+        val visible = user.settings.profilePicVisibility.allows(
+            ownerId = user.id,
+            friendshipStatus = null,
+            requesterId = null,
+            sharesGroup = sharesGroup,
+        )
+        return user.profilePicUpdatedAt.toEpochMilliseconds().takeIf { visible }
     }
 
 
@@ -252,29 +279,29 @@ class UserService(
         }
     }
 
-    fun getProfilePic(requestingUserId: ObjectId, userId: ObjectId): ByteArray? {
-        // Only allow viewing a profile pic when the requester is the owner, has a non-blocked
-        // friendship (ACCEPTED or a pending request) with them, or shares a group with them -
-        // otherwise any authenticated user could enumerate every user's picture.
-        val allowed = requestingUserId == userId ||
-                friendsLookupService.hasNonBlockedFriendship(requestingUserId, userId) ||
-                groupLookupService.getUserGroupIds(requestingUserId)
-                    .intersect(groupLookupService.getUserGroupIds(userId).toSet())
-                    .isNotEmpty()
+    sealed interface ProfilePicResult {
+        class Image(val bytes: ByteArray) : ProfilePicResult
 
-        requireOrLog(
-            "get_user_profilepic_not_allowed",
-            allowed,
-            { "Unauthorized profile pic access - user: ${userLookupService.getUsername(requestingUserId)}, target: ${userLookupService.getUsername(userId)}: No non-blocked friendship and no common group" }
-        ) { "You are not allowed to view this profile picture" }
+        /** The owner's picture setting hides it from the requester - expected, never logged. */
+        data object Hidden : ProfilePicResult
+
+        /** No such user, or the file is lost (only the lost file is logged). */
+        data object NotFound : ProfilePicResult
+    }
+
+    fun getProfilePic(requestingUserId: ObjectId, userId: ObjectId): ProfilePicResult {
+        val owner = userLookupService.findById(userId) ?: return ProfilePicResult.NotFound
+
+        // The owner's ProfilePicVisibility decides; a refusal is normal behaviour, not an attack
+        if (!profilePicAccessService.canSee(requestingUserId, owner)) return ProfilePicResult.Hidden
 
         return try {
             val imageName = imageManager.getProfilePicFileName(userId.toHexString(), false)
-            imageManager.loadProfilePicFromFile(imageName)
+            ProfilePicResult.Image(imageManager.loadProfilePicFromFile(imageName))
         } catch (e: IllegalArgumentException) {
             //Every account gets a profile pic at registration, so a missing file is a lost image
             AppLogger.warn("Profile pic missing: ${e.message}", user = userId, tag = "get_user_profilepic_missing")
-            null
+            ProfilePicResult.NotFound
         }
     }
 
@@ -483,6 +510,7 @@ class UserService(
         quickReactions: List<String>?,
         resetQuickReactions: Boolean?,
         developerSettings: Boolean?,
+        profilePicVisibility: ProfilePicVisibility?,
         lastContributePopupShown: Long?,
         lastDismissedAnnouncementId: Long?,
     ) {
@@ -525,6 +553,7 @@ class UserService(
             pinnedChats = pinnedChats ?: current.pinnedChats,
             quickReactions = newQuickReactions,
             developerSettings = developerSettings ?: current.developerSettings,
+            profilePicVisibility = profilePicVisibility ?: current.profilePicVisibility,
             lastContributePopupShown = lastContributePopupShown ?: current.lastContributePopupShown,
             // Only ever moves up: a device with an outdated number must not bring back an
             // announcement that was already dismissed elsewhere.
@@ -539,7 +568,9 @@ class UserService(
         val updatedUser = user.copy(settings = newSettings, updatedAt = Clock.System.now())
         userLookupService.save(updatedUser)
 
-        //Bumping updatedAt is what gets this into the next /users/sync for the user's other devices.
+        //Bumping updatedAt is what gets this into the next /users/sync for the user's other devices,
+        //and for everyone with a friendship row: a changed profilePicVisibility shows or hides the
+        //picture timestamp on their row of this user.
         notificationService.notifyUserUpdate(updatedUser, deleted = false)
     }
 
@@ -567,7 +598,7 @@ class UserService(
      * @param User the user to be serialized
      * @param requestingUserId the user which requested the serialisation
      */
-    private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null, nickName: String? = null, shareLocation: Boolean = false, shareSpeedHeading: Boolean = false, shareSnailTrail: Boolean = false, allowWake: Boolean = false): UserResponse {
+    private fun serializeSyncUser(user: User, requestingUserId : ObjectId, friendshipStatus: FriendshipStatus?, requesterId: ObjectId?, lastChangedAt: Long? = null, profilePicVisible: Boolean, nickName: String? = null, shareLocation: Boolean = false, shareSpeedHeading: Boolean = false, shareSnailTrail: Boolean = false, allowWake: Boolean = false): UserResponse {
         //User requests his own data
         if (requestingUserId == user.id) {
             return user.toSelfUserResponse(
@@ -594,6 +625,7 @@ class UserService(
             return user.toSimpleUserResponse(
                 friendShipStatus = friendshipStatus,
                 requesterId = requesterId,
+                profilePicVisible = profilePicVisible,
                 updatedAt = lastChangedAt,
             )
         }

@@ -4,13 +4,19 @@ import com.lerchenflo.schneaggchatv3server.repository.FriendshipRepository
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.Friendship
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import org.bson.types.ObjectId
+import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.Update
 import org.springframework.stereotype.Component
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 @Component
 class FriendsLookupService(
     private val friendshipRepository: FriendshipRepository,
-    private val friendshipSettingsService: FriendsSettingsService
+    private val friendshipSettingsService: FriendsSettingsService,
+    private val mongoTemplate: MongoTemplate,
 ) {
 
     /**
@@ -170,16 +176,6 @@ class FriendsLookupService(
         return friendship?.status == FriendshipStatus.ACCEPTED
     }
 
-    /**
-     * True when a friendship row exists between the two users and it is not blocked - i.e. any
-     * ongoing relationship (ACCEPTED or a still-open PENDING request), but not a DECLINED or
-     * BLOCKED one. Used to decide softer visibility (e.g. seeing a group's picture through a
-     * friend in it).
-     */
-    fun hasNonBlockedFriendship(userId1: ObjectId, userId2: ObjectId): Boolean {
-        val status = findFriendship(userId1, userId2)?.status ?: return false
-        return status == FriendshipStatus.ACCEPTED || status == FriendshipStatus.PENDING
-    }
 
     /**
      * Get all users that share at least one mutual friend with the given user,
@@ -232,6 +228,28 @@ class FriendsLookupService(
         val min = minOf(userId1, userId2)
         val max = maxOf(userId1, userId2)
         return friendshipRepository.findByUserId1AndUserId2(min, max)
+    }
+
+    /**
+     * Friendship rows between [userId] and any of [otherUserIds] that are not ACCEPTED (pending,
+     * declined, blocked) - the rows whose profile picture access can depend on a shared group.
+     */
+    fun getNonAcceptedRowsBetween(userId: ObjectId, otherUserIds: Set<ObjectId>): List<Friendship> {
+        return friendshipRepository.findByUserId1OrUserId2(userId, userId)
+            .filter { it.status != FriendshipStatus.ACCEPTED }
+            .filter { (if (it.userId1 == userId) it.userId2 else it.userId1) in otherUserIds }
+    }
+
+    /**
+     * Moves only the row's updatedAt, so /users/sync hands it out again. A single field update
+     * instead of a save, so a status change racing with it is never overwritten.
+     */
+    fun touchFriendship(friendshipId: ObjectId) {
+        mongoTemplate.updateFirst(
+            Query(Criteria.where("_id").`is`(friendshipId)),
+            Update().set("updatedAt", Clock.System.now()),
+            Friendship::class.java
+        )
     }
 
     fun saveFriendship(friendship: Friendship) : Friendship {

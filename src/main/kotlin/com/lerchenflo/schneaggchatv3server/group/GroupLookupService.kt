@@ -80,6 +80,17 @@ class GroupLookupService(
         return groupMemberRepository.findAllByGroupId(groupId)
     }
 
+    /** Everyone who shares at least one non-deleted group with [userId] (event groups included), without [userId]. */
+    fun getCoMemberIds(userId: ObjectId): Set<ObjectId> {
+        val groupIds = getUserGroupIds(userId)
+        if (groupIds.isEmpty()) return emptySet()
+
+        return groupMemberRepository.findAllByGroupIdIn(groupIds)
+            .map { it.userid }
+            .filter { it != userId }
+            .toSet()
+    }
+
     fun isUserInGroup(userId: ObjectId, groupId: ObjectId): Boolean {
         return groupMemberRepository.findByuserid(userId)
             .any { it.groupId == groupId }

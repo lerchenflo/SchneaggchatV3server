@@ -4,6 +4,39 @@ Collected follow-ups and checks for the server, so no thought gets lost. Each it
 
 ---
 
+## From the client (handovers)
+
+**Most important, do this first** (user, 2026-11-13): "User names by id". It comes before every other item in this file and ships with the next release. The client waits for your reply with the contract before it builds its side. "Feedback: edit entries and own comments" comes after it. ("Profile picture privacy setting" is built on `beta`, 2026-11-15, contract in the client plan `SchneaggchatV3/plans/PROFILE_PICTURE_PRIVACY_PLAN.md`.)
+
+- [ ] **MOST IMPORTANT** **User names by id** (built after the picture setting; client session, user approved 2026-11-12; client `plans/Todo.md` "User names by id instead of names sent as strings", essential for the next release).
+  - New lookup: the client sends a list of user ids and gets back, per id, the user's current name. Any logged-in user may look up any id (usernames are already searchable). Unknown or deleted ids: leave them out or mark them, please say which.
+  - Per id also `profilePicUpdatedAt` (epoch ms), but only when the requester may see that user's picture; otherwise null, and the client shows a placeholder. The picture itself still loads through `/users/profilepic/{id}`. Decide access with `ProfilePicAccessService` (the rule the picture setting uses).
+  - Group co-members without a friendship row get their picture visibility only through this lookup (agreed with the client, 2026-11-15). The lookup needs a refresh signal for names anyway; it must also cover a shared group joined or left and the owner's `profilePicVisibility` changing, so the client can drop a picture that became hidden.
+  - Remove with this release every field that sends another user's name as text in in-app data (the client reads names through the lookup instead). Known on the client side: `actorName` and `userName` in system events, `memberName` (group members), `invitedUserNames` and `creatorName` (events), `requestingUserName` and `actorName` (socket messages), `creatorName` and `authorName` (feedback), `creatorName` (announcements). Please check the server for more. Push payloads keep their names (they are shown before the app can look anything up).
+  - Compatibility: the user decided the old fields go with this release, since old app versions are forced to update; keep the deploy order in mind (server before the forced client update).
+  - Client needs from the reply: the lookup path, request and response field names, the setting's field name and values (read in the own user, set through which endpoint), and which name fields are actually removed.
+
+- [ ] **Feedback: edit entries and own comments** (client session, user approved 2026-11-12; client `plans/Todo.md` "Feedback entries can't be edited", essential for the next update). Today `FeedbackController` has no edit endpoint.
+  - Who may edit an entry: its creator and admins. Seeded entries stay read-only for everyone (the seed file is their source and would overwrite edits).
+  - Editable entry fields: `title`, `description`, `tags`, `location`, `type` (FEATURE / BUG). Same validation as create. When `type` changes, the status resets to the start status of the new type. `premium` is not editable.
+  - Comments: each user may edit the text of their own comments (author only).
+  - After an edit: the entry or comment shows an "edited" marker. An edit is no news for others: it must not move `activityAt` (no "Updated" label, no home badge). The edited entry must still come back through `/feedback/sync`, like the seed changes that move `updatedAt` only.
+  - What the client sends: entry edit with `entryId`, `title`, `description`, `tags`, `location`, `type` (same value types as `FeedbackCreateRequest`); comment edit with `commentId`, `text`. It reads back the updated `FeedbackEntryResponse` / `FeedbackCommentResponse`.
+  - New fields the client reads: `canEdit` on `FeedbackEntryResponse` and on `FeedbackCommentResponse` (like `canDelete`, so the client only shows the edit action where it is allowed), and `editedAt` (epoch ms, null when never edited) on both, for the marker.
+  - Compatibility: released clients ignore unknown fields.
+  - Please reply to the client (SchneaggchatV3 session or its `plans/Todo.md`) with the contract you built (paths, request and field names); the client builds its side after that.
+
+---
+
+## Road to end-to-end encryption
+
+Source: client session 2026-11-12, plan written on the user's request.
+
+- [ ] **Plan: `docs/E2E_ROADMAP_SERVER_PLAN.md`** (client side: `SchneaggchatV3/plans/E2E_ROADMAP_PLAN.md`). Fixed order: the client first merges its inbound message handling (no server work), then chat-based addressing ships in one release with the client (`chatId` replaces `receiverId` + `groupMessage`, new `chats` / `chatmembers` collections, `/chats/*` replaces `/groups/*`, data migration before serving), then E2E Phase 0 (key endpoints, share store, backup store). Section 2 of the plan is the wire contract; reply to the client with the contract as built. Nothing is approved to build yet: the user starts each stage.
+- [ ] `docs/UNIFIED_NOTIFICATIONS_PLAN.md` names the client plan `DEVICE_AWARE_PUSH_PLAN.md`, which was deleted on 2026-11-12 (superseded by this server plan; text in the client's git history at `ca7d0ee7`). Drop or reword the reference.
+
+---
+
 ## GitHub issues
 
 Source: open issues of `lerchenflo/SchneaggchatV3server`, read 2026-11-06. Close an issue on GitHub when its item here is done.

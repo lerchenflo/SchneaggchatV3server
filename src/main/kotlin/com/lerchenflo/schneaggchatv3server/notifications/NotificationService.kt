@@ -19,6 +19,7 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.Frien
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.FriendLocationSnapshot
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.SnailTrailPointPayload
 import com.lerchenflo.schneaggchatv3server.schneaggmap.MapSightingType
+import com.lerchenflo.schneaggchatv3server.user.ProfilePicAccessService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
@@ -50,6 +51,7 @@ class NotificationService(
     private val userLookupService: UserLookupService,
     private val groupLookupService: GroupLookupService,
     private val friendsLookupService: FriendsLookupService,
+    private val profilePicAccessService: ProfilePicAccessService,
 ) {
 
     
@@ -152,17 +154,24 @@ class NotificationService(
      * Push a change of [user] to every device of the user themselves and of everyone with a
      * friendship row towards them, each in the shape `/users/sync` would give them: friends get the
      * friend row with their own settings towards [user], pending / blocked counterparts the simple
-     * row (it carries the username and the picture timestamp too).
+     * row (it carries the username and the picture timestamp too, null when [user]'s picture setting
+     * hides it from that counterpart).
      */
     fun notifyUserUpdate(user: User, deleted: Boolean) {
         notifyOwnUserUpdate(user, deleted)
 
+        // Loaded once for all counterparts, and only if one of them needs the group check
+        val coMembers by lazy { profilePicAccessService.coMemberIds(user.id) }
+
         friendsLookupService.getCounterpartInteractions(user.id).forEach { (counterpartId, interaction) ->
+            val profilePicVisible = profilePicAccessService.canSee(counterpartId, user, interaction) {
+                counterpartId in coMembers
+            }
             deliveryService.send(
                 counterpartId,
                 Delivery.Live(
                     SocketConnectionMessage.UserChange(
-                        user = user.toUserResponseFor(interaction),
+                        user = user.toUserResponseFor(interaction, profilePicVisible),
                         deleted = deleted
                     )
                 ),
@@ -210,7 +219,7 @@ class NotificationService(
                     id = otherUserId.toHexString(),
                     username = "",
                     updatedAt = 0,
-                    profilePicUpdatedAt = 0,
+                    profilePicUpdatedAt = null,
                     friendShipStatus = null,
                     requesterId = recipientId.toHexString(),
                 ),
@@ -219,7 +228,12 @@ class NotificationService(
         } else {
             val otherUser = userLookupService.findById(otherUserId) ?: return
             SocketConnectionMessage.UserChange(
-                user = otherUser.toUserResponseFor(interaction),
+                user = otherUser.toUserResponseFor(
+                    interaction = interaction,
+                    profilePicVisible = profilePicAccessService.canSee(recipientId, otherUser, interaction) {
+                        otherUserId in profilePicAccessService.coMemberIds(recipientId)
+                    },
+                ),
                 deleted = false
             )
         }

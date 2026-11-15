@@ -5,6 +5,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 
 
+/**
+ * Response to use when syncing users
+ */
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.PROPERTY,
@@ -15,23 +18,23 @@ import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.Friendsh
     JsonSubTypes.Type(value = UserResponse.FriendUserResponse::class, name = "friend"),
     JsonSubTypes.Type(value = UserResponse.SelfUserResponse::class, name = "self")
 )
-/**
- * Response to use when syncing users
- */
 sealed interface UserResponse {
 
     //Common data which every response contains
     val id: String
     val username: String
     val updatedAt: Long
-    val profilePicUpdatedAt: Long
+
+    // Null when the requester may not see this user's picture (owner's ProfilePicVisibility).
+    // Never null on the own user.
+    val profilePicUpdatedAt: Long?
 
     //Response for a user (Not yourself and not your friend)
     data class SimpleUserResponse(
         override val id: String,
         override val username: String,
         override val updatedAt: Long,
-        override val profilePicUpdatedAt: Long,
+        override val profilePicUpdatedAt: Long?,
 
         //Custom to simpleuserresponse:
         val friendShipStatus: FriendshipStatus?,
@@ -44,7 +47,7 @@ sealed interface UserResponse {
         override val id: String,
         override val username: String,
         override val updatedAt: Long,
-        override val profilePicUpdatedAt: Long,
+        override val profilePicUpdatedAt: Long?,
 
         val requesterId: String?, //Who requested the friendship
 
@@ -98,8 +101,6 @@ sealed interface UserResponse {
         //Master switch: may anyone wake this user at all. Opt-in.
         val allowWakeGlobal: Boolean = false,
 
-        //TODO: User profile pic privacy settings??
-
         //Per-user app settings (theme, language, pinned chats, ...), synced across devices
         val settings: PersonalUserSettings = PersonalUserSettings(),
 
@@ -113,4 +114,6 @@ data class NewFriendsUserResponse(
     val id: String,
     val username: String,
     val commonFriendCount: Int,
+    // Null when the requester may not see this user's picture, as on UserResponse.
+    val profilePicUpdatedAt: Long? = null,
 )

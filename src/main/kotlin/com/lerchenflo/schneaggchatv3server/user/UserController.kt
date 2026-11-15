@@ -10,7 +10,9 @@ import com.lerchenflo.schneaggchatv3server.notifications.push.PushProvider
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.PinnedChat
+import com.lerchenflo.schneaggchatv3server.user.usermodel.ProfilePicVisibility
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
+import com.lerchenflo.schneaggchatv3server.util.RequestLogContext
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -113,12 +115,19 @@ class UserController(
         require(ValidationUtils.validateObjectId(userId)) { "Invalid user ID" }
         val requestingUserId = requireAuth()
 
-        val imageBytes = userService.getProfilePic(requestingUserId, ObjectId(userId))
-            ?: return ResponseEntity.notFound().build()
+        return when (val result = userService.getProfilePic(requestingUserId, ObjectId(userId))) {
+            is UserService.ProfilePicResult.Image -> ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(result.bytes)
 
-        return ResponseEntity.ok()
-            .contentType(MediaType.IMAGE_JPEG)
-            .body(imageBytes)
+            UserService.ProfilePicResult.Hidden -> {
+                // Hidden by the owner's picture setting: normal behaviour, so no request log row
+                RequestLogContext.current()?.expectedFailure = true
+                ResponseEntity.status(HttpStatus.FORBIDDEN).build()
+            }
+
+            UserService.ProfilePicResult.NotFound -> ResponseEntity.notFound().build()
+        }
     }
 
     @PostMapping("/setprofilepic")
@@ -240,6 +249,8 @@ class UserController(
         // means "leave unchanged" here, while a null stored value means "use the defaults".
         val resetQuickReactions: Boolean? = null,
         val developerSettings: Boolean? = null,
+        // Unknown value: the body can't be read, so 400
+        val profilePicVisibility: ProfilePicVisibility? = null,
         val lastContributePopupShown: Long? = null,
         val lastDismissedAnnouncementId: Long? = null,
     )
@@ -265,6 +276,7 @@ class UserController(
             quickReactions = request.quickReactions,
             resetQuickReactions = request.resetQuickReactions,
             developerSettings = request.developerSettings,
+            profilePicVisibility = request.profilePicVisibility,
             lastContributePopupShown = request.lastContributePopupShown,
             lastDismissedAnnouncementId = request.lastDismissedAnnouncementId,
         )

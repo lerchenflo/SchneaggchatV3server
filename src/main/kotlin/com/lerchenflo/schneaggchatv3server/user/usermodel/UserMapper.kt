@@ -34,7 +34,8 @@ fun User.toSelfUserResponse(locationShared: Boolean, updatedAt: Long? = null): U
  * Builds this user's [UserResponse.FriendUserResponse] for one friend. The single construction site
  * for the friend DTO, for the same reason as [toSelfUserResponse]: the client replaces the whole
  * user row with it, so a field forgotten in one hand-built copy silently resets that value.
- * The sharing / wake flags are the RECIPIENT's own settings towards this user.
+ * The sharing / wake flags are the RECIPIENT's own settings towards this user. Accepted friends
+ * always see each other's picture, so the picture timestamp is always set here.
  */
 fun User.toFriendUserResponse(
     requesterId: ObjectId?,
@@ -64,16 +65,21 @@ fun User.toFriendUserResponse(
     )
 }
 
+/**
+ * Builds this user's [UserResponse.SimpleUserResponse] (pending, declined or blocked row).
+ * [profilePicVisible] comes from ProfilePicAccessService; a hidden picture sends a null timestamp.
+ */
 fun User.toSimpleUserResponse(
     friendShipStatus: FriendshipStatus?,
     requesterId: ObjectId?,
+    profilePicVisible: Boolean,
     updatedAt: Long? = null,
 ): UserResponse.SimpleUserResponse {
     return UserResponse.SimpleUserResponse(
         id = id.toHexString(),
         username = username,
         updatedAt = updatedAt ?: this.updatedAt.toEpochMilliseconds(),
-        profilePicUpdatedAt = profilePicUpdatedAt.toEpochMilliseconds(),
+        profilePicUpdatedAt = profilePicUpdatedAt.toEpochMilliseconds().takeIf { profilePicVisible },
         friendShipStatus = friendShipStatus,
         requesterId = requesterId?.toHexString(),
     )
@@ -83,9 +89,10 @@ fun User.toSimpleUserResponse(
  * This user as seen by the viewer whose [interaction] it is - the shape `/users/sync` hands out:
  * the friend row for an accepted friendship, the simple row for anything else. `updatedAt` is the
  * newer of the user's and the friendship's last change, so a client that stores it does not get
- * the same row again on its next sync.
+ * the same row again on its next sync. [profilePicVisible] is the viewer's access to this user's
+ * picture (ProfilePicAccessService); it only matters for the simple row.
  */
-fun User.toUserResponseFor(interaction: FriendsLookupService.UserInteraction): UserResponse {
+fun User.toUserResponseFor(interaction: FriendsLookupService.UserInteraction, profilePicVisible: Boolean): UserResponse {
     val lastChangedAt = maxOf(
         updatedAt.toEpochMilliseconds(),
         interaction.lastChanged?.toEpochMilliseconds() ?: 0,
@@ -105,6 +112,7 @@ fun User.toUserResponseFor(interaction: FriendsLookupService.UserInteraction): U
         toSimpleUserResponse(
             friendShipStatus = interaction.status,
             requesterId = interaction.requesterId,
+            profilePicVisible = profilePicVisible,
             updatedAt = lastChangedAt,
         )
     }

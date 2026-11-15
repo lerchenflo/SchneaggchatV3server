@@ -30,6 +30,10 @@ data class PersonalUserSettings(
 
     val developerSettings: Boolean = false,
 
+    // Who may see this user's profile picture. Interpreted by the server on every way to the picture
+    // (ProfilePicAccessService). Documents written before this field get the default.
+    val profilePicVisibility: ProfilePicVisibility = ProfilePicVisibility.FRIENDS_AND_GROUPS,
+
     // Epoch millis of the last time the contribute popup was shown on any device.
     // 0 means never seeded - a fresh account gets this filled in at registration.
     val lastContributePopupShown: Long = 0L,
