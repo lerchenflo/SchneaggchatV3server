@@ -50,11 +50,6 @@ class FeedbackService(
     private val mongoTemplate: MongoTemplate,
 ) {
 
-    private companion object {
-        /** Length of the deprecated [FeedbackEntryResponse.descriptionPreview]. Remove with it. */
-        const val DESCRIPTION_PREVIEW_LENGTH = 200
-    }
-
     // ─── Reads ────────────────────────────────────────────────────────────────
 
     /**
@@ -90,17 +85,6 @@ class FeedbackService(
             deletedEntries = if (page == 0) clientMap.keys.filter { it !in serverIds } else emptyList(),
             moreEntries = start.toLong() + pageSize < changed.size,
             serverTime = serverTime.toEpochMilliseconds(),
-        )
-    }
-
-    /** Live fetch of old clients. New clients use [sync]. Remove in the next release. */
-    @Deprecated("Old clients only, use sync. Remove in the next release.")
-    fun list(type: FeedbackType, viewerId: ObjectId): FeedbackListResponse {
-        val viewerIsAdmin = isAdmin(viewerId)
-        val entries = entryRepository.findByTypeAndDeletedFalse(type)
-        return FeedbackListResponse(
-            viewerIsAdmin = viewerIsAdmin,
-            entries = toEntryResponses(entries, viewerId, viewerIsAdmin),
         )
     }
 
@@ -436,7 +420,6 @@ class FeedbackService(
      * the comment counts, one find for the dev comments. Users appear only by id (creator, comment
      * authors); the client resolves the names.
      */
-    @Suppress("DEPRECATION") // descriptionPreview stays until old clients are gone
     private fun toEntryResponses(
         entries: List<FeedbackEntry>,
         viewerId: ObjectId,
@@ -468,7 +451,6 @@ class FeedbackService(
                 type = entry.type,
                 title = entry.title,
                 description = entry.description,
-                descriptionPreview = previewOf(entry.description),
                 tags = entry.tags,
                 status = entry.status,
                 upvotes = entry.votes.values.count { it == FeedbackVote.UP },
@@ -504,11 +486,6 @@ class FeedbackService(
             .mappedResults
             .associate { it.id to it.count }
     }
-
-    /** For the deprecated [FeedbackEntryResponse.descriptionPreview]. Remove with it. */
-    private fun previewOf(description: String): String =
-        if (description.length <= DESCRIPTION_PREVIEW_LENGTH) description
-        else description.take(DESCRIPTION_PREVIEW_LENGTH) + "…"
 
     private fun FeedbackComment.toResponse(
         viewerId: ObjectId,

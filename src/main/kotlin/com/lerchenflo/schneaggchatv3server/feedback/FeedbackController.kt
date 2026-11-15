@@ -108,18 +108,6 @@ class FeedbackController(
         return feedbackService.sync(clientEntries, page, pageSize, requesterId)
     }
 
-    /** Live fetch of old clients. New clients use [sync]. Remove in the next release. */
-    @Deprecated("Old clients only, use /feedback/sync. Remove in the next release.")
-    @Suppress("DEPRECATION")
-    @GetMapping("/list")
-    fun list(@RequestParam type: String): FeedbackListResponse {
-        val requesterId = requireAuth()
-        // Parsed by hand: a bad enum in a query param would otherwise surface as a 500.
-        val feedbackType = FeedbackType.entries.firstOrNull { it.name == type }
-        require(feedbackType != null) { "Invalid feedback type" }
-        return feedbackService.list(feedbackType, requesterId)
-    }
-
     @GetMapping("/details")
     fun details(@RequestParam entryid: String): FeedbackEntryDetailResponse {
         val requesterId = requireAuth()

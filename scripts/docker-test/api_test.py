@@ -713,7 +713,6 @@ code, detail = call('GET', '/feedback/details', ta, params={'entryid': fe}, ok=2
 comments = detail.get('comments', []) if isinstance(detail, dict) else []
 check(any(x.get('editedAt') and x.get('canEdit') is False for x in comments) and any(x.get('canEdit') is True for x in comments),
       'feedback details: comment editedAt, canEdit only on own comments')
-call('GET', '/feedback/list', tb, params={'type': 'FEATURE'}, ok=200)
 call('DELETE', '/feedback/deletecomment', tc, params={'commentid': cm.get('id') if isinstance(cm, dict) else '0' * 24}, ok=200)
 call('POST', '/feedback/sync', tb, body=[{'id': fe, 'timeStamp': '0'}], params={'page': 0, 'page_size': 400}, ok=200)
 

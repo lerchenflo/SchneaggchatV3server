@@ -7,9 +7,6 @@ data class FeedbackEntryResponse(
     val type: FeedbackType,
     val title: String,
     val description: String,
-    /** First 200 characters of [description]. Only old clients still read it. */
-    @Deprecated("Old clients only, use description. Remove in the next release.")
-    val descriptionPreview: String,
     val tags: List<FeedbackTag>,
     val status: FeedbackStatus,
     val upvotes: Int,
@@ -38,11 +35,6 @@ data class FeedbackEntryResponse(
     val updatedAt: Long,
     /** Epoch millis, see [FeedbackEntry.activityAt]. Compare with a stored `serverTime`, not the device clock. */
     val activityAt: Long,
-)
-
-data class FeedbackListResponse(
-    val viewerIsAdmin: Boolean,
-    val entries: List<FeedbackEntryResponse>,
 )
 
 data class FeedbackSyncResponse(

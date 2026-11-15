@@ -66,7 +66,6 @@ The app's Schneaggmap settings have a new synced setting `sortMapUsersByPinned` 
 
 Source: user request (2026-11-06), GitHub issue #947. The client items are in the app repo's `plans/Todo.md`.
 
-- [ ] Next release: remove the deprecated `GET /feedback/list` (`FeedbackController.list`, `FeedbackService.list`, `FeedbackListResponse`) and `FeedbackEntryResponse.descriptionPreview` with `previewOf`. Only clients from before `/feedback/sync` (2026-11-08) still use them; remove once the client release with the sync is out.
 - [ ] Pinned requests: a `pinned` field on `FeedbackEntry`, an admin endpoint guarded by `AdminGuard` like `/feedback/status`, and the field in the entry response. Old clients ignore it.
 
 ---
