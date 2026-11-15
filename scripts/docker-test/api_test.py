@@ -682,6 +682,37 @@ code, detail = call('GET', '/feedback/details', tb, params={'entryid': fe}, ok=2
 detail = detail if isinstance(detail, dict) else {}
 check((detail.get('entry') or {}).get('creatorId') == b, 'feedback entry carries the creator id')
 check(all(x.get('authorId') for x in detail.get('comments', [])), 'feedback comments carry the author id')
+before = detail.get('entry') or {}
+check(before.get('canEdit') is True and before.get('editedAt') is None, 'feedback creator can edit, entry not edited yet')
+
+# Edits: the creator and admins edit entries, never a seeded one; authors edit their own comments
+edit_body = {'entryId': fe, 'type': 'FEATURE', 'title': 'Dunkler Kartenmodus', 'description': 'Die Karte auch dunkel, mit Nachtfarben',
+             'tags': ['MAP', 'UI'], 'location': ' Karte '}
+code, edited = call('POST', '/feedback/edit', tb, body=edit_body, ok=200)
+edited = edited if isinstance(edited, dict) else {}
+check(edited.get('editedAt') and edited.get('updatedAt', 0) > before.get('updatedAt', 0) and edited.get('activityAt') == before.get('activityAt'),
+      'feedback edit sets editedAt and moves updatedAt, not activityAt')
+code, again = call('POST', '/feedback/edit', tb, body=edit_body, ok=200)
+check(isinstance(again, dict) and again.get('editedAt') == edited.get('editedAt') and again.get('updatedAt') == edited.get('updatedAt'),
+      'feedback edit without a change writes nothing')
+call('POST', '/feedback/edit', tc, body=edit_body, ok=404)
+call('POST', '/feedback/edit', tb, body={**edit_body, 'title': 'ab'}, ok=400)
+call('POST', '/feedback/edit', tb, body={**edit_body, 'entryId': 'nope'}, ok=400)
+if seeded:
+    call('POST', '/feedback/edit', ta, body={**edit_body, 'entryId': seeded[0]}, ok=403)
+code, as_bug = call('POST', '/feedback/edit', ta, body={**edit_body, 'type': 'BUG'}, ok=200)
+as_bug = as_bug if isinstance(as_bug, dict) else {}
+check(as_bug.get('status') == 'OPEN' and as_bug.get('isPremium') is False and as_bug.get('notNeededCount') == 0
+      and as_bug.get('upvotes') == edited.get('upvotes') and as_bug.get('downvotes') == edited.get('downvotes'),
+      'feedback type change by an admin: start status, no premium, up/down votes kept')
+code, ce = call('POST', '/feedback/editcomment', tc, body={'commentId': cm.get('id') if isinstance(cm, dict) else '0' * 24, 'text': ' Ja bitte, gern '}, ok=200)
+check(isinstance(ce, dict) and ce.get('text') == 'Ja bitte, gern' and ce.get('editedAt') and ce.get('canEdit') is True, 'feedback comment edit by the author')
+call('POST', '/feedback/editcomment', ta, body={'commentId': cm.get('id') if isinstance(cm, dict) else '0' * 24, 'text': 'Admin'}, ok=404)
+call('POST', '/feedback/editcomment', tc, body={'commentId': '0' * 24, 'text': 'Weg'}, ok=404)
+code, detail = call('GET', '/feedback/details', ta, params={'entryid': fe}, ok=200)
+comments = detail.get('comments', []) if isinstance(detail, dict) else []
+check(any(x.get('editedAt') and x.get('canEdit') is False for x in comments) and any(x.get('canEdit') is True for x in comments),
+      'feedback details: comment editedAt, canEdit only on own comments')
 call('GET', '/feedback/list', tb, params={'type': 'FEATURE'}, ok=200)
 call('DELETE', '/feedback/deletecomment', tc, params={'commentid': cm.get('id') if isinstance(cm, dict) else '0' * 24}, ok=200)
 call('POST', '/feedback/sync', tb, body=[{'id': fe, 'timeStamp': '0'}], params={'page': 0, 'page_size': 400}, ok=200)

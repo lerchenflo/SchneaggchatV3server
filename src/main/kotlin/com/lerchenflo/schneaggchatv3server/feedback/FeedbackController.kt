@@ -61,6 +61,31 @@ class FeedbackController(
         val platform: String? = null,
     )
 
+    /** Same fields and limits as [FeedbackCreateRequest]; premium, app version and platform stay as created. */
+    data class FeedbackEditRequest(
+        @field:NotBlank(message = "Entry id must not be blank")
+        val entryId: String,
+        val type: FeedbackType,
+        @field:NotBlank(message = "Title must not be blank")
+        @field:Size(max = 200, message = "Title too long")
+        val title: String,
+        @field:NotBlank(message = "Description must not be blank")
+        @field:Size(max = 4000, message = "Description too long")
+        val description: String,
+        @field:Size(min = 1, max = 3, message = "Pick 1 to 3 tags")
+        val tags: List<FeedbackTag>,
+        @field:Size(max = 400, message = "Location too long")
+        val location: String? = null,
+    )
+
+    data class FeedbackCommentEditRequest(
+        @field:NotBlank(message = "Comment id must not be blank")
+        val commentId: String,
+        @field:NotBlank(message = "Comment must not be blank")
+        @field:Size(max = 2000, message = "Comment too long")
+        val text: String,
+    )
+
     data class FeedbackStatusRequest(
         @field:NotBlank(message = "Entry id must not be blank")
         val entryId: String,
@@ -136,6 +161,30 @@ class FeedbackController(
             platform = request.platform,
             requesterId = requesterId,
         )
+    }
+
+    /** Creator or admin, never a seeded entry. See [FeedbackService.editEntry]. */
+    @PostMapping("/edit")
+    fun edit(@Valid @RequestBody request: FeedbackEditRequest): FeedbackEntryResponse {
+        val requesterId = requireAuth()
+        require(ValidationUtils.validateObjectId(request.entryId)) { "Invalid entry ID" }
+        return feedbackService.editEntry(
+            entryId = ObjectId(request.entryId),
+            type = request.type,
+            title = request.title,
+            description = request.description,
+            tags = request.tags,
+            location = request.location,
+            requesterId = requesterId,
+        )
+    }
+
+    /** Author only. See [FeedbackService.editComment]. */
+    @PostMapping("/editcomment")
+    fun editComment(@Valid @RequestBody request: FeedbackCommentEditRequest): FeedbackCommentResponse {
+        val requesterId = requireAuth()
+        require(ValidationUtils.validateObjectId(request.commentId)) { "Invalid comment ID" }
+        return feedbackService.editComment(ObjectId(request.commentId), request.text, requesterId)
     }
 
     @DeleteMapping("/delete")

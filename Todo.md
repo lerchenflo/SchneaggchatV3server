@@ -6,17 +6,7 @@ Collected follow-ups and checks for the server, so no thought gets lost. Each it
 
 ## From the client (handovers)
 
-**Next** (user, 2026-11-13: it comes right after "User names by id"): "Feedback: edit entries and own comments". ("Profile picture privacy setting" and "User names by id" are built on `beta`, 2026-11-15; contracts in the client plans `SchneaggchatV3/plans/PROFILE_PICTURE_PRIVACY_PLAN.md` and `SchneaggchatV3/plans/USER_NAMES_BY_ID_PLAN.md`.)
-
-- [ ] **Feedback: edit entries and own comments** (client session, user approved 2026-11-12; client `plans/Todo.md` "Feedback entries can't be edited", essential for the next update). Today `FeedbackController` has no edit endpoint.
-  - Who may edit an entry: its creator and admins. Seeded entries stay read-only for everyone (the seed file is their source and would overwrite edits).
-  - Editable entry fields: `title`, `description`, `tags`, `location`, `type` (FEATURE / BUG). Same validation as create. When `type` changes, the status resets to the start status of the new type. `premium` is not editable.
-  - Comments: each user may edit the text of their own comments (author only).
-  - After an edit: the entry or comment shows an "edited" marker. An edit is no news for others: it must not move `activityAt` (no "Updated" label, no home badge). The edited entry must still come back through `/feedback/sync`, like the seed changes that move `updatedAt` only.
-  - What the client sends: entry edit with `entryId`, `title`, `description`, `tags`, `location`, `type` (same value types as `FeedbackCreateRequest`); comment edit with `commentId`, `text`. It reads back the updated `FeedbackEntryResponse` / `FeedbackCommentResponse`.
-  - New fields the client reads: `canEdit` on `FeedbackEntryResponse` and on `FeedbackCommentResponse` (like `canDelete`, so the client only shows the edit action where it is allowed), and `editedAt` (epoch ms, null when never edited) on both, for the marker.
-  - Compatibility: released clients ignore unknown fields.
-  - Please reply to the client (SchneaggchatV3 session or its `plans/Todo.md`) with the contract you built (paths, request and field names); the client builds its side after that.
+Built on `beta` (2026-11-15), contracts in the client plans: "Profile picture privacy setting" (`SchneaggchatV3/plans/PROFILE_PICTURE_PRIVACY_PLAN.md`), "User names by id" (`SchneaggchatV3/plans/USER_NAMES_BY_ID_PLAN.md`) and "Feedback: edit entries and own comments" (`/feedback/edit`, `/feedback/editcomment`, `canEdit` + `editedAt` on entries and comments; contract agreed with the client session).
 
 ---
 
@@ -85,7 +75,7 @@ Source: user request (2026-11-06), GitHub issue #947. The client items are in th
 
 Source: user request (2026-10-18), decided in the interview of 2026-11-05 and 2026-11-08 (client plan `SchneaggchatV3/plans/EVENT_NOTIFICATIONS_PLAN.md`).
 
-Server part built 2026-11-08 (on `beta`): `Event.reminderMinutes` + `sentReminders`, `EventReminderScheduler` (every 60 s), push `event_reminder` / socket `eventreminder`, change alert push `event_update` / socket `eventupdatealert` (START, LOCATION, CANCELLED), system messages `EVENT_START_CHANGED` / `EVENT_LOCATION_CHANGED` / `EVENT_CANCELLED`, `userName` on participations and `invitedUserNames` on events.
+Server part built 2026-11-08 (on `beta`): `Event.reminderMinutes` + `sentReminders`, `EventReminderScheduler` (every 60 s), push `event_reminder` / socket `eventreminder`, change alert push `event_update` / socket `eventupdatealert` (START, LOCATION, CANCELLED), system messages `EVENT_START_CHANGED` / `EVENT_LOCATION_CHANGED` / `EVENT_CANCELLED`, participant names (removed again on 2026-11-15 by "User names by id": the client resolves the user ids).
 
 - [ ] Release order: the client release with these types must go out before this server reaches `main`. Older apps show the new pushes as a generic notification and the new system messages as "Chat updated".
 - [ ] Client: reminder picker, showing reminders and change alerts, the new system message texts, names in the participant list (client agent, see the plan).

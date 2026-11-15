@@ -26,6 +26,8 @@ data class RateLimitProperties(
     val feedbackCreate: TierConfig = TierConfig(10L, Duration.ofHours(1)),
     val feedbackComment: TierConfig = TierConfig(30L, Duration.ofMinutes(10)),
     val feedbackVote: TierConfig = TierConfig(60L, Duration.ofMinutes(1)),
+    // Entry and comment edits share one bucket.
+    val feedbackEdit: TierConfig = TierConfig(30L, Duration.ofMinutes(10)),
     val authPathPrefix: String = "/auth/",
     val refreshPath: String = "/auth/refresh",
 
@@ -56,6 +58,7 @@ data class RateLimitProperties(
         RateLimitTier.FEEDBACK_CREATE -> feedbackCreate
         RateLimitTier.FEEDBACK_COMMENT -> feedbackComment
         RateLimitTier.FEEDBACK_VOTE -> feedbackVote
+        RateLimitTier.FEEDBACK_EDIT -> feedbackEdit
     }
 
     data class TierConfig(

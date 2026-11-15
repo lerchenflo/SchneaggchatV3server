@@ -26,4 +26,7 @@ data class FeedbackComment(
     val platform: String? = null,
 
     val createdAt: Instant,
+
+    /** Last text change by the author, null when never edited. */
+    val editedAt: Instant? = null,
 )

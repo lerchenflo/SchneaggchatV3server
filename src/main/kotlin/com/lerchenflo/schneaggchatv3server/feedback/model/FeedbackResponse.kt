@@ -27,6 +27,10 @@ data class FeedbackEntryResponse(
     val creatorId: String?,
     @get:JsonProperty("isOwn") val isOwn: Boolean,
     val canDelete: Boolean,
+    /** The viewer is the creator or an admin, and the entry is not seeded. */
+    val canEdit: Boolean,
+    /** Epoch millis of the last edit, null when never edited. */
+    val editedAt: Long?,
     @get:JsonProperty("isSeeded") val isSeeded: Boolean,
     @get:JsonProperty("isPremium") val isPremium: Boolean,
     val createdAt: Long,
@@ -62,9 +66,13 @@ data class FeedbackCommentResponse(
     val text: String,
     @get:JsonProperty("isDevComment") val isDevComment: Boolean,
     val canDelete: Boolean,
+    /** The viewer is the author. Admins edit only their own comments. */
+    val canEdit: Boolean,
     val appVersion: String?,
     val platform: String?,
     val createdAt: Long,
+    /** Epoch millis of the last edit, null when never edited. */
+    val editedAt: Long?,
 )
 
 data class FeedbackEntryDetailResponse(

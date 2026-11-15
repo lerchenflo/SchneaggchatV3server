@@ -10,7 +10,7 @@ enum class RateLimitTier {
     IP, USER, AUTH, AUTH_REFRESH, AUTH_USER,
 
     // Per-user action limits for the feedback board, consumed in FeedbackService.
-    FEEDBACK_CREATE, FEEDBACK_COMMENT, FEEDBACK_VOTE,
+    FEEDBACK_CREATE, FEEDBACK_COMMENT, FEEDBACK_VOTE, FEEDBACK_EDIT,
 }
 
 @Service
