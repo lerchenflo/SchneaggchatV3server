@@ -467,6 +467,7 @@ class FeedbackService(
                 canEdit = (isOwn || viewerIsAdmin) && entry.seedKey == null,
                 editedAt = entry.editedAt?.toEpochMilliseconds(),
                 isSeeded = entry.seedKey != null,
+                seedKey = entry.seedKey,
                 isPremium = entry.premium,
                 createdAt = entry.createdAt.toEpochMilliseconds(),
                 updatedAt = entry.updatedAt.toEpochMilliseconds(),

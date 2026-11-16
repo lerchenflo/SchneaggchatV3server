@@ -29,6 +29,8 @@ data class FeedbackEntryResponse(
     /** Epoch millis of the last edit, null when never edited. */
     val editedAt: Long?,
     @get:JsonProperty("isSeeded") val isSeeded: Boolean,
+    /** Key of the seed this entry comes from (as in seed/feedback_features.json), null for user entries. */
+    val seedKey: String?,
     @get:JsonProperty("isPremium") val isPremium: Boolean,
     val createdAt: Long,
     /** Epoch millis. The client sends it back as the IdTimeStamp timestamp on `/feedback/sync`. */

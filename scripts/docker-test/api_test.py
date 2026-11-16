@@ -663,11 +663,14 @@ call('POST', '/groupextensions/sync', ta, body=[], params={'page': 0, 'page_size
 
 # ─── Feedback ─────────────────────────────────────────────────────────────────
 code, fs = call('POST', '/feedback/sync', ta, body=[], params={'page': 0, 'page_size': 400}, ok=200)
-seeded = [x['id'] for x in (fs.get('updatedEntries', []) if isinstance(fs, dict) else []) if x.get('isSeeded')]
+seeded_rows = [x for x in (fs.get('updatedEntries', []) if isinstance(fs, dict) else []) if x.get('isSeeded')]
+seeded = [x['id'] for x in seeded_rows]
+check(all(isinstance(x.get('seedKey'), str) and x['seedKey'] for x in seeded_rows), 'seeded feedback entries carry their seedKey')
 code, fe = call('POST', '/feedback/create', tb, body={'type': 'FEATURE', 'title': 'Dunkler Kartenmodus', 'description': 'Die Karte auch dunkel',
                                                       'tags': ['MAP', 'UI'], 'location': 'Karte', 'premium': True, 'appVersion': '3.0.19', 'platform': 'iOS'}, ok=200)
 code, fb = call('POST', '/feedback/create', tc, body={'type': 'BUG', 'title': 'Chat lädt nicht', 'description': 'Nach dem Start leer',
                                                       'tags': ['CHAT', 'PERFORMANCE'], 'location': None, 'premium': False, 'appVersion': '3.0.18', 'platform': 'Desktop'}, ok=200)
+check(isinstance(fe, dict) and 'seedKey' in fe and fe['seedKey'] is None, 'user-created feedback entry has seedKey null')
 fe, fb = (x.get('id') if isinstance(x, dict) else None for x in (fe, fb))
 for tok, vote in [(ta, 'UP'), (tc, 'DOWN'), (td, 'NOT_NEEDED'), (te, 'UP'), (te, 'NONE')]:
     call('POST', '/feedback/vote', tok, body={'entryId': fe, 'vote': vote}, ok=200)
