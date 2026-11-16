@@ -28,4 +28,10 @@ data class MapEntry(
     val updatedAt: Instant,
 
     val deleted: Boolean = false,
+
+    /**
+     * Set on entries inserted by [com.lerchenflo.schneaggchatv3server.schneaggmap.MapSeedService]
+     * (e.g. `osm-node-<id>`), null for user-created entries. Server-only, never sent to clients.
+     */
+    val seedKey: String? = null,
 )

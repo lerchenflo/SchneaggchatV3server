@@ -5,6 +5,7 @@ import com.lerchenflo.schneaggchatv3server.feedback.FeedbackSeedService
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
+import com.lerchenflo.schneaggchatv3server.schneaggmap.MapSeedService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.*
@@ -38,6 +39,8 @@ class MainController(
 
     private val feedbackSeedService: FeedbackSeedService,
 
+    private val mapSeedService: MapSeedService,
+
     private val messageLookupService: MessageLookupService,
 
     @Value("\${apns.debug}") private val debug: Boolean,
@@ -55,6 +58,7 @@ class MainController(
 
         faqSeedService.seedMissingEntries()
         feedbackSeedService.seedMissingEntries()
+        mapSeedService.seedMissingEntries()
 
         purgeMessagesOfDeletedGroups()
 

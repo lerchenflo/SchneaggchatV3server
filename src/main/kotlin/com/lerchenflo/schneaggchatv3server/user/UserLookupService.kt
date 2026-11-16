@@ -2,6 +2,7 @@ package com.lerchenflo.schneaggchatv3server.user
 
 import com.lerchenflo.schneaggchatv3server.repository.UserRepository
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
+import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRole
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import org.bson.types.ObjectId
@@ -95,6 +96,9 @@ class UserLookupService(
         User::class.java,
         ObjectId::class.java,
     )
+
+    /** The admin who registered first, or null when no user has the admin role. */
+    fun findFirstAdmin(): User? = userRepository.findFirstByRoleOrderByCreatedAtAsc(UserRole.ADMIN)
 
     fun deleteUser(userId: ObjectId) {
         userRepository.deleteById(userId)

@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.repository
 
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
+import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRole
 import org.bson.types.ObjectId
 import org.springframework.data.mongodb.repository.MongoRepository
 import org.springframework.data.mongodb.repository.Query
@@ -18,5 +19,7 @@ interface UserRepository : MongoRepository<User, ObjectId> {
 
     /** Registration order - backs the admin user list and the friends tree's parent/child orientation. */
     fun findAllByOrderByCreatedAtAsc(): List<User>
+
+    fun findFirstByRoleOrderByCreatedAtAsc(role: UserRole): User?
 
 }
