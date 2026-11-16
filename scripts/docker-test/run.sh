@@ -30,7 +30,7 @@ TEST_NETWORK=schneaggchat-test-net
 MONGO_PORT=27117
 REDIS_PORT=6479
 SERVER_PORT=18080
-SERVER_LOG="$(mktemp -t schneaggchat-e2e)"
+SERVER_LOG="$(mktemp -t schneaggchat-e2e.XXXXXX)"
 
 export SERVER_PORT
 export SPRING_DATA_MONGODB_URI="mongodb://127.0.0.1:$MONGO_PORT/db"
