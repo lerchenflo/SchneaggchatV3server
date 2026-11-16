@@ -169,11 +169,11 @@ Ship before stage 2b, each as its own small release (they do not need the new mo
 | F9 | Group deletion kept messages and media | Mostly fixed 2026-10-26 (`MessageLookupService.deleteAllGroupMessages`, `:159`); legacy media names and orphans are covered by migration step 7 |
 | F10 | Endless sync loop: a group joined after the cursor with more than 400 older messages returns the same page forever (`MessageLookupService.kt:92, :115-121`) | Open -> backfill |
 | F11 | Direct socket update was built for the wrong user | **Fixed** (`NotificationService.kt:79`, per-recipient response) |
-| F12 | The changing user's other devices get no socket update | Open (`NotificationService.kt:66, :68`) |
+| F12 | The changing user's other devices get no socket update | Open, needs the client: server `Todo.md` "Needs client changes" (`NotificationService.kt:66, :68`) |
 | F13 | `deleteFriendship` deletes the friendship setting by the friendship id (`FriendsService.kt:230-234`, `UserService.kt:620`) | **Re-check** what `deleteFriendshipSettingById` expects |
 | F14 | Friend-request push set `requesterId` to the receiver | Looks fixed (`NotificationService.kt:460`); **re-check** `:215` |
-| F15 | Membership check ignores `deleted` (`GroupLookupService.kt:83-86`) | Open |
-| F16 | Read receipts send one socket frame per message (`MessageService.kt:824`) | Open |
+| F15 | Membership check ignores `deleted` (`GroupLookupService.kt:83-86`) | **Fixed** 2026-11-16 (`GroupLookupService.isUserInGroup` also needs a non-deleted group) |
+| F16 | Read receipts send one socket frame per message (`MessageService.kt:824`) | Open, needs the client: server `Todo.md` "Needs client changes" |
 | F19 | Push payload over 4 KB | FCM handled (`FirebaseService.kt:65, :191`); **check APNs** |
 | F20 | `VersionCounterService.safeWatermark` works for one server instance only | Note, no fix now |
 | F23 | Server reads message content: recap stats, image re-encoding | Text-only E2E touches only the recap (section 5) |

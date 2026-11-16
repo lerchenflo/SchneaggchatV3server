@@ -89,9 +89,13 @@ class GroupLookupService(
             .toSet()
     }
 
+    /**
+     * Member of a group that is not deleted. `deleteGroup` removes the member rows before it marks the
+     * group deleted, but groups deleted before that cleanup existed still have theirs.
+     */
     fun isUserInGroup(userId: ObjectId, groupId: ObjectId): Boolean {
-        return groupMemberRepository.findByuserid(userId)
-            .any { it.groupId == groupId }
+        return groupMemberRepository.existsByUseridAndGroupId(userId, groupId) &&
+            groupRepository.existsByIdAndDeletedFalse(groupId)
     }
 
     fun isAdmin(userId: ObjectId, members: List<GroupMember>): Boolean {

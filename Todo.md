@@ -19,6 +19,15 @@ Source: client session 2026-11-12, plan written on the user's request.
 
 ---
 
+## Needs client changes (next week, before the next update)
+
+Source: E2E roadmap pre-releases (`docs/E2E_ROADMAP_SERVER_PLAN.md` section 1.5), user 2026-11-16: they break the released client, so they ship together with the next client release. No compatibility code, no dual formats.
+
+- [ ] **F12: the acting user's other devices get no socket update.** `NotificationService.notifyMessageUpdate` leaves out every device of the changing user. Same as phase 6 of `docs/UNIFIED_NOTIFICATIONS_PLAN.md` (decision D2): send the change as `Live` (socket only, never a push) to every device of the actor except the acting one, via `Actor(userId, deviceId)` on `notifyMessageUpdate`, `notifyMapUpdate` and the reaction path. Needs the client first: the released app would show a notification for the user's own new messages on their other devices.
+- [ ] **F16: read receipts send one socket frame per message.** `MessageService.setMessagesRead` calls `notifyMessageUpdate` once per updated message. Send one frame per mark-read call with all changed messages (new `SocketConnectionMessage` subtype plus its `@JsonSubTypes` entry) and drop the per-message frames in the same release. Needs the client to read the new type.
+
+---
+
 ## GitHub issues
 
 Source: open issues of `lerchenflo/SchneaggchatV3server`, read 2026-11-06. Close an issue on GitHub when its item here is done.
