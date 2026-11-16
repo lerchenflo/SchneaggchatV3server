@@ -174,9 +174,10 @@ object ValidationUtils {
         return true
     }
 
+    /** Same max as a group name (25), counted on the untrimmed title as sent, like the client does. */
     fun validateEventTitle(title: String): Boolean {
         if (title.isBlank()) return false
-        if (title.length > 200) return false
+        if (title.length > 25) return false
 
         return true
     }

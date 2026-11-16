@@ -128,7 +128,7 @@ class EventService(
         val groupId: ObjectId? = existing?.groupId
             ?: if (eventRequest.createGroup) {
                 groupService.createGroup(
-                    groupName = "event - " + eventRequest.title.trim().take(16),
+                    groupName = eventRequest.title.trim(), //Full title, the client marks event groups with an icon
                     members = emptyList<ObjectId>(), //only creator
                     creatorId = upsertingUser,
                     description = (eventRequest.description).take(200),
