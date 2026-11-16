@@ -28,6 +28,14 @@ Source: E2E roadmap pre-releases (`docs/E2E_ROADMAP_SERVER_PLAN.md` section 1.5)
 
 ---
 
+## One-shot startup migrations: remove once done
+
+Source: user 2026-11-16. One-shot migrations run in `MainController.onStartup` (no separate migration runner, see E2E plan F24). Each new one goes on this list.
+
+- [ ] Remove every one-shot startup migration once the server ran it on production: `MainController.purgeMessagesOfDeletedGroups` (messages and media of deleted groups) and `MainController.deleteMembersOfDeletedGroups` with `GroupLookupService.deleteMembersOfDeletedGroups` and `GroupMemberRepository.deleteByGroupIdIn` (member rows of deleted groups). `GroupStaleMemberCleanupTest` tests that cleanup: drop its cleanup part with it and keep the `isUserInGroup` checks.
+
+---
+
 ## GitHub issues
 
 Source: open issues of `lerchenflo/SchneaggchatV3server`, read 2026-11-06. Close an issue on GitHub when its item here is done.

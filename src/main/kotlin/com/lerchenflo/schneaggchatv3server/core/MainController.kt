@@ -61,6 +61,7 @@ class MainController(
         mapSeedService.seedMissingEntries()
 
         purgeMessagesOfDeletedGroups()
+        deleteMembersOfDeletedGroups()
 
         if (debug) {
             //Create test account for google play & Apple
@@ -114,6 +115,15 @@ class MainController(
 
         if (purgedCount > 0) {
             AppLogger.info("Purged $purgedCount messages of ${deletedGroups.size} deleted groups")
+        }
+    }
+
+
+    /** One-shot cleanup, see [GroupLookupService.deleteMembersOfDeletedGroups]. Can be removed once it ran on production. */
+    fun deleteMembersOfDeletedGroups() {
+        val deletedCount = groupLookupService.deleteMembersOfDeletedGroups()
+        if (deletedCount > 0) {
+            AppLogger.info("Deleted $deletedCount member rows of deleted groups")
         }
     }
 

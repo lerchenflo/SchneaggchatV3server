@@ -13,5 +13,6 @@ interface GroupMemberRepository : MongoRepository<GroupMember, ObjectId> {
     fun findAllByGroupIdIn(groupIds: Collection<ObjectId>): List<GroupMember>
 
     fun existsByUseridAndGroupId(userid: ObjectId, groupId: ObjectId): Boolean
+    fun deleteByGroupIdIn(groupIds: Collection<ObjectId>): Long
     fun findByUseridAndJoinedAtVersionGreaterThanEqual(userid: ObjectId, joinedAtVersion: Long): List<GroupMember>
 }

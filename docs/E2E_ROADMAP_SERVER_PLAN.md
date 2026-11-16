@@ -177,7 +177,7 @@ Ship before stage 2b, each as its own small release (they do not need the new mo
 | F19 | Push payload over 4 KB | FCM handled (`FirebaseService.kt:65, :191`); **check APNs** |
 | F20 | `VersionCounterService.safeWatermark` works for one server instance only | Note, no fix now |
 | F23 | Server reads message content: recap stats, image re-encoding | Text-only E2E touches only the recap (section 5) |
-| F24 | Startup migrations run after the server accepts traffic (`MainController.kt:52`) | Open for this migration (section 1.4) |
+| F24 | Startup migrations run after the server accepts traffic (`MainController.kt:52`) | Not a problem (user, 2026-11-16): no runner, one-shot migrations run in `MainController.onStartup` and are removed once they ran on production (server `Todo.md`) |
 | F25 | `/users/sync` misses non-friend co-members (`UserService.kt:101-108`) | Open |
 
 ---
