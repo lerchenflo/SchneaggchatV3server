@@ -2,456 +2,532 @@
   {
     "seedKey": "osm-node-11737227761",
     "name": "Fahrrad-Servicestation Altach – Fahrrad Wäger",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.3544428,
     "long": 9.6564702
   },
   {
     "seedKey": "osm-node-13912004997",
     "name": "Fahrrad-Servicestation Andelsbuch – Gemeindeamt",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4116759,
     "long": 9.893754
   },
   {
     "seedKey": "osm-node-12559486567",
     "name": "Fahrrad-Servicestation Au",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.3129735,
     "long": 9.8945826
   },
   {
     "seedKey": "osm-node-13049832135",
     "name": "Fahrrad-Servicestation Bartholomäberg",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.1009604,
     "long": 9.9137519
   },
   {
     "seedKey": "osm-node-14154852244",
     "name": "Fahrrad-Servicestation Bludesch",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.1933265,
     "long": 9.729327
   },
   {
     "seedKey": "osm-node-14287480175",
     "name": "Fahrrad-Servicestation Bregenz – Bahnhof",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.5017868,
     "long": 9.7399073
   },
   {
     "seedKey": "osm-node-8898740570",
     "name": "Fahrrad-Servicestation Bregenz – Kaiserstrand",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.5263798,
     "long": 9.7460427
   },
   {
     "seedKey": "osm-node-6865590389",
     "name": "Fahrrad-Servicestation Bregenz – Leutbühel",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.5022937,
     "long": 9.7467707
   },
   {
     "seedKey": "osm-node-13289918393",
     "name": "Fahrrad-Servicestation Bregenz – Nostalgiebad Mili",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.5098832,
     "long": 9.7519342
   },
   {
     "seedKey": "osm-node-11758903618",
     "name": "Fahrrad-Servicestation Bregenz – Sportanlage Neu Amerika",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.5017132,
     "long": 9.7123222
   },
   {
     "seedKey": "osm-node-8917390854",
     "name": "Fahrrad-Servicestation Bregenz – Sporthafen",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.5060951,
     "long": 9.7255147
   },
   {
     "seedKey": "osm-node-8844305034",
     "name": "Fahrrad-Servicestation Bregenz – Strandweg",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.5046352,
     "long": 9.7012303
   },
   {
     "seedKey": "osm-node-12234869629",
     "name": "Fahrrad-Servicestation Bürs – Zimbapark",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.1512899,
     "long": 9.8115588
   },
   {
     "seedKey": "osm-node-11215422708",
     "name": "Fahrrad-Servicestation Bürserberg – Bikepark Tschengla",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.1461705,
     "long": 9.7607393
   },
   {
     "seedKey": "osm-node-14091661784",
     "name": "Fahrrad-Servicestation Dalaas – Ravensburger Hütte",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.1679587,
     "long": 10.0920244
   },
   {
     "seedKey": "osm-node-14282798004",
     "name": "Fahrrad-Servicestation Dornbirn – Bahnhof",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4177254,
     "long": 9.7397666
   },
   {
     "seedKey": "osm-node-11985785818",
     "name": "Fahrrad-Servicestation Dornbirn – Birkenwiessteg",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4143327,
     "long": 9.727958
   },
   {
     "seedKey": "osm-node-11332916830",
     "name": "Fahrrad-Servicestation Dornbirn – FH Vorarlberg",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4064317,
     "long": 9.7442974
   },
   {
     "seedKey": "osm-node-11251520210",
     "name": "Fahrrad-Servicestation Dornbirn – Haltestelle Haselstauden",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4321463,
     "long": 9.7486711
   },
   {
     "seedKey": "osm-node-13255765780",
     "name": "Fahrrad-Servicestation Dornbirn – Karrenseilbahn",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4004952,
     "long": 9.7531464
   },
   {
     "seedKey": "osm-node-12954727021",
     "name": "Fahrrad-Servicestation Dornbirn – Köblern",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4133851,
     "long": 9.7045604
   },
   {
     "seedKey": "osm-node-13764734637",
     "name": "Fahrrad-Servicestation Dornbirn – Rohrbach",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4267936,
     "long": 9.7225918
   },
   {
     "seedKey": "osm-node-11196384574",
     "name": "Fahrrad-Servicestation Dornbirn – Selma-Mitteldorf-Park",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4037825,
     "long": 9.724847
   },
   {
     "seedKey": "osm-node-10013968145",
     "name": "Fahrrad-Servicestation Dornbirn – Stadtstraße",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4146736,
     "long": 9.7443642
   },
   {
     "seedKey": "osm-node-12328616220",
     "name": "Fahrrad-Servicestation Dornbirn – Sägerbrücke",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4061646,
     "long": 9.7415427
   },
   {
     "seedKey": "osm-node-11465849309",
     "name": "Fahrrad-Servicestation Dornbirn – Werkhof",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4027428,
     "long": 9.7498487
   },
   {
     "seedKey": "osm-node-12318418781",
     "name": "Fahrrad-Servicestation Dornbirn – inatura",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4095729,
     "long": 9.7380819
   },
   {
     "seedKey": "osm-node-13911853948",
     "name": "Fahrrad-Servicestation Egg – Freibad",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4307162,
     "long": 9.9020978
   },
   {
     "seedKey": "osm-node-9934004297",
     "name": "Fahrrad-Servicestation Feldkirch – Fidelisstraße",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.2399469,
     "long": 9.5972309
   },
   {
     "seedKey": "osm-node-9669917186",
     "name": "Fahrrad-Servicestation Feldkirch – Illspitz",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.2947541,
     "long": 9.5560626
   },
   {
     "seedKey": "osm-node-13815495132",
     "name": "Fahrrad-Servicestation Feldkirch – KSW Gisingen",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.2689221,
     "long": 9.6044461
   },
   {
     "seedKey": "osm-node-8021161026",
     "name": "Fahrrad-Servicestation Feldkirch – Katzenturm",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.238316,
     "long": 9.5966238
   },
   {
     "seedKey": "osm-node-9785200100",
     "name": "Fahrrad-Servicestation Feldkirch – Krankenpflegeschule Tisis",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.2292908,
     "long": 9.5823581
   },
   {
     "seedKey": "osm-node-12078889922",
     "name": "Fahrrad-Servicestation Feldkirch – Waldbad Gisingen",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.2575075,
     "long": 9.5834454
   },
   {
     "seedKey": "osm-node-9863535509",
     "name": "Fahrrad-Servicestation Frastanz – Rathaus",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.216865,
     "long": 9.630859
   },
   {
     "seedKey": "osm-node-8913684761",
     "name": "Fahrrad-Servicestation Frastanz – an der Ill",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.2228062,
     "long": 9.6462989
   },
   {
     "seedKey": "osm-node-11379257246",
     "name": "Fahrrad-Servicestation Göfis – Agasella",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.2436553,
     "long": 9.6440984
   },
   {
     "seedKey": "osm-node-9570974971",
     "name": "Fahrrad-Servicestation Götzis – Bahnhof",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.3368942,
     "long": 9.6374149
   },
   {
     "seedKey": "osm-node-9087870520",
     "name": "Fahrrad-Servicestation Hard – Auwald",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4968324,
     "long": 9.7006135
   },
   {
     "seedKey": "osm-node-13085002533",
     "name": "Fahrrad-Servicestation Hard – Rheinbrücke",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.477881,
     "long": 9.6676737
   },
   {
     "seedKey": "osm-node-13289944940",
     "name": "Fahrrad-Servicestation Hohenems – Bahnhof",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.364962,
     "long": 9.6818031
   },
   {
     "seedKey": "osm-node-8900331546",
     "name": "Fahrrad-Servicestation Hohenems – Erholungszentrum Rheinauen",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.3656931,
     "long": 9.6541302
   },
   {
     "seedKey": "osm-node-13150842509",
     "name": "Fahrrad-Servicestation Hohenems – Schulzentrum Herrenried",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.368447,
     "long": 9.6770196
   },
   {
     "seedKey": "osm-node-8841679455",
     "name": "Fahrrad-Servicestation Höchst – Brugg",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4520563,
     "long": 9.6611011
   },
   {
     "seedKey": "osm-node-8841750255",
     "name": "Fahrrad-Servicestation Höchst – TechnoPlast",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4660191,
     "long": 9.6488654
   },
   {
     "seedKey": "osm-node-9214450858",
     "name": "Fahrrad-Servicestation Klaus – Am Bach",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.3085121,
     "long": 9.6452299
   },
   {
     "seedKey": "osm-node-11249051374",
     "name": "Fahrrad-Servicestation Koblach – Gemeindeamt",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.3306424,
     "long": 9.6025623
   },
   {
     "seedKey": "osm-node-6346622318",
     "name": "Fahrrad-Servicestation Lauterach – Achweg",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4862005,
     "long": 9.7234736
   },
   {
     "seedKey": "osm-node-6865594041",
     "name": "Fahrrad-Servicestation Lauterach – Bahnweg",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.462885,
     "long": 9.7301841
   },
   {
     "seedKey": "osm-node-13703948103",
     "name": "Fahrrad-Servicestation Lauterach – Gebrüder Weiss",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4687094,
     "long": 9.7282865
   },
   {
     "seedKey": "osm-node-11961362671",
     "name": "Fahrrad-Servicestation Lauterach – Kohlenweg",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4754504,
     "long": 9.7244736
   },
   {
     "seedKey": "osm-node-11088781033",
     "name": "Fahrrad-Servicestation Lauterach – Rathaus",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4748752,
     "long": 9.7302649
   },
   {
     "seedKey": "osm-node-5536163755",
     "name": "Fahrrad-Servicestation Lauterach – Riedstraße",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4713922,
     "long": 9.7128723
   },
   {
     "seedKey": "osm-node-6865578038",
     "name": "Fahrrad-Servicestation Lauterach – Sportanlage Bruno Pezzey",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4600263,
     "long": 9.7225731
   },
   {
     "seedKey": "osm-node-12057430534",
     "name": "Fahrrad-Servicestation Lauterach – Weingartstraße",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4750882,
     "long": 9.7192959
   },
   {
     "seedKey": "osm-node-9077379295",
     "name": "Fahrrad-Servicestation Lochau – Alberloch",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.5342802,
     "long": 9.7463586
   },
   {
     "seedKey": "osm-node-14277738657",
     "name": "Fahrrad-Servicestation Lochau – Bahnhof",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.5301679,
     "long": 9.7425036
   },
   {
     "seedKey": "osm-node-8755336249",
     "name": "Fahrrad-Servicestation Ludesch – Sägebach",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.1907283,
     "long": 9.7725768
   },
   {
     "seedKey": "osm-node-8995822583",
     "name": "Fahrrad-Servicestation Lustenau – Am Rohr",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4008796,
     "long": 9.6596526
   },
   {
     "seedKey": "osm-node-8900331545",
     "name": "Fahrrad-Servicestation Meiningen – Frutzspitz",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.3168446,
     "long": 9.589463
   },
   {
     "seedKey": "osm-node-13767863461",
     "name": "Fahrrad-Servicestation Mellau – Bengatherbrücke",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.34476,
     "long": 9.8707924
   },
   {
     "seedKey": "osm-node-11198488877",
     "name": "Fahrrad-Servicestation Mittelberg – Stutzalpe",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.3185894,
     "long": 10.1321531
   },
   {
     "seedKey": "osm-node-9917092791",
     "name": "Fahrrad-Servicestation Mäder – Schule",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.3499271,
     "long": 9.6216097
   },
   {
     "seedKey": "osm-node-8900331544",
     "name": "Fahrrad-Servicestation Nenzing – Illbrücke",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.1918163,
     "long": 9.7133517
   },
   {
     "seedKey": "osm-node-13110835361",
     "name": "Fahrrad-Servicestation Nüziders",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.1628525,
     "long": 9.7993587
   },
   {
     "seedKey": "osm-node-10555126135",
     "name": "Fahrrad-Servicestation Rankweil – Freibad Frutzau",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.2829406,
     "long": 9.646334
   },
   {
     "seedKey": "osm-node-13793762601",
     "name": "Fahrrad-Servicestation Rankweil – Marktplatz",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.2701063,
     "long": 9.6424586
   },
   {
     "seedKey": "osm-node-9733120938",
     "name": "Fahrrad-Servicestation Rankweil – Paspels-Seen",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.2809514,
     "long": 9.5907661
   },
   {
     "seedKey": "osm-node-13793762401",
     "name": "Fahrrad-Servicestation Rankweil – Volksschule Markt",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.2697965,
     "long": 9.6423261
   },
   {
     "seedKey": "osm-node-12096566969",
     "name": "Fahrrad-Servicestation St. Gallenkirch – Grasjochhütte",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.050282,
     "long": 9.9922948
   },
   {
     "seedKey": "osm-node-14154831982",
     "name": "Fahrrad-Servicestation Thüringen – Mittelschule",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.1967317,
     "long": 9.7663471
   },
   {
     "seedKey": "osm-node-12115365781",
     "name": "Fahrrad-Servicestation Tschagguns – Aktivpark Montafon",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.0715996,
     "long": 9.9147105
   },
   {
     "seedKey": "osm-node-13110867693",
     "name": "Fahrrad-Servicestation Vandans – Illweg",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.1128925,
     "long": 9.8596053
   },
   {
     "seedKey": "osm-node-12088564760",
     "name": "Fahrrad-Servicestation Vandans – Rätikonbad",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.0952084,
     "long": 9.8693516
   },
   {
     "seedKey": "osm-node-8341410201",
     "name": "Fahrrad-Servicestation Wolfurt – Radcult",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4733025,
     "long": 9.751844
   },
   {
     "seedKey": "osm-node-12964891523",
     "name": "Fahrrad-Servicestation Wolfurt – Zieglerstraße",
+    "description": "Quelle: © OpenStreetMap-Mitwirkende (ODbL)",
     "lat": 47.4647698,
     "long": 9.743717
   }

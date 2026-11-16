@@ -34,6 +34,8 @@ class MapSeedService(
     internal data class MapSeed(
         val seedKey: String = "",
         val name: String = "",
+        /** Source credit, e.g. the ODbL attribution OpenStreetMap data requires. */
+        val description: String = "",
         val lat: Double? = null,
         val long: Double? = null,
     )
@@ -67,9 +69,10 @@ class MapSeedService(
         val now = Clock.System.now()
         val entries = missing.mapNotNull { seed ->
             val name = seed.name.trim()
+            val description = seed.description.trim()
             val lat = seed.lat
             val long = seed.long
-            if (name.isEmpty() || name.length > MAX_NAME_LENGTH ||
+            if (name.isEmpty() || name.length > MAX_NAME_LENGTH || description.length > MAX_DESCRIPTION_LENGTH ||
                 lat == null || lat !in -90.0..90.0 || long == null || long !in -180.0..180.0
             ) {
                 AppLogger.warn("Skipping invalid map seed '${seed.seedKey}'", tag = "seed_map_invalid_entry")
@@ -78,7 +81,7 @@ class MapSeedService(
             MapEntry(
                 coordinates = LatLong(lat = lat, long = long),
                 name = name,
-                description = "",
+                description = description,
                 locationData = listOf(LocationData.BikeServiceStation(bikeServiceStationMostlyWorking = null)),
                 createdBy = admin.id,
                 createdAt = now,
@@ -96,7 +99,8 @@ class MapSeedService(
     private companion object {
         const val SEED_FILE = "seed/map_bike_service_stations.json"
 
-        /** Same limit as `SchneaggmapController.MapEntryRequest.name`. */
+        /** Same limits as `SchneaggmapController.MapEntryRequest`. */
         const val MAX_NAME_LENGTH = 100
+        const val MAX_DESCRIPTION_LENGTH = 500
     }
 }
