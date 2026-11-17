@@ -7,9 +7,6 @@ data class FeedbackEntryResponse(
     val type: FeedbackType,
     val title: String,
     val description: String,
-    /** First 200 characters of [description]. Only old clients still read it. */
-    @Deprecated("Old clients only, use description. Remove in the next release.")
-    val descriptionPreview: String,
     val tags: List<FeedbackTag>,
     val status: FeedbackStatus,
     val upvotes: Int,
@@ -23,21 +20,23 @@ data class FeedbackEntryResponse(
     @get:JsonProperty("isNotNeeded") val isNotNeeded: Boolean,
     val commentCount: Int,
     val latestDevComment: String?,
-    val creatorName: String?,
+    /** The creator's user id, for every viewer; null for seeded entries. The client resolves the name. */
+    val creatorId: String?,
     @get:JsonProperty("isOwn") val isOwn: Boolean,
     val canDelete: Boolean,
+    /** The viewer is the creator or an admin, and the entry is not seeded. */
+    val canEdit: Boolean,
+    /** Epoch millis of the last edit, null when never edited. */
+    val editedAt: Long?,
     @get:JsonProperty("isSeeded") val isSeeded: Boolean,
+    /** Key of the seed this entry comes from (as in seed/feedback_features.json), null for user entries. */
+    val seedKey: String?,
     @get:JsonProperty("isPremium") val isPremium: Boolean,
     val createdAt: Long,
     /** Epoch millis. The client sends it back as the IdTimeStamp timestamp on `/feedback/sync`. */
     val updatedAt: Long,
     /** Epoch millis, see [FeedbackEntry.activityAt]. Compare with a stored `serverTime`, not the device clock. */
     val activityAt: Long,
-)
-
-data class FeedbackListResponse(
-    val viewerIsAdmin: Boolean,
-    val entries: List<FeedbackEntryResponse>,
 )
 
 data class FeedbackSyncResponse(
@@ -56,14 +55,18 @@ data class FeedbackSyncResponse(
 
 data class FeedbackCommentResponse(
     val id: String,
+    /** The client resolves the name (its user rows, else `/users/lookup`). */
     val authorId: String,
-    val authorName: String?,
     val text: String,
     @get:JsonProperty("isDevComment") val isDevComment: Boolean,
     val canDelete: Boolean,
+    /** The viewer is the author. Admins edit only their own comments. */
+    val canEdit: Boolean,
     val appVersion: String?,
     val platform: String?,
     val createdAt: Long,
+    /** Epoch millis of the last edit, null when never edited. */
+    val editedAt: Long?,
 )
 
 data class FeedbackEntryDetailResponse(

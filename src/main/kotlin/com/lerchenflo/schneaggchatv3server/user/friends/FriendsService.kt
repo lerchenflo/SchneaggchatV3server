@@ -321,4 +321,27 @@ class FriendsService(
         notificationService.notifyRelationChange(recipientId = userId, otherUserId = friendId)
     }
 
+    /**
+     * [changedUserIds] joined or left a group whose other members are [otherUserIds] (or the group
+     * was created or deleted: then both are all of its members). With "friends and groups", a
+     * shared group decides picture access for a pending, declined or blocked friendship, so each
+     * such row between the two sides is bumped (next /users/sync) and pushed to both sides, like a
+     * friendship change. Accepted friends always see each other's picture and are left alone. A row
+     * is also bumped when the two still share another group - a harmless extra resend.
+     */
+    fun onSharedGroupChanged(changedUserIds: Collection<ObjectId>, otherUserIds: Collection<ObjectId>) {
+        val others = otherUserIds.toSet()
+        val handled = mutableSetOf<ObjectId>()
+
+        changedUserIds.toSet().forEach { userId ->
+            friendsLookupService.getNonAcceptedRowsBetween(userId, others - userId)
+                .filter { handled.add(it.id) }
+                .forEach { row ->
+                    friendsLookupService.touchFriendship(row.id)
+                    notificationService.notifyRelationChange(recipientId = row.userId1, otherUserId = row.userId2)
+                    notificationService.notifyRelationChange(recipientId = row.userId2, otherUserId = row.userId1)
+                }
+        }
+    }
+
 }

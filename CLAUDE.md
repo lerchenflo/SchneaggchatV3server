@@ -4,7 +4,8 @@
 
 - Change code only in this repository (the server). Never edit code in the client repository `SchneaggchatV3` (usually `~/Desktop/SchneaggchatV3`). This covers subagents too.
 - Reading the client repository is allowed: research may search it, and `flow-stability` may trace a flow across both repositories.
-- When a server change needs a client change, add it to the client repository's `plans/Todo.md`. That is the only client file agents may write to.
+- When a server change the user approved needs a client change: if a `SchneaggchatV3` session is live (`ListAgents`), send it with `SendMessage`; otherwise add it to the client repository's `plans/Todo.md`. That is the only client file agents may write to.
+- A handover describes the functionality and the exact field names, not the client's structure; the client agent designs its side. Requests from the client work the same way: they name what the server must do and the fields the client sends or reads, and this side decides the server structure and replies with the contract it built. See "Client and server projects" in the global `~/.claude/CLAUDE.md`.
 
 ## Website i18n (`src/main/resources/static/i18n/`)
 
@@ -18,6 +19,7 @@
 
 ## Local Docker test
 
-- `scripts/docker-test/run.sh` runs `./gradlew test` and an end-to-end delivery test (`e2e.py`: real server, sockets, Mongo, Redis) against throwaway containers. `run.sh unit` and `run.sh e2e` run one part. It never touches `mongodb_data` or the compose stack.
+- `scripts/docker-test/run.sh` runs `./gradlew test`, an end-to-end delivery test (`e2e.py`: sockets, pushes) and an API test (`api_test.py`: fills every field, calls every controller route, fails on 5XX, on unexpected `ERROR` log lines and on routes it never calls) against throwaway containers. `run.sh unit`, `run.sh e2e` and `run.sh api` run one part. Both end-to-end parts run the server in a container built from `./Dockerfile` (so `/app` media paths exist); the build context holds only the sources. It never touches `mongodb_data` or the compose stack.
+- A new endpoint must be added to `api_test.py`, or the API test fails with "route never called".
 - `contextLoads` only passes with Mongo running, so use this script instead of a plain `./gradlew test` when the Spring wiring changed.
 - Firebase and APNs are not configured there, so `e2e.py` proves that a push was attempted, not that it arrived.

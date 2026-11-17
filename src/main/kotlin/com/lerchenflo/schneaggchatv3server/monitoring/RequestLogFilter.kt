@@ -66,7 +66,7 @@ class RequestLogFilter(
                     endpoint = pattern ?: if (status >= 400) RequestCountService.UNMATCHED_ENDPOINT else normalizedPath(context.path),
                     status = status,
                 )
-                if (status >= 400) {
+                if (status >= 400 && !context.expectedFailure) {
                     appLogService.logFailedRequest(
                         context = context,
                         status = status,

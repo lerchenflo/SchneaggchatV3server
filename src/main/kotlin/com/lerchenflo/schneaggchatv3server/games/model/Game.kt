@@ -70,7 +70,12 @@ enum class Game(
 
     // Daily C puzzle without a difficulty (always MEDIUM): 100 / 60 / 30 points for solving on the
     // first / second / third try, failed runs submit nothing. The solve time ranks equal points.
-    C_CHALLENGE(higherScoreWins = true, lowerTimeWins = true, maxScore = 100);
+    C_CHALLENGE(higherScoreWins = true, lowerTimeWins = true, maxScore = 100),
+
+    // Feature quiz without a difficulty (always MEDIUM): score = correct answers of a round, timeMillis
+    // = the round's answering time (paused while the player votes on feedback entries). No upper cap,
+    // so the client can change the round size without a server change.
+    FEATURE_QUIZ(higherScoreWins = true, lowerTimeWins = true);
 
     /** Best result first: score, then time as tiebreaker, earliest submission wins full ties. */
     fun leaderboardSort(): Sort = Sort.by(

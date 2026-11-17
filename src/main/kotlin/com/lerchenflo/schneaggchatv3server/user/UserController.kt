@@ -10,7 +10,10 @@ import com.lerchenflo.schneaggchatv3server.notifications.push.PushProvider
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.NewFriendsUserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.PinnedChat
+import com.lerchenflo.schneaggchatv3server.user.usermodel.ProfilePicVisibility
+import com.lerchenflo.schneaggchatv3server.user.usermodel.UserLookupResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.UserRequest
+import com.lerchenflo.schneaggchatv3server.util.RequestLogContext
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -108,17 +111,40 @@ class UserController(
 
 
 
+    data class UserLookupRequest(
+        @field:Size(max = UserService.LOOKUP_MAX_IDS, message = "At most ${UserService.LOOKUP_MAX_IDS} user ids per lookup")
+        val userIds: List<String>,
+    )
+
+    /** Names and picture timestamps for user ids the client has no user row for. */
+    @PostMapping("/lookup")
+    fun lookupUsers(
+        @Valid @RequestBody request: UserLookupRequest
+    ): UserLookupResponse {
+        require(request.userIds.all { ValidationUtils.validateObjectId(it) }) { "Invalid user ID" }
+        val requestingUserId = requireAuth()
+
+        return userService.lookupUsers(requestingUserId, request.userIds.map { ObjectId(it) })
+    }
+
     @GetMapping("/profilepic/{id}")
     fun getProfilePic(@PathVariable("id") userId: String): ResponseEntity<ByteArray> {
         require(ValidationUtils.validateObjectId(userId)) { "Invalid user ID" }
         val requestingUserId = requireAuth()
 
-        val imageBytes = userService.getProfilePic(requestingUserId, ObjectId(userId))
-            ?: return ResponseEntity.notFound().build()
+        return when (val result = userService.getProfilePic(requestingUserId, ObjectId(userId))) {
+            is UserService.ProfilePicResult.Image -> ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(result.bytes)
 
-        return ResponseEntity.ok()
-            .contentType(MediaType.IMAGE_JPEG)
-            .body(imageBytes)
+            UserService.ProfilePicResult.Hidden -> {
+                // Hidden by the owner's picture setting: normal behaviour, so no request log row
+                RequestLogContext.current()?.expectedFailure = true
+                ResponseEntity.status(HttpStatus.FORBIDDEN).build()
+            }
+
+            UserService.ProfilePicResult.NotFound -> ResponseEntity.notFound().build()
+        }
     }
 
     @PostMapping("/setprofilepic")
@@ -240,6 +266,8 @@ class UserController(
         // means "leave unchanged" here, while a null stored value means "use the defaults".
         val resetQuickReactions: Boolean? = null,
         val developerSettings: Boolean? = null,
+        // Unknown value: the body can't be read, so 400
+        val profilePicVisibility: ProfilePicVisibility? = null,
         val lastContributePopupShown: Long? = null,
         val lastDismissedAnnouncementId: Long? = null,
     )
@@ -265,6 +293,7 @@ class UserController(
             quickReactions = request.quickReactions,
             resetQuickReactions = request.resetQuickReactions,
             developerSettings = request.developerSettings,
+            profilePicVisibility = request.profilePicVisibility,
             lastContributePopupShown = request.lastContributePopupShown,
             lastDismissedAnnouncementId = request.lastDismissedAnnouncementId,
         )

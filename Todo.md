@@ -4,6 +4,38 @@ Collected follow-ups and checks for the server, so no thought gets lost. Each it
 
 ---
 
+## From the client (handovers)
+
+Built on `beta` (2026-11-15), contracts in the client plans: "Profile picture privacy setting" (`SchneaggchatV3/plans/PROFILE_PICTURE_PRIVACY_PLAN.md`), "User names by id" (`SchneaggchatV3/plans/USER_NAMES_BY_ID_PLAN.md`) and "Feedback: edit entries and own comments" (`/feedback/edit`, `/feedback/editcomment`, `canEdit` + `editedAt` on entries and comments; contract agreed with the client session).
+
+---
+
+## Road to end-to-end encryption
+
+Source: client session 2026-11-12, plan written on the user's request.
+
+- [ ] **Plan: `docs/E2E_ROADMAP_SERVER_PLAN.md`** (client side: `SchneaggchatV3/plans/E2E_ROADMAP_PLAN.md`). Fixed order: the client first merges its inbound message handling (no server work), then chat-based addressing ships in one release with the client (`chatId` replaces `receiverId` + `groupMessage`, new `chats` / `chatmembers` collections, `/chats/*` replaces `/groups/*`, data migration before serving), then E2E Phase 0 (key endpoints, share store, backup store). Section 2 of the plan is the wire contract; reply to the client with the contract as built. Nothing is approved to build yet: the user starts each stage.
+- [ ] `docs/UNIFIED_NOTIFICATIONS_PLAN.md` names the client plan `DEVICE_AWARE_PUSH_PLAN.md`, which was deleted on 2026-11-12 (superseded by this server plan; text in the client's git history at `ca7d0ee7`). Drop or reword the reference.
+
+---
+
+## Needs client changes (next week, before the next update)
+
+Source: E2E roadmap pre-releases (`docs/E2E_ROADMAP_SERVER_PLAN.md` section 1.5), user 2026-11-16: they break the released client, so they ship together with the next client release. No compatibility code, no dual formats.
+
+- [ ] **F12: the acting user's other devices get no socket update.** `NotificationService.notifyMessageUpdate` leaves out every device of the changing user. Same as phase 6 of `docs/UNIFIED_NOTIFICATIONS_PLAN.md` (decision D2): send the change as `Live` (socket only, never a push) to every device of the actor except the acting one, via `Actor(userId, deviceId)` on `notifyMessageUpdate`, `notifyMapUpdate` and the reaction path. Needs the client first: the released app would show a notification for the user's own new messages on their other devices.
+- [ ] **F16: read receipts send one socket frame per message.** `MessageService.setMessagesRead` calls `notifyMessageUpdate` once per updated message. Send one frame per mark-read call with all changed messages (new `SocketConnectionMessage` subtype plus its `@JsonSubTypes` entry) and drop the per-message frames in the same release. Needs the client to read the new type.
+
+---
+
+## One-shot startup migrations: remove once done
+
+Source: user 2026-11-16. One-shot migrations run in `MainController.onStartup` (no separate migration runner, see E2E plan F24). Each new one goes on this list.
+
+- [ ] Remove every one-shot startup migration once the server ran it on production: `MainController.purgeMessagesOfDeletedGroups` (messages and media of deleted groups) and `MainController.deleteMembersOfDeletedGroups` with `GroupLookupService.deleteMembersOfDeletedGroups` and `GroupMemberRepository.deleteByGroupIdIn` (member rows of deleted groups). `GroupStaleMemberCleanupTest` tests that cleanup: drop its cleanup part with it and keep the `isUserInGroup` checks.
+
+---
+
 ## GitHub issues
 
 Source: open issues of `lerchenflo/SchneaggchatV3server`, read 2026-11-06. Close an issue on GitHub when its item here is done.
@@ -51,23 +83,18 @@ The app's Schneaggmap settings have a new synced setting `sortMapUsersByPinned` 
 
 Source: user request (2026-11-06), GitHub issue #947. The client items are in the app repo's `plans/Todo.md`.
 
-- [ ] Next release: remove the deprecated `GET /feedback/list` (`FeedbackController.list`, `FeedbackService.list`, `FeedbackListResponse`) and `FeedbackEntryResponse.descriptionPreview` with `previewOf`. Only clients from before `/feedback/sync` (2026-11-08) still use them; remove once the client release with the sync is out.
 - [ ] Pinned requests: a `pinned` field on `FeedbackEntry`, an admin endpoint guarded by `AdminGuard` like `/feedback/status`, and the field in the entry response. Old clients ignore it.
 
 ---
 
 ## Event reminders
 
-Source: user request (2026-10-18), decided in the interview of 2026-11-05. Not started, comes after the device-aware push work.
+Source: user request (2026-10-18), decided in the interview of 2026-11-05 and 2026-11-08 (client plan `SchneaggchatV3/plans/EVENT_NOTIFICATIONS_PLAN.md`).
 
-The event creator picks the reminders per event, several at once, from fixed presets: none, 1 hour, 6 hours, 1 day, 2 days before the start. Replaces the older wish for a day-before and a day-of reminder.
+Server part built 2026-11-08 (on `beta`): `Event.reminderMinutes` + `sentReminders`, `EventReminderScheduler` (every 60 s), push `event_reminder` / socket `eventreminder`, change alert push `event_update` / socket `eventupdatealert` (START, LOCATION, CANCELLED), system messages `EVENT_START_CHANGED` / `EVENT_LOCATION_CHANGED` / `EVENT_CANCELLED`, participant names (removed again on 2026-11-15 by "User names by id": the client resolves the user ids).
 
-- [ ] Field on `Event`: the picked lead times (empty = none), set on create and edit. Still open: what events from released clients get, which do not send the field.
-- [ ] Scheduler next to `notifications/BirthdayNotificationScheduler.kt` that runs every few minutes, not daily like the birthdays, finds due reminders and sends them through `NotificationService` (socket, FCM, APNs).
-- [ ] Recipients: users with `EventParticipationStatus.ACCEPTED` plus the creator. No opt-out for now.
-- [ ] Send each reminder only once: remember it per event and lead time, reset when `startDate` changes, skip ended events (`Event.hasEnded`) and skip lead times that are already past when the event gets created.
-- [ ] Payload: a new `NotificationResponse` subtype or a flag on `EventNotificationResponse`. Older clients drop an unknown `_class`, and a reused `event` type would show as a new event, so check what released clients do with either. Add the APNs fallback title/body in `ApnsService.buildPayload`.
-- [ ] Client: lead time picker on the event create and edit screens, show the reminder (texts in all locales) and open the event on tap.
+- [ ] Release order: the client release with these types must go out before this server reaches `main`. Older apps show the new pushes as a generic notification and the new system messages as "Chat updated".
+- [ ] Client: reminder picker, showing reminders and change alerts, the new system message texts, names in the participant list (client agent, see the plan).
 
 ---
 
@@ -84,3 +111,4 @@ Source: user bug report (2026-10-21): two accounts with the same email, password
 Source: firebase-admin update check (2026-10-30). firebase-admin 9.10.0 deprecated sending to an FCM token (`Message.Builder.setToken`, `MulticastMessage` tokens) in favor of the Firebase Installation ID (`setFid`). Tokens still work and the release notes give no removal date. The client part is tracked in the client `plans/Todo.md` (P3).
 
 - [ ] Accept and store the FID (`/users/setnotificationtoken` in `user/UserController.kt:51`, `notifications/firebase/model/FirebaseToken.kt`, `ValidationUtils.validateNotificationToken` - an FID has a different format than a token) and send with `setFid` in `FirebaseService.constructMessage`. Keep `setToken` for the released clients until none of them is left. The token cleanup on FCM "unregistered" errors has to cover FIDs too. Done before the client starts sending FIDs.
+

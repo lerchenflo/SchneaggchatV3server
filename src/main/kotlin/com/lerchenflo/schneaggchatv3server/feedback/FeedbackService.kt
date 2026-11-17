@@ -17,9 +17,12 @@ import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import com.lerchenflo.schneaggchatv3server.util.withOptimisticRetry
 import org.bson.types.ObjectId
+import org.springframework.data.mongodb.core.FindAndModifyOptions
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.aggregation.Aggregation
 import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.Update
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
 import org.springframework.stereotype.Service
@@ -33,7 +36,8 @@ import kotlin.time.Instant
 /**
  * In-app feedback board: feature requests and bug reports that users vote and comment on.
  * Clients keep the board locally and catch up through [sync]. There is no socket message and no
- * push notification. Every write that changes an entry's response moves [FeedbackEntry.updatedAt].
+ * push notification. Every write that changes an entry's response moves [FeedbackEntry.updatedAt],
+ * edits of entries and comments included.
  */
 @Service
 class FeedbackService(
@@ -45,11 +49,6 @@ class FeedbackService(
     private val rateLimitProperties: RateLimitProperties,
     private val mongoTemplate: MongoTemplate,
 ) {
-
-    private companion object {
-        /** Length of the deprecated [FeedbackEntryResponse.descriptionPreview]. Remove with it. */
-        const val DESCRIPTION_PREVIEW_LENGTH = 200
-    }
 
     // ─── Reads ────────────────────────────────────────────────────────────────
 
@@ -89,23 +88,10 @@ class FeedbackService(
         )
     }
 
-    /** Live fetch of old clients. New clients use [sync]. Remove in the next release. */
-    @Deprecated("Old clients only, use sync. Remove in the next release.")
-    fun list(type: FeedbackType, viewerId: ObjectId): FeedbackListResponse {
-        val viewerIsAdmin = isAdmin(viewerId)
-        val entries = entryRepository.findByTypeAndDeletedFalse(type)
-        return FeedbackListResponse(
-            viewerIsAdmin = viewerIsAdmin,
-            entries = toEntryResponses(entries, viewerId, viewerIsAdmin),
-        )
-    }
-
     fun details(entryId: ObjectId, viewerId: ObjectId): FeedbackEntryDetailResponse {
         val viewerIsAdmin = isAdmin(viewerId)
         val entry = findActiveEntry(entryId)
         val comments = commentRepository.findByEntryIdOrderByCreatedAtAsc(entryId)
-
-        val authorNames = usernamesById(comments.map { it.authorId })
 
         return FeedbackEntryDetailResponse(
             entry = toEntryResponses(listOf(entry), viewerId, viewerIsAdmin).single(),
@@ -113,7 +99,7 @@ class FeedbackService(
             location = entry.location,
             appVersion = entry.appVersion,
             platform = entry.platform,
-            comments = comments.map { it.toResponse(authorNames[it.authorId], viewerId, viewerIsAdmin) },
+            comments = comments.map { it.toResponse(viewerId, viewerIsAdmin) },
         )
     }
 
@@ -130,17 +116,10 @@ class FeedbackService(
         platform: String?,
         requesterId: ObjectId,
     ): FeedbackEntryResponse {
-        val trimmedTitle = title.trim()
-        val trimmedDescription = description.trim()
-        // Location only makes sense for features ("where to find it") - silently dropped for bugs.
-        val trimmedLocation = if (type == FeedbackType.FEATURE) location?.trim()?.ifEmpty { null } else null
+        val fields = validEntryFields(type, title, description, tags, location)
         val trimmedAppVersion = appVersion?.trim()?.ifEmpty { null }
         val trimmedPlatform = platform?.trim()?.ifEmpty { null }
 
-        require(ValidationUtils.validateFeedbackTitle(trimmedTitle)) { "Title must be 3 to 100 characters" }
-        require(ValidationUtils.validateFeedbackDescription(trimmedDescription)) { "Description must be 1 to 2000 characters" }
-        require(ValidationUtils.validateFeedbackTags(tags.size, tags.distinct().size)) { "Pick 1 to 3 distinct tags" }
-        require(ValidationUtils.validateFeedbackLocation(trimmedLocation)) { "Location too long" }
         require(ValidationUtils.validateFeedbackAppVersion(trimmedAppVersion)) { "App version too long" }
         require(ValidationUtils.validateFeedbackPlatform(trimmedPlatform)) { "Platform too long" }
 
@@ -149,11 +128,11 @@ class FeedbackService(
         val saved = entryRepository.save(
             FeedbackEntry(
                 type = type,
-                title = trimmedTitle,
-                description = trimmedDescription,
+                title = fields.title,
+                description = fields.description,
                 tags = tags,
                 status = FeedbackStatus.initialFor(type),
-                location = trimmedLocation,
+                location = fields.location,
                 // Like location, premium only exists on features - silently dropped for bugs.
                 premium = premium && type == FeedbackType.FEATURE,
                 creatorId = requesterId,
@@ -229,7 +208,95 @@ class FeedbackService(
         touchEntry(entryId, activity = entry.creatorId != requesterId)
         loggingService.log(requesterId, LogType.FEEDBACK_COMMENT_CREATED, "entry=${entryId.toHexString()}")
 
-        return saved.toResponse(author.username, requesterId, authorIsAdmin)
+        return saved.toResponse(requesterId, authorIsAdmin)
+    }
+
+    /**
+     * Creator or admin. Seeded entries are read-only for everyone (the seed file would overwrite an
+     * edit), so 403; anyone else gets the same 404 as for an unknown id, like [deleteEntry].
+     *
+     * A type change resets the status to the start status of the new type and drops the votes the
+     * new type and status can't hold ("didn't know", and "don't need it" on a bug); up and down votes
+     * stay. Premium and location only exist on features, so a switch to a bug clears both; premium is
+     * not editable, so it does not come back on a switch back to a feature.
+     *
+     * An edit is no news for others: it moves [FeedbackEntry.updatedAt] for the sync, never
+     * [FeedbackEntry.activityAt]. An edit that changes nothing writes nothing and sets no
+     * [FeedbackEntry.editedAt].
+     */
+    fun editEntry(
+        entryId: ObjectId,
+        type: FeedbackType,
+        title: String,
+        description: String,
+        tags: List<FeedbackTag>,
+        location: String?,
+        requesterId: ObjectId,
+    ): FeedbackEntryResponse {
+        val fields = validEntryFields(type, title, description, tags, location)
+        val requesterIsAdmin = isAdmin(requesterId)
+
+        val current = findActiveEntry(entryId)
+        if (current.seedKey != null) throw ResponseStatusException(HttpStatus.FORBIDDEN, "Seeded entries can't be edited")
+        val isOwn = current.creatorId != null && current.creatorId == requesterId
+        if (!(isOwn || requesterIsAdmin)) throw entryNotFound()
+        requireWithinRateLimit(requesterId, RateLimitTier.FEEDBACK_EDIT)
+
+        var changed = false
+        val saved = withOptimisticRetry {
+            val entry = findActiveEntry(entryId)
+            val typeChanged = type != entry.type
+            val edited = entry.copy(
+                type = type,
+                title = fields.title,
+                description = fields.description,
+                tags = tags,
+                location = fields.location,
+                status = if (typeChanged) FeedbackStatus.initialFor(type) else entry.status,
+                premium = entry.premium && type == FeedbackType.FEATURE,
+                votes = if (!typeChanged) entry.votes else entry.votes.filterValues {
+                    it != FeedbackVote.DIDNT_KNOW && !(it == FeedbackVote.NOT_NEEDED && type == FeedbackType.BUG)
+                },
+            )
+            changed = edited != entry
+            if (!changed) entry
+            else {
+                val stamp = nextStamp(entry)
+                entryRepository.save(edited.copy(updatedAt = stamp, editedAt = stamp))
+            }
+        }
+        if (changed) loggingService.log(requesterId, LogType.FEEDBACK_EDITED, "entry=${entryId.toHexString()} type=$type")
+
+        return toEntryResponses(listOf(saved), requesterId, requesterIsAdmin).single()
+    }
+
+    /**
+     * Author only, admins included (they edit only their own comments); anyone else gets the same
+     * 404 as for an unknown id, like [deleteComment]. [FeedbackComment.devComment] keeps its value
+     * from the time of writing. Moves the entry's sync cursor (its latest dev comment may change),
+     * never its activity. The same text again writes nothing and sets no [FeedbackComment.editedAt].
+     */
+    fun editComment(commentId: ObjectId, text: String, requesterId: ObjectId): FeedbackCommentResponse {
+        val trimmedText = text.trim()
+        require(ValidationUtils.validateFeedbackComment(trimmedText)) { "Comment must be 1 to 1000 characters" }
+
+        val comment = commentRepository.findById(commentId).getOrNull()?.takeIf { it.authorId == requesterId }
+            ?: throw commentNotFound()
+        val requesterIsAdmin = isAdmin(requesterId)
+        if (comment.text == trimmedText) return comment.toResponse(requesterId, requesterIsAdmin)
+        requireWithinRateLimit(requesterId, RateLimitTier.FEEDBACK_EDIT)
+
+        // Update in place instead of save(): a comment deleted in the meantime must stay deleted.
+        val saved = mongoTemplate.findAndModify(
+            Query(Criteria.where("_id").`is`(commentId)),
+            Update().set("text", trimmedText).set("editedAt", Clock.System.now()),
+            FindAndModifyOptions.options().returnNew(true),
+            FeedbackComment::class.java,
+        ) ?: throw commentNotFound()
+        touchEntry(comment.entryId, activity = false)
+        loggingService.log(requesterId, LogType.FEEDBACK_COMMENT_EDITED, "comment=${commentId.toHexString()}")
+
+        return saved.toResponse(requesterId, requesterIsAdmin)
     }
 
     /**
@@ -256,11 +323,8 @@ class FeedbackService(
     }
 
     fun deleteComment(commentId: ObjectId, requesterId: ObjectId) {
-        val comment = commentRepository.findById(commentId).getOrNull()
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found")
-        if (comment.authorId != requesterId && !isAdmin(requesterId)) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found")
-        }
+        val comment = commentRepository.findById(commentId).getOrNull() ?: throw commentNotFound()
+        if (comment.authorId != requesterId && !isAdmin(requesterId)) throw commentNotFound()
 
         commentRepository.deleteById(commentId)
         touchEntry(comment.entryId, activity = false)
@@ -302,6 +366,30 @@ class FeedbackService(
 
     private fun entryNotFound() = ResponseStatusException(HttpStatus.NOT_FOUND, "Feedback entry not found")
 
+    private fun commentNotFound() = ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found")
+
+    /** Trimmed entry texts that passed the create and edit checks. */
+    private data class EntryFields(val title: String, val description: String, val location: String?)
+
+    private fun validEntryFields(
+        type: FeedbackType,
+        title: String,
+        description: String,
+        tags: List<FeedbackTag>,
+        location: String?,
+    ): EntryFields {
+        val trimmedTitle = title.trim()
+        val trimmedDescription = description.trim()
+        // Location only makes sense for features ("where to find it") - silently dropped for bugs.
+        val trimmedLocation = if (type == FeedbackType.FEATURE) location?.trim()?.ifEmpty { null } else null
+
+        require(ValidationUtils.validateFeedbackTitle(trimmedTitle)) { "Title must be 3 to 100 characters" }
+        require(ValidationUtils.validateFeedbackDescription(trimmedDescription)) { "Description must be 1 to 2000 characters" }
+        require(ValidationUtils.validateFeedbackTags(tags.size, tags.distinct().size)) { "Pick 1 to 3 distinct tags" }
+        require(ValidationUtils.validateFeedbackLocation(trimmedLocation)) { "Location too long" }
+        return EntryFields(trimmedTitle, trimmedDescription, trimmedLocation)
+    }
+
     /**
      * Next [FeedbackEntry.updatedAt] for [entry]: now, but at least 1 ms after the current value. Two
      * writes in the same millisecond would otherwise share a timestamp, and a client that synced
@@ -327,17 +415,11 @@ class FeedbackService(
     private fun isAdmin(userId: ObjectId): Boolean =
         userLookupService.findById(userId)?.role == UserRole.ADMIN
 
-    private fun usernamesById(ids: Collection<ObjectId>): Map<ObjectId, String> {
-        val distinct = ids.distinct()
-        if (distinct.isEmpty()) return emptyMap()
-        return userLookupService.findAllById(distinct).associate { it.id to it.username }
-    }
-
     /**
      * Builds responses for a batch of entries with a constant number of queries: one aggregation for
-     * the comment counts, one find for the dev comments, one user lookup for creator names.
+     * the comment counts, one find for the dev comments. Users appear only by id (creator, comment
+     * authors); the client resolves the names.
      */
-    @Suppress("DEPRECATION") // descriptionPreview stays until old clients are gone
     private fun toEntryResponses(
         entries: List<FeedbackEntry>,
         viewerId: ObjectId,
@@ -350,7 +432,6 @@ class FeedbackService(
         val latestDevComments = commentRepository.findByEntryIdInAndDevCommentTrue(entryIds)
             .groupBy { it.entryId }
             .mapValues { (_, comments) -> comments.maxBy { it.createdAt }.text }
-        val creatorNames = usernamesById(entries.mapNotNull { it.creatorId })
         val viewerKey = viewerId.toHexString()
 
         return entries.map { entry ->
@@ -370,7 +451,6 @@ class FeedbackService(
                 type = entry.type,
                 title = entry.title,
                 description = entry.description,
-                descriptionPreview = previewOf(entry.description),
                 tags = entry.tags,
                 status = entry.status,
                 upvotes = entry.votes.values.count { it == FeedbackVote.UP },
@@ -381,10 +461,13 @@ class FeedbackService(
                 isNotNeeded = isNotNeeded,
                 commentCount = commentCounts[entry.id] ?: 0,
                 latestDevComment = latestDevComments[entry.id],
-                creatorName = entry.creatorId?.let { creatorNames[it] },
+                creatorId = entry.creatorId?.toHexString(),
                 isOwn = isOwn,
                 canDelete = isOwn || viewerIsAdmin,
+                canEdit = (isOwn || viewerIsAdmin) && entry.seedKey == null,
+                editedAt = entry.editedAt?.toEpochMilliseconds(),
                 isSeeded = entry.seedKey != null,
+                seedKey = entry.seedKey,
                 isPremium = entry.premium,
                 createdAt = entry.createdAt.toEpochMilliseconds(),
                 updatedAt = entry.updatedAt.toEpochMilliseconds(),
@@ -405,25 +488,20 @@ class FeedbackService(
             .associate { it.id to it.count }
     }
 
-    /** For the deprecated [FeedbackEntryResponse.descriptionPreview]. Remove with it. */
-    private fun previewOf(description: String): String =
-        if (description.length <= DESCRIPTION_PREVIEW_LENGTH) description
-        else description.take(DESCRIPTION_PREVIEW_LENGTH) + "…"
-
     private fun FeedbackComment.toResponse(
-        authorName: String?,
         viewerId: ObjectId,
         viewerIsAdmin: Boolean,
     ) = FeedbackCommentResponse(
         id = id.toHexString(),
         authorId = authorId.toHexString(),
-        authorName = authorName,
         text = text,
         isDevComment = devComment,
         canDelete = authorId == viewerId || viewerIsAdmin,
+        canEdit = authorId == viewerId,
         appVersion = appVersion,
         platform = platform,
         createdAt = createdAt.toEpochMilliseconds(),
+        editedAt = editedAt?.toEpochMilliseconds(),
     )
 
     /**

@@ -6,7 +6,6 @@ import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.repository.MapEntryRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.*
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
-import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.LogType
@@ -31,7 +30,6 @@ data class MapSyncResponse(
 class SchneaggmapService(
     private val mapEntryRepository: MapEntryRepository,
     private val notificationService: NotificationService,
-    private val userLookupService: UserLookupService,
     private val loggingService: LoggingService,
     private val mapEntryVersionService: MapEntryVersionService,
 ) {
@@ -180,15 +178,17 @@ class SchneaggmapService(
             }
             notificationService.notifyMapUpdate(saved, newEntry = existing == null, deleted = false, excludeUserId = requesterId) //Exclude creator, he gets the new entry with the response when upserting
             newSighting(existing, saved, now)?.let { sighting ->
-                notificationService.notifyMapSighting(saved, sighting, requesterId)
+                // The entry is already saved: a failed push must not turn the request into an error,
+                // or the client retries and creates a duplicate entry.
+                try {
+                    notificationService.notifyMapSighting(saved, sighting, requesterId)
+                } catch (e: Exception) {
+                    AppLogger.error("MAP: sighting push for \"${saved.name}\" failed", user = requesterId, error = e)
+                }
             }
             saved
         }
     }
-
-    /** Builds the client facing response, resolving the last editor's username. */
-    fun toResponse(entry: MapEntry): MapEntryResponse = entry.toMapEntryResponse(
-        updatedByName = userLookupService.findById(entry.updatedBy)?.username ?: "Unknown" )
 
     fun deleteMapEntry(entryId: ObjectId, requesterId: ObjectId) {
         val existing = mapEntryRepository.findById(entryId).orElse(null)
@@ -229,14 +229,7 @@ class SchneaggmapService(
         val start = page * pageSize
         val pagedEntries = allUpdated.drop(start).take(pageSize)
 
-        //One lookup for the whole page instead of one per entry
-        val editorNames = userLookupService
-            .findAllById(pagedEntries.map { it.updatedBy }.distinct())
-            .associate { it.id to it.username }
-
-        val paged = pagedEntries.map {
-            it.toMapEntryResponse(updatedByName = editorNames[it.updatedBy] ?: "Unknown")
-        }
+        val paged = pagedEntries.map { it.toMapEntryResponse() }
         val moreEntries = (start + pageSize) < allUpdated.size
 
         val deletedEntries = if (page == 0) clientMap.keys.filter { it !in serverIds } else emptyList()

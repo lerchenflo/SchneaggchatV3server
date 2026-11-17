@@ -12,8 +12,10 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
- * One feature request or bug report on the in-app feedback board. Title, description and tags are
- * immutable after creation; only votes, [status] (admin) and deletion change it.
+ * One feature request or bug report on the in-app feedback board. Its creator and admins can edit
+ * type, title, description, tags and location (`/feedback/edit`); votes, [status] (admin) and
+ * deletion change it too. Seeded entries can't be edited: their texts follow the seed file (see
+ * FeedbackSeedService).
  *
  * Synced to clients by `/feedback/sync` (id/timestamp diff on [updatedAt]). The diff reports every
  * entry the client has but the server no longer shows as deleted, so user-created entries can be
@@ -70,6 +72,12 @@ data class FeedbackEntry(
      * someone other than the creator. Votes and deleted comments do not move it.
      */
     val activityAt: Instant = createdAt,
+
+    /**
+     * Last edit by the creator or an admin that changed something, null when never edited. Shown as
+     * an "edited" marker. An edit moves [updatedAt] but never [activityAt].
+     */
+    val editedAt: Instant? = null,
 
     /**
      * Tombstone for deleted seeded entries only. A seeded entry an admin deleted must stay deleted,

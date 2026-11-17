@@ -32,16 +32,14 @@ class SchneaggmapController(
     @PostMapping("/upsert")
     fun createMapEntry(@Valid @RequestBody request: MapEntryRequest): MapEntryResponse {
         val requesterId = requireAuth()
-        return schneaggmapService.toResponse(
-            schneaggmapService.upsertMapEntry(
-                entryId      = request.entryId?.let { ObjectId(it) },
-                name         = request.name,
-                description  = request.description,
-                coordinates  = request.coordinates,
-                locationDatas = request.locationData,
-                requesterId  = requesterId,
-            )
-        )
+        return schneaggmapService.upsertMapEntry(
+            entryId      = request.entryId?.let { ObjectId(it) },
+            name         = request.name,
+            description  = request.description,
+            coordinates  = request.coordinates,
+            locationDatas = request.locationData,
+            requesterId  = requesterId,
+        ).toMapEntryResponse()
     }
 
 

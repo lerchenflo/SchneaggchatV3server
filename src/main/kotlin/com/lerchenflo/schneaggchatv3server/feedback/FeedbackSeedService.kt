@@ -7,30 +7,38 @@ import com.lerchenflo.schneaggchatv3server.feedback.model.FeedbackEntry
 import com.lerchenflo.schneaggchatv3server.feedback.model.FeedbackStatus
 import com.lerchenflo.schneaggchatv3server.feedback.model.FeedbackTag
 import com.lerchenflo.schneaggchatv3server.feedback.model.FeedbackType
+import com.lerchenflo.schneaggchatv3server.repository.FeedbackCommentRepository
 import com.lerchenflo.schneaggchatv3server.repository.FeedbackEntryRepository
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
 import com.lerchenflo.schneaggchatv3server.util.Json
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import com.lerchenflo.schneaggchatv3server.util.withOptimisticRetry
+import org.bson.types.ObjectId
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Service
 import kotlin.jvm.optionals.getOrNull
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 /**
- * Inserts the already-implemented features from `seed/feedback_features.json` into the feedback
- * board, so users can vote on (and discover) existing features.
+ * Keeps the implemented features from `seed/feedback_features.json` on the feedback board, so users
+ * can vote on (and discover) existing features.
  *
- * Runs on every startup and inserts only seeds whose [FeedbackEntry.seedKey] is not in the
- * collection yet. Existing seeded entries are never modified, except for [FeedbackEntry.premium],
- * which follows the seed file. Seeds an admin deleted stay in the collection as `deleted = true`
- * tombstones, so they count as present and are not re-inserted.
+ * Runs on every startup:
+ * - inserts the seeds whose [FeedbackEntry.seedKey] is not in the collection yet,
+ * - brings title, description, tags, location and [FeedbackEntry.premium] of seeded entries in line
+ *   with the file (the file owns these texts, nobody can edit them in the app),
+ * - deletes seeded entries whose seed has `removed: true` (comments and votes go with them).
+ *
+ * Seeds an admin deleted stay in the collection as `deleted = true` tombstones, so they count as
+ * present and are neither re-inserted nor updated.
  */
 @Service
 class FeedbackSeedService(
     private val entryRepository: FeedbackEntryRepository,
+    private val commentRepository: FeedbackCommentRepository,
 ) {
 
     internal data class FeedbackSeed(
@@ -40,6 +48,17 @@ class FeedbackSeedService(
         val tags: List<String> = emptyList(),
         val location: String? = null,
         val premium: Boolean = false,
+        /** The feature is gone from the app: the seeded entry is deleted and never inserted again. */
+        val removed: Boolean = false,
+    )
+
+    /** The fields of an entry the seed file owns, validated like a user-created entry. */
+    private data class SeedContent(
+        val title: String,
+        val description: String,
+        val tags: List<FeedbackTag>,
+        val location: String?,
+        val premium: Boolean,
     )
 
     fun seedMissingEntries() {
@@ -54,55 +73,83 @@ class FeedbackSeedService(
         } catch (e: Exception) {
             AppLogger.error("Could not parse feedback seed file: ${e.message}", tag = "seed_feedback_parse_failed")
             return
-        }
+        }.filter { it.seedKey.isNotBlank() }.distinctBy { it.seedKey }
 
         val existing = entryRepository.findBySeedKeyNotNull()
         val existingKeys = existing.mapNotNull { it.seedKey }.toSet()
         val now = Clock.System.now()
 
         val missing = seeds
-            .filter { it.seedKey.isNotBlank() && it.seedKey !in existingKeys }
-            .distinctBy { it.seedKey }
-            .mapNotNull { seed -> seed.toEntryOrNull(now) }
+            .filter { !it.removed && it.seedKey !in existingKeys }
+            .mapNotNull { seed -> seed.contentOrNull()?.let { seed.toEntry(it, now) } }
 
         if (missing.isNotEmpty()) {
             entryRepository.saveAll(missing)
             AppLogger.info("Seeded ${missing.size} feedback entries")
         }
 
-        updatePremiumFlags(seeds, existing)
+        syncSeededEntries(seeds, existing)
     }
 
     /**
-     * Brings [FeedbackEntry.premium] of already seeded entries in line with the seed file. Moves
-     * [FeedbackEntry.updatedAt] so synced clients fetch the entry again, but not
-     * [FeedbackEntry.activityAt]: the flag is no news a client should highlight.
+     * Applies text changes and removals from the seed file to seeded entries that are not deleted.
+     * Moves [FeedbackEntry.updatedAt] so synced clients fetch the entry again, but not
+     * [FeedbackEntry.activityAt]: a reworded seed is no news a client should highlight.
      */
-    private fun updatePremiumFlags(seeds: List<FeedbackSeed>, existing: List<FeedbackEntry>) {
-        val premiumByKey = seeds.filter { it.seedKey.isNotBlank() }.associate { it.seedKey to it.premium }
-        val outdated = existing.filter { entry ->
-            val premium = premiumByKey[entry.seedKey] ?: return@filter false
-            !entry.deleted && entry.premium != premium
-        }
+    private fun syncSeededEntries(seeds: List<FeedbackSeed>, existing: List<FeedbackEntry>) {
+        val seedsByKey = seeds.associateBy { it.seedKey }
+        val contentByKey = seeds.filter { !it.removed }.mapNotNull { seed -> seed.contentOrNull()?.let { seed.seedKey to it } }.toMap()
 
-        outdated.forEach { stale ->
+        var updated = 0
+        var removed = 0
+        existing.filter { !it.deleted }.forEach { stale ->
+            val seed = seedsByKey[stale.seedKey] ?: return@forEach
+            if (seed.removed) {
+                if (removeEntry(stale.id)) removed++
+                return@forEach
+            }
+            val content = contentByKey[seed.seedKey] ?: return@forEach
+            if (stale.matches(content)) return@forEach
             withOptimisticRetry {
-                val entry = entryRepository.findById(stale.id).getOrNull() ?: return@forEach
-                val premium = premiumByKey[entry.seedKey] ?: return@forEach
-                if (entry.deleted || entry.premium == premium) return@forEach
+                val entry = entryRepository.findById(stale.id).getOrNull() ?: return@withOptimisticRetry
+                if (entry.deleted || entry.matches(content)) return@withOptimisticRetry
                 entryRepository.save(
                     entry.copy(
-                        premium = premium,
-                        updatedAt = maxOf(Clock.System.now(), entry.updatedAt + 1.milliseconds),
+                        title = content.title,
+                        description = content.description,
+                        tags = content.tags,
+                        location = content.location,
+                        premium = content.premium,
+                        updatedAt = nextStamp(entry),
                     )
                 )
+                updated += 1
             }
         }
 
-        if (outdated.isNotEmpty()) AppLogger.info("Updated the premium flag of ${outdated.size} seeded feedback entries")
+        if (updated > 0) AppLogger.info("Updated $updated seeded feedback entries from the seed file")
+        if (removed > 0) AppLogger.info("Removed $removed seeded feedback entries marked as removed in the seed file")
     }
 
-    private fun FeedbackSeed.toEntryOrNull(now: kotlin.time.Instant): FeedbackEntry? {
+    /** Same as an admin delete of a seeded entry: comments gone, tombstone without votes. */
+    private fun removeEntry(entryId: ObjectId): Boolean {
+        commentRepository.deleteByEntryId(entryId)
+        var done = false
+        withOptimisticRetry {
+            val entry = entryRepository.findById(entryId).getOrNull()?.takeIf { !it.deleted } ?: return@withOptimisticRetry
+            entryRepository.save(entry.copy(deleted = true, votes = emptyMap(), updatedAt = nextStamp(entry)))
+            done = true
+        }
+        return done
+    }
+
+    private fun FeedbackEntry.matches(content: SeedContent): Boolean =
+        title == content.title && description == content.description && tags == content.tags &&
+            location == content.location && premium == content.premium
+
+    private fun nextStamp(entry: FeedbackEntry): Instant = maxOf(Clock.System.now(), entry.updatedAt + 1.milliseconds)
+
+    private fun FeedbackSeed.contentOrNull(): SeedContent? {
         val parsedTags = tags.mapNotNull { tag -> FeedbackTag.entries.firstOrNull { it.name == tag } }.distinct()
         val trimmedTitle = title.trim()
         val trimmedDescription = description.trim()
@@ -117,18 +164,19 @@ class FeedbackSeedService(
             AppLogger.warn("Skipping invalid feedback seed '$seedKey'", tag = "seed_feedback_invalid_entry")
             return null
         }
-
-        return FeedbackEntry(
-            type = FeedbackType.FEATURE,
-            title = trimmedTitle,
-            description = trimmedDescription,
-            tags = parsedTags,
-            status = FeedbackStatus.IMPLEMENTED,
-            location = trimmedLocation,
-            premium = premium,
-            creatorId = null,
-            seedKey = seedKey,
-            createdAt = now,
-        )
+        return SeedContent(trimmedTitle, trimmedDescription, parsedTags, trimmedLocation, premium)
     }
+
+    private fun FeedbackSeed.toEntry(content: SeedContent, now: Instant) = FeedbackEntry(
+        type = FeedbackType.FEATURE,
+        title = content.title,
+        description = content.description,
+        tags = content.tags,
+        status = FeedbackStatus.IMPLEMENTED,
+        location = content.location,
+        premium = content.premium,
+        creatorId = null,
+        seedKey = seedKey,
+        createdAt = now,
+    )
 }

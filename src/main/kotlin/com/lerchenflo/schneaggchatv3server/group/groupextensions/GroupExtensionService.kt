@@ -5,6 +5,8 @@ package com.lerchenflo.schneaggchatv3server.group.groupextensions
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
 import com.lerchenflo.schneaggchatv3server.group.groupextensions.model.*
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
+import com.lerchenflo.schneaggchatv3server.message.messagemodel.SystemEventType
+import com.lerchenflo.schneaggchatv3server.message.system.SystemMessageService
 import com.lerchenflo.schneaggchatv3server.notifications.NotificationService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
@@ -35,6 +37,7 @@ class GroupExtensionService(
     private val userLookupService: UserLookupService,
     private val notificationService: NotificationService,
     private val loggingService: LoggingService,
+    private val systemMessageService: SystemMessageService,
 ) {
 
     // ─── Extensions ──────────────────────────────────────────────────────────
@@ -52,9 +55,11 @@ class GroupExtensionService(
         require(ownerType == ExtensionOwnerType.GROUP) { "Only group extensions are supported" }
         validateSettings(type, settings)
 
+        var previousTitle: String? = null
         val saved = withOptimisticRetry {
             val now = Clock.System.now()
             val existing = extensionId?.let { findActive(it) }
+            previousTitle = existing?.title
 
             if (existing != null) {
                 require(existing.ownerType == ownerType && existing.ownerId == ownerId && existing.type == type) {
@@ -89,7 +94,27 @@ class GroupExtensionService(
             logType = if (extensionId == null) LogType.GROUP_EXTENSION_CREATED else LogType.GROUP_EXTENSION_EDITED,
         )
         notificationService.notifyGroupExtensionUpdate(saved, deleted = false)
+
+        // A settings-only edit (e.g. the currency) is no news for the chat
+        val oldTitle = previousTitle
+        when {
+            extensionId == null -> postSystemMessage(saved, SystemEventType.GROUP_EXTENSION_CREATED, requesterId)
+            oldTitle != null && oldTitle != saved.title ->
+                postSystemMessage(saved, SystemEventType.GROUP_EXTENSION_RENAMED, requesterId, previousTitle = oldTitle)
+        }
         return saved
+    }
+
+    private fun postSystemMessage(extension: GroupExtension, eventType: SystemEventType, actorId: ObjectId, previousTitle: String? = null) {
+        systemMessageService.groupEvent(
+            groupId = extension.ownerId,
+            eventType = eventType,
+            actorId = actorId,
+            text = extension.title,
+            previousText = previousTitle,
+            extensionId = extension.id,
+            extensionType = extension.type,
+        )
     }
 
     /** Soft delete, so the sync reports it as deleted. Extension creator or group admin only. */
@@ -115,6 +140,7 @@ class GroupExtensionService(
         AppLogger.info("GROUP EXTENSION: ${saved.type} \"${saved.title}\" deleted", user = requesterId)
         loggingService.log(userId = requesterId, logType = LogType.GROUP_EXTENSION_DELETED)
         notificationService.notifyGroupExtensionUpdate(saved, deleted = true)
+        postSystemMessage(saved, SystemEventType.GROUP_EXTENSION_DELETED, requesterId)
     }
 
     // ─── Items ───────────────────────────────────────────────────────────────

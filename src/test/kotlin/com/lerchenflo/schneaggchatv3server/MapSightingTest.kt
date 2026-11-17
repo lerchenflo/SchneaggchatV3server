@@ -131,7 +131,6 @@ class MapSightingTest {
     private val service = SchneaggmapService(
         mapEntryRepository = repository,
         notificationService = notifications,
-        userLookupService = mockk(relaxed = true),
         loggingService = mockk(relaxed = true),
         mapEntryVersionService = mockk<MapEntryVersionService>(relaxed = true),
     )

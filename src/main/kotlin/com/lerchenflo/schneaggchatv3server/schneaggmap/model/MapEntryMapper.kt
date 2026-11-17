@@ -1,6 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.schneaggmap.model
 
-fun MapEntry.toMapEntryResponse(updatedByName: String): MapEntryResponse = MapEntryResponse(
+fun MapEntry.toMapEntryResponse(): MapEntryResponse = MapEntryResponse(
     id = id.toHexString(),
     coordinates = coordinates,
     description = description,
@@ -10,5 +10,4 @@ fun MapEntry.toMapEntryResponse(updatedByName: String): MapEntryResponse = MapEn
     updatedAt = updatedAt.toEpochMilliseconds(),
     name = name,
     locationData = locationData,
-    updatedByName = updatedByName,
 )

@@ -3,6 +3,7 @@ package com.lerchenflo.schneaggchatv3server.notifications.firebase.model
 import com.lerchenflo.schneaggchatv3server.schneaggmap.MapSightingType
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventChangeKind
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
 
 @JsonTypeInfo(
@@ -17,6 +18,8 @@ import com.lerchenflo.schneaggchatv3server.message.messagemodel.MessageType
     JsonSubTypes.Type(value = NotificationResponse.BirthdayNotificationResponse::class, name = "birthday"),
     JsonSubTypes.Type(value = NotificationResponse.WakeNotificationResponse::class, name = "wake"),
     JsonSubTypes.Type(value = NotificationResponse.EventNotificationResponse::class, name = "event"),
+    JsonSubTypes.Type(value = NotificationResponse.EventReminderNotificationResponse::class, name = "event_reminder"),
+    JsonSubTypes.Type(value = NotificationResponse.EventUpdateNotificationResponse::class, name = "event_update"),
     JsonSubTypes.Type(value = NotificationResponse.MapSightingNotificationResponse::class, name = "map_sighting")
 )
 
@@ -82,6 +85,25 @@ sealed interface NotificationResponse {
         val eventTitle: String,
         val creatorId: String,
         val creatorName: String,
+    ) : NotificationResponse
+
+    //An event this user goes to starts in leadMinutes. startDate is epoch millis.
+    data class EventReminderNotificationResponse(
+        val eventId: String,
+        val eventTitle: String,
+        val startDate: Long,
+        val leadMinutes: Int,
+    ) : NotificationResponse
+
+    //An event this user goes to or is invited to moved, got a new location or was cancelled.
+    //startDate is the (new) start in epoch millis. In the push data map, changes travels as a
+    //JSON array string, e.g. ["START","LOCATION"].
+    data class EventUpdateNotificationResponse(
+        val eventId: String,
+        val eventTitle: String,
+        val changes: List<EventChangeKind>,
+        val startDate: Long,
+        val actorName: String,
     ) : NotificationResponse
 
     //Police or a mobile radar was seen. Never carries who reported it.

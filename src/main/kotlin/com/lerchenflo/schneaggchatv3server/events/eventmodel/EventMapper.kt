@@ -1,6 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.events.eventmodel
 
-fun Event.toResponse(creatorName: String): EventResponse {
+/** Users appear only by id; the client resolves the names (its user rows, else `/users/lookup`). */
+fun Event.toResponse(): EventResponse {
     return EventResponse(
         id = id.toHexString(),
         creatorId = creatorId.toHexString(),
@@ -16,10 +17,10 @@ fun Event.toResponse(creatorName: String): EventResponse {
         visibility = visibility,
         maxUsers = maxUsers,
         groupDeleteDelay = groupDeleteDelay,
+        reminderMinutes = reminderMinutes,
         createdAt = createdAt.toEpochMilliseconds(),
         updatedAt = updatedAt.toEpochMilliseconds(),
         updatedBy = updatedBy.toHexString(),
-        creatorName = creatorName,
     )
 }
 

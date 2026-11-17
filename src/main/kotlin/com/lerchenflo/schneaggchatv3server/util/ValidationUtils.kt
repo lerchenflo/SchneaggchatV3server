@@ -174,11 +174,21 @@ object ValidationUtils {
         return true
     }
 
+    /** Same max as a group name (25), counted on the untrimmed title as sent, like the client does. */
     fun validateEventTitle(title: String): Boolean {
         if (title.isBlank()) return false
-        if (title.length > 200) return false
+        if (title.length > 25) return false
 
         return true
+    }
+
+    /** Null = not sent, keeps the stored reminders. Duplicates are merged before the limits apply. */
+    fun validateEventReminders(reminderMinutes: List<Int>?): Boolean {
+        if (reminderMinutes == null) return true
+        if (reminderMinutes.size > 20) return false
+        val distinct = reminderMinutes.distinct()
+        if (distinct.size > 5) return false
+        return distinct.all { it in 5..20160 && it % 5 == 0 }
     }
 
     fun validateEventMaxUsers(maxUsers: Int?): Boolean {

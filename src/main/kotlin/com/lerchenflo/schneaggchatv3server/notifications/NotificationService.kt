@@ -1,5 +1,6 @@
 package com.lerchenflo.schneaggchatv3server.notifications
 
+import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventChangeKind
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventResponse
 import com.lerchenflo.schneaggchatv3server.events.eventmodel.EventVisibility
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
@@ -18,6 +19,7 @@ import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.Frien
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.FriendLocationSnapshot
 import com.lerchenflo.schneaggchatv3server.schneaggmap.userlocations.model.SnailTrailPointPayload
 import com.lerchenflo.schneaggchatv3server.schneaggmap.MapSightingType
+import com.lerchenflo.schneaggchatv3server.user.ProfilePicAccessService
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
@@ -26,6 +28,7 @@ import com.lerchenflo.schneaggchatv3server.user.usermodel.UserResponse
 import com.lerchenflo.schneaggchatv3server.user.usermodel.toUserResponseFor
 import org.bson.types.ObjectId
 import org.springframework.stereotype.Service
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.ExperimentalTime
@@ -48,6 +51,7 @@ class NotificationService(
     private val userLookupService: UserLookupService,
     private val groupLookupService: GroupLookupService,
     private val friendsLookupService: FriendsLookupService,
+    private val profilePicAccessService: ProfilePicAccessService,
 ) {
 
     
@@ -150,17 +154,24 @@ class NotificationService(
      * Push a change of [user] to every device of the user themselves and of everyone with a
      * friendship row towards them, each in the shape `/users/sync` would give them: friends get the
      * friend row with their own settings towards [user], pending / blocked counterparts the simple
-     * row (it carries the username and the picture timestamp too).
+     * row (it carries the username and the picture timestamp too, null when [user]'s picture setting
+     * hides it from that counterpart).
      */
     fun notifyUserUpdate(user: User, deleted: Boolean) {
         notifyOwnUserUpdate(user, deleted)
 
+        // Loaded once for all counterparts, and only if one of them needs the group check
+        val coMembers by lazy { profilePicAccessService.coMemberIds(user.id) }
+
         friendsLookupService.getCounterpartInteractions(user.id).forEach { (counterpartId, interaction) ->
+            val profilePicVisible = profilePicAccessService.canSee(counterpartId, user, interaction) {
+                counterpartId in coMembers
+            }
             deliveryService.send(
                 counterpartId,
                 Delivery.Live(
                     SocketConnectionMessage.UserChange(
-                        user = user.toUserResponseFor(interaction),
+                        user = user.toUserResponseFor(interaction, profilePicVisible),
                         deleted = deleted
                     )
                 ),
@@ -208,7 +219,7 @@ class NotificationService(
                     id = otherUserId.toHexString(),
                     username = "",
                     updatedAt = 0,
-                    profilePicUpdatedAt = 0,
+                    profilePicUpdatedAt = null,
                     friendShipStatus = null,
                     requesterId = recipientId.toHexString(),
                 ),
@@ -217,7 +228,12 @@ class NotificationService(
         } else {
             val otherUser = userLookupService.findById(otherUserId) ?: return
             SocketConnectionMessage.UserChange(
-                user = otherUser.toUserResponseFor(interaction),
+                user = otherUser.toUserResponseFor(
+                    interaction = interaction,
+                    profilePicVisible = profilePicAccessService.canSee(recipientId, otherUser, interaction) {
+                        otherUserId in profilePicAccessService.coMemberIds(recipientId)
+                    },
+                ),
                 deleted = false
             )
         }
@@ -306,7 +322,8 @@ class NotificationService(
                 eventId = eventResponse.id,
                 eventTitle = eventResponse.title,
                 creatorId = eventResponse.creatorId,
-                creatorName = eventResponse.creatorName,
+                // The push keeps a name: it is shown before the app can look anything up
+                creatorName = userLookupService.getUsername(ObjectId(eventResponse.creatorId)),
             )
         } else null
 
@@ -319,6 +336,64 @@ class NotificationService(
             }
         }
     }
+
+    /**
+     * An event reminder: socket for connected devices, push for the others. A reminder after the
+     * start is worthless, so the push expires at [startDate].
+     */
+    fun notifyEventReminder(recipients: Collection<ObjectId>, eventId: String, eventTitle: String, startDate: Instant, leadMinutes: Int) {
+        val socket = SocketConnectionMessage.EventReminder(
+            eventId = eventId,
+            eventTitle = eventTitle,
+            startDate = startDate.toEpochMilliseconds(),
+            leadMinutes = leadMinutes,
+        )
+        val push = NotificationResponse.EventReminderNotificationResponse(
+            eventId = eventId,
+            eventTitle = eventTitle,
+            startDate = startDate.toEpochMilliseconds(),
+            leadMinutes = leadMinutes,
+        )
+        val options = PushOptions(ttlSeconds = secondsUntil(startDate))
+        deliveryService.sendAll(recipients.distinct()) { Delivery.Alert(socket, push, options = options) }
+    }
+
+    /**
+     * Tells [recipients] that an event moved, got a new location or was cancelled. Comes on top of
+     * the [SocketConnectionMessage.EventChange] that carries the event data. The push expires at
+     * [endDate]: news about an event that is over is worthless.
+     */
+    fun notifyEventChangeAlert(
+        recipients: Collection<ObjectId>,
+        eventId: String,
+        eventTitle: String,
+        changes: List<EventChangeKind>,
+        startDate: Instant,
+        endDate: Instant,
+        actorId: ObjectId,
+    ) {
+        if (recipients.isEmpty() || changes.isEmpty()) return
+        val socket = SocketConnectionMessage.EventUpdateAlert(
+            eventId = eventId,
+            eventTitle = eventTitle,
+            changes = changes,
+            startDate = startDate.toEpochMilliseconds(),
+            actorId = actorId.toHexString(),
+        )
+        // The push keeps a name: it is shown before the app can look anything up
+        val push = NotificationResponse.EventUpdateNotificationResponse(
+            eventId = eventId,
+            eventTitle = eventTitle,
+            changes = changes,
+            startDate = startDate.toEpochMilliseconds(),
+            actorName = userLookupService.getUsername(actorId),
+        )
+        val options = PushOptions(ttlSeconds = secondsUntil(endDate))
+        deliveryService.sendAll(recipients.distinct()) { Delivery.Alert(socket, push, options = options) }
+    }
+
+    private fun secondsUntil(time: Instant): Long =
+        (time - Clock.System.now()).inWholeSeconds.coerceAtLeast(0)
 
     fun notifyBirthday(birthdayUserId: ObjectId, recipientId: ObjectId, ownBirthday: Boolean) {
         val name = userLookupService.getUsername(birthdayUserId)
@@ -344,9 +419,7 @@ class NotificationService(
     fun notifyMapUpdate(entry: MapEntry, newEntry: Boolean, deleted: Boolean, excludeUserId: ObjectId?) {
         deliveryService.broadcast(
             SocketConnectionMessage.MapChange(
-                mapEntry = entry.toMapEntryResponse(
-                    updatedByName = userLookupService.findById(entry.updatedBy)?.username ?: "Unknown"
-                ),
+                mapEntry = entry.toMapEntryResponse(),
                 newEntry = newEntry,
                 deleted = deleted,
             ),
@@ -387,6 +460,7 @@ class NotificationService(
     }
 
     fun notifyFriendRequest(requestingUser: ObjectId, receivingUser: ObjectId, accepted: Boolean) {
+        // Only the push carries the name: it is shown before the app can look anything up
         val requestingUserName = userLookupService.getUsername(requestingUser)
 
         deliveryService.send(
@@ -394,7 +468,6 @@ class NotificationService(
             Delivery.Alert(
                 socket = SocketConnectionMessage.FriendRequest(
                     requestingUser = requestingUser.toHexString(),
-                    requestingUserName = requestingUserName,
                     accepted = accepted,
                 ),
                 push = NotificationResponse.FriendRequestNotificationResponse(

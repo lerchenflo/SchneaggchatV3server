@@ -5,7 +5,8 @@ fun AnnouncementText.toAnnouncementTextResponse(): AnnouncementTextResponse = An
     body = body,
 )
 
-fun Announcement.toAnnouncementResponse(creatorName: String?): AnnouncementResponse = AnnouncementResponse(
+/** [withCreator]: only the admin endpoints show who wrote it. */
+fun Announcement.toAnnouncementResponse(withCreator: Boolean): AnnouncementResponse = AnnouncementResponse(
     id = id,
     german = german.toAnnouncementTextResponse(),
     austrian = austrian?.toAnnouncementTextResponse(),
@@ -14,5 +15,5 @@ fun Announcement.toAnnouncementResponse(creatorName: String?): AnnouncementRespo
     expiresAt = expiresAt.toEpochMilliseconds(),
     createdAt = createdAt.toEpochMilliseconds(),
     updatedAt = updatedAt.toEpochMilliseconds(),
-    creatorName = creatorName,
+    creatorId = createdBy.toHexString().takeIf { withCreator },
 )

@@ -266,6 +266,7 @@ class ValidationUtilsTest {
     @DisplayName("Valid event title should pass validation")
     fun `validateEventTitle should return true for valid titles`() {
         assertTrue(ValidationUtils.validateEventTitle("Birthday party"))
+        assertTrue(ValidationUtils.validateEventTitle("a".repeat(25)))
     }
 
     @Test
@@ -277,8 +278,9 @@ class ValidationUtilsTest {
 
     @Test
     @DisplayName("Event title exceeding max length should fail")
-    fun `validateEventTitle should return false for titles longer than 200 characters`() {
-        assertFalse(ValidationUtils.validateEventTitle("a".repeat(201)))
+    fun `validateEventTitle should return false for titles longer than 25 characters`() {
+        assertFalse(ValidationUtils.validateEventTitle("a".repeat(26)))
+        assertFalse(ValidationUtils.validateEventTitle(" " + "a".repeat(25))) // untrimmed length counts
     }
 
     // ===== POLL TITLE VALIDATION TESTS =====

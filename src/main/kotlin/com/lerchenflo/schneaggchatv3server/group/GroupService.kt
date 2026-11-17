@@ -126,6 +126,9 @@ class GroupService(
             logType = LogType.GROUP_CREATED,
         )
 
+        // Members who are not friends now share a group: their picture access may change
+        friendsService.onSharedGroupChanged(membersInternal, membersInternal)
+
         notificationService.notifyGroupUpdate(
             GroupResponse(
                 id = group.id.toHexString(),
@@ -136,11 +139,7 @@ class GroupService(
                 createdAt = group.createdAt.toEpochMilliseconds(),
                 creatorId = group.creatorId.toHexString(),
                 expiresAt = group.expiresAt?.toEpochMilliseconds(),
-                members = members.map { member ->
-                    member.toGroupMemberResponse(
-                        memberName = userLookupService.getUsername(member.userid)
-                    )
-                }
+                members = members.map { it.toGroupMemberResponse() }
             ),
             deleted = false
         )
@@ -457,7 +456,7 @@ class GroupService(
                 eventsLookupService.findByGroupId(groupId)?.takeIf { groupMember != it.creatorId }?.let { event ->
                     eventsLookupService.setParticipationIfPresent(event.id, groupMember, statusAfterRemoval)?.let { updated ->
                         notificationService.notifyEventUpdate(
-                            eventResponse = updated.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+                            eventResponse = updated.toResponse(),
                             newEntry = false,
                             deleted = false
                         )
@@ -484,6 +483,8 @@ class GroupService(
                 val focusedMember = groupMembers.first { it.userid == groupMember }
                 groupMemberRepository.delete(focusedMember)
                 removedMemberId = groupMember
+
+                friendsService.onSharedGroupChanged(listOf(groupMember), groupMembers.map { it.userid })
 
                 pendingEvent = if (requestingUser == groupMember) {
                     SystemEventType.GROUP_MEMBER_LEFT
@@ -553,7 +554,7 @@ class GroupService(
 
         pendingEventUpdate?.let { event ->
             notificationService.notifyEventUpdate(
-                eventResponse = event.toResponse(creatorName = userLookupService.getUsername(event.creatorId)),
+                eventResponse = event.toResponse(),
                 newEntry = false,
                 deleted = false
             )
@@ -588,6 +589,7 @@ class GroupService(
                 } else {
                     if (remainingMembers.none { it.admin }) promoteLongestMember(remainingMembers)
 
+                    // No onSharedGroupChanged: the account and its rows are gone right after
                     groupLookupService.removeGroupMember(groupId, userId)
                     groupLookupService.getGroupById(groupId)?.let {
                         groupLookupService.saveGroup(it.copy(updatedAt = Clock.System.now()))
@@ -623,6 +625,8 @@ class GroupService(
         } catch (e: DuplicateKeyException) {
             throw IllegalArgumentException("User is already in this group")
         }
+
+        friendsService.onSharedGroupChanged(listOf(memberId), groupMembers.map { it.userid })
     }
 
     /**
@@ -670,9 +674,11 @@ class GroupService(
         val group = groupLookupService.getGroupById(groupId) ?: return
         val response = groupLookupService.getGroupAsGroupResponse(groupId)
 
-        groupLookupService.getGroupMembers(groupId).forEach { member ->
+        val memberIds = groupLookupService.getGroupMembers(groupId).map { member ->
             groupMemberRepository.delete(member)
+            member.userid
         }
+        friendsService.onSharedGroupChanged(memberIds, memberIds)
 
         groupLookupService.saveGroup(group.copy(deleted = true))
 
@@ -688,11 +694,10 @@ class GroupService(
         notificationService.notifyGroupUpdate(response, deleted = true)
 
         eventsLookupService.findByGroupId(groupId)?.let { event ->
-            val creatorName = userLookupService.getUsername(event.creatorId)
             if (deleteConnectedEvent) {
                 eventsLookupService.deleteEvent(event)
                 notificationService.notifyEventUpdate(
-                    eventResponse = event.toResponse(creatorName = creatorName),
+                    eventResponse = event.toResponse(),
                     newEntry = false,
                     deleted = true
                 )
@@ -701,7 +706,7 @@ class GroupService(
                     event.copy(groupId = null, updatedAt = Clock.System.now(), updatedBy = deletedBy ?: event.updatedBy)
                 )
                 notificationService.notifyEventUpdate(
-                    eventResponse = detached.toResponse(creatorName = creatorName),
+                    eventResponse = detached.toResponse(),
                     newEntry = false,
                     deleted = false
                 )

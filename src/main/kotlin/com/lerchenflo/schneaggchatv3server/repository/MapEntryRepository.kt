@@ -6,4 +6,7 @@ import org.springframework.data.mongodb.repository.MongoRepository
 
 interface MapEntryRepository : MongoRepository<MapEntry, ObjectId> {
     fun findByDeletedFalse(): List<MapEntry>
+
+    /** Seeded entries, deleted ones included (a deleted seed must not be inserted again). */
+    fun findBySeedKeyNotNull(): List<MapEntry>
 }

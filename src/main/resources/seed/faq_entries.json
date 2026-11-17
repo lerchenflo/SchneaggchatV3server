@@ -1,0 +1,189 @@
+[
+  {
+    "seedKey": "general_what_is_schneaggchat",
+    "category": "GENERAL",
+    "sortOrder": 0,
+    "german": {
+      "question": "Was ist Schneaggchat?",
+      "answer": "Schneaggchat ist eine kostenlose Chat-App ohne Werbung für Android, iOS und Desktop - mit Live-Karte, Events, Umfragen, Minispielen und Vorarlbergerisch als Sprache."
+    },
+    "english": {
+      "question": "What is Schneaggchat?",
+      "answer": "Schneaggchat is a free, ad-free chat app for Android, iOS and desktop - with a live map, events, polls, mini games and Vorarlberg dialect as a language option."
+    },
+    "austrian": {
+      "question": "Was isch Schneaggchat?",
+      "answer": "Schneaggchat isch a kostenlose Chat-App ohne Werbung für Android, iOS und Desktop mit Live-Karta, Events, Umfroga, Minispiele und Vorarlbergerisch als Sproch."
+    }
+  },
+  {
+    "seedKey": "general_what_does_it_cost",
+    "category": "GENERAL",
+    "sortOrder": 1,
+    "german": {
+      "question": "Was kostet Schneaggchat?",
+      "answer": "Nichts. Schneaggchat ist kostenlos, ohne Werbung und ohne Abo. Freiwillig unterstützen kannst du uns über die Spendenseite."
+    },
+    "english": {
+      "question": "What does Schneaggchat cost?",
+      "answer": "Nothing. Schneaggchat is free, with no ads and no subscription. If you want to support us, you can do so voluntarily on the donations page."
+    },
+    "austrian": {
+      "question": "Was kostat Schneaggchat",
+      "answer": "Garnix. Schneaggchat isch gratis, ohne Werbung und ohne Abo. Freiwillige spenda sind immer wilkommen, kannsch uf da Spendensitta abgia."
+    }
+  },
+  {
+    "seedKey": "account_no_verification_email",
+    "category": "ACCOUNT",
+    "sortOrder": 0,
+    "german": {
+      "question": "Warum bekomme ich keine Verifizierungs-E-Mail?",
+      "answer": "Wenn die E-Mail-Adresse auf deinem Verifizierungs-Screen stimmt, wurde die E-Mail verschickt. Warte bitte ein bis zwei Minuten und schau auch im Spam-Ordner nach."
+    },
+    "english": {
+      "question": "Why am I not getting a verification email?",
+      "answer": "If the email address shown on your verification screen is correct, the email has been sent. Please wait one to two minutes and also check your spam folder."
+    },
+    "austrian": {
+      "question": "Warum kriag i kua Verifizierungs-E-Mail?",
+      "answer": "Die E-Mail wird automatisch an dine beim Registriera igeabane E-Mail gschickt. Bitte wart 1-2 Minuta und luag o im Spam Ordner noch."
+    }
+  },
+  {
+    "seedKey": "account_forgot_password",
+    "category": "ACCOUNT",
+    "sortOrder": 1,
+    "german": {
+      "question": "Ich habe mein Passwort vergessen - was jetzt?",
+      "answer": "Nutze im Login-Screen \"Passwort vergessen\". Wir schicken dir eine E-Mail mit einem Link, über den du ein neues Passwort setzen kannst."
+    },
+    "english": {
+      "question": "I forgot my password - what now?",
+      "answer": "Use \"Forgot password\" on the login screen. We send you an email with a link that lets you set a new password."
+    },
+    "austrian": {
+      "question": "I hob mi Passwort vergeassa",
+      "answer": "Ufam Loginscreen und uf da Website gits Buttons zum ufd Passwort Reset sitta ko, döt kannsch di Passwort zrucksetza."
+    }
+  },
+  {
+    "seedKey": "account_delete",
+    "category": "ACCOUNT",
+    "sortOrder": 2,
+    "german": {
+      "question": "Wie lösche ich meinen Account?",
+      "answer": "In der App unter Einstellungen → Datenschutz & Sicherheit → Account löschen. Ohne App geht es auf der Seite „Account löschen“ hier auf der Website: Du bekommst eine E-Mail mit einem Bestätigungslink."
+    },
+    "english": {
+      "question": "How do I delete my account?",
+      "answer": "In the app under Settings → Privacy & Security → Delete account. Without the app, use the \"Delete account\" page on this website: you get an email with a confirmation link."
+    },
+    "austrian": {
+      "question": "Wia lösch i min Account?",
+      "answer": "In da App unter Einstellunga → Datenschutz & Sicherheit → Account löscha. Ohne App goht's uf da Sitta „Account löscha“ do uf da Website: Du kriagsch a E-Mail mit nam Bestätigungslink."
+    }
+  },
+  {
+    "seedKey": "chats_end_to_end_encryption",
+    "category": "CHATS",
+    "sortOrder": 0,
+    "german": {
+      "question": "Sind meine Nachrichten Ende-zu-Ende-verschlüsselt?",
+      "answer": "Noch nicht. Die Übertragung zwischen App und Server ist verschlüsselt, an der Ende-zu-Ende-Verschlüsselung arbeiten wir noch."
+    },
+    "english": {
+      "question": "Are my messages end-to-end encrypted?",
+      "answer": "Not yet. The connection between the app and the server is encrypted, but end-to-end encryption is still being worked on."
+    },
+    "austrian": {
+      "question": "Sind mine Nachrichta Ende-zu-Ende verschlüsselt?",
+      "answer": "Aktuell no ned. Dine Nochrichta werrand verschlüsselt an Server gschickt, aber eze simma no dra."
+    }
+  },
+  {
+    "seedKey": "notifications_sometimes_not_working",
+    "category": "NOTIFICATIONS",
+    "sortOrder": 0,
+    "german": {
+      "question": "Warum funktionieren die Benachrichtigungen manchmal nicht?",
+      "answer": "Prüfe zuerst, ob Benachrichtigungen für Schneaggchat in den Systemeinstellungen erlaubt sind und ob ein Energiesparmodus die App im Hintergrund stoppt. Kommt trotzdem etwas nicht an, melde es bitte im Feedback-Board."
+    },
+    "english": {
+      "question": "Why do notifications sometimes not work?",
+      "answer": "First check that notifications for Schneaggchat are allowed in your system settings and that no battery saver stops the app in the background. If notifications are still missing, please report it on the feedback board."
+    },
+    "austrian": {
+      "question": "Warum tuand Notis / Notifications / Benachrichtigunga manchmol ned?",
+      "answer": "Prüf, ob Benachrichtigunga für Schneaggchat in dina Systemeinstellunga erlaubt sind und ob an Energiesparmodus d App im Hintergrund stoppt. Wenn trotzdem Benachrichtigunga fehland, meald des bitte im Feedback-Board."
+    }
+  },
+  {
+    "seedKey": "notifications_alarm_feature",
+    "category": "NOTIFICATIONS",
+    "sortOrder": 1,
+    "german": {
+      "question": "Was macht das Weckerfeature?",
+      "answer": "Damit spielst du bei Freunden einen Weckton ab, auch wenn deren Gerät auf lautlos steht. Das Feature gibt es nur auf Android."
+    },
+    "english": {
+      "question": "What does the alarm feature do?",
+      "answer": "It plays an alarm sound on your friends' devices, even when their device is on silent. The feature is Android only."
+    },
+    "austrian": {
+      "question": "Was tuat s Weckerfeature?",
+      "answer": "S Weckerfeature spielt bei andra lüt an Alarm ab, wie bei nam normala Wecker dean ma stella kann, o wenns Handy uf Lautlos isch."
+    }
+  },
+  {
+    "seedKey": "map_who_sees_location",
+    "category": "MAP",
+    "sortOrder": 0,
+    "german": {
+      "question": "Wer sieht meinen Standort?",
+      "answer": "Nur die Freunde, die du selbst auswählst, und nur wenn du das Standortteilen einschaltest: Einstellungen → Schneaggmap → Meinen Standort teilen. Ohne Freigabe sieht niemand deinen Standort."
+    },
+    "english": {
+      "question": "Who sees my location?",
+      "answer": "Only the friends you pick yourself, and only after you turn on location sharing: Settings → Schneaggmap → Share my location. Without that, nobody sees your location."
+    },
+    "austrian": {
+      "question": "Wer siaht min Standort?",
+      "answer": "Nur die Freunde, die du sealba uswählsch, und nur wenn du s Standortteila igschalta hosch: Einstellunga → Schneaggmap → Min Standort teila. Ohne Freigab siaht niemand din Standort."
+    }
+  },
+  {
+    "seedKey": "technical_report_bug",
+    "category": "TECHNICAL",
+    "sortOrder": 0,
+    "german": {
+      "question": "Ich habe einen Fehler gefunden - wo melde ich den?",
+      "answer": "Melde ihn direkt in der App im Feedback-Board: Chatauswahl → Feedback-Knopf oder Einstellungen → Miscellaneous → Feedback. Dort kannst du dir auch Features wünschen und über Ideen abstimmen. Ohne App erreichst du uns unter schneaggchat@gmail.com."
+    },
+    "english": {
+      "question": "I found a bug - where do I report it?",
+      "answer": "Report it right in the app on the feedback board: chat list → feedback button, or Settings → Misc → Feedback. You can also request features and vote on them there. Without the app, reach us at schneaggchat@gmail.com."
+    },
+    "austrian": {
+      "question": "I hob an Fehler gfunda - wo meald i dean?",
+      "answer": "Meald ean direkt in da App im Feedback-Board: Chatuswahl → Feedback-Knopf oda Einstellunga → Alles andre → Feedback. Döt kannsch o Features wünscha und abstimma. Ohne App kannsch üs unter schneaggchat@gmail.com erreicha."
+    }
+  },
+  {
+    "seedKey": "technical_open_source",
+    "category": "TECHNICAL",
+    "sortOrder": 1,
+    "german": {
+      "question": "Ist Schneaggchat Open Source?",
+      "answer": "Ja. App und Server sind Open Source, den Code findest du auf GitHub."
+    },
+    "english": {
+      "question": "Is Schneaggchat open source?",
+      "answer": "Yes. Both the app and the server are open source, and you find the code on GitHub."
+    },
+    "austrian": {
+      "question": "Isch Schneaggchat Open Source?",
+      "answer": "Jo. App und Server sind Open Source, da Code kannsch uf Github aluaga und wennd willsch o neue Features programmiera."
+    }
+  }
+]

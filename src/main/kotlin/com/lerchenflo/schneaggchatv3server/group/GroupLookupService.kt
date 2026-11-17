@@ -8,7 +8,6 @@ import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
 import com.lerchenflo.schneaggchatv3server.group.model.toGroupMemberResponse
 import com.lerchenflo.schneaggchatv3server.repository.GroupMemberRepository
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
-import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
@@ -22,7 +21,6 @@ import kotlin.time.Instant
 class GroupLookupService(
     private val groupRepository: GroupRepository,
     private val groupMemberRepository: GroupMemberRepository,
-    private val userLookupService: UserLookupService,
 ) {
     fun getUserGroupIds(userId: ObjectId): List<ObjectId> {
         return getNonDeletedGroups(getMemberGroupIds(userId)).map { it.id }
@@ -72,7 +70,7 @@ class GroupLookupService(
             createdAt = group.createdAt.toEpochMilliseconds(),
             creatorId = group.creatorId.toHexString(),
             expiresAt = group.expiresAt?.toEpochMilliseconds(),
-            members = members.map { it.toGroupMemberResponse(userLookupService.getUsername(it.userid)) }
+            members = members.map { it.toGroupMemberResponse() }
         )
     }
 
@@ -80,9 +78,24 @@ class GroupLookupService(
         return groupMemberRepository.findAllByGroupId(groupId)
     }
 
+    /** Everyone who shares at least one non-deleted group with [userId] (event groups included), without [userId]. */
+    fun getCoMemberIds(userId: ObjectId): Set<ObjectId> {
+        val groupIds = getUserGroupIds(userId)
+        if (groupIds.isEmpty()) return emptySet()
+
+        return groupMemberRepository.findAllByGroupIdIn(groupIds)
+            .map { it.userid }
+            .filter { it != userId }
+            .toSet()
+    }
+
+    /**
+     * Member of a group that is not deleted. `deleteGroup` removes the member rows before it marks the
+     * group deleted, but groups deleted before that cleanup existed still have theirs.
+     */
     fun isUserInGroup(userId: ObjectId, groupId: ObjectId): Boolean {
-        return groupMemberRepository.findByuserid(userId)
-            .any { it.groupId == groupId }
+        return groupMemberRepository.existsByUseridAndGroupId(userId, groupId) &&
+            groupRepository.existsByIdAndDeletedFalse(groupId)
     }
 
     fun isAdmin(userId: ObjectId, members: List<GroupMember>): Boolean {
@@ -106,6 +119,17 @@ class GroupLookupService(
         val member = getGroupMembers(groupId).first { it.userid == userId }
         groupMemberRepository.delete(member)
         return true
+    }
+
+    /**
+     * Startup cleanup: deletes the member rows of groups that are already deleted. `deleteGroup`
+     * removes them itself; only groups deleted before that still have theirs. Returns the number of
+     * deleted rows. Can be removed once it ran on production.
+     */
+    fun deleteMembersOfDeletedGroups(): Long {
+        val deletedGroupIds = groupRepository.findByDeletedTrue().map { it.id }
+        if (deletedGroupIds.isEmpty()) return 0
+        return groupMemberRepository.deleteByGroupIdIn(deletedGroupIds)
     }
 
     private fun getMemberGroupIds(userId: ObjectId): List<ObjectId> {

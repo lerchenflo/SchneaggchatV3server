@@ -693,14 +693,13 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
    "fields": [
     "eventType: SystemEventType",
     "actorId: ObjectId",
-    "actorName: String",
     "targets: List<SystemEventParticipant>",
     "text: String?",
     "previousText: String?"
    ],
    "x": 0,
    "y": 0,
-   "note": "Payload of a SYSTEM message. The server sends the event type plus ids and name snapshots, the client builds the text."
+   "note": "Payload of a SYSTEM message. The server sends the event type plus user ids, the client resolves the names and builds the text."
   },
   {
    "id": "syspart",
@@ -708,8 +707,7 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
    "pkg": "message",
    "kind": "embedded",
    "fields": [
-    "userId: ObjectId",
-    "userName: String"
+    "userId: ObjectId"
    ],
    "x": 0,
    "y": 0
@@ -1135,7 +1133,8 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "DART_COUNTER",
     "UNDERCOVER",
     "TIC_TAC_TOE",
-    "C_CHALLENGE"
+    "C_CHALLENGE",
+    "FEATURE_QUIZ"
    ],
    "x": 0,
    "y": 0
@@ -1219,6 +1218,8 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "FEEDBACK_COMMENT_CREATED",
     "FEEDBACK_COMMENT_DELETED",
     "FEEDBACK_STATUS_CHANGED",
+    "FEEDBACK_EDITED",
+    "FEEDBACK_COMMENT_EDITED",
     "ACCOUNT_DELETION_EMAIL_SENT",
     "EMAIL_VERIFICATION_EMAIL_SENT",
     "PASSWORD_RESET_EMAIL_SENT",
@@ -1240,18 +1241,22 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "tags: List<FeedbackTag>",
     "status: FeedbackStatus",
     "location: String?",
+    "premium: Boolean",
     "creatorId: ObjectId?",
     "seedKey: String?",
     "appVersion: String?",
     "platform: String?",
     "votes: Map<String, FeedbackVote>",
     "createdAt: Instant",
+    "updatedAt: Instant",
+    "activityAt: Instant",
+    "editedAt: Instant?",
     "deleted: Boolean",
     "version: Long?"
    ],
    "x": 40,
    "y": 1400,
-   "note": "Collection feedback_entries. Not synced, clients fetch the board live. User-created entries are hard deleted; deleted is only a tombstone for seeded entries."
+   "note": "Collection feedback_entries. Synced by /feedback/sync (diff on updatedAt). The creator and admins edit it (/feedback/edit), never a seeded entry; an edit moves updatedAt, not activityAt. User-created entries are hard deleted; deleted is only a tombstone for seeded entries."
   },
   {
    "id": "fcomment",
@@ -1266,11 +1271,12 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "devComment: Boolean",
     "appVersion: String?",
     "platform: String?",
-    "createdAt: Instant"
+    "createdAt: Instant",
+    "editedAt: Instant?"
    ],
    "x": 40,
    "y": 2160,
-   "note": "Collection feedback_comments."
+   "note": "Collection feedback_comments. Only the author edits the text (/feedback/editcomment)."
   },
   {
    "id": "fbtype",

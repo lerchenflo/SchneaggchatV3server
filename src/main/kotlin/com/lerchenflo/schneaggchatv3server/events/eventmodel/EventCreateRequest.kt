@@ -15,6 +15,8 @@ data class EventRequest(
     val maxUsers: Int?,
     val groupDeleteDelay: GroupDeleteDelay,
     val createGroup: Boolean = true,
+    /** Reminder lead times in minutes before the start. Null (field not sent) keeps the stored ones. */
+    val reminderMinutes: List<Int>? = null,
 )
 
 
