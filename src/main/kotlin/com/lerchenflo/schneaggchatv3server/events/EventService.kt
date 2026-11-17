@@ -326,7 +326,8 @@ class EventService(
     /**
      * Sends every due reminder of the upcoming events, see [Event.reminderMinutes]. When several
      * reminders of one event are due at once (the server was down), only the one with the
-     * shortest lead time is sent and the others are marked handled with it.
+     * shortest lead time is sent and the others are marked handled with it. An event with a group
+     * chat also gets an [SystemEventType.EVENT_REMINDER] system message there, once per sent reminder.
      */
     fun sendDueReminders(now: Instant = Clock.System.now()) {
         eventsLookupService.getUpcomingEventsWithReminders(now).forEach { event ->
@@ -344,6 +345,18 @@ class EventService(
                     startDate = event.startDate,
                     leadMinutes = lead,
                 )
+
+                // Seen by every group member; silent, the reminder push above is the notification
+                event.groupId?.let { groupId ->
+                    systemMessageService.groupEvent(
+                        groupId = groupId,
+                        eventType = SystemEventType.EVENT_REMINDER,
+                        actorId = event.creatorId,
+                        text = event.title,
+                        timestamp = event.startDate.toEpochMilliseconds(),
+                        leadMinutes = lead,
+                    )
+                }
             }.onFailure { e ->
                 AppLogger.error("Event reminder for ${event.id.toHexString()} failed: ${e.message}", tag = "send_event_reminder_failed", error = e)
             }
