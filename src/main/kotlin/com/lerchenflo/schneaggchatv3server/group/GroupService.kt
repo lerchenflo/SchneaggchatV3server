@@ -63,6 +63,7 @@ class GroupService(
 
         if (!createdFromEvent) {
             require(membersInternal.size > 2) { "A group must have at least 3 members" }
+            require(!ValidationUtils.containsAdmin(groupName)) { "Group name must not contain \"admin\"" }
             require(ValidationUtils.validateUsername(groupName)) { "Group name invalid" }
             require(ValidationUtils.validateDescription(description)) { "Description invalid" }
             profilePic?.let {
@@ -274,6 +275,7 @@ class GroupService(
             groupLookupService.isUserInGroup(userId, groupId),
             { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_NAME, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
         ) { "You are not a member of this group" }
+        require(!ValidationUtils.containsAdmin(newName)) { "Group name must not contain \"admin\"" }
         require(ValidationUtils.validateUsername(newName)) { "Group name invalid" }
 
         val group = groupLookupService.getGroupById(groupId)

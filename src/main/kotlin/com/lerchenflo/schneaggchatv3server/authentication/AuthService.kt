@@ -69,6 +69,7 @@ class AuthService(
 
     fun register(username: String, password: String, email: String, birthdate: String, profilePic: MultipartFile, phoneNumber: String? = null, language: String? = null) : User {
 
+        require(!ValidationUtils.containsAdmin(username)) { "Username must not contain \"admin\"" }
         require(ValidationUtils.validateUsername(username)) { "Username invalid" }
         require(ValidationUtils.validatePassword(password)) { "Password invalid" }
         require(ValidationUtils.validateEmail(email)) { "Email invalid" }

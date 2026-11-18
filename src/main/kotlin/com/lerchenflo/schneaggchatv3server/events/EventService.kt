@@ -28,6 +28,7 @@ import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService.IdTimeStamp
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
+import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import com.lerchenflo.schneaggchatv3server.util.requireOrLog
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
@@ -115,6 +116,12 @@ class EventService(
                 upsertingUser == existing.creatorId,
                 { "Unauthorized event action - user: ${userLookupService.getUsername(upsertingUser)}, eventId: ${existing.id.toHexString()}, creator: ${userLookupService.getUsername(existing.creatorId)}" }
             ) { "You can not edit this event, you are not the creator" }
+        }
+
+        // The title becomes the event group's name. Titles from before the rule stay, so only a new
+        // or changed title is checked.
+        if (existing == null || existing.title != eventRequest.title) {
+            require(!ValidationUtils.containsAdmin(eventRequest.title)) { "Event title must not contain \"admin\"" }
         }
 
         val now = Clock.System.now()
