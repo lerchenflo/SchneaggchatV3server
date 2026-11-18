@@ -10,6 +10,7 @@ fun SystemEvent.toSystemEventResponse(): SystemEventResponse {
         timestamp = this.timestamp,
         extensionId = this.extensionId?.toHexString(),
         extensionType = this.extensionType,
+        leadMinutes = this.leadMinutes,
     )
 }
 

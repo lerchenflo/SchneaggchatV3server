@@ -1,7 +1,7 @@
 package com.lerchenflo.schneaggchatv3server.core.security.ratelimit
 
 import io.github.bucket4j.distributed.proxy.ProxyManager
-import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager
+import io.github.bucket4j.redis.lettuce.Bucket4jLettuce
 import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisURI
 import io.lettuce.core.api.StatefulRedisConnection
@@ -45,5 +45,5 @@ class RedisRateLimitConfig {
     fun rateLimitProxyManager(
         rateLimitRedisConnection: StatefulRedisConnection<String, ByteArray>
     ): ProxyManager<String> =
-        LettuceBasedProxyManager.builderFor(rateLimitRedisConnection).build()
+        Bucket4jLettuce.casBasedBuilder(rateLimitRedisConnection).build()
 }

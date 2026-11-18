@@ -1,14 +1,14 @@
 plugins {
-    kotlin("jvm") version "2.4.0"
-    kotlin("plugin.spring") version "2.3.0"
-    id("org.springframework.boot") version "4.1.0"
-    id("com.google.devtools.ksp") version "2.3.9"
+    kotlin("jvm") version "2.4.21"
+    kotlin("plugin.spring") version "2.4.21"
+    id("org.springframework.boot") version "4.1.2"
+    id("com.google.devtools.ksp") version "2.3.14"
     id("io.spring.dependency-management") version "1.1.7"
-    kotlin("plugin.lombok") version "2.4.0"
+    kotlin("plugin.lombok") version "2.4.21"
 }
 
 group = "com.lerchenflo"
-version = "3.0.16"
+version = "3.0.20"
 description = "SchneaggchatV3 server"
 
 java {
@@ -30,7 +30,6 @@ dependencies {
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
-    implementation("org.testng:testng:7.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
 
     //Email sending
@@ -53,23 +52,23 @@ dependencies {
     implementation("tools.jackson.module:jackson-module-kotlin") // Jackson 3 Kotlin support (HTTP bodies + Json.mapper), so Kotlin default values apply
 
     //firebase
-    implementation("com.google.firebase:firebase-admin:9.11.0")
+    implementation("com.google.firebase:firebase-admin:9.12.0")
 
     //APNs
     implementation("com.eatthepath:pushy:0.15.6")
-    runtimeOnly("io.netty:netty-tcnative-boringssl-static:2.0.78.Final")
+    runtimeOnly("io.netty:netty-tcnative-boringssl-static:2.0.85.Final")
 
 
     implementation("org.springframework.boot:spring-boot-starter-websocket")
 
     //rate limiting
-    implementation("com.bucket4j:bucket4j-core:8.10.1")
-    implementation("com.bucket4j:bucket4j-redis:8.10.1")
+    implementation("com.bucket4j:bucket4j_jdk17-core:8.22.0")
+    implementation("com.bucket4j:bucket4j_jdk17-lettuce:8.22.0")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
     //testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation("io.mockk:mockk:1.14.12")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation(kotlin("test"))
 }
