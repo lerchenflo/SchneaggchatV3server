@@ -54,6 +54,7 @@ class SystemMessageService(
         timestamp: Long? = null,
         extensionId: ObjectId? = null,
         extensionType: GroupExtensionType? = null,
+        leadMinutes: Int? = null,
     ) {
         runCatching {
             val distinctTargets = targets.distinct()
@@ -66,6 +67,7 @@ class SystemMessageService(
                 timestamp = timestamp,
                 extensionId = extensionId,
                 extensionType = extensionType,
+                leadMinutes = leadMinutes,
             )
 
             val readerIds = (groupLookupService.getGroupMembers(groupId).map { it.userid } + distinctTargets).distinct()

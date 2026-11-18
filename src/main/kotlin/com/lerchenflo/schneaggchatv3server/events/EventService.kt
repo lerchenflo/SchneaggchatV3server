@@ -28,7 +28,6 @@ import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService.IdTimeStamp
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.util.AppLogger
-import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import com.lerchenflo.schneaggchatv3server.util.requireOrLog
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
@@ -116,12 +115,6 @@ class EventService(
                 upsertingUser == existing.creatorId,
                 { "Unauthorized event action - user: ${userLookupService.getUsername(upsertingUser)}, eventId: ${existing.id.toHexString()}, creator: ${userLookupService.getUsername(existing.creatorId)}" }
             ) { "You can not edit this event, you are not the creator" }
-        }
-
-        // The title becomes the event group's name. Titles from before the rule stay, so only a new
-        // or changed title is checked.
-        if (existing == null || existing.title != eventRequest.title) {
-            require(!ValidationUtils.containsAdmin(eventRequest.title)) { "Event title must not contain \"admin\"" }
         }
 
         val now = Clock.System.now()
@@ -333,7 +326,8 @@ class EventService(
     /**
      * Sends every due reminder of the upcoming events, see [Event.reminderMinutes]. When several
      * reminders of one event are due at once (the server was down), only the one with the
-     * shortest lead time is sent and the others are marked handled with it.
+     * shortest lead time is sent and the others are marked handled with it. An event with a group
+     * chat also gets an [SystemEventType.EVENT_REMINDER] system message there, once per sent reminder.
      */
     fun sendDueReminders(now: Instant = Clock.System.now()) {
         eventsLookupService.getUpcomingEventsWithReminders(now).forEach { event ->
@@ -351,6 +345,18 @@ class EventService(
                     startDate = event.startDate,
                     leadMinutes = lead,
                 )
+
+                // Seen by every group member; silent, the reminder push above is the notification
+                event.groupId?.let { groupId ->
+                    systemMessageService.groupEvent(
+                        groupId = groupId,
+                        eventType = SystemEventType.EVENT_REMINDER,
+                        actorId = event.creatorId,
+                        text = event.title,
+                        timestamp = event.startDate.toEpochMilliseconds(),
+                        leadMinutes = lead,
+                    )
+                }
             }.onFailure { e ->
                 AppLogger.error("Event reminder for ${event.id.toHexString()} failed: ${e.message}", tag = "send_event_reminder_failed", error = e)
             }

@@ -23,6 +23,7 @@ enum class SystemEventType {
     EVENT_START_CHANGED,    // the event's start moved - timestamp is the new start
     EVENT_LOCATION_CHANGED, // the event's location was set, moved or removed
     EVENT_CANCELLED,        // the event was deleted while its group chat stays
+    EVENT_REMINDER,         // an event reminder went out - timestamp = start, leadMinutes = lead time; actor = creator
     GROUP_EXTENSION_CREATED, // text = title; extensionId + extensionType set
     GROUP_EXTENSION_RENAMED, // text = new title, previousText = old title; extensionId + extensionType set
     GROUP_EXTENSION_DELETED, // text = title; extensionId + extensionType set
@@ -43,9 +44,10 @@ data class SystemEvent(
     val targets: List<SystemEventParticipant> = emptyList(),
     val text: String? = null,          // new group name, wake reason, event or extension title
     val previousText: String? = null,  // old group name (GROUP_NAME_CHANGED), old extension title (GROUP_EXTENSION_RENAMED)
-    val timestamp: Long? = null,       // epoch millis: the new start (EVENT_START_CHANGED only)
+    val timestamp: Long? = null,       // epoch millis: the new start (EVENT_START_CHANGED), the start (EVENT_REMINDER)
     val extensionId: ObjectId? = null,              // GROUP_EXTENSION_* only
     val extensionType: GroupExtensionType? = null,  // GROUP_EXTENSION_* only
+    val leadMinutes: Int? = null,      // EVENT_REMINDER only: lead time of the reminder that went out
 )
 
 data class SystemEventParticipant(
@@ -61,6 +63,7 @@ data class SystemEventResponse(
     val timestamp: Long?,
     val extensionId: String?,
     val extensionType: GroupExtensionType?,
+    val leadMinutes: Int?,
 )
 
 data class SystemEventParticipantResponse(

@@ -36,6 +36,17 @@ Source: user 2026-11-16. One-shot migrations run in `MainController.onStartup` (
 
 ---
 
+## Feedback seed (from the client changelog)
+
+Source: client changelog 3.0.19, 2026-11-16. Seed texts stay German, as in the seed file.
+
+- [ ] Seed new "feature-quiz": a quiz game about Schneaggchat's features. Each round asks questions about the app's features (with a "this doesn't exist" option and a short explanation after each answer), with open feature wishes from the feedback board in between. After every card the player rates the feature with the board's vote buttons. Leaderboard with time as tiebreaker, counts in the global ranking. Find it in the games tile (Untere Navigation → Spiele → Feature-Quiz) and through a button on the feedback board. *(client changelog 3.0.19, 2026-11-16)*
+- [ ] Seed update "games": the text "Bestenlisten pro Spiel und ein Ranking über alle Spiele" does not mention the random game button. Next to the global ranking, a button starts a random solo game. Location: Untere Navigation → Spiele. *(client changelog 3.0.19, 2026-11-16)*
+- [ ] Seed update "group-extensions": the text lists four extensions (gemeinsamer Texteditor, Geld aufteilen, Zitatesammlung, Tourenplaner), but only "Geld aufteilen" can be added yet. The others show as coming soon in the add menu and cannot be added. The text should say so. *(client changelog 3.0.19, 2026-11-16)*
+- [ ] Seed update "events": the text says reminders come before the start, but does not mention that a reminder message also appears in the event's group chat. Location: Untere Navigation → Events. *(client changelog 3.0.20, 2026-11-17)*
+
+---
+
 ## GitHub issues
 
 Source: open issues of `lerchenflo/SchneaggchatV3server`, read 2026-11-06. Close an issue on GitHub when its item here is done.
@@ -108,7 +119,7 @@ Source: user bug report (2026-10-21): two accounts with the same email, password
 
 ## FCM: Firebase Installation ID
 
-Source: firebase-admin update check (2026-10-30). firebase-admin 9.10.0 deprecated sending to an FCM token (`Message.Builder.setToken`, `MulticastMessage` tokens) in favor of the Firebase Installation ID (`setFid`). Tokens still work and the release notes give no removal date. The client part is tracked in the client `plans/Todo.md` (P3).
+Source: firebase-admin update check (2026-10-30). firebase-admin 9.10.0 deprecated sending to an FCM token (`Message.Builder.setToken`, `MulticastMessage` tokens) in favor of the Firebase Installation ID (`setFid`). Tokens still work and the release notes give no removal date (still true in 9.12.0, checked 2026-11-16). The client part is tracked in the client `plans/Todo.md` (P3).
 
 - [ ] Accept and store the FID (`/users/setnotificationtoken` in `user/UserController.kt:51`, `notifications/firebase/model/FirebaseToken.kt`, `ValidationUtils.validateNotificationToken` - an FID has a different format than a token) and send with `setFid` in `FirebaseService.constructMessage`. Keep `setToken` for the released clients until none of them is left. The token cleanup on FCM "unregistered" errors has to cover FIDs too. Done before the client starts sending FIDs.
 
