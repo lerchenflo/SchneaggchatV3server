@@ -99,6 +99,7 @@ object ValidationUtils {
      */
     fun validateUsername(username: String): Boolean {
         if (username.isEmpty()) return false
+        if (containsAdmin(username)) return false
         if (username.length !in 3..25) return false
 
         // Must start with alphanumeric
@@ -114,6 +115,13 @@ object ValidationUtils {
 
         return validChars
     }
+
+    /**
+     * User names, group names and event titles must not contain "admin" anywhere, in any case
+     * (e.g. "Admin", "superadmin", "the_admin_1", also "badminton"). Names that existed before this
+     * rule stay; only new or changed names are checked.
+     */
+    fun containsAdmin(name: String): Boolean = name.contains("admin", ignoreCase = true)
 
     //User can name his friends however he wants
     fun validateNickname(nickname: String): Boolean {

@@ -255,6 +255,7 @@ class UserService(
 
     fun changeUsername(requestingUserId: ObjectId, newName: String) {
         val normalizedNewName = newName.trim().lowercase(getDefault())
+        require(!ValidationUtils.containsAdmin(normalizedNewName)) { "Username must not contain \"admin\"" }
         val existingUser = userRepository.findByUsername(normalizedNewName)
 
         if (existingUser != null) {
