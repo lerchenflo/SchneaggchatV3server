@@ -95,8 +95,100 @@ class EventsLookupService(
         return eventRepository.findByGroupId(groupId)
     }
 
+    fun findByPreviousGroupId(groupId: ObjectId): List<Event> {
+        return eventRepository.findByPreviousGroupId(groupId)
+    }
+
     fun save(event: Event): Event {
         return eventRepository.save(event)
+    }
+
+    /**
+     * Writes the creator-editable fields of [edited] onto the stored event. Never a whole-document
+     * save: the group link (`groupId`, `previousGroupId`) and the `participations` are left as they
+     * are in the database, so an edit can not write back a group that was detached or deleted
+     * meanwhile, nor drop a response that came in while the edit ran.
+     *
+     * @return the updated event, or null when the event no longer exists.
+     */
+    fun updateContent(edited: Event): Event? {
+        return mongoTemplate.findAndModify(
+            Query(Criteria.where("_id").`is`(edited.id)),
+            Update()
+                .set("type", edited.type)
+                .set("title", edited.title)
+                .set("description", edited.description)
+                .set("location", edited.location)
+                .set("startDate", edited.startDate)
+                .set("closeDate", edited.closeDate)
+                .set("invitedUsers", edited.invitedUsers)
+                .set("visibility", edited.visibility)
+                .set("maxUsers", edited.maxUsers)
+                .set("groupDeleteDelay", edited.groupDeleteDelay)
+                .set("reminderMinutes", edited.reminderMinutes)
+                .set("sentReminders", edited.sentReminders)
+                .set("updatedAt", edited.updatedAt)
+                .set("updatedBy", edited.updatedBy),
+            FindAndModifyOptions.options().returnNew(true),
+            Event::class.java
+        )
+    }
+
+    /**
+     * Connects [groupId] to the event, but only while the event has no group: of two saves that
+     * try to give the same event a chat at the same moment, only one wins. Clears `previousGroupId`.
+     *
+     * @return the updated event, or null when the event is gone or already has a group.
+     */
+    fun linkGroup(eventId: ObjectId, groupId: ObjectId, updatedBy: ObjectId): Event? {
+        return mongoTemplate.findAndModify(
+            Query(Criteria.where("_id").`is`(eventId).and("groupId").`is`(null)),
+            Update()
+                .set("groupId", groupId)
+                .set("previousGroupId", null)
+                .set("updatedAt", Clock.System.now())
+                .set("updatedBy", updatedBy),
+            FindAndModifyOptions.options().returnNew(true),
+            Event::class.java
+        )
+    }
+
+    /**
+     * Takes [groupId] off the event, only while the event is still linked to it. [previousGroupId]
+     * is what the event remembers for a later reconnect (null = nothing). [updatedBy] null keeps
+     * the stored value (system deletes have no user).
+     *
+     * @return the updated event, or null when the event is gone or not linked to [groupId].
+     */
+    fun detachGroup(eventId: ObjectId, groupId: ObjectId, previousGroupId: ObjectId?, updatedBy: ObjectId?): Event? {
+        val update = Update()
+            .set("groupId", null)
+            .set("previousGroupId", previousGroupId)
+            .set("updatedAt", Clock.System.now())
+        updatedBy?.let { update.set("updatedBy", it) }
+        return mongoTemplate.findAndModify(
+            Query(Criteria.where("_id").`is`(eventId).and("groupId").`is`(groupId)),
+            update,
+            FindAndModifyOptions.options().returnNew(true),
+            Event::class.java
+        )
+    }
+
+    /**
+     * Forgets [groupId] as the chat the event can be reconnected to (that chat was deleted, or
+     * the creator left it).
+     *
+     * @return the updated event, or null when the event no longer remembers [groupId].
+     */
+    fun clearPreviousGroup(eventId: ObjectId, groupId: ObjectId): Event? {
+        return mongoTemplate.findAndModify(
+            Query(Criteria.where("_id").`is`(eventId).and("previousGroupId").`is`(groupId)),
+            Update()
+                .set("previousGroupId", null)
+                .set("updatedAt", Clock.System.now()),
+            FindAndModifyOptions.options().returnNew(true),
+            Event::class.java
+        )
     }
 
     fun deleteEvent(event: Event) {
@@ -188,8 +280,7 @@ class EventsLookupService(
 
         // The user usually already has an entry (opening the event marks SEEN first), so try the
         // in-place update before the insert. Each branch retries the other once: between the two
-        // calls a concurrent request of the same user may have inserted or - via a full event
-        // save in upsertEvent - dropped the element.
+        // calls a concurrent request of the same user may have inserted the element.
         return mongoTemplate.findAndModify(replaceQuery, replace, returnNew, Event::class.java)
             ?: mongoTemplate.findAndModify(insertQuery, insert, returnNew, Event::class.java)
             ?: mongoTemplate.findAndModify(replaceQuery, replace, returnNew, Event::class.java)

@@ -486,6 +486,9 @@ class GroupService(
 
                 friendsService.onSharedGroupChanged(listOf(groupMember), groupMembers.map { it.userid })
 
+                // A reconnect would put the event into a chat its creator is no longer in
+                forgetPreviousGroup(groupId, creatorId = groupMember)
+
                 pendingEvent = if (requestingUser == groupMember) {
                     SystemEventType.GROUP_MEMBER_LEFT
                 } else {
@@ -606,6 +609,9 @@ class GroupService(
     }
 
     fun addUserToGroup(groupId: ObjectId, memberId: ObjectId, timeStamp: Instant = Clock.System.now()) {
+        // No new members for a soft-deleted group (a join can race the group's delete)
+        groupLookupService.getGroupById(groupId)
+            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
         require(!groupLookupService.isUserInGroup(memberId, groupId)) {"User is already in this group"}
 
         val groupMembers = groupLookupService.getGroupMembers(groupId)
@@ -702,16 +708,37 @@ class GroupService(
                     deleted = true
                 )
             } else {
-                val detached = eventsLookupService.save(
-                    event.copy(groupId = null, updatedAt = Clock.System.now(), updatedBy = deletedBy ?: event.updatedBy)
-                )
-                notificationService.notifyEventUpdate(
-                    eventResponse = detached.toResponse(),
-                    newEntry = false,
-                    deleted = false
-                )
+                // Atomic, so an edit of the event running at the same moment can not undo it
+                eventsLookupService.detachGroup(event.id, groupId, previousGroupId = null, updatedBy = deletedBy)?.let { detached ->
+                    notificationService.notifyEventUpdate(
+                        eventResponse = detached.toResponse(),
+                        newEntry = false,
+                        deleted = false
+                    )
+                }
             }
         }
+
+        // A chat that is gone can not be reconnected to the event it was detached from
+        forgetPreviousGroup(groupId)
+    }
+
+    /**
+     * Clears [groupId] as the chat an event can be reconnected to ([com.lerchenflo.schneaggchatv3server.events.eventmodel.Event.previousGroupId]),
+     * for every event that remembers it, or only those of [creatorId] when set.
+     */
+    private fun forgetPreviousGroup(groupId: ObjectId, creatorId: ObjectId? = null) {
+        eventsLookupService.findByPreviousGroupId(groupId)
+            .filter { creatorId == null || it.creatorId == creatorId }
+            .forEach { event ->
+                eventsLookupService.clearPreviousGroup(event.id, groupId)?.let { updated ->
+                    notificationService.notifyEventUpdate(
+                        eventResponse = updated.toResponse(),
+                        newEntry = false,
+                        deleted = false
+                    )
+                }
+            }
     }
 
     /**

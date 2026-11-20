@@ -24,6 +24,8 @@ enum class SystemEventType {
     EVENT_LOCATION_CHANGED, // the event's location was set, moved or removed
     EVENT_CANCELLED,        // the event was deleted while its group chat stays
     EVENT_REMINDER,         // an event reminder went out - timestamp = start, leadMinutes = lead time; actor = creator
+    EVENT_DETACHED,         // the creator took the event off this chat, the chat stays - text = event title
+    EVENT_GROUP_RELINKED,   // a detached event was connected to this chat again - text = event title
     GROUP_EXTENSION_CREATED, // text = title; extensionId + extensionType set
     GROUP_EXTENSION_RENAMED, // text = new title, previousText = old title; extensionId + extensionType set
     GROUP_EXTENSION_DELETED, // text = title; extensionId + extensionType set
