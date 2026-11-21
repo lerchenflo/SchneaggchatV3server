@@ -32,7 +32,13 @@ Source: E2E roadmap pre-releases (`docs/E2E_ROADMAP_SERVER_PLAN.md` section 1.5)
 
 Source: user 2026-11-16. One-shot migrations run in `MainController.onStartup` (no separate migration runner, see E2E plan F24). Each new one goes on this list.
 
-- [ ] Remove every one-shot startup migration once the server ran it on production: `MainController.purgeMessagesOfDeletedGroups` (messages and media of deleted groups) and `MainController.deleteMembersOfDeletedGroups` with `GroupLookupService.deleteMembersOfDeletedGroups` and `GroupMemberRepository.deleteByGroupIdIn` (member rows of deleted groups). `GroupStaleMemberCleanupTest` tests that cleanup: drop its cleanup part with it and keep the `isUserInGroup` checks.
+None open: all ran on production and were removed (user, 2026-11-21).
+
+---
+
+## Admin website (chefdev)
+
+- [ ] Show the database id of every entry on the admin website (`src/main/resources/chefdev/chefdev.html` + `chefdev.js`), so an entry can be looked up in the database: game scores and results, users and every other list there. Easy to copy (click to copy or selectable text). *(user, 2026-11-21)*
 
 ---
 
@@ -44,6 +50,7 @@ Source: client changelog 3.0.19, 2026-11-16. Seed texts stay German, as in the s
 - [ ] Seed update "games": the text "Bestenlisten pro Spiel und ein Ranking über alle Spiele" does not mention the random game button. Next to the global ranking, a button starts a random solo game. Location: Untere Navigation → Spiele. *(client changelog 3.0.19, 2026-11-16)*
 - [ ] Seed update "group-extensions": the text lists four extensions (gemeinsamer Texteditor, Geld aufteilen, Zitatesammlung, Tourenplaner), but only "Geld aufteilen" can be added yet. The others show as coming soon in the add menu and cannot be added. The text should say so. *(client changelog 3.0.19, 2026-11-16)*
 - [ ] Seed update "events": the text says reminders come before the start, but does not mention that a reminder message also appears in the event's group chat. Location: Untere Navigation → Events. *(client changelog 3.0.20, 2026-11-17)*
+- [ ] Seed update "feature-tour": the text only describes a short introduction to where the main features are. Since 3.0.20 the tour also shows new steps by themselves the first time their screen opens, e.g. in the first chat (long press a message, swipe to reply, polls, chat details) and in the chat or group details (nickname, wake, group members, delete timer). Users who already took the tour only get the new steps. Location: Einstellungen → Miscellaneous → Tour zurücksetzen (shows everything again). *(client changelog 3.0.20, 2026-11-19)*
 
 ---
 
