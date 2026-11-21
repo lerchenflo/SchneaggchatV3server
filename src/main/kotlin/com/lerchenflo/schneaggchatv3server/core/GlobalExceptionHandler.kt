@@ -8,6 +8,7 @@ import com.lerchenflo.schneaggchatv3server.util.TaggedRequireException
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import com.lerchenflo.schneaggchatv3server.util.LoggingService
 import jakarta.servlet.http.HttpServletRequest
+import org.apache.catalina.connector.ClientAbortException
 import org.bson.types.ObjectId
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -218,7 +219,14 @@ class GlobalExceptionHandler(
 
     // Catch-all handler for any unhandled exceptions
     @ExceptionHandler(Exception::class)
-    fun handleGeneralException(e: Exception, request: HttpServletRequest): ResponseEntity<String> {
+    fun handleGeneralException(e: Exception, request: HttpServletRequest): ResponseEntity<String>? {
+        // A client that went away while the response was written (e.g. a sync cut off mid-JSON):
+        // the disconnect is nested in an HttpMessageNotWritableException, so handleDisconnectedClient
+        // does not catch it. Normal, not a server error, and nothing can be written back (null).
+        val disconnected = generateSequence(e as Throwable) { it.cause }.take(20)
+            .any { it is AsyncRequestNotUsableException || it is ClientAbortException }
+        if (disconnected) return null
+
         val ip = clientIpResolver.resolve(request)
 
         //No stack trace printing for badcredentials (Someone used a wrong username)
