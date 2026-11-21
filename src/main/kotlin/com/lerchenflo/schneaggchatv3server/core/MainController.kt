@@ -3,6 +3,7 @@ package com.lerchenflo.schneaggchatv3server.core
 import com.lerchenflo.schneaggchatv3server.authentication.model.RefreshToken
 import com.lerchenflo.schneaggchatv3server.feedback.FeedbackSeedService
 import com.lerchenflo.schneaggchatv3server.group.GroupLookupService
+import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.repository.GroupRepository
 import com.lerchenflo.schneaggchatv3server.schneaggmap.MapSeedService
@@ -18,6 +19,10 @@ import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.index.Index
 import org.springframework.data.mongodb.core.index.IndexInfo
 import org.springframework.data.mongodb.core.index.PartialIndexFilter
+import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.Update
+import kotlin.time.Clock
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -62,6 +67,7 @@ class MainController(
 
         purgeMessagesOfDeletedGroups()
         deleteMembersOfDeletedGroups()
+        repairMemberColorsWithoutAlpha()
 
         if (debug) {
             //Create test account for google play & Apple
@@ -115,6 +121,29 @@ class MainController(
 
         if (purgedCount > 0) {
             AppLogger.info("Purged $purgedCount messages of ${deletedGroups.size} deleted groups")
+        }
+    }
+
+
+    /**
+     * One-shot repair: member colors generated before the ColorGenerator fix had no alpha byte, so
+     * the client drew those names fully transparent. Gives each such member a new color, unique in
+     * its group, and bumps the group's updatedAt so clients sync it. Idempotent - fixed colors no
+     * longer match. Can be removed once it ran on production.
+     */
+    fun repairMemberColorsWithoutAlpha() {
+        val broken = mongoTemplate.find(Query(Criteria.where("color").gte(1).lte(0xFFFFFF)), GroupMember::class.java)
+
+        broken.groupBy { it.groupId }.forEach { (groupId, members) ->
+            val kept = groupLookupService.getGroupMembers(groupId).map { it.color }.toSet() - members.map { it.color }.toSet()
+            ColorGenerator.generateUniqueColorsForGroup(kept, members.size).zip(members).forEach { (color, member) ->
+                mongoTemplate.updateFirst(Query(Criteria.where("_id").`is`(member.id)), Update().set("color", color), GroupMember::class.java)
+            }
+            groupLookupService.getGroupById(groupId)?.let { groupLookupService.saveGroup(it.copy(updatedAt = Clock.System.now())) }
+        }
+
+        if (broken.isNotEmpty()) {
+            AppLogger.info("Gave ${broken.size} group members without alpha in their color a new color")
         }
     }
 
