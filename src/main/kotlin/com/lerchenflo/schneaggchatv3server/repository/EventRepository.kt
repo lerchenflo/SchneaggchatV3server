@@ -8,4 +8,6 @@ interface EventRepository : MongoRepository<Event, ObjectId> {
 
     fun findByGroupId(groupId: ObjectId): Event?
 
+    fun findByPreviousGroupId(previousGroupId: ObjectId): List<Event>
+
 }

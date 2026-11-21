@@ -9,6 +9,7 @@ fun Event.toResponse(): EventResponse {
         title = title,
         description = description,
         groupId = groupId?.toHexString(),
+        previousGroupId = previousGroupId?.toHexString(),
         location = location,
         startDate = startDate.toEpochMilliseconds(),
         closeDate = closeDate?.toEpochMilliseconds(),

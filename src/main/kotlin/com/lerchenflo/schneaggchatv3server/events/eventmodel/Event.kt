@@ -21,6 +21,14 @@ data class Event(
     val description: String,
 
     val groupId: ObjectId?, //Group connected to this event, null = event without a group chat
+
+    /**
+     * The chat this event was detached from while that chat stayed (creator's detach, chat kept).
+     * Set only while [groupId] is null, the chat still exists and the creator is still in it, so
+     * a later createGroup reconnects that chat instead of making a second one. Cleared on any
+     * link, when that chat is deleted and when the creator leaves it.
+     */
+    val previousGroupId: ObjectId? = null,
     val location: LatLong?, //Optional Location
     val startDate: Instant,
     val closeDate: Instant?,

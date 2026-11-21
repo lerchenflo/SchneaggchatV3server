@@ -491,6 +491,21 @@ for tok, status in [(tb, 'ACCEPTED'), (tc, 'DISMISSED'), (td, 'SEEN')]:
     call('POST', '/events/participation', tok, body={'eventId': ev_a, 'status': status}, ok=200)
 call('POST', '/events/join', td, body={'eventId': ev_b}, ok=200)
 call('POST', '/events/sync', ta, body=[], params={'page': 0, 'page_size': 400}, ok=200)
+# Detach the chat but keep it, then turn the group on again: the same chat comes back, no second one
+event_r = {**event_b, 'title': 'Grillen', 'groupDeleteDelay': 'ONE_DAY'}
+code, ev = call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', event_r)]))))
+ev_r, group_r = ev.get('id'), ev.get('groupId')
+call('POST', '/events/join', tb, body={'eventId': ev_r}, ok=200)
+call('DELETE', '/events/delete', ta, params={'eventid': ev_r, 'deletegroup': 'false', 'deleteevent': 'false'}, ok=200)
+code, synced = call('POST', '/events/sync', ta, body=[], params={'page': 0, 'page_size': 400}, ok=200)
+detached = next((e for e in (synced or {}).get('updatedEvents', []) if e.get('id') == ev_r), {})
+check(detached.get('groupId') is None and detached.get('previousGroupId') == group_r, f'detached event remembers its kept chat: {detached}')
+# Out of the chat's reach for now, so b can say no - reconnecting the chat makes its members going again
+call('POST', '/events/participation', tb, body={'eventId': ev_r, 'status': 'DISMISSED'}, ok=200)
+code, ev = call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', {**event_r, 'eventId': ev_r})]))))
+check(ev.get('groupId') == group_r and ev.get('previousGroupId') is None, f'createGroup reconnects the detached chat: {ev}')
+b_status = next((p.get('status') for p in ev.get('participations', []) if p.get('userId') == b), None)
+check(b_status == 'ACCEPTED', f'reconnected chat member counts as going again: {b_status}')
 
 # ─── Groups ───────────────────────────────────────────────────────────────────
 mp = multipart([('name', 'Testgruppe', None, None), ('memberlist', f'{b},{c}', None, None), ('description', 'Alles zum Testen', None, None),

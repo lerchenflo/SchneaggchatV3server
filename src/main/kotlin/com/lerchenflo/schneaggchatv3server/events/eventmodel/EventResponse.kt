@@ -9,6 +9,8 @@ data class EventResponse(
     val title: String,
     val description: String,
     val groupId: String?,
+    /** Chat a createGroup on this event reconnects instead of creating a new one, see Event.previousGroupId. Null = none. */
+    val previousGroupId: String? = null,
     val location: LatLong?,
     val startDate: Long,
     val closeDate: Long?,
