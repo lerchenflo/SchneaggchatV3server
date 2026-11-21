@@ -58,18 +58,21 @@ object ColorGenerator {
         val x = c * (1 - kotlin.math.abs((hNorm * 6) % 2 - 1))
         val m = lNorm - c / 2
 
+        // Double bounds: with Int division (1/6) every bound was 0 and every hue came out pink
         val (r, g, b) = when {
-            hNorm < 1/6 -> Triple(c, x, 0.0)
-            hNorm < 2/6 -> Triple(x, c, 0.0)
-            hNorm < 3/6 -> Triple(0.0, c, x)
-            hNorm < 4/6 -> Triple(0.0, x, c)
-            hNorm < 5/6 -> Triple(x, 0.0, c)
+            hNorm < 1.0 / 6 -> Triple(c, x, 0.0)
+            hNorm < 2.0 / 6 -> Triple(x, c, 0.0)
+            hNorm < 3.0 / 6 -> Triple(0.0, c, x)
+            hNorm < 4.0 / 6 -> Triple(0.0, x, c)
+            hNorm < 5.0 / 6 -> Triple(x, 0.0, c)
             else -> Triple(c, 0.0, x)
         }
 
-        return ((kotlin.math.round((r + m) * 255).toInt() shl 16) or
+        // ARGB like the palette: without the alpha byte the client draws the name fully transparent
+        return (0xFF shl 24) or
+                (kotlin.math.round((r + m) * 255).toInt() shl 16) or
                 (kotlin.math.round((g + m) * 255).toInt() shl 8) or
-                kotlin.math.round((b + m) * 255).toInt())
+                kotlin.math.round((b + m) * 255).toInt()
     }
 
 }
