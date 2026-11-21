@@ -121,17 +121,6 @@ class GroupLookupService(
         return true
     }
 
-    /**
-     * Startup cleanup: deletes the member rows of groups that are already deleted. `deleteGroup`
-     * removes them itself; only groups deleted before that still have theirs. Returns the number of
-     * deleted rows. Can be removed once it ran on production.
-     */
-    fun deleteMembersOfDeletedGroups(): Long {
-        val deletedGroupIds = groupRepository.findByDeletedTrue().map { it.id }
-        if (deletedGroupIds.isEmpty()) return 0
-        return groupMemberRepository.deleteByGroupIdIn(deletedGroupIds)
-    }
-
     private fun getMemberGroupIds(userId: ObjectId): List<ObjectId> {
         return groupMemberRepository.findByuserid(userId).map { it.groupId }
     }
