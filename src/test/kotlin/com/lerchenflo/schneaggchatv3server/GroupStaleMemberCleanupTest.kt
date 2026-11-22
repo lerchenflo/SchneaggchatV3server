@@ -12,16 +12,15 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
- * Runs against a real Mongo (scripts/docker-test/run.sh unit): proves the startup cleanup
- * [GroupLookupService.deleteMembersOfDeletedGroups] removes only member rows of deleted groups, and
- * that [GroupLookupService.isUserInGroup] ignores a deleted group (E2E plan F15).
+ * Runs against a real Mongo (scripts/docker-test/run.sh unit): proves that
+ * [GroupLookupService.isUserInGroup] ignores a member row left in a deleted group (E2E plan F15).
+ * The startup cleanup this test also covered was removed once it ran on production.
  */
 @SpringBootTest
 class GroupStaleMemberCleanupTest {
@@ -40,40 +39,17 @@ class GroupStaleMemberCleanupTest {
     }
 
     @Test
-    fun `deletes only the member rows of deleted groups`() {
+    fun `a member row of a deleted group is no membership`() {
         val alice = ObjectId()
-        val bob = ObjectId()
-        val carol = ObjectId()
 
-        // Same users in a deleted and a live group: only the deleted group's rows may go
         val deletedGroup = group(deleted = true)
         val liveGroup = group(deleted = false)
-        val otherLiveGroup = group(deleted = false)
-        group(deleted = true) // deleted group without member rows
 
         member(alice, deletedGroup)
-        member(bob, deletedGroup)
         member(alice, liveGroup)
-        member(bob, liveGroup)
-        member(carol, liveGroup)
-        member(carol, otherLiveGroup)
 
         assertTrue(groupLookupService.isUserInGroup(alice, liveGroup))
         assertFalse(groupLookupService.isUserInGroup(alice, deletedGroup), "a stale row of a deleted group is no membership")
-
-        val deletedRows = groupLookupService.deleteMembersOfDeletedGroups()
-
-        assertTrue(deletedRows >= 2, "both stale rows deleted, got $deletedRows")
-        assertEquals(emptyList(), groupMemberRepository.findAllByGroupId(deletedGroup))
-        assertEquals(setOf(alice, bob, carol), groupMemberRepository.findAllByGroupId(liveGroup).map { it.userid }.toSet())
-        assertEquals(listOf(carol), groupMemberRepository.findAllByGroupId(otherLiveGroup).map { it.userid })
-        assertTrue(groupLookupService.isUserInGroup(alice, liveGroup))
-        assertTrue(groupLookupService.isUserInGroup(carol, otherLiveGroup))
-
-        // Second run (next startup) finds nothing of these groups and deletes nothing of them
-        groupLookupService.deleteMembersOfDeletedGroups()
-        assertEquals(3, groupMemberRepository.findAllByGroupId(liveGroup).size)
-        assertEquals(1, groupMemberRepository.findAllByGroupId(otherLiveGroup).size)
     }
 
     private fun group(deleted: Boolean): ObjectId {
