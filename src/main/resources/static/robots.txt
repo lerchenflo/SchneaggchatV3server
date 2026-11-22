@@ -1,8 +1,10 @@
 # Allowlist: only the public website and what it needs to render (styles, scripts, images,
 # translations, the FAQ and donation data the pages load). Everything else is the app's API.
 # delete_account and reset_password stay crawlable so search engines can read their noindex tag.
+# The sitemap must be allowed too: Google respects robots.txt when fetching it ("Couldn't fetch").
 User-agent: *
 Allow: /$
+Allow: /sitemap.xml
 Allow: /faq.html
 Allow: /privacypolicy.html
 Allow: /donations.html
