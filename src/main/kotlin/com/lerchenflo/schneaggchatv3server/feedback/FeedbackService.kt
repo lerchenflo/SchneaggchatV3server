@@ -108,7 +108,7 @@ class FeedbackService(
     fun create(
         type: FeedbackType,
         title: String,
-        description: String,
+        description: String?,
         tags: List<FeedbackTag>,
         location: String?,
         premium: Boolean,
@@ -229,7 +229,7 @@ class FeedbackService(
         entryId: ObjectId,
         type: FeedbackType,
         title: String,
-        description: String,
+        description: String?,
         tags: List<FeedbackTag>,
         location: String?,
         premium: Boolean?,
@@ -376,17 +376,18 @@ class FeedbackService(
     private fun validEntryFields(
         type: FeedbackType,
         title: String,
-        description: String,
+        description: String?,
         tags: List<FeedbackTag>,
         location: String?,
     ): EntryFields {
         val trimmedTitle = title.trim()
-        val trimmedDescription = description.trim()
+        // Optional: no description is stored as "", so responses keep a non-null string.
+        val trimmedDescription = description.orEmpty().trim()
         // Location only makes sense for features ("where to find it") - silently dropped for bugs.
         val trimmedLocation = if (type == FeedbackType.FEATURE) location?.trim()?.ifEmpty { null } else null
 
         require(ValidationUtils.validateFeedbackTitle(trimmedTitle)) { "Title must be 3 to 100 characters" }
-        require(ValidationUtils.validateFeedbackDescription(trimmedDescription)) { "Description must be 1 to 2000 characters" }
+        require(ValidationUtils.validateFeedbackDescription(trimmedDescription)) { "Description must be at most 2000 characters" }
         require(ValidationUtils.validateFeedbackTags(tags.size, tags.distinct().size)) { "Pick 1 to 3 distinct tags" }
         require(ValidationUtils.validateFeedbackLocation(trimmedLocation)) { "Location too long" }
         return EntryFields(trimmedTitle, trimmedDescription, trimmedLocation)

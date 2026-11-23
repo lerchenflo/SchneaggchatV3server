@@ -158,7 +158,7 @@ class FeedbackSeedService(
         val valid = parsedTags.size == tags.size &&
                 ValidationUtils.validateFeedbackTags(parsedTags.size, parsedTags.size) &&
                 ValidationUtils.validateFeedbackTitle(trimmedTitle) &&
-                ValidationUtils.validateFeedbackDescription(trimmedDescription) &&
+                trimmedDescription.isNotEmpty() && ValidationUtils.validateFeedbackDescription(trimmedDescription) &&
                 ValidationUtils.validateFeedbackLocation(trimmedLocation)
         if (!valid) {
             AppLogger.warn("Skipping invalid feedback seed '$seedKey'", tag = "seed_feedback_invalid_entry")

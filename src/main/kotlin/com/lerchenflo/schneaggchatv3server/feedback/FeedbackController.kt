@@ -28,9 +28,9 @@ class FeedbackController(
         @field:NotBlank(message = "Title must not be blank")
         @field:Size(max = 200, message = "Title too long")
         val title: String,
-        @field:NotBlank(message = "Description must not be blank")
+        /** Optional: missing, null or blank is stored and sent back as "". */
         @field:Size(max = 4000, message = "Description too long")
-        val description: String,
+        val description: String? = null,
         @field:Size(min = 1, max = 3, message = "Pick 1 to 3 tags")
         val tags: List<FeedbackTag>,
         @field:Size(max = 400, message = "Location too long")
@@ -72,9 +72,9 @@ class FeedbackController(
         @field:NotBlank(message = "Title must not be blank")
         @field:Size(max = 200, message = "Title too long")
         val title: String,
-        @field:NotBlank(message = "Description must not be blank")
+        /** Optional: missing, null or blank is stored and sent back as "". */
         @field:Size(max = 4000, message = "Description too long")
-        val description: String,
+        val description: String? = null,
         @field:Size(min = 1, max = 3, message = "Pick 1 to 3 tags")
         val tags: List<FeedbackTag>,
         @field:Size(max = 400, message = "Location too long")

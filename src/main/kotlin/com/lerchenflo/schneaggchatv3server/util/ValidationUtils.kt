@@ -456,7 +456,8 @@ object ValidationUtils {
 
     fun validateFeedbackTitle(title: String): Boolean = title.length in 3..100
 
-    fun validateFeedbackDescription(description: String): Boolean = description.length in 1..2000
+    /** Empty is allowed (no description); seeds still require one, see FeedbackSeedService. */
+    fun validateFeedbackDescription(description: String): Boolean = description.length <= 2000
 
     fun validateFeedbackTags(tagCount: Int, distinctCount: Int): Boolean =
         tagCount in 1..3 && distinctCount == tagCount

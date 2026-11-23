@@ -686,6 +686,10 @@ code, fe = call('POST', '/feedback/create', tb, body={'type': 'FEATURE', 'title'
 code, fb = call('POST', '/feedback/create', tc, body={'type': 'BUG', 'title': 'Chat lädt nicht', 'description': 'Nach dem Start leer',
                                                       'tags': ['CHAT', 'PERFORMANCE'], 'location': None, 'premium': False, 'appVersion': '3.0.18', 'platform': 'Desktop'}, ok=200)
 check(isinstance(fe, dict) and 'seedKey' in fe and fe['seedKey'] is None, 'user-created feedback entry has seedKey null')
+code, fn = call('POST', '/feedback/create', td, body={'type': 'FEATURE', 'title': 'Ohne Beschreibung', 'description': '   ', 'tags': ['UI']}, ok=200)
+check(isinstance(fn, dict) and fn.get('description') == '', 'feedback entry without description: blank stored and sent back as ""')
+code, fn2 = call('POST', '/feedback/create', td, body={'type': 'BUG', 'title': 'Auch ohne', 'tags': ['CHAT']}, ok=200)
+check(isinstance(fn2, dict) and fn2.get('description') == '', 'feedback entry with missing description sent back as ""')
 fe, fb = (x.get('id') if isinstance(x, dict) else None for x in (fe, fb))
 for tok, vote in [(ta, 'UP'), (tc, 'DOWN'), (td, 'NOT_NEEDED'), (te, 'UP'), (te, 'NONE')]:
     call('POST', '/feedback/vote', tok, body={'entryId': fe, 'vote': vote}, ok=200)
@@ -733,6 +737,14 @@ check(as_bug.get('status') == 'OPEN' and as_bug.get('isPremium') is False and as
       'feedback type change by an admin: start status, no premium, up/down votes kept')
 code, as_feat = call('POST', '/feedback/edit', ta, body={**edit_body, 'premium': True}, ok=200)
 check(isinstance(as_feat, dict) and as_feat.get('type') == 'FEATURE' and as_feat.get('isPremium') is True, 'feedback switch back to a feature sets premium again when sent')
+as_feat = as_feat if isinstance(as_feat, dict) else {}
+code, nodesc = call('POST', '/feedback/edit', ta, body={**edit_body, 'description': ''}, ok=200)
+nodesc = nodesc if isinstance(nodesc, dict) else {}
+check(nodesc.get('description') == '' and nodesc.get('editedAt', 0) > as_feat.get('editedAt', 0) and nodesc.get('activityAt') == as_feat.get('activityAt'),
+      'feedback edit to an empty description is an edit: moves editedAt, not activityAt')
+code, nodesc2 = call('POST', '/feedback/edit', ta, body={**edit_body, 'description': None}, ok=200)
+check(isinstance(nodesc2, dict) and nodesc2.get('description') == '' and nodesc2.get('editedAt') == nodesc.get('editedAt'),
+      'feedback edit from empty to missing description writes nothing')
 code, ce = call('POST', '/feedback/editcomment', tc, body={'commentId': cm.get('id') if isinstance(cm, dict) else '0' * 24, 'text': ' Ja bitte, gern '}, ok=200)
 check(isinstance(ce, dict) and ce.get('text') == 'Ja bitte, gern' and ce.get('editedAt') and ce.get('canEdit') is True, 'feedback comment edit by the author')
 call('POST', '/feedback/editcomment', ta, body={'commentId': cm.get('id') if isinstance(cm, dict) else '0' * 24, 'text': 'Admin'}, ok=404)
