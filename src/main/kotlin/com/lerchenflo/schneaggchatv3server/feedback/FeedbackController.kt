@@ -61,7 +61,10 @@ class FeedbackController(
         val platform: String? = null,
     )
 
-    /** Same fields and limits as [FeedbackCreateRequest]; premium, app version and platform stay as created. */
+    /**
+     * Same fields and limits as [FeedbackCreateRequest]; app version and platform stay as created.
+     * [premium] null (missing, released clients) keeps the stored value.
+     */
     data class FeedbackEditRequest(
         @field:NotBlank(message = "Entry id must not be blank")
         val entryId: String,
@@ -76,6 +79,8 @@ class FeedbackController(
         val tags: List<FeedbackTag>,
         @field:Size(max = 400, message = "Location too long")
         val location: String? = null,
+        /** FEATURE only, dropped for bugs. Null keeps the stored value. */
+        val premium: Boolean? = null,
     )
 
     data class FeedbackCommentEditRequest(
@@ -163,6 +168,7 @@ class FeedbackController(
             description = request.description,
             tags = request.tags,
             location = request.location,
+            premium = request.premium,
             requesterId = requesterId,
         )
     }

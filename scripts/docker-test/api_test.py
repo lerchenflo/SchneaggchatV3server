@@ -710,19 +710,29 @@ code, edited = call('POST', '/feedback/edit', tb, body=edit_body, ok=200)
 edited = edited if isinstance(edited, dict) else {}
 check(edited.get('editedAt') and edited.get('updatedAt', 0) > before.get('updatedAt', 0) and edited.get('activityAt') == before.get('activityAt'),
       'feedback edit sets editedAt and moves updatedAt, not activityAt')
+check(edited.get('isPremium') is True, 'feedback edit without premium keeps the stored premium')
 code, again = call('POST', '/feedback/edit', tb, body=edit_body, ok=200)
 check(isinstance(again, dict) and again.get('editedAt') == edited.get('editedAt') and again.get('updatedAt') == edited.get('updatedAt'),
       'feedback edit without a change writes nothing')
+code, unprem = call('POST', '/feedback/edit', tb, body={**edit_body, 'premium': False}, ok=200)
+unprem = unprem if isinstance(unprem, dict) else {}
+check(unprem.get('isPremium') is False and unprem.get('updatedAt', 0) > edited.get('updatedAt', 0)
+      and unprem.get('editedAt', 0) > edited.get('editedAt', 0) and unprem.get('activityAt') == before.get('activityAt'),
+      'feedback premium change alone is an edit: moves updatedAt and editedAt, not activityAt')
+code, unprem2 = call('POST', '/feedback/edit', tb, body={**edit_body, 'premium': False}, ok=200)
+check(isinstance(unprem2, dict) and unprem2.get('editedAt') == unprem.get('editedAt'), 'feedback edit with the stored premium writes nothing')
 call('POST', '/feedback/edit', tc, body=edit_body, ok=404)
 call('POST', '/feedback/edit', tb, body={**edit_body, 'title': 'ab'}, ok=400)
 call('POST', '/feedback/edit', tb, body={**edit_body, 'entryId': 'nope'}, ok=400)
 if seeded:
     call('POST', '/feedback/edit', ta, body={**edit_body, 'entryId': seeded[0]}, ok=403)
-code, as_bug = call('POST', '/feedback/edit', ta, body={**edit_body, 'type': 'BUG'}, ok=200)
+code, as_bug = call('POST', '/feedback/edit', ta, body={**edit_body, 'type': 'BUG', 'premium': True}, ok=200)
 as_bug = as_bug if isinstance(as_bug, dict) else {}
 check(as_bug.get('status') == 'OPEN' and as_bug.get('isPremium') is False and as_bug.get('notNeededCount') == 0
       and as_bug.get('upvotes') == edited.get('upvotes') and as_bug.get('downvotes') == edited.get('downvotes'),
       'feedback type change by an admin: start status, no premium, up/down votes kept')
+code, as_feat = call('POST', '/feedback/edit', ta, body={**edit_body, 'premium': True}, ok=200)
+check(isinstance(as_feat, dict) and as_feat.get('type') == 'FEATURE' and as_feat.get('isPremium') is True, 'feedback switch back to a feature sets premium again when sent')
 code, ce = call('POST', '/feedback/editcomment', tc, body={'commentId': cm.get('id') if isinstance(cm, dict) else '0' * 24, 'text': ' Ja bitte, gern '}, ok=200)
 check(isinstance(ce, dict) and ce.get('text') == 'Ja bitte, gern' and ce.get('editedAt') and ce.get('canEdit') is True, 'feedback comment edit by the author')
 call('POST', '/feedback/editcomment', ta, body={'commentId': cm.get('id') if isinstance(cm, dict) else '0' * 24, 'text': 'Admin'}, ok=404)

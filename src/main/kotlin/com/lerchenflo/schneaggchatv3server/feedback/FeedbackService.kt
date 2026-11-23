@@ -217,8 +217,9 @@ class FeedbackService(
      *
      * A type change resets the status to the start status of the new type and drops the votes the
      * new type and status can't hold ("didn't know", and "don't need it" on a bug); up and down votes
-     * stay. Premium and location only exist on features, so a switch to a bug clears both; premium is
-     * not editable, so it does not come back on a switch back to a feature.
+     * stay. Premium and location only exist on features, so a switch to a bug clears both and a sent
+     * `premium = true` is dropped for a bug, like on create. [premium] null (released clients don't
+     * send it) keeps the stored value; a switch back to a feature sets it again only when sent.
      *
      * An edit is no news for others: it moves [FeedbackEntry.updatedAt] for the sync, never
      * [FeedbackEntry.activityAt]. An edit that changes nothing writes nothing and sets no
@@ -231,6 +232,7 @@ class FeedbackService(
         description: String,
         tags: List<FeedbackTag>,
         location: String?,
+        premium: Boolean?,
         requesterId: ObjectId,
     ): FeedbackEntryResponse {
         val fields = validEntryFields(type, title, description, tags, location)
@@ -253,7 +255,7 @@ class FeedbackService(
                 tags = tags,
                 location = fields.location,
                 status = if (typeChanged) FeedbackStatus.initialFor(type) else entry.status,
-                premium = entry.premium && type == FeedbackType.FEATURE,
+                premium = (premium ?: entry.premium) && type == FeedbackType.FEATURE,
                 votes = if (!typeChanged) entry.votes else entry.votes.filterValues {
                     it != FeedbackVote.DIDNT_KNOW && !(it == FeedbackVote.NOT_NEEDED && type == FeedbackType.BUG)
                 },
