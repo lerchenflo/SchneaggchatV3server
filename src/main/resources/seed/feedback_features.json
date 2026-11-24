@@ -65,8 +65,8 @@
   {
     "seedKey": "annotations",
     "premium": true,
-    "title": "@Annotations für User, Orte, Spiele und Events",
-    "description": "Erwähne User, Orte auf der Karte, Spiele und Events in Nachrichten und Umfragen mit @ – ein Tipp darauf öffnet das verlinkte Element.",
+    "title": "@Annotations für User, Orte, Events und mehr",
+    "description": "Erwähne User, Orte auf der Karte, Events und mehr in Nachrichten und Umfragen mit @ – ein Tipp darauf öffnet das verlinkte Element.",
     "tags": ["CHAT"],
     "location": "Chat → @ im Textfeld eingeben"
   },
