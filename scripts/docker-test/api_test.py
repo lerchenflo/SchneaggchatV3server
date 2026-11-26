@@ -670,6 +670,30 @@ item_ids = []
 for ext_id, data in items:
     code, x = call('POST', '/groupextensions/items/upsert', tb, body={'extensionId': ext_id, 'itemId': None, 'data': data}, ok=200)
     item_ids += [(ext_id, i['id']) for i in (x.get('items', []) if isinstance(x, dict) else [])]
+    if ext_id == ext['ROUTE_PLANNER'] and isinstance(x, dict):
+        route_points = [i['id'] for i in x.get('items', []) if i.get('data', {}).get('_class') == 'route_point']
+
+# Route planner phase 2: unnamed drive-through, transfer, alternative path with its own point
+def route_item(tok, data, ok=200):
+    code, x = call('POST', '/groupextensions/items/upsert', tok, body={'extensionId': ext['ROUTE_PLANNER'], 'itemId': None, 'data': data}, ok=ok)
+    return x if isinstance(x, dict) else {}
+x = route_item(tb, {'_class': 'route_point', 'coordinates': {'lat': 47.55, 'long': 9.8}, 'name': '   ', 'description': '', 'sortIndex': 2,
+                    'kind': 'WAYPOINT', 'plannedAt': None, 'mapEntryId': None, 'transportMode': None, 'continueTransportMode': 'CAR', 'pathId': None})
+waypoint = (x.get('items') or [{}])[-1].get('data', {})
+check('name' in waypoint and waypoint['name'] is None and waypoint.get('continueTransportMode') is None,
+      'blank WAYPOINT name is stored as null, continueTransportMode cleared off TRANSFER')
+route_item(tb, {'_class': 'route_point', 'coordinates': {'lat': 47.58, 'long': 9.85}, 'name': 'Bahnhof', 'description': 'Umstieg', 'sortIndex': 3,
+                'kind': 'TRANSFER', 'plannedAt': NOW + DAY + HOUR, 'mapEntryId': None, 'transportMode': 'CAR', 'continueTransportMode': 'FOOT', 'pathId': None})
+route_item(tb, {'_class': 'route_point', 'coordinates': {'lat': 47.58, 'long': 9.85}, 'sortIndex': 4, 'kind': 'STOP'}, ok=400)  # name required
+x = route_item(tc, {'_class': 'route_path', 'name': 'Über den Pass', 'description': 'die schöne Strecke', 'transportMode': 'MOTORBIKE',
+                    'fromItemId': route_points[0] if route_points else '0' * 24, 'toItemId': route_points[-1] if route_points else '0' * 24,
+                    'memberIds': [b, c]})
+path_id = next((i['id'] for i in x.get('items', []) if i.get('data', {}).get('_class') == 'route_path'), '0' * 24)
+route_item(tc, {'_class': 'route_point', 'coordinates': {'lat': 47.62, 'long': 9.95}, 'name': 'Passhöhe', 'description': '', 'sortIndex': 0,
+                'kind': 'POI', 'plannedAt': None, 'mapEntryId': None, 'transportMode': 'MOTORBIKE', 'continueTransportMode': None, 'pathId': path_id})
+route_item(tc, {'_class': 'route_path', 'name': 'Falsch', 'fromItemId': path_id, 'toItemId': path_id}, ok=400)  # from/to must be route points
+route_item(tc, {'_class': 'route_point', 'coordinates': {'lat': 47.6, 'long': 9.9}, 'name': 'X', 'sortIndex': 0,
+                'pathId': route_points[0] if route_points else '0' * 24}, ok=400)  # pathId must be a route path
 call('POST', '/groupextensions/items/upsert', tc, body={'extensionId': ext['SHARED_TEXT'], 'itemId': item_ids[0][1] if item_ids else None,
                                                        'data': {'_class': 'shared_text', 'text': 'Einkaufsliste: Brot, Käse, Bier', 'writers': []}}, ok=200)
 quote_items = [i for x, i in item_ids if x == ext['QUOTES']]

@@ -9,6 +9,7 @@ import com.lerchenflo.schneaggchatv3server.group.groupextensions.model.RoutePoin
 import com.lerchenflo.schneaggchatv3server.schneaggmap.model.LatLong
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
 import org.springframework.data.annotation.TypeAlias
+import kotlin.reflect.KClass
 
 /**
  * HOW TO ADD A NEW EXTENSION TYPE
@@ -23,6 +24,8 @@ import org.springframework.data.annotation.TypeAlias
  *    - `override val extensionType` returning the new enum value
  *    - `override fun validate()` (field limits) and `override fun referencedUserIds()` (every user
  *      id the payload holds - the service checks they are group members)
+ *    - optionally `override fun referencedItems()` when the payload points to other items of the
+ *      same extension (see RoutePath) - the service checks they exist with the right type
  *    - optionally `override fun prepareForSave()` when the server derives fields (see SharedText)
  * 3. If the type needs configuration, add an ExtensionSettings subclass the same way
  *    (model/ExtensionSettings.kt) and name it in the enum value
@@ -40,6 +43,7 @@ import org.springframework.data.annotation.TypeAlias
     JsonSubTypes.Type(value = ExtensionItemData.SplitExpense::class, name = "split_expense"),
     JsonSubTypes.Type(value = ExtensionItemData.Quote::class,        name = "quote"),
     JsonSubTypes.Type(value = ExtensionItemData.RoutePoint::class,   name = "route_point"),
+    JsonSubTypes.Type(value = ExtensionItemData.RoutePath::class,    name = "route_path"),
 )
 sealed class ExtensionItemData {
 
@@ -52,6 +56,16 @@ sealed class ExtensionItemData {
 
     /** Every user id this payload references. The service only accepts group members here. */
     abstract fun referencedUserIds(): Set<String>
+
+    /**
+     * Other items of the same extension this payload points to. The service only accepts ids of
+     * existing items whose payload is [ItemReference.type] - or an unchanged reference of the stored
+     * item, so an item whose target was deleted later stays editable.
+     */
+    open fun referencedItems(): List<ItemReference> = emptyList()
+
+    /** [field] holds the item id [itemId], which must name an item with a [type] payload. */
+    data class ItemReference(val field: String, val itemId: String, val type: KClass<out ExtensionItemData>)
 
     /**
      * Hook for fields the server sets itself, called before [validate] with the stored payload of
@@ -200,11 +214,16 @@ sealed class ExtensionItemData {
     }
 
 
-    /** ROUTE_PLANNER: one item per point; the route is the items ordered by sortIndex. */
+    /**
+     * ROUTE_PLANNER: one item per point. The main route is the points without [pathId] ordered by
+     * sortIndex; the points of a [RoutePath] have their own sortIndex order inside that path.
+     */
     @TypeAlias("route_point")
     data class RoutePoint(
         val coordinates: LatLong,
-        val name: String,
+        // Required (1..100) for every kind but WAYPOINT. An unnamed drive-through (WAYPOINT) is
+        // stored as null, so every phone shows its own translated label; a blank one becomes null.
+        val name: String? = null,
         val description: String = "",
         val sortIndex: Int,
         val kind: RoutePointKind = RoutePointKind.STOP,
@@ -213,18 +232,73 @@ sealed class ExtensionItemData {
         // How the group travels TO this point (the leg from the previous one), e.g. FOOT, BICYCLE, MOTORBIKE, CAR.
         // null = the route default (ExtensionSettings.Route.transportMode). Free string, unknown values are kept as sent.
         val transportMode: String? = null,
+        // TRANSFER only: the mode of the leg after this point ("continue with"), same values as
+        // transportMode. Cleared on every other kind. The client sets the next point's transportMode itself.
+        val continueTransportMode: String? = null,
+        // Item id of the RoutePath this point belongs to, null = main route. Not cascaded: deleting
+        // the path leaves this id dangling, the client deletes a path's points itself.
+        val pathId: String? = null,
     ) : ExtensionItemData() {
         override val extensionType get() = GroupExtensionType.ROUTE_PLANNER
 
+        override fun prepareForSave(previous: ExtensionItemData?, requesterId: String): ExtensionItemData = copy(
+            name = if (kind == RoutePointKind.WAYPOINT) name?.takeIf { it.isNotBlank() } else name,
+            continueTransportMode = continueTransportMode.takeIf { kind == RoutePointKind.TRANSFER },
+        )
+
         override fun validate(): List<String> = buildList {
             if (!ValidationUtils.validateLatLong(coordinates.lat, coordinates.long)) add("coordinates: invalid")
-            if (name.isBlank() || name.length > 100) add("name: must be 1..100 chars")
+            if (kind == RoutePointKind.WAYPOINT) {
+                name?.let { if (it.length > 100) add("name: length ${it.length} exceeds maximum 100") }
+            } else if (name.isNullOrBlank() || name.length > 100) {
+                add("name: must be 1..100 chars")
+            }
             if (description.length > 500) add("description: length ${description.length} exceeds maximum 500")
             if (sortIndex < 0) add("sortIndex: must not be negative")
             mapEntryId?.let { if (!ValidationUtils.validateObjectId(it)) add("mapEntryId: invalid id") }
             transportMode?.let { if (it.length > 30) add("transportMode: length ${it.length} exceeds maximum 30") }
+            continueTransportMode?.let { if (it.length > 30) add("continueTransportMode: length ${it.length} exceeds maximum 30") }
+            pathId?.let { if (!ValidationUtils.validateObjectId(it)) add("pathId: invalid id") }
         }
 
         override fun referencedUserIds() = emptySet<String>()
+
+        override fun referencedItems() = listOfNotNull(pathId?.let { ItemReference("pathId", it, RoutePath::class) })
+    }
+
+
+    /**
+     * ROUTE_PLANNER: an alternative path that leaves the main route at [fromItemId] and rejoins it at
+     * [toItemId] (both RoutePoint items of the same extension; the same point for a loop). Its own
+     * points are the RoutePoints whose pathId is this item's id. Not cascaded: deleting a point a path
+     * names, or the path itself, leaves the ids dangling.
+     */
+    @TypeAlias("route_path")
+    data class RoutePath(
+        val name: String,
+        val description: String = "",
+        val transportMode: String? = null,        // same values as RoutePoint.transportMode, null = route default
+        val fromItemId: String,
+        val toItemId: String,
+        val memberIds: List<String> = emptyList(), // who takes this path, group members only
+    ) : ExtensionItemData() {
+        override val extensionType get() = GroupExtensionType.ROUTE_PLANNER
+
+        override fun validate(): List<String> = buildList {
+            if (name.isBlank() || name.length > 100) add("name: must be 1..100 chars")
+            if (description.length > 500) add("description: length ${description.length} exceeds maximum 500")
+            transportMode?.let { if (it.length > 30) add("transportMode: length ${it.length} exceeds maximum 30") }
+            if (!ValidationUtils.validateObjectId(fromItemId)) add("fromItemId: invalid id")
+            if (!ValidationUtils.validateObjectId(toItemId)) add("toItemId: invalid id")
+            if (memberIds.size > 100) add("memberIds: at most 100 members")
+            if (memberIds.size != memberIds.toSet().size) add("memberIds: contains duplicates")
+        }
+
+        override fun referencedUserIds() = memberIds.toSet()
+
+        override fun referencedItems() = listOf(
+            ItemReference("fromItemId", fromItemId, RoutePoint::class),
+            ItemReference("toItemId", toItemId, RoutePoint::class),
+        )
     }
 }

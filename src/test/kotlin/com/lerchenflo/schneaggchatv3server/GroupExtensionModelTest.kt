@@ -79,7 +79,12 @@ class GroupExtensionModelTest {
             extension(GroupExtensionType.QUOTES, ExtensionSettings.None,
                 ExtensionItemData.Quote(text = "Zemma!", saidByName = "Fabi", saidAt = 2L)),
             extension(GroupExtensionType.ROUTE_PLANNER, ExtensionSettings.Route("bike", 3L),
-                ExtensionItemData.RoutePoint(coordinates = LatLong(47.4, 9.7), name = "Dornbirn", sortIndex = 0, kind = RoutePointKind.POI)),
+                ExtensionItemData.RoutePoint(coordinates = LatLong(47.4, 9.7), name = "Dornbirn", sortIndex = 0, kind = RoutePointKind.POI),
+                ExtensionItemData.RoutePoint(coordinates = LatLong(47.5, 9.8), name = null, sortIndex = 1, kind = RoutePointKind.WAYPOINT),
+                ExtensionItemData.RoutePoint(coordinates = LatLong(47.6, 9.9), name = "Bahnhof", sortIndex = 2, kind = RoutePointKind.TRANSFER,
+                    continueTransportMode = "FOOT", pathId = ObjectId().toHexString()),
+                ExtensionItemData.RoutePath(name = "Über den Pass", description = "schöner", transportMode = "MOTORBIKE",
+                    fromItemId = ObjectId().toHexString(), toItemId = ObjectId().toHexString(), memberIds = listOf(userA.toHexString()))),
         )
 
         payloads.forEach { original ->
@@ -135,6 +140,18 @@ class GroupExtensionModelTest {
             GroupExtensionController.ItemRequest::class.java,
         )
         assertEquals(RoutePointKind.STOP, (route.data as ExtensionItemData.RoutePoint).kind)
+
+        val waypoint = httpMapper.readValue(
+            """{"extensionId":"${ObjectId().toHexString()}","data":{"_class":"route_point","coordinates":{"lat":1.0,"long":2.0},"sortIndex":0,"kind":"WAYPOINT"}}""",
+            GroupExtensionController.ItemRequest::class.java,
+        )
+        assertNull((waypoint.data as ExtensionItemData.RoutePoint).name)
+
+        val path = httpMapper.readValue(
+            """{"extensionId":"${ObjectId().toHexString()}","data":{"_class":"route_path","name":"Pass","fromItemId":"a","toItemId":"b"}}""",
+            GroupExtensionController.ItemRequest::class.java,
+        )
+        assertEquals(ExtensionItemData.RoutePath(name = "Pass", fromItemId = "a", toItemId = "b"), path.data)
     }
 
     @Test
@@ -214,6 +231,47 @@ class GroupExtensionModelTest {
         assertFalse(expense(mapOf(a to ExtensionItemData.SplitExpense.Share(1, 2000))).validate().isEmpty())           // fixed above total
         assertTrue(expense(mapOf(b to ExtensionItemData.SplitExpense.Share()), settlement = true).validate().isEmpty())
         assertFalse(expense(mapOf(a to ExtensionItemData.SplitExpense.Share()), settlement = true).validate().isEmpty()) // transfer to the payer
+    }
+
+    @Test
+    @DisplayName("Route points: name optional only for WAYPOINT, continueTransportMode only on TRANSFER")
+    fun `route point validation`() {
+        fun point(kind: RoutePointKind, name: String?, continueMode: String? = null) =
+            ExtensionItemData.RoutePoint(coordinates = LatLong(47.0, 9.0), name = name, sortIndex = 0, kind = kind, continueTransportMode = continueMode)
+        fun prepared(point: ExtensionItemData.RoutePoint) = point.prepareForSave(null, a) as ExtensionItemData.RoutePoint
+
+        assertTrue(point(RoutePointKind.WAYPOINT, null).validate().isEmpty())
+        assertNull(prepared(point(RoutePointKind.WAYPOINT, "  ")).name)                  // blank drive-through -> no name
+        assertEquals("Feldkirch", prepared(point(RoutePointKind.WAYPOINT, "Feldkirch")).name)
+        assertFalse(point(RoutePointKind.STOP, null).validate().isEmpty())
+        assertFalse(point(RoutePointKind.TRANSFER, " ").validate().isEmpty())
+        assertFalse(point(RoutePointKind.WAYPOINT, "x".repeat(101)).validate().isEmpty())
+
+        assertEquals("FOOT", prepared(point(RoutePointKind.TRANSFER, "Bahnhof", "FOOT")).continueTransportMode)
+        assertNull(prepared(point(RoutePointKind.STOP, "Bahnhof", "FOOT")).continueTransportMode) // cleared off TRANSFER
+        assertFalse(point(RoutePointKind.TRANSFER, "Bahnhof", "x".repeat(31)).validate().isEmpty())
+    }
+
+    @Test
+    @DisplayName("Route paths: limits, members and item references")
+    fun `route path validation`() {
+        val from = ObjectId().toHexString()
+        val to = ObjectId().toHexString()
+        val path = ExtensionItemData.RoutePath(name = "Pass", fromItemId = from, toItemId = to, memberIds = listOf(a, b))
+
+        assertTrue(path.validate().isEmpty())
+        assertTrue(path.copy(toItemId = from).validate().isEmpty())                       // loop back to the same point
+        assertFalse(path.copy(name = " ").validate().isEmpty())
+        assertFalse(path.copy(fromItemId = "nope").validate().isEmpty())
+        assertFalse(path.copy(memberIds = listOf(a, a)).validate().isEmpty())
+        assertEquals(setOf(a, b), path.referencedUserIds())
+        assertEquals(listOf(from, to), path.referencedItems().map { it.itemId })
+        assertTrue(path.referencedItems().all { it.type == ExtensionItemData.RoutePoint::class })
+
+        val pathId = ObjectId().toHexString()
+        val point = ExtensionItemData.RoutePoint(coordinates = LatLong(47.0, 9.0), name = "X", sortIndex = 0, pathId = pathId)
+        assertEquals(listOf(ExtensionItemData.ItemReference("pathId", pathId, ExtensionItemData.RoutePath::class)), point.referencedItems())
+        assertTrue(point.copy(pathId = null).referencedItems().isEmpty())
     }
 
     @Test
