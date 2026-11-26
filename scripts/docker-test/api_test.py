@@ -662,9 +662,9 @@ items = [
     (ext['QUOTES'], {'_class': 'quote', 'text': 'Des goht scho', 'saidByUserId': b, 'saidByName': None, 'saidAt': NOW - DAY, 'context': 'beim Grillen'}),
     (ext['QUOTES'], {'_class': 'quote', 'text': 'Früher war alles besser', 'saidByUserId': None, 'saidByName': 'Opa', 'saidAt': None, 'context': None}),
     (ext['ROUTE_PLANNER'], {'_class': 'route_point', 'coordinates': {'lat': 47.5, 'long': 9.7}, 'name': 'Start', 'description': 'Parkplatz',
-                            'sortIndex': 0, 'kind': 'STOP', 'plannedAt': NOW + DAY, 'mapEntryId': map_ids[1] if len(map_ids) > 1 else None}),
+                            'sortIndex': 0, 'kind': 'STOP', 'plannedAt': NOW + DAY, 'mapEntryId': map_ids[1] if len(map_ids) > 1 else None, 'transportMode': None}),
     (ext['ROUTE_PLANNER'], {'_class': 'route_point', 'coordinates': {'lat': 47.6, 'long': 9.9}, 'name': 'Hütte', 'description': 'Übernachtung',
-                            'sortIndex': 1, 'kind': 'ACCOMMODATION', 'plannedAt': NOW + DAY + 5 * HOUR, 'mapEntryId': None}),
+                            'sortIndex': 1, 'kind': 'ACCOMMODATION', 'plannedAt': NOW + DAY + 5 * HOUR, 'mapEntryId': None, 'transportMode': 'CAR'}),
 ]
 item_ids = []
 for ext_id, data in items:

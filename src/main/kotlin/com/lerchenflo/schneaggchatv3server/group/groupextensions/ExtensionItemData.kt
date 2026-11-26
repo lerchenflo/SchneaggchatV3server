@@ -210,6 +210,9 @@ sealed class ExtensionItemData {
         val kind: RoutePointKind = RoutePointKind.STOP,
         val plannedAt: Long? = null,
         val mapEntryId: String? = null,           // soft link to a map entry; coordinates/name are copies
+        // How the group travels TO this point (the leg from the previous one), e.g. FOOT, BICYCLE, MOTORBIKE, CAR.
+        // null = the route default (ExtensionSettings.Route.transportMode). Free string, unknown values are kept as sent.
+        val transportMode: String? = null,
     ) : ExtensionItemData() {
         override val extensionType get() = GroupExtensionType.ROUTE_PLANNER
 
@@ -219,6 +222,7 @@ sealed class ExtensionItemData {
             if (description.length > 500) add("description: length ${description.length} exceeds maximum 500")
             if (sortIndex < 0) add("sortIndex: must not be negative")
             mapEntryId?.let { if (!ValidationUtils.validateObjectId(it)) add("mapEntryId: invalid id") }
+            transportMode?.let { if (it.length > 30) add("transportMode: length ${it.length} exceeds maximum 30") }
         }
 
         override fun referencedUserIds() = emptySet<String>()
