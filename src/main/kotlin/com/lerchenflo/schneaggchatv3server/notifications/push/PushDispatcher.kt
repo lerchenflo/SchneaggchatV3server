@@ -46,7 +46,7 @@ class PushDispatcher(
             AppLogger.error("[${target.provider}] Push failed: ${e.message}", user = target.userId, error = e, tag = "send_push_failed")
             loggingService.log(
                 userId = target.userId,
-                logType = LogType.EXCEPTION_THROWN,
+                logType = LogType.PUSH_FAILED,
                 message = "${target.provider} push error: ${e.message}",
             )
         }

@@ -17,6 +17,9 @@ import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.index.Index
 import org.springframework.data.mongodb.core.index.IndexInfo
 import org.springframework.data.mongodb.core.index.PartialIndexFilter
+import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.Update
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -49,6 +52,29 @@ class MainController(
         return "Up and running!"
     }
 
+    /**
+     * One-shot repair: push failures used to be logged as EXCEPTION_THROWN against the push
+     * recipient, so they counted toward the recap's beta-tester (bugs hit) ranking. Moves those rows
+     * to PUSH_FAILED. A row is a push failure when its message is PushDispatcher's
+     * "<provider> push error: ..." or when it has no message at all and is newer than 2026-05-10
+     * 21:55 (+02:00): since then GlobalExceptionHandler always writes a message, and only the
+     * FCM/APNs services logged without one. Older message-less rows can't be told apart and stay.
+     * Idempotent. Can be removed once it ran on production.
+     */
+    fun reclassifyPushFailureLogs() {
+        val handlerAlwaysWritesMessageSince = 1778442941L // 2026-05-10T21:55:41+02:00, commit 529e4df
+        val query = Query(
+            Criteria.where("logType").`is`(LogType.EXCEPTION_THROWN.name).orOperator(
+                Criteria.where("message").regex("^(FCM|APNS) push error: "),
+                Criteria.where("message").`is`(null).and("timestamp.epochSeconds").gte(handlerAlwaysWritesMessageSince),
+            )
+        )
+        val result = mongoTemplate.updateMulti(query, Update().set("logType", LogType.PUSH_FAILED.name), Log::class.java)
+        if (result.modifiedCount > 0) {
+            AppLogger.info("Reclassified ${result.modifiedCount} push failure logs from EXCEPTION_THROWN to PUSH_FAILED")
+        }
+    }
+
     @EventListener(ApplicationReadyEvent::class)
     fun onStartup() {
         ensureRefreshTokenIndexes()
@@ -56,6 +82,8 @@ class MainController(
         faqSeedService.seedMissingEntries()
         feedbackSeedService.seedMissingEntries()
         mapSeedService.seedMissingEntries()
+
+        reclassifyPushFailureLogs()
 
         if (debug) {
             //Create test account for google play & Apple

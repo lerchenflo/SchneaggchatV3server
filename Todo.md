@@ -32,7 +32,13 @@ Source: E2E roadmap pre-releases (`docs/E2E_ROADMAP_SERVER_PLAN.md` section 1.5)
 
 Source: user 2026-11-16. One-shot migrations run in `MainController.onStartup` (no separate migration runner, see E2E plan F24). Each new one goes on this list.
 
-None open: all ran on production and were removed (user, 2026-11-21).
+- [ ] `MainController.reclassifyPushFailureLogs` (2026-11-26, recap work): moves old push-failure rows from `EXCEPTION_THROWN` to the new `PUSH_FAILED` log type, so they stop counting toward the recap's beta-tester ranking. Remove once it ran on production.
+
+---
+
+## Recap: group extensions next year
+
+Source: user 2026-11-26, while extending the recap. Group extensions (shared text, split, quotes, route planner) only just shipped, so the 2026 recap leaves them out. Add them for the 2027 recap: times the user was quoted (`Quote.saidByUserId`) and their best quote, who they quote most, money paid and their share in split expenses (`SplitExpense.paidBy`/`shares`) with the biggest expense, characters written in shared texts (`SharedText.writers`), route stops planned.
 
 ---
 

@@ -45,12 +45,14 @@ import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.FriendsLookupService
 import com.lerchenflo.schneaggchatv3server.user.friends.friendshipmodel.FriendshipStatus
 import com.lerchenflo.schneaggchatv3server.user.usermodel.User
+import com.lerchenflo.schneaggchatv3server.util.Log
 import com.lerchenflo.schneaggchatv3server.util.LogType
 import org.bson.types.ObjectId
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.aggregation.Aggregation
 import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.data.mongodb.core.query.Query
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.time.LocalDate
@@ -74,6 +76,7 @@ class RecapService(
     private val logRepository: LogRepository,
     private val mapEntryVersionRepository: MapEntryVersionRepository,
     private val connectionTimeLogger: ConnectionTimeLogger,
+    private val recapFeedbackBuilder: RecapFeedbackBuilder,
     private val mongoTemplate: MongoTemplate,
 ) {
 
@@ -84,8 +87,9 @@ class RecapService(
         val self = requireNotNull(userLookupService.findById(requesterId)) { "Requesting user not found" }
         // System messages (group changes, friend accepted, wakes) are server-authored, not
         // something the user actually sent or received - exclude them from every statistic below.
-        val allMessages = messageLookupService.getAllUserMessages(requesterId)
-            .filter { it.msgType != MessageType.SYSTEM }
+        // Wakes are the one statistic that reads system messages, see buildWakeRecap.
+        val rawMessages = messageLookupService.getAllUserMessages(requesterId)
+        val allMessages = rawMessages.filter { it.msgType != MessageType.SYSTEM }
         val yearMessages = allMessages.filter { it.sendDate.epochSeconds in yearStart until yearEnd }
 
         // Collect every user/group id referenced anywhere so we can resolve names in one batch call each -
@@ -121,10 +125,33 @@ class RecapService(
             groups = buildGroupsRecap(requesterId, yearMessages, groupNameFor),
             map = buildMapRecap(requesterId, yearStart, yearEnd),
             gamesLeaderboard = buildGamesLeaderboard(requesterId, year),
-            betaTester = buildBetaTesterRecap(requesterId),
+            betaTester = buildBetaTesterRecap(requesterId, yearStart, yearEnd),
             passwordResets = buildPasswordResetRecap(requesterId, yearStart, yearEnd),
             usageTime = buildUsageTimeRecap(requesterId, yearStart, yearEnd),
+            feedback = recapFeedbackBuilder.build(requesterId, yearStart, yearEnd),
+            chatHabits = buildChatHabitsRecap(allMessages, requesterId, yearStart, yearEnd, nameFor),
+            wakes = buildWakeRecap(
+                wakeLogs = logRepository.findByLogTypeAndUserId(LogType.WAKE_SENT, requesterId),
+                rawMessages = rawMessages,
+                requesterId = requesterId,
+                yearStart = yearStart,
+                yearEnd = yearEnd,
+                nameFor = ::wakeNameFor,
+            ),
         )
+    }
+
+    // Wake targets and wakers are mostly in the names resolved above, but those come from non-system
+    // messages only, so a friend who was woken and never written to would be missing - look up the
+    // (at most two) ids directly.
+    private fun wakeNameFor(id: ObjectId, group: Boolean): String =
+        if (group) groupRepository.findById(id).map { it.name }.orElse("Unknown group")
+        else userLookupService.findById(id)?.username ?: "Unknown"
+
+    private fun countLogs(logType: LogType, userId: ObjectId, yearStart: Long? = null, yearEnd: Long? = null): Long {
+        val criteria = Criteria.where("logType").`is`(logType.name).and("userId").`is`(userId)
+        if (yearStart != null && yearEnd != null) criteria.and("timestamp.epochSeconds").gte(yearStart).lt(yearEnd)
+        return mongoTemplate.count(Query(criteria), Log::class.java)
     }
 
     private fun kotlin.time.Instant.zoned() =
@@ -514,7 +541,7 @@ class RecapService(
 
     // All-time (not year-scoped) ranking of exceptions thrown per user - the "betatester" stat.
     // The population that ever hit an exception is small, so the full list ships, not just a top-N.
-    private fun buildBetaTesterRecap(requesterId: ObjectId): BetaTesterRecap {
+    private fun buildBetaTesterRecap(requesterId: ObjectId, yearStart: Long, yearEnd: Long): BetaTesterRecap {
         val aggregation = Aggregation.newAggregation(
             Aggregation.match(
                 Criteria.where("logType").`is`(LogType.EXCEPTION_THROWN.name).and("userId").ne(null)
@@ -537,10 +564,16 @@ class RecapService(
         }
 
         val myIndex = ranked.indexOfFirst { it.userId == requesterId }
+        val details = crashDetails(logRepository.findByLogTypeAndUserId(LogType.EXCEPTION_THROWN, requesterId))
         return BetaTesterRecap(
             all = rows,
             myRank = if (myIndex >= 0) myIndex + 1 else null,
             myExceptionCount = ranked.getOrNull(myIndex)?.count ?: 0,
+            myTopException = details.topException,
+            myTopEndpoint = details.topEndpoint,
+            myFirstExceptionAt = details.firstAt,
+            myPushFailuresThisYear = countLogs(LogType.PUSH_FAILED, requesterId, yearStart, yearEnd),
+            myPushFailuresAllTime = countLogs(LogType.PUSH_FAILED, requesterId),
         )
     }
 
@@ -550,6 +583,8 @@ class RecapService(
         return PasswordResetRecap(
             passwordResetEmailsSentThisYear = thisYear.toLong(),
             passwordResetEmailsSentAllTime = resets.size.toLong(),
+            failedLoginsThisYear = countLogs(LogType.LOGIN_FAILED, requesterId, yearStart, yearEnd),
+            failedLoginsAllTime = countLogs(LogType.LOGIN_FAILED, requesterId),
         )
     }
 }
