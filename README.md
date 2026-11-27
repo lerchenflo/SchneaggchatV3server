@@ -46,7 +46,8 @@ The server will run on port 8080
 ## Groups
 | Method | Endpoint | Description | Parameters |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/groups/create` | Create a new group | **Multipart/Form-Data**:<br>`name`: String<br>`memberlist[]`: List<String><br>`description`: String<br>`profilepic`: File |
+| `POST` | `/groups/create` | Create a new group | **Multipart/Form-Data**:<br>`name`: String<br>`memberlist[]`: List<String><br>`description`: String<br>`profilepic`: File<br>`membersCanAdd`: Boolean |
+| `POST` | `/groups/settings` | Change group settings (partial, null = unchanged) | **Body**:<br>`groupId`: String<br>`name`, `description`: String? (every member)<br>`expiresAt`: Long?, `clearExpiresAt`: Boolean?, `membersCanAdd`: Boolean? (admins) |
 | `POST` | `/groups/sync` | Sync groups for caching | **Body**:<br>List of `{ id: String, timeStamp: String }` |
 | `GET` | `/groups/profilepic/{id}` | Get group profile picture | **Path**:<br>`id`: String |
 

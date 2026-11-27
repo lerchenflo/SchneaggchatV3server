@@ -85,6 +85,10 @@ sealed interface NotificationResponse {
         val eventTitle: String,
         val creatorId: String,
         val creatorName: String,
+        // Set when a group member (not the creator) invited the receiver, null for a new event
+        // (travels as "" in the push data, like every null)
+        val inviterId: String? = null,
+        val inviterName: String? = null,
     ) : NotificationResponse
 
     //An event this user goes to starts in leadMinutes. startDate is epoch millis.

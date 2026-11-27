@@ -338,6 +338,44 @@ class NotificationService(
     }
 
     /**
+     * A group member invited [inviteeId] to an event through its group. Everyone who can see the
+     * event gets the silent update; the invitee gets it as a new entry naming [inviterId], plus -
+     * when [alert] - the visible invite push for devices the socket can not reach.
+     */
+    fun notifyEventInvite(eventResponse: EventResponse, inviteeId: ObjectId, inviterId: ObjectId, alert: Boolean) {
+        val audience = when (eventResponse.visibility) {
+            EventVisibility.INVITED_FRIENDS_ONLY -> eventResponse.invitedUsers
+            EventVisibility.FRIENDS_ONLY, EventVisibility.PUBLIC ->
+                eventResponse.invitedUsers + friendsLookupService.getFriends(ObjectId(eventResponse.creatorId)).map { it.toHexString() }
+        }
+        val toNotify = (audience + eventResponse.creatorId).map { ObjectId(it) }.toSet() + inviteeId
+
+        val update = SocketConnectionMessage.EventChange(event = eventResponse, newEntry = false, deleted = false)
+        val invite = SocketConnectionMessage.EventChange(
+            event = eventResponse,
+            newEntry = true,
+            deleted = false,
+            inviterId = inviterId.toHexString(),
+        )
+        val push = NotificationResponse.EventNotificationResponse(
+            eventId = eventResponse.id,
+            eventTitle = eventResponse.title,
+            creatorId = eventResponse.creatorId,
+            creatorName = userLookupService.getUsername(ObjectId(eventResponse.creatorId)),
+            inviterId = inviterId.toHexString(),
+            inviterName = userLookupService.getUsername(inviterId),
+        )
+
+        deliveryService.sendAll(toNotify) { user ->
+            when {
+                user != inviteeId -> Delivery.Live(update)
+                alert -> Delivery.Alert(invite, push)
+                else -> Delivery.Live(invite)
+            }
+        }
+    }
+
+    /**
      * An event reminder: socket for connected devices, push for the others. A reminder after the
      * start is worthless, so the push expires at [startDate].
      */

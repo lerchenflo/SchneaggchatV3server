@@ -11,6 +11,8 @@ data class GroupResponse(
     val createdAt: Long,
     val creatorId: String,
     val expiresAt: Long?,
+    /** See Group.membersCanAdd. */
+    val membersCanAdd: Boolean,
     val members: List<GroupMemberResponse>
 )
 

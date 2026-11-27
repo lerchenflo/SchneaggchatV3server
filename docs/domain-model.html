@@ -282,10 +282,11 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "profilePicUpdatedAt: Instant",
     "expiresAt: Instant?",
     "deleted: Boolean",
+    "membersCanAdd: Boolean",
     "createdAt: Instant",
     "creatorId: ObjectId"
    ],
-   "note": "Collection groups. expiresAt is set for event groups that delete themselves later.",
+   "note": "Collection groups. expiresAt is set for event groups that delete themselves later. membersCanAdd lets every member add their own friends (in an event group: invite them to the event).",
    "x": 820,
    "y": 40
   },

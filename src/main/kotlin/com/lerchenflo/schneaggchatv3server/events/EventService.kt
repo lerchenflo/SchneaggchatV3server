@@ -148,8 +148,7 @@ class EventService(
                 ?: listOf(EventParticipation(userId = upsertingUser, status = EventParticipationStatus.ACCEPTED, updatedAt = now)),
             visibility = eventRequest.visibility,
             maxUsers = eventRequest.maxUsers,
-            // Released clients do not send the fee: an edit from one must not reset it
-            entryFeeCents = eventRequest.entryFeeCents ?: existing?.entryFeeCents ?: 0L,
+            entryFeeCents = eventRequest.entryFeeCents,
             groupDeleteDelay = eventRequest.groupDeleteDelay,
             reminderMinutes = reminderMinutes,
             sentReminders = sentRemindersAfterSave(existing, startDate, reminderMinutes, now),
@@ -186,6 +185,10 @@ class EventService(
             linkGroup(updated, upsertingUser, eventRequest, profilePic, groupExpiresAt)
 
         val response = (if (linked) eventsLookupService.findById(existing.id) ?: updated else updated).toResponse()
+
+        // The creator decides it with the event, also for a chat they are no admin of (any more).
+        // A chat created by linkGroup already has it, a reconnected one takes it over here.
+        response.groupId?.let { groupService.setMembersCanAdd(ObjectId(it), eventRequest.membersCanAdd) }
 
         // Content-diff so a no-op resubmission triggers neither the client notification nor the
         // group system message - only a real change (or a newly linked chat) should notify anyone.
@@ -311,6 +314,7 @@ class EventService(
             description = eventRequest.description.take(200),
             profilePic = profilePic,
             createdFromEvent = true,
+            membersCanAdd = eventRequest.membersCanAdd,
             expiresAt = groupExpiresAt
         ).id
 
@@ -676,7 +680,8 @@ class EventService(
         if (event.creatorId == requesterId) return true
         return when (event.visibility) {
             EventVisibility.PUBLIC -> true //Public events all get synched
-            EventVisibility.FRIENDS_ONLY -> event.creatorId in friends //Only the creator's friends can access
+            //The creator's friends, plus whoever got invited (a group member may invite their own friends)
+            EventVisibility.FRIENDS_ONLY -> event.creatorId in friends || requesterId in event.invitedUsers
             EventVisibility.INVITED_FRIENDS_ONLY -> requesterId in event.invitedUsers //Only explicitly invited users can access
         }
     }

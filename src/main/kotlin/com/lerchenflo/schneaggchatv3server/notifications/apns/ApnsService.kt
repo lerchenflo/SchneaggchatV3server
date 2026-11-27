@@ -167,7 +167,7 @@ class ApnsService(
             is NotificationResponse.BirthdayNotificationResponse ->
                 if (notification.ownBirthday) "Happy Birthday!" else "Schneaggchat"
             is NotificationResponse.WakeNotificationResponse -> notification.senderName
-            is NotificationResponse.EventNotificationResponse -> notification.creatorName
+            is NotificationResponse.EventNotificationResponse -> notification.inviterName ?: notification.creatorName
             is NotificationResponse.EventReminderNotificationResponse -> "Reminder: ${notification.eventTitle}"
             is NotificationResponse.EventUpdateNotificationResponse -> notification.eventTitle
             is NotificationResponse.MapSightingNotificationResponse -> notification.entryName

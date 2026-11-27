@@ -4,6 +4,7 @@ package com.lerchenflo.schneaggchatv3server.group
 
 import com.lerchenflo.schneaggchatv3server.core.security.requireAuth
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
+import com.lerchenflo.schneaggchatv3server.group.model.GroupSettingsRequest
 import com.lerchenflo.schneaggchatv3server.user.UserLookupService
 import com.lerchenflo.schneaggchatv3server.user.UserService
 import com.lerchenflo.schneaggchatv3server.util.ValidationUtils
@@ -15,7 +16,6 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
 @RestController
 @RequestMapping("/groups")
@@ -30,7 +30,9 @@ class GroupController(
         @RequestParam("name") groupname: String,
         @RequestParam("memberlist") members: String,
         @RequestParam("description") description: String,
-        @RequestParam("profilepic") profilePic: MultipartFile
+        @RequestParam("profilepic") profilePic: MultipartFile,
+        /** Required, "true" / "false". See Group.membersCanAdd. */
+        @RequestParam("membersCanAdd") membersCanAdd: Boolean,
     ) : GroupResponse {
         val requestingUserId = requireAuth()
 
@@ -44,7 +46,8 @@ class GroupController(
             creatorId = requestingUserId,
             profilePic = profilePic,
             description = description,
-            createdFromEvent = false
+            createdFromEvent = false,
+            membersCanAdd = membersCanAdd,
         )
 
         return groupLookupService.getGroupAsGroupResponse(group.id)
@@ -95,50 +98,22 @@ class GroupController(
     }
 
 
-    @PostMapping("/setdescription")
-    fun setGroupDescription(
-        @RequestParam("groupid") groupid: String,
-        @RequestBody newDescription: String
-    ) {
-        require(ValidationUtils.validateObjectId(groupid)) { "Invalid group ID" }
-        val requestingUserId = requireAuth()
-
-
-        groupService.changeGroupDescription(
-            userId = requestingUserId,
-            groupId = ObjectId(groupid),
-            newDescription = newDescription
-        )
-    }
-
-    @PostMapping("/setGroupName")
-    fun setGroupName(
-        @RequestParam("groupid") groupid: String,
-        @RequestBody newName: String
-    ) {
-        require(ValidationUtils.validateObjectId(groupid)) { "Invalid group ID" }
-        val requestingUserId = requireAuth()
-
-
-        groupService.changeGroupName(
-            userId = requestingUserId,
-            groupId = ObjectId(groupid),
-            newName = newName
-        )
-    }
-
-
-    @PostMapping("/setexpiry")
-    fun setGroupExpiry(
-        @Valid @RequestBody request: GroupService.SetGroupExpiryRequest
+    /**
+     * Partial update of a group's settings, like `/users/settings`: a null field is left as it is.
+     * Name and description: every member. Delete timer and [GroupSettingsRequest.membersCanAdd]:
+     * admins only. All checks run before anything is written, so a rejected request changes nothing.
+     */
+    @PostMapping("/settings")
+    fun updateGroupSettings(
+        @Valid @RequestBody request: GroupSettingsRequest
     ) {
         require(ValidationUtils.validateObjectId(request.groupId)) { "Invalid group ID" }
         val requestingUserId = requireAuth()
 
-        groupService.changeGroupExpiresAt(
+        groupService.updateGroupSettings(
             userId = requestingUserId,
             groupId = ObjectId(request.groupId),
-            expiresAt = request.expiresAt?.let { Instant.fromEpochMilliseconds(it) }
+            request = request,
         )
     }
 

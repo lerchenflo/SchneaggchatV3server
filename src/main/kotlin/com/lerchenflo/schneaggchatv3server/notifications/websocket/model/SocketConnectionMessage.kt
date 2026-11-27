@@ -47,7 +47,12 @@ sealed interface SocketConnectionMessage {
     /** OUTBOUND: an extension of one of the receiver's groups changed. For [deleted] only `extension.id` matters. */
     data class GroupExtensionChange(val extension: GroupExtensionResponse, val deleted: Boolean) : SocketConnectionMessage
 
-    data class EventChange(val event: EventResponse, val newEntry: Boolean, val deleted: Boolean, ) : SocketConnectionMessage
+    /**
+     * OUTBOUND: an event the receiver can see was created, changed or deleted. [inviterId] is set
+     * only on the frame to a user a group member just invited (then [newEntry] is true for them),
+     * null everywhere else.
+     */
+    data class EventChange(val event: EventResponse, val newEntry: Boolean, val deleted: Boolean, val inviterId: String? = null) : SocketConnectionMessage
 
     /** OUTBOUND: socket twin of the `event_reminder` push. [startDate] is epoch millis. */
     data class EventReminder(

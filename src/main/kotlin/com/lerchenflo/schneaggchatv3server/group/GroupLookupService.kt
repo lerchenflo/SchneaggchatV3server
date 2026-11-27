@@ -70,6 +70,7 @@ class GroupLookupService(
             createdAt = group.createdAt.toEpochMilliseconds(),
             creatorId = group.creatorId.toHexString(),
             expiresAt = group.expiresAt?.toEpochMilliseconds(),
+            membersCanAdd = group.membersCanAdd,
             members = members.map { it.toGroupMemberResponse() }
         )
     }

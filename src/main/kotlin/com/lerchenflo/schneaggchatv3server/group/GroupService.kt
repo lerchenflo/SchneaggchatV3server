@@ -12,6 +12,7 @@ import com.lerchenflo.schneaggchatv3server.group.groupextensions.GroupExtensionL
 import com.lerchenflo.schneaggchatv3server.group.model.Group
 import com.lerchenflo.schneaggchatv3server.group.model.GroupMember
 import com.lerchenflo.schneaggchatv3server.group.model.GroupResponse
+import com.lerchenflo.schneaggchatv3server.group.model.GroupSettingsRequest
 import com.lerchenflo.schneaggchatv3server.group.model.toGroupMemberResponse
 import com.lerchenflo.schneaggchatv3server.message.MessageLookupService
 import com.lerchenflo.schneaggchatv3server.message.messagemodel.SystemEventType
@@ -56,7 +57,7 @@ class GroupService(
     private val versionCounterService: VersionCounterService,
 ) {
 
-    fun createGroup(groupName: String, members: List<ObjectId>, creatorId: ObjectId, description: String, profilePic: MultipartFile?, createdFromEvent: Boolean, expiresAt: Instant? = null) : Group {
+    fun createGroup(groupName: String, members: List<ObjectId>, creatorId: ObjectId, description: String, profilePic: MultipartFile?, createdFromEvent: Boolean, membersCanAdd: Boolean, expiresAt: Instant? = null) : Group {
 
         //Try to add creator (Set prevents duplicate members)
         val membersInternal: Set<ObjectId> = members.toSet() + creatorId
@@ -89,7 +90,8 @@ class GroupService(
                 profilePicUpdatedAt = currentTime,
                 createdAt = currentTime,
                 creatorId = creatorId,
-                expiresAt = expiresAt
+                expiresAt = expiresAt,
+                membersCanAdd = membersCanAdd,
             )
         )
 
@@ -139,6 +141,7 @@ class GroupService(
                 createdAt = group.createdAt.toEpochMilliseconds(),
                 creatorId = group.creatorId.toHexString(),
                 expiresAt = group.expiresAt?.toEpochMilliseconds(),
+                membersCanAdd = group.membersCanAdd,
                 members = members.map { it.toGroupMemberResponse() }
             ),
             deleted = false
@@ -240,59 +243,84 @@ class GroupService(
 
     }
 
-    fun changeGroupDescription(userId: ObjectId, groupId: ObjectId, newDescription: String) {
-
+    /**
+     * User-facing partial update of a group's settings (`/groups/settings`), null = unchanged.
+     * Name and description: every member. Delete timer and membersCanAdd: admins only - sending one
+     * of them as a non-admin rejects the whole request, even with the stored value. Everything is
+     * checked before the single write, so a rejected request changes nothing. A request that changes
+     * nothing writes and sends nothing. Name and description keep their system messages; the timer
+     * and membersCanAdd have none.
+     * Note: for a group backed by an event, the creator's next event save overwrites membersCanAdd,
+     * and an edit of the event's dates or delete delay re-syncs the timer to the event's own setting.
+     */
+    fun updateGroupSettings(userId: ObjectId, groupId: ObjectId, request: GroupSettingsRequest) {
         requireOrLog(
-            "change_group_description_not_member",
+            "change_group_settings_not_member",
             groupLookupService.isUserInGroup(userId, groupId),
-            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_DESCRIPTION, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
+            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_SETTINGS, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
         ) { "You are not a member of this group" }
-        require(ValidationUtils.validateDescription(newDescription)) { "Invalid string" }
+
+        val clearExpiry = request.clearExpiresAt == true
+        val adminFieldSent = request.expiresAt != null || clearExpiry || request.membersCanAdd != null
+        if (adminFieldSent) {
+            requireOrLog(
+                "change_group_settings_not_admin",
+                groupLookupService.isAdmin(userId, groupLookupService.getGroupMembers(groupId)),
+                { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_SETTINGS, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
+            ) { "You are not an admin" }
+        }
+
+        request.name?.let { require(ValidationUtils.validateUsername(it)) { "Group name invalid" } }
+        request.description?.let { require(ValidationUtils.validateDescription(it)) { "Description invalid" } }
+        require(!(clearExpiry && request.expiresAt != null)) { "Set or clear the delete timer, not both" }
+        val now = Clock.System.now()
+        val requestedExpiry = request.expiresAt?.let { Instant.fromEpochMilliseconds(it) }
+        requestedExpiry?.let { require(it > now) { "Expiry date must be in the future" } }
 
         val group = groupLookupService.getGroupById(groupId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
 
-        groupLookupService.saveGroup(group.copy(
-            updatedAt = Clock.System.now(),
-            description = newDescription
-        ))
+        val updated = group.copy(
+            name = request.name ?: group.name,
+            description = request.description ?: group.description,
+            expiresAt = if (clearExpiry) null else requestedExpiry ?: group.expiresAt,
+            membersCanAdd = request.membersCanAdd ?: group.membersCanAdd,
+        )
+        if (updated == group) return
+
+        groupLookupService.saveGroup(updated.copy(updatedAt = now))
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
 
-        systemMessageService.groupEvent(
-            groupId = groupId,
-            eventType = SystemEventType.GROUP_DESCRIPTION_CHANGED,
-            actorId = userId,
-        )
-
+        if (updated.name != group.name) {
+            systemMessageService.groupEvent(
+                groupId = groupId,
+                eventType = SystemEventType.GROUP_NAME_CHANGED,
+                actorId = userId,
+                text = updated.name,
+                previousText = group.name,
+            )
+        }
+        if (updated.description != group.description) {
+            systemMessageService.groupEvent(
+                groupId = groupId,
+                eventType = SystemEventType.GROUP_DESCRIPTION_CHANGED,
+                actorId = userId,
+            )
+        }
     }
 
-    fun changeGroupName(userId: ObjectId, groupId: ObjectId, newName: String) {
+    /**
+     * Internal: sets [Group.membersCanAdd] without a permission check, for an event edit by its
+     * creator. A group that is gone (deleted meanwhile) or already has the value is left alone.
+     */
+    fun setMembersCanAdd(groupId: ObjectId, membersCanAdd: Boolean) {
+        val group = groupLookupService.getGroupById(groupId) ?: return
+        if (group.membersCanAdd == membersCanAdd) return
 
-        requireOrLog(
-            "change_group_name_not_member",
-            groupLookupService.isUserInGroup(userId, groupId),
-            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_NAME, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
-        ) { "You are not a member of this group" }
-        require(ValidationUtils.validateUsername(newName)) { "Group name invalid" }
-
-        val group = groupLookupService.getGroupById(groupId)
-            ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found")
-
-        groupLookupService.saveGroup(group.copy(
-            updatedAt = Clock.System.now(),
-            name = newName
-        ))
+        groupLookupService.saveGroup(group.copy(membersCanAdd = membersCanAdd, updatedAt = Clock.System.now()))
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
-
-        systemMessageService.groupEvent(
-            groupId = groupId,
-            eventType = SystemEventType.GROUP_NAME_CHANGED,
-            actorId = userId,
-            text = newName,
-            previousText = group.name,
-        )
     }
 
     /**
@@ -309,39 +337,6 @@ class GroupService(
 
         notificationService.notifyGroupUpdate(groupLookupService.getGroupAsGroupResponse(groupId), false)
     }
-
-    /**
-     * User-facing: set or move a group's delete timer, or clear it entirely (null = never
-     * auto-expires). Admins only - the timer deletes the whole chat for everyone, so it must not
-     * be open to every member (the endpoint is reachable without the client UI).
-     * Note: for a group backed by an event, the next event edit that changes the event's dates or
-     * delete delay re-syncs this to the event's own setting, overwriting whatever is set here.
-     */
-    fun changeGroupExpiresAt(userId: ObjectId, groupId: ObjectId, expiresAt: Instant?) {
-        requireOrLog(
-            "change_group_expiry_not_member",
-            groupLookupService.isUserInGroup(userId, groupId),
-            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_EXPIRES_AT, group: ${groupLookupService.getGroupName(groupId)}: Not in group" }
-        ) { "You are not a member of this group" }
-        requireOrLog(
-            "change_group_expiry_not_admin",
-            groupLookupService.isAdmin(userId, groupLookupService.getGroupMembers(groupId)),
-            { "Unauthorized group action - user: ${userLookupService.getUsername(userId)}, action: CHANGE_EXPIRES_AT, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
-        ) { "You are not an admin" }
-        expiresAt?.let {
-            require(it > Clock.System.now()) { "Expiry date must be in the future" }
-        }
-
-        setGroupExpiresAt(groupId, expiresAt)
-    }
-
-    data class SetGroupExpiryRequest(
-        @field:NotBlank(message = "Group ID must not be blank")
-        @field:Size(max = 24, message = "Group ID too long")
-        val groupId: String,
-        val expiresAt: Long?
-    )
-
 
     enum class GroupMemberAction {
         ADD_USER,
@@ -391,11 +386,35 @@ class GroupService(
 
         when (userAction) {
             GroupMemberAction.ADD_USER -> {
+                val isAdmin = groupLookupService.isAdmin(requestingUser, groupMembers)
                 requireOrLog(
                     "add_group_user_not_admin",
-                    groupLookupService.isAdmin(requestingUser, groupMembers),
+                    isAdmin || group.membersCanAdd,
                     { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}: Not an admin" }
                 ) { "You are not an admin" }
+
+                // A member (not an admin) may only bring in their own friends
+                if (!isAdmin) {
+                    requireOrLog(
+                        "add_group_user_member_not_friend",
+                        friendsLookupService.areFriends(requestingUser, groupMember),
+                        { "Unauthorized group action - user: ${userLookupService.getUsername(requestingUser)}, action: $userAction, group: ${groupLookupService.getGroupName(groupId)}, target: ${userLookupService.getUsername(groupMember)}: Not a friend" }
+                    ) { "You can only add your friends" }
+                }
+
+                val connectedEvent = eventsLookupService.findByGroupId(groupId)
+
+                // In an event's group a member does not add anyone: the friend is only invited to
+                // the event and joins it (and with that the group) themselves. The group is untouched.
+                if (!isAdmin && connectedEvent != null) {
+                    inviteToEvent(connectedEvent, inviterId = requestingUser, inviteeId = groupMember)
+                    return
+                }
+
+                // The same cap /events/join enforces, an admin can not get around it
+                connectedEvent?.maxUsers?.let { max ->
+                    require(groupMembers.any { it.userid == groupMember } || groupMembers.size < max) { "Event is full" }
+                }
 
                 addUserToGroup(
                     groupId = groupId,
@@ -406,7 +425,7 @@ class GroupService(
                 // Being in an event's group is what counts as accepting that event, so an admin
                 // putting someone in has to write that accept as well - the mirror image of the
                 // take-back in REMOVE_USER below.
-                eventsLookupService.findByGroupId(groupId)?.let { event ->
+                connectedEvent?.let { event ->
                     // An uninvited member cannot even sync the event they now attend, so the add
                     // is also the invite for an invite-only event.
                     val invited = if (event.visibility == EventVisibility.INVITED_FRIENDS_ONLY) {
@@ -606,6 +625,27 @@ class GroupService(
     /** The member with the earliest joinedAt takes over when a group loses its last admin. */
     private fun promoteLongestMember(members: List<GroupMember>) {
         groupMemberRepository.save(members.minBy { it.joinedAt }.copy(admin = true))
+    }
+
+    /**
+     * A member's ADD_USER in an event's group: [inviteeId] only goes on the event's invite list,
+     * whatever the visibility, and joins through `/events/join` later. No group change, no
+     * participation, no system message. Somebody already in the group, already invited or the
+     * creator is a no-op. The invitee gets the visible invite push (naming [inviterId]) while the
+     * event has not ended, everyone else only the silent event update.
+     */
+    private fun inviteToEvent(event: Event, inviterId: ObjectId, inviteeId: ObjectId) {
+        if (inviteeId == event.creatorId || inviteeId in event.invitedUsers) return
+        if (event.groupId != null && groupLookupService.isUserInGroup(inviteeId, event.groupId)) return
+
+        val invited = eventsLookupService.addInvitedUser(event.id, inviteeId) ?: return // invited meanwhile, or gone
+
+        notificationService.notifyEventInvite(
+            eventResponse = invited.toResponse(),
+            inviteeId = inviteeId,
+            inviterId = inviterId,
+            alert = !invited.hasEnded(Clock.System.now()),
+        )
     }
 
     fun addUserToGroup(groupId: ObjectId, memberId: ObjectId, timeStamp: Instant = Clock.System.now()) {

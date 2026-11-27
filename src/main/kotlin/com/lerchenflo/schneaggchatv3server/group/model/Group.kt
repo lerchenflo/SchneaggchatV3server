@@ -22,6 +22,12 @@ data class Group(
     val expiresAt: Instant? = null,
     val deleted: Boolean = false,
 
+    /**
+     * True: every member may add their own friends (in an event's group that only invites them to
+     * the event). False: only admins add. Default keeps groups stored before this field as admin-only.
+     */
+    val membersCanAdd: Boolean = false,
+
     val createdAt: Instant,
     val creatorId: ObjectId
 

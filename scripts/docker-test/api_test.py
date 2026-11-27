@@ -329,7 +329,7 @@ call('GET', '/chefdev.html', ok=200)
 # ─── Users ────────────────────────────────────────────────────────────────────
 # testaccount (debug seed) becomes alice, the admin; bob, carol and dave are copies of it.
 mongo("db.users.updateOne({username:'testaccount'},{$set:{role:'ADMIN'}})")
-for name in ['bob', 'carol', 'dave']:
+for name in ['bob', 'carol', 'dave', 'frank']:
     mongo(f"var u=db.users.findOne({{username:'testaccount'}}); u._id=new ObjectId(); u.username='{name}'; u.email='{name}@test.local'; u.role='USER'; db.users.insertOne(u)")
 
 
@@ -353,12 +353,14 @@ code, _ = call('POST', '/auth/register', ok=200, **dict(zip(('data', 'ctype'), m
     ('phoneNumber', '+43 660 1234567', None, None), ('language', 'de', None, None)]))))
 E = login('erin', 'Pixel 8 - androidId: e1', 'ANDROID')
 e, te = jwt_claims(E['accessToken'])['sub'], E['accessToken']
+F = login('frank', 'Pixel 7 - androidId: f1', 'ANDROID')
+f, tf = jwt_claims(F['accessToken'])['sub'], F['accessToken']
 
 code, refreshed = call('POST', '/auth/refresh', body={'refreshToken': A2['refreshToken'], 'deviceName': 'iPhone 16 - vendorId: a2', 'deviceType': 'IOS'}, ok=200)
 A2 = refreshed if isinstance(refreshed, dict) else A2
 
-# Friendships: alice-bob, alice-carol, bob-carol, alice-dave accepted; erin -> alice pending; carol -> dave denied
-for x, y, tx, ty in [(a, b, ta, tb), (a, c, ta, tc), (b, c, tb, tc), (a, d, ta, td)]:
+# Friendships: alice-bob, alice-carol, bob-carol, alice-dave, bob-frank accepted; erin -> alice pending; carol -> dave denied
+for x, y, tx, ty in [(a, b, ta, tb), (a, c, ta, tc), (b, c, tb, tc), (a, d, ta, td), (b, f, tb, tf)]:
     call('POST', '/users/addfriend/{id}', tx, vars={'id': y}, ok=200)
     call('POST', '/users/addfriend/{id}', ty, vars={'id': x}, ok=200)
 call('POST', '/users/addfriend/{id}', te, vars={'id': a}, ok=200)
@@ -464,32 +466,38 @@ for tok in (ta, tb):
 # ─── Events (also make the group chat) ────────────────────────────────────────
 event_a = {'eventId': None, 'type': 'SPORT', 'title': 'Kicken am See', 'description': 'Ball mitnehmen', 'location': {'lat': 47.5, 'long': 9.7},
            'startDate': NOW + 2 * DAY, 'closeDate': NOW + 2 * DAY + 3 * HOUR, 'invitedUsers': [b, c, d], 'visibility': 'INVITED_FRIENDS_ONLY',
-           'maxUsers': 10, 'entryFeeCents': 1250, 'groupDeleteDelay': 'ONE_DAY', 'createGroup': True, 'reminderMinutes': [60, 1440]}
+           'maxUsers': 10, 'entryFeeCents': 1250, 'groupDeleteDelay': 'ONE_DAY', 'createGroup': True, 'reminderMinutes': [60, 1440], 'membersCanAdd': False}
 code, ev = call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', event_a), ('profilepic', PNG, 'event.png', 'image/png')]))))
 ev_a, group = ev.get('id'), ev.get('groupId')
 check(ev.get('entryFeeCents') == 1250, f'event entry fee stored: {ev.get("entryFeeCents")}')
-for fee in (-1, 1_000_001):
-    call('POST', '/events/upsert', ta, ok=400, **dict(zip(('data', 'ctype'), multipart([json_part('request', {**event_a, 'eventId': ev_a, 'entryFeeCents': fee})]))))
+# Both are required (hard cut): a missing one, a null one or a fee out of range is a 400 and changes nothing
+# A null required field fails while the body is read ("Cannot map `null` into type ..."), a missing one too (below)
+for why, bad in [('Invalid entry fee', {'entryFeeCents': -1}), ('Invalid entry fee', {'entryFeeCents': 1_000_001}),
+                 ('Cannot map `null` into type `long`', {'entryFeeCents': None}), ('Cannot map `null` into type `boolean`', {'membersCanAdd': None})]:
+    code, body = call('POST', '/events/upsert', ta, ok=400, **dict(zip(('data', 'ctype'), multipart([json_part('request', {**event_a, 'eventId': ev_a, **bad})]))))
+    check(why in str(body), f'event upsert {bad}: rejected because "{why}": {str(body)[:160]}')
+for why, key in [("Missing required creator property 'entryFeeCents'", 'entryFeeCents'), ("Missing required creator property 'membersCanAdd'", 'membersCanAdd')]:
+    code, body = call('POST', '/events/upsert', ta, ok=400, **dict(zip(('data', 'ctype'), multipart([json_part('request', {k: v for k, v in event_a.items() if k != key})]))))
+    check(why in str(body), f'event upsert without {key}: rejected because "{why}": {str(body)[:160]}')
 event_b = {'eventId': None, 'type': 'FOOD', 'title': 'Pizza', 'description': 'Offen für alle', 'location': None, 'startDate': NOW + 3 * DAY,
-           'closeDate': None, 'invitedUsers': [], 'visibility': 'PUBLIC', 'maxUsers': None, 'groupDeleteDelay': 'NEVER', 'createGroup': True, 'reminderMinutes': []}
+           'closeDate': None, 'invitedUsers': [], 'visibility': 'PUBLIC', 'maxUsers': None, 'entryFeeCents': 0, 'groupDeleteDelay': 'NEVER', 'createGroup': True, 'reminderMinutes': [],
+           'membersCanAdd': True}
 code, ev = call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', event_b)]))))
 ev_b = ev.get('id')
-check(ev.get('entryFeeCents') == 0, f'event without entry fee is free: {ev.get("entryFeeCents")}')
+check(ev.get('entryFeeCents') == 0, f'free event: {ev.get("entryFeeCents")}')
 # Its 5 minute reminder is due in about 20 s; the scheduler (every 60 s) sends it, checked at the end
 event_c = {'eventId': None, 'type': 'BEER', 'title': 'Feierabendbier', 'description': 'Gleich', 'location': {'lat': 47.45, 'long': 9.75},
            'startDate': int(time.time() * 1000) + 5 * MIN + 20_000, 'closeDate': None, 'invitedUsers': [b], 'visibility': 'FRIENDS_ONLY',
-           'maxUsers': None, 'groupDeleteDelay': 'ONE_HOUR', 'createGroup': False, 'reminderMinutes': [5]}
+           'maxUsers': None, 'entryFeeCents': 0, 'groupDeleteDelay': 'ONE_HOUR', 'createGroup': False, 'reminderMinutes': [5], 'membersCanAdd': False}
 code, ev = call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', event_c)]))))
 ev_c = ev.get('id')
 call('POST', '/events/participation', tb, body={'eventId': ev_c, 'status': 'ACCEPTED'}, ok=200)
 # Move start and location: change alerts and system messages
 ws_b = WS(tb)
 time.sleep(.4)
-# Sent without entryFeeCents, like a released client: the stored fee stays
-event_a_moved = {k: v for k, v in event_a.items() if k != 'entryFeeCents'}
-code, ev = call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', {**event_a_moved, 'eventId': ev_a, 'startDate': NOW + 2 * DAY + HOUR,
+code, ev = call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', {**event_a, 'eventId': ev_a, 'startDate': NOW + 2 * DAY + HOUR,
                                                                                                   'location': {'lat': 47.6, 'long': 9.8}, 'title': 'Kicken am Strand'})]))))
-check(ev.get('entryFeeCents') == 1250, f'edit without entry fee keeps it: {ev.get("entryFeeCents")}')
+check(ev.get('entryFeeCents') == 1250, f'edit keeps the entry fee: {ev.get("entryFeeCents")}')
 time.sleep(.6)
 alerts = [m for m in ws_b.messages if m.get('_class') == 'eventupdatealert']
 check(bool(alerts) and all(m.get('actorId') == a for m in alerts), f'socket eventupdatealert carries the actor id: {alerts}')
@@ -516,9 +524,15 @@ check(b_status == 'ACCEPTED', f'reconnected chat member counts as going again: {
 
 # ─── Groups ───────────────────────────────────────────────────────────────────
 mp = multipart([('name', 'Testgruppe', None, None), ('memberlist', f'{b},{c}', None, None), ('description', 'Alles zum Testen', None, None),
-                ('profilepic', PNG, 'group.png', 'image/png')])
+                ('profilepic', PNG, 'group.png', 'image/png'), ('membersCanAdd', 'false', None, None)])
 code, g2 = call('POST', '/groups/create', ta, data=mp[0], ctype=mp[1], ok=200)
 group2 = g2.get('id') if isinstance(g2, dict) else None
+check(isinstance(g2, dict) and g2.get('membersCanAdd') is False, f'group create: membersCanAdd in the response: {g2}')
+# membersCanAdd is a required part (hard cut)
+mp = multipart([('name', 'Ohne Schalter', None, None), ('memberlist', f'{b},{c}', None, None), ('description', '', None, None),
+                ('profilepic', PNG, 'group.png', 'image/png')])
+code, body = call('POST', '/groups/create', ta, data=mp[0], ctype=mp[1], ok=400)
+check('membersCanAdd' in str(body), f'group create without membersCanAdd: rejected for the missing part: {str(body)[:160]}')
 # Only the event's creator and people who join are in its group chat, so messages, extensions and
 # member changes go to the created group (alice, bob, carol)
 group = group2 or group
@@ -526,9 +540,8 @@ group2 = group
 call('POST', '/groups/sync', ta, body=[], ok=200)
 call('POST', '/groups/setprofilepic', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([('groupid', group, None, None), ('profilepic', PNG, 'g.png', 'image/png')]))))
 call('GET', '/groups/profilepic/{id}', ta, vars={'id': group}, ok=200)
-call('POST', '/groups/setdescription', ta, params={'groupid': group}, text='Neue Beschreibung', ok=200)
-call('POST', '/groups/setGroupName', ta, params={'groupid': group}, text='Kicker', ok=200)
-call('POST', '/groups/setexpiry', ta, body={'groupId': group2, 'expiresAt': NOW + 30 * DAY}, ok=200)
+call('POST', '/groups/settings', ta, body={'groupId': group, 'name': 'Kicker', 'description': 'Neue Beschreibung', 'expiresAt': NOW + 30 * DAY,
+                                          'clearExpiresAt': False, 'membersCanAdd': False}, ok=200)
 # Picture access through a shared group. A pending request carol -> dave: carol sent it, so dave's
 # setting (friends and groups) decides for her, and they share no group yet. Dave, the receiver,
 # always sees carol's picture. Adding dave next to carol then touches their friendship row.
@@ -581,6 +594,164 @@ check(row_after.get('date') is False and row_after.get('keys') == ['epochSeconds
 check((row_after.get('sec', 0), row_after.get('nanos', 0)) > (row_before.get('sec', 0), row_before.get('nanos', 0)),
       f'shared group change moved the friendship row: {row_before} -> {row_after}')
 call('POST', '/users/denyfriend/{id}', td, vars={'id': c}, ok=200)  # back to no row, as before
+
+# ─── Group rights: settings and "members may add" ─────────────────────────────
+# Own group "Rechte": alice admin, bob and carol members. Friends: bob-frank, bob-carol, alice-dave;
+# bob-dave, frank-erin are not. Every rejected call is checked to have changed nothing.
+
+
+def group_of(tok, gid):
+    code, synced = call('POST', '/groups/sync', tok, body=[], ok=200)
+    return next((g for g in (synced or {}).get('updatedGroups', []) if g.get('id') == gid), {}) if isinstance(synced, dict) else {}
+
+
+def members_of(gid):
+    return {m.get('userid'): m.get('admin') for m in group_of(ta, gid).get('members', [])}
+
+
+def rejected_for(body, why, label):
+    """A rejection must fail for the intended reason, not for some other validation on the way."""
+    check(why in str(body), f'{label}: rejected because "{why}": {str(body)[:160]}')
+
+
+def add_member(tok, gid, uid, ok, why=None, action='ADD_USER'):
+    code, body = call('POST', '/groups/changemembers', tok, body={'action': action, 'groupMemberId': uid, 'groupId': gid}, ok=ok)
+    if why:
+        rejected_for(body, why, f'{action} {uid[-4:]} in {gid[-4:]}')
+
+
+def group_settings(tok, gid, ok, why=None, **fields):
+    code, body = call('POST', '/groups/settings', tok, body={'groupId': gid, **fields}, ok=ok)
+    if why:
+        rejected_for(body, why, f'settings {sorted(fields)}')
+
+
+def system_messages(gid, event_type, actor=None):
+    actor_q = f", 'systemEvent.actorId': ObjectId('{actor}')" if actor else ''
+    out = mongo(f"print(db.messages.countDocuments({{receiverId: ObjectId('{gid}'), 'systemEvent.eventType': '{event_type}'{actor_q}}}))")
+    try:
+        return int(out.strip().splitlines()[-1])
+    except Exception:
+        return -1
+
+
+mp = multipart([('name', 'Rechte', None, None), ('memberlist', f'{b},{c}', None, None), ('description', 'Wer darf was', None, None),
+                ('profilepic', PNG, 'rights.png', 'image/png'), ('membersCanAdd', 'false', None, None)])
+code, gr = call('POST', '/groups/create', ta, data=mp[0], ctype=mp[1], ok=200)
+g_rights = gr.get('id') if isinstance(gr, dict) else None
+
+# Flag off: a member adds nobody, not even a friend
+add_member(tb, g_rights, f, 400, why='You are not an admin')
+check(f not in members_of(g_rights), 'flag off: a member can not add, frank stays out')
+
+# Name and description: every member. Timer and flag: admins only, sending one rejects the whole request
+group_settings(tb, g_rights, 200, name='Rechte2', description='von bob')
+g = group_of(ta, g_rights)
+check(g.get('name') == 'Rechte2' and g.get('description') == 'von bob', f'member renames and describes: {g.get("name")}, {g.get("description")}')
+check(system_messages(g_rights, 'GROUP_NAME_CHANGED', b) == 1 and system_messages(g_rights, 'GROUP_DESCRIPTION_CHANGED', b) == 1,
+      'member rename and description: one system message each, actor bob')
+for bad in ({'name': 'Gekapert', 'membersCanAdd': True}, {'expiresAt': NOW + DAY}, {'clearExpiresAt': True}, {'membersCanAdd': False}):
+    group_settings(tb, g_rights, 400, why='You are not an admin', **bad)
+g = group_of(ta, g_rights)
+check(g.get('name') == 'Rechte2' and g.get('membersCanAdd') is False and g.get('expiresAt') is None,
+      f'member sending admin settings: rejected, nothing changed: {g.get("name")}, {g.get("membersCanAdd")}, {g.get("expiresAt")}')
+for tok in (te, tf):  # not in the group
+    group_settings(tok, g_rights, 400, why='You are not a member of this group', name='Fremd')
+group_settings(ta, 'nope', 400, why='Invalid group ID', name='Fremd')
+for why, bad in [('Group name invalid', {'name': 'ab'}), ('Description invalid', {'description': 'x' * 201}),
+                 ('Expiry date must be in the future', {'expiresAt': NOW - DAY}),
+                 ('Set or clear the delete timer, not both', {'expiresAt': NOW + DAY, 'clearExpiresAt': True}),
+                 ('Expiry date must be in the future', {'name': 'Gueltig', 'expiresAt': NOW - DAY})]:
+    group_settings(ta, g_rights, 400, why=why, **bad)
+check(group_of(ta, g_rights).get('name') == 'Rechte2', 'invalid settings: a valid field in a rejected request is not written either')
+group_settings(ta, g_rights, 200, expiresAt=NOW + 30 * DAY)
+check(group_of(ta, g_rights).get('expiresAt') == NOW + 30 * DAY, 'admin sets the delete timer')
+# The client sends every field, the unchanged ones as explicit null: null is "unchanged", also for a member
+NULLS = {'name': None, 'description': None, 'expiresAt': None, 'clearExpiresAt': None, 'membersCanAdd': None}
+group_settings(tb, g_rights, 200, **{**NULLS, 'description': 'mit nulls'})
+g = group_of(ta, g_rights)
+check(g.get('description') == 'mit nulls' and g.get('name') == 'Rechte2' and g.get('expiresAt') == NOW + 30 * DAY and g.get('membersCanAdd') is False,
+      f'explicit nulls leave the other settings alone, also for a member: {g.get("name")}, {g.get("expiresAt")}, {g.get("membersCanAdd")}')
+group_settings(ta, g_rights, 200, **{**NULLS, 'clearExpiresAt': True})
+check(group_of(ta, g_rights).get('expiresAt') is None, 'admin clears the delete timer (clearExpiresAt true, expiresAt null)')
+group_settings(tb, g_rights, 200, **{**NULLS, 'description': 'von bob'})
+before = (system_messages(g_rights, 'GROUP_NAME_CHANGED'), system_messages(g_rights, 'GROUP_DESCRIPTION_CHANGED'))
+group_settings(ta, g_rights, 200, name='Rechte2', description='von bob')  # same values
+after = (system_messages(g_rights, 'GROUP_NAME_CHANGED'), system_messages(g_rights, 'GROUP_DESCRIPTION_CHANGED'))
+check(before == after and before[0] == 1, f'resending the same name and description: no new system message: {before} -> {after}')
+
+# Flag on: members add their own friends, nothing else
+group_settings(ta, g_rights, 200, membersCanAdd=True)
+check(group_of(tb, g_rights).get('membersCanAdd') is True, 'admin turns membersCanAdd on, members see it')
+add_member(tb, g_rights, d, 400, why='You can only add your friends')   # dave is not bob's friend
+add_member(te, g_rights, f, 400, why='You are not a member of this group')   # erin is not in the group
+add_member(tb, g_rights, f, 200)   # frank is bob's friend
+add_member(tb, g_rights, f, 400, why='User is already in this group')
+add_member(tf, g_rights, e, 400, why='You can only add your friends')   # frank and erin are not friends
+check(system_messages(g_rights, 'GROUP_MEMBER_ADDED', b) == 1, 'member add: GROUP_MEMBER_ADDED with bob as actor')
+for action, member in [('REMOVE_USER', c), ('MAKE_ADMIN', f), ('MAKE_ADMIN', b), ('REMOVE_ADMIN', a)]:
+    add_member(tb, g_rights, member, 400, why='You are not an admin', action=action)
+code, body = call('DELETE', '/groups/delete', tb, params={'groupid': g_rights}, ok=400)
+rejected_for(body, 'You are not an admin', 'member deletes the group')
+m = members_of(g_rights)
+check(m == {a: True, b: False, c: False, f: False}, f'member add: only frank came in; remove, admin rights and delete stay admin-only: {m}')
+add_member(ta, g_rights, d, 200)   # admins unchanged
+call('DELETE', '/groups/delete', ta, params={'groupid': g_rights}, ok=200)
+
+# Event group: a member only invites (no group, no participation), the friend joins later himself
+event_p = {'eventId': None, 'type': 'SPORT', 'title': 'Laufen', 'description': 'Mit Freunden', 'location': None, 'startDate': NOW + 4 * DAY,
+           'closeDate': None, 'invitedUsers': [], 'visibility': 'FRIENDS_ONLY', 'maxUsers': 3, 'entryFeeCents': 500, 'groupDeleteDelay': 'ONE_DAY',
+           'createGroup': True, 'reminderMinutes': [], 'membersCanAdd': True}
+
+
+def upsert_event(tok, body, ok):
+    return call('POST', '/events/upsert', tok, ok=ok, **dict(zip(('data', 'ctype'), multipart([json_part('request', body)]))))
+
+
+def event_for(tok, eid):
+    code, synced = call('POST', '/events/sync', tok, body=[], params={'page': 0, 'page_size': 400}, ok=200)
+    return next((x for x in (synced or {}).get('updatedEvents', []) if x.get('id') == eid), None) if isinstance(synced, dict) else None
+
+
+code, ev = upsert_event(ta, event_p, 200)
+ev_p, group_p = ev.get('id'), ev.get('groupId')
+check(group_of(ta, group_p).get('membersCanAdd') is True, 'event create: membersCanAdd lands on its group')
+call('POST', '/events/join', tb, body={'eventId': ev_p}, ok=200)        # bob: the creator's friend
+code, body = call('POST', '/events/join', tf, body={'eventId': ev_p}, ok=400)  # frank: neither the creator's friend nor invited
+rejected_for(body, 'You can not access this event', 'stranger joins a FRIENDS_ONLY event')
+check(event_for(tf, ev_p) is None, 'FRIENDS_ONLY event: not visible to a stranger before the invite')
+ws_f = WS(tf)
+time.sleep(.4)
+add_member(tb, group_p, d, 400, why='You can only add your friends')    # dave is not bob's friend
+add_member(tb, group_p, f, 200)    # frank is: invited
+time.sleep(.6)
+invites = [x for x in ws_f.messages if x.get('_class') == 'eventchange' and x.get('event', {}).get('id') == ev_p]
+check(bool(invites) and invites[-1].get('newEntry') is True and invites[-1].get('inviterId') == b,
+      f'invitee: eventchange as new entry naming the inviting member: {invites}')
+ws_f.close()
+check(f not in members_of(group_p), 'member invite in an event group: frank is not put in the group')
+fe = event_for(tf, ev_p)
+check(fe is not None and f in fe.get('invitedUsers', []) and not any(x.get('userId') == f for x in fe.get('participations', [])),
+      f'invited friend of a member sees the FRIENDS_ONLY event, without a participation: {fe}')
+check(system_messages(group_p, 'GROUP_MEMBER_ADDED') == 0, 'member invite: no system message')
+add_member(tb, group_p, f, 200)    # already invited: no-op
+add_member(tb, group_p, a, 200)    # already in the group: no-op
+call('POST', '/events/join', tf, body={'eventId': ev_p}, ok=200)
+check(f in members_of(group_p), 'the invited friend joins himself')
+# Full now (alice, bob, frank = maxUsers 3): an admin can not go over the cap, an invite still works
+add_member(ta, group_p, c, 400, why='Event is full')
+check(c not in members_of(group_p), 'admin add in a full event group: rejected')
+add_member(tb, group_p, c, 200)
+ce = event_for(tc, ev_p)
+check(ce is not None and c in ce.get('invitedUsers', []) and c not in members_of(group_p), 'invite into a full event: only on the invite list')
+# Only the creator sets it, with the event; a member's event edit is rejected and changes nothing
+code, body = upsert_event(tb, {**event_p, 'eventId': ev_p, 'membersCanAdd': False}, 400)
+rejected_for(body, 'you are not the creator', 'member edits the event')
+check(group_of(ta, group_p).get('membersCanAdd') is True, 'member can not change the flag through the event')
+upsert_event(ta, {**event_p, 'eventId': ev_p, 'membersCanAdd': False}, 200)
+check(group_of(ta, group_p).get('membersCanAdd') is False, 'creator turns the flag off with the event')
+add_member(tb, group_p, c, 400, why='You are not an admin')    # flag off: members invite nobody
+call('DELETE', '/events/delete', ta, params={'eventid': ev_p, 'deletegroup': 'true', 'deleteevent': 'true'}, ok=200)
 
 # ─── Messages ─────────────────────────────────────────────────────────────────
 
