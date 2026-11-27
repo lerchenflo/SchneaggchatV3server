@@ -17,6 +17,7 @@ fun Event.toResponse(): EventResponse {
         participations = participations.map { it.toResponse() },
         visibility = visibility,
         maxUsers = maxUsers,
+        entryFeeCents = entryFeeCents,
         groupDeleteDelay = groupDeleteDelay,
         reminderMinutes = reminderMinutes,
         createdAt = createdAt.toEpochMilliseconds(),

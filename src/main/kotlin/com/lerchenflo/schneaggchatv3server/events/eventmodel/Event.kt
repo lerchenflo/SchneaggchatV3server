@@ -42,6 +42,9 @@ data class Event(
 
     val maxUsers: Int? = null, // Optional cap on how many people can join, null = unlimited
 
+    /** Entry fee in euro cents (1250 = 12,50 €), 0 = free. Default keeps events stored before this field existed loadable as free. */
+    val entryFeeCents: Long = 0L,
+
     val groupDeleteDelay: GroupDeleteDelay = GroupDeleteDelay.ONE_DAY, // default matches the previous hardcoded behavior, for events persisted before this field existed
 
     /** Reminder lead times in minutes before [startDate], longest first. Picked by the creator, empty = none. */

@@ -148,6 +148,8 @@ class EventService(
                 ?: listOf(EventParticipation(userId = upsertingUser, status = EventParticipationStatus.ACCEPTED, updatedAt = now)),
             visibility = eventRequest.visibility,
             maxUsers = eventRequest.maxUsers,
+            // Released clients do not send the fee: an edit from one must not reset it
+            entryFeeCents = eventRequest.entryFeeCents ?: existing?.entryFeeCents ?: 0L,
             groupDeleteDelay = eventRequest.groupDeleteDelay,
             reminderMinutes = reminderMinutes,
             sentReminders = sentRemindersAfterSave(existing, startDate, reminderMinutes, now),
@@ -196,6 +198,7 @@ class EventService(
                 || existing.invitedUsers != event.invitedUsers
                 || existing.visibility != event.visibility
                 || existing.maxUsers != event.maxUsers
+                || existing.entryFeeCents != event.entryFeeCents
                 || existing.groupDeleteDelay != event.groupDeleteDelay
                 || existing.reminderMinutes != event.reminderMinutes
 
@@ -226,6 +229,7 @@ class EventService(
                     || existing.invitedUsers != event.invitedUsers
                     || existing.visibility != event.visibility
                     || existing.maxUsers != event.maxUsers
+                    || existing.entryFeeCents != event.entryFeeCents
                     || existing.groupDeleteDelay != event.groupDeleteDelay
 
             if (EventChangeKind.START in changes) {

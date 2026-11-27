@@ -124,6 +124,7 @@ class EventsLookupService(
                 .set("invitedUsers", edited.invitedUsers)
                 .set("visibility", edited.visibility)
                 .set("maxUsers", edited.maxUsers)
+                .set("entryFeeCents", edited.entryFeeCents)
                 .set("groupDeleteDelay", edited.groupDeleteDelay)
                 .set("reminderMinutes", edited.reminderMinutes)
                 .set("sentReminders", edited.sentReminders)

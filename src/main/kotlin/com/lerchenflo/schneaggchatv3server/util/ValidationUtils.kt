@@ -205,6 +205,12 @@ object ValidationUtils {
         return true
     }
 
+    /** Euro cents, 0 (free) to 1_000_000 (10 000 €). Null = not sent, keeps the stored fee. */
+    fun validateEventEntryFee(entryFeeCents: Long?): Boolean {
+        if (entryFeeCents == null) return true
+        return entryFeeCents in 0L..1_000_000L
+    }
+
     fun validateStringMessage(string: String) : Boolean {
         if (string.length > 10000 || string.isEmpty()) return false
 

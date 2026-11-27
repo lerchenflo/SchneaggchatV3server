@@ -464,13 +464,17 @@ for tok in (ta, tb):
 # ─── Events (also make the group chat) ────────────────────────────────────────
 event_a = {'eventId': None, 'type': 'SPORT', 'title': 'Kicken am See', 'description': 'Ball mitnehmen', 'location': {'lat': 47.5, 'long': 9.7},
            'startDate': NOW + 2 * DAY, 'closeDate': NOW + 2 * DAY + 3 * HOUR, 'invitedUsers': [b, c, d], 'visibility': 'INVITED_FRIENDS_ONLY',
-           'maxUsers': 10, 'groupDeleteDelay': 'ONE_DAY', 'createGroup': True, 'reminderMinutes': [60, 1440]}
+           'maxUsers': 10, 'entryFeeCents': 1250, 'groupDeleteDelay': 'ONE_DAY', 'createGroup': True, 'reminderMinutes': [60, 1440]}
 code, ev = call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', event_a), ('profilepic', PNG, 'event.png', 'image/png')]))))
 ev_a, group = ev.get('id'), ev.get('groupId')
+check(ev.get('entryFeeCents') == 1250, f'event entry fee stored: {ev.get("entryFeeCents")}')
+for fee in (-1, 1_000_001):
+    call('POST', '/events/upsert', ta, ok=400, **dict(zip(('data', 'ctype'), multipart([json_part('request', {**event_a, 'eventId': ev_a, 'entryFeeCents': fee})]))))
 event_b = {'eventId': None, 'type': 'FOOD', 'title': 'Pizza', 'description': 'Offen für alle', 'location': None, 'startDate': NOW + 3 * DAY,
            'closeDate': None, 'invitedUsers': [], 'visibility': 'PUBLIC', 'maxUsers': None, 'groupDeleteDelay': 'NEVER', 'createGroup': True, 'reminderMinutes': []}
 code, ev = call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', event_b)]))))
 ev_b = ev.get('id')
+check(ev.get('entryFeeCents') == 0, f'event without entry fee is free: {ev.get("entryFeeCents")}')
 # Its 5 minute reminder is due in about 20 s; the scheduler (every 60 s) sends it, checked at the end
 event_c = {'eventId': None, 'type': 'BEER', 'title': 'Feierabendbier', 'description': 'Gleich', 'location': {'lat': 47.45, 'long': 9.75},
            'startDate': int(time.time() * 1000) + 5 * MIN + 20_000, 'closeDate': None, 'invitedUsers': [b], 'visibility': 'FRIENDS_ONLY',
@@ -481,8 +485,11 @@ call('POST', '/events/participation', tb, body={'eventId': ev_c, 'status': 'ACCE
 # Move start and location: change alerts and system messages
 ws_b = WS(tb)
 time.sleep(.4)
-call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', {**event_a, 'eventId': ev_a, 'startDate': NOW + 2 * DAY + HOUR,
+# Sent without entryFeeCents, like a released client: the stored fee stays
+event_a_moved = {k: v for k, v in event_a.items() if k != 'entryFeeCents'}
+code, ev = call('POST', '/events/upsert', ta, ok=200, **dict(zip(('data', 'ctype'), multipart([json_part('request', {**event_a_moved, 'eventId': ev_a, 'startDate': NOW + 2 * DAY + HOUR,
                                                                                                   'location': {'lat': 47.6, 'long': 9.8}, 'title': 'Kicken am Strand'})]))))
+check(ev.get('entryFeeCents') == 1250, f'edit without entry fee keeps it: {ev.get("entryFeeCents")}')
 time.sleep(.6)
 alerts = [m for m in ws_b.messages if m.get('_class') == 'eventupdatealert']
 check(bool(alerts) and all(m.get('actorId') == a for m in alerts), f'socket eventupdatealert carries the actor id: {alerts}')

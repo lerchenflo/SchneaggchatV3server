@@ -19,6 +19,8 @@ data class EventResponse(
     val participations: List<EventParticipationResponse> = emptyList(),
     val visibility: EventVisibility,
     val maxUsers: Int? = null,
+    /** Entry fee in euro cents (1250 = 12,50 €), 0 = free. */
+    val entryFeeCents: Long,
     val groupDeleteDelay: GroupDeleteDelay,
     /** Reminder lead times in minutes before [startDate], longest first. Empty = none. */
     val reminderMinutes: List<Int>,
