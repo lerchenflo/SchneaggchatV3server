@@ -141,7 +141,8 @@ class MessageService(
                     require(ValidationUtils.validateStringMessage(content.text)) { "Invalid text message" }
                 }
 
-                require(ValidationUtils.validatePicture(content.image)) { "Invalid image" }
+                // The bytes are checked by ImageManager.checkMessageImage when stored below, before the message is saved
+                require(ValidationUtils.validateMessageImage(content.image)) { "Invalid image" }
             }
             POLL -> {
                 require(content is MessageContent.Poll) { "Pollmessage with empty poll" }
@@ -676,21 +677,20 @@ class MessageService(
         }
     }
 
-    fun getImageMessage(messageId: ObjectId, requestingUserId: ObjectId) : ByteArray {
+    fun getImageMessage(messageId: ObjectId, requestingUserId: ObjectId) : StoredMessageImage {
         val message = canUserAccessMessage(messageId, requestingUserId)
 
         require(message.msgType == MessageType.IMAGE) { "You can not access not image messages on this endpoint" }
+        if (message.mediaExpired) throw ResponseStatusException(HttpStatus.GONE, "Media expired")
 
-        return imageManager.loadMessageImageFromFile(imageManager.getImageMessageFileName(
-            messageId = messageId,
-            group = message.groupMessage
-        ))
+        return imageManager.loadMessageImage(messageId = messageId, group = message.groupMessage)
     }
 
     fun getAudioMessage(messageId: ObjectId, requestingUserId: ObjectId) : ByteArray {
         val message = canUserAccessMessage(messageId, requestingUserId)
 
         require(message.msgType == MessageType.AUDIO) { "You can not access not audio messages on this endpoint" }
+        if (message.mediaExpired) throw ResponseStatusException(HttpStatus.GONE, "Media expired")
 
         return audioManager.loadMessageAudioFromFile(audioManager.getAudioMessageFileName(
             messageId = messageId,

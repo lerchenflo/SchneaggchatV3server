@@ -60,6 +60,13 @@ data class Message(
     val edited: Boolean = false,
 
     /**
+     * IMAGE / AUDIO only: the file was removed by [com.lerchenflo.schneaggchatv3server.message.MediaRetentionService]
+     * after the retention time. The message itself (caption, reactions, replies) stays. Stored
+     * messages without the field read as false.
+     */
+    val mediaExpired: Boolean = false,
+
+    /**
      * Monotonic per-collection version stamped by [com.lerchenflo.schneaggchatv3server.util.VersionCounterService]
      * on every write (send/edit/react/vote/delete/read-receipt). This - not [lastChanged] - is the
      * cursor `/messages/sync` filters and paginates on. Not indexed on

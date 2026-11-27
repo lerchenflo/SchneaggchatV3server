@@ -15,6 +15,8 @@ data class MessageResponse(
     val lastChanged: Long,
     val deleted: Boolean,
     val edited: Boolean = false,
+    /** IMAGE / AUDIO: the file is gone (retention), /messages/images|audios answer 410 "Media expired". */
+    val mediaExpired: Boolean,
     val version: Long,
     val readers: List<ReaderResponse>,
     val reactions: List<ReactionResponse>,

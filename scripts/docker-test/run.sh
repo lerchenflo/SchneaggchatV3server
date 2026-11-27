@@ -167,10 +167,11 @@ run_e2e_test() {
 }
 
 # Rate limiting is off here: the test sends hundreds of requests in seconds from one address.
+# The media retention job runs every 2 seconds instead of daily, the test moves sendDate back.
 run_api_test() {
     echo "== API test"
-    start_server -e RATE_LIMIT_ENABLED=false
-    python3 -I "$HERE/api_test.py" "$SERVER_LOG" "$MONGO_CONTAINER" "$SERVER_PORT" "$DEFAULTACCOUNT_PASSWORD" "$ROOT" || server_failed
+    start_server -e RATE_LIMIT_ENABLED=false -e MEDIA_RETENTION_CRON='*/2 * * * * *'
+    python3 -I "$HERE/api_test.py" "$SERVER_LOG" "$MONGO_CONTAINER" "$SERVER_PORT" "$DEFAULTACCOUNT_PASSWORD" "$ROOT" "$SERVER_CONTAINER" || server_failed
 }
 
 wait_for_docker

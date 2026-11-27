@@ -55,6 +55,9 @@ The server will run on port 8080
 | Method | Endpoint | Description | Parameters |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/messages/send/text` | Send a text message | **Body**:<br>`receiverId`: String<br>`groupMessage`: Boolean<br>`msgType`: String (TEXT, IMAGE)<br>`content`: String<br>`answerId`: String (Optional) |
+| `POST` | `/messages/send/image` | Send an image message, stored as uploaded (full resolution, EXIF/GPS kept) | **Multipart**:<br>`image`: JPEG, PNG or GIF, at most 6 MB (else 413 "File too large") and 100 MP<br>`request`: JSON like /send/text |
+| `GET` | `/messages/images/{id}` | Image of an image message, content type of the stored file | 410 "Media expired" once `mediaExpired` (60 days after sending) |
+| `GET` | `/messages/audios/{id}` | Audio of a voice message | 410 "Media expired" once `mediaExpired` (60 days after sending) |
 | `POST` | `/messages/sync` | Sync messages | **Query**:<br>`page`: Int (default 0)<br>`page_size`: Int (default 400)<br>**Body**:<br>List of `{ id: String, timeStamp: String }` |
 | `POST` | `/messages/setread` | Mark messages as read | **Query**:<br>`userid`: String<br>`group`: Boolean<br>`timestamp`: Long |
 | `POST` | `/messages/edit` | Edit a message | **Body**:<br>`messageId`: String<br>`newContent`: String |

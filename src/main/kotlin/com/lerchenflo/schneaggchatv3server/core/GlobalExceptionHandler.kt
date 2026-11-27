@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.multipart.MaxUploadSizeExceededException
 import org.springframework.web.multipart.support.MissingServletRequestPartException
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.web.server.ResponseStatusException
@@ -157,6 +158,20 @@ class GlobalExceptionHandler(
         return ResponseEntity
             .badRequest()
             .body(mapOf("error" to "Invalid request body: $cause"))
+    }
+
+    /**
+     * An upload over spring.servlet.multipart.max-file-size / max-request-size. A client error, not
+     * a server error: 413 with one warn line instead of the catch-all's 500 + stack trace.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException::class)
+    fun handleMaxUploadSize(e: MaxUploadSizeExceededException, request: HttpServletRequest): ResponseEntity<String> {
+        val ip = clientIpResolver.resolve(request)
+        logRequestError("Upload too large on ${request.method} ${request.requestURI}: ${e.message}", ip, AppLogger.autoTag(e))
+
+        return ResponseEntity
+            .status(HttpStatus.CONTENT_TOO_LARGE)
+            .body("File too large")
     }
 
     /**

@@ -20,6 +20,7 @@ fun Message.toMessageResponse(requestingUserId: ObjectId) : MessageResponse {
         lastChanged = this.lastChanged.toEpochMilliseconds(),
         deleted = this.deleted,
         edited = this.edited,
+        mediaExpired = this.mediaExpired,
         version = this.version,
         readers = this.readers.map { it.toReaderResponse() },
         reactions = this.reactions.map { it.toReactionResponse() },

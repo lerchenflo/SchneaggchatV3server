@@ -16,7 +16,7 @@ fails the same way and only logs a WARN.
 """
 import base64, json, os, re, socket, struct, subprocess, sys, threading, time, urllib.error, urllib.parse, urllib.request, uuid, zlib
 
-LOG, MONGO_CONTAINER, PORT, PASSWORD, ROOT = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4], sys.argv[5]
+LOG, MONGO_CONTAINER, PORT, PASSWORD, ROOT, SERVER_CONTAINER = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4], sys.argv[5], sys.argv[6]
 BASE = f'http://127.0.0.1:{PORT}'
 SRC = os.path.join(ROOT, 'src/main/kotlin/com/lerchenflo/schneaggchatv3server')
 NOW = int(time.time() * 1000)
@@ -772,6 +772,159 @@ mp = multipart([('audio', M4A, 'voice.m4a', 'audio/mp4'), json_part('request', {
 code, au = call('POST', '/messages/send/audio', ta, data=mp[0], ctype=mp[1], ok=200)
 call('GET', '/messages/images/{id}', tb, vars={'id': im.get('messageId') if isinstance(im, dict) else '0' * 24}, ok=200)
 call('GET', '/messages/audios/{id}', tb, vars={'id': au.get('messageId') if isinstance(au, dict) else '0' * 24}, ok=200)
+check(isinstance(im, dict) and im.get('mediaExpired') is False, f"new image message: mediaExpired false: {str(im)[:120]}")
+
+# ─── Chat images: stored as uploaded, 6 MB cap, content checked ──────────────
+
+def raw_get(path, tok):
+    """Status, content type and raw bytes (call() decodes the body as text)."""
+    req = urllib.request.Request(BASE + path, headers={'Authorization': 'Bearer ' + tok})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return r.status, r.headers.get('Content-Type', ''), r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.headers.get('Content-Type', ''), e.read()
+
+
+def jpeg(w, h, app1=b''):
+    """A flat grey baseline JPEG built by hand (standard library only): one-symbol Huffman tables,
+    every 8x8 block is "DC difference 0, end of block"."""
+    def seg(marker, data):
+        return bytes([0xFF, marker]) + struct.pack('>H', len(data) + 2) + data
+    bits = '00' * (((w + 7) // 8) * ((h + 7) // 8))
+    bits += '1' * (-len(bits) % 8)
+    scan = bytes(int(bits[i:i + 8], 2) for i in range(0, len(bits), 8)).replace(b'\xff', b'\xff\x00')
+    one_code = b'\x01' + b'\x00' * 15 + b'\x00'  # one code of length 1 for symbol 0
+    return (b'\xff\xd8' + seg(0xE0, b'JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00') + app1
+            + seg(0xDB, b'\x00' + bytes([1] * 64))
+            + seg(0xC0, b'\x08' + struct.pack('>HH', h, w) + b'\x01\x01\x11\x00')
+            + seg(0xC4, b'\x00' + one_code) + seg(0xC4, b'\x10' + one_code)
+            + seg(0xDA, b'\x01\x01\x00\x00\x3f\x00') + scan + b'\xff\xd9')
+
+
+def exif_app1():
+    """APP1 with an EXIF orientation (6 = rotated) and a GPS latitude: the server must keep both."""
+    tiff = b'II*\x00' + struct.pack('<I', 8)
+    tiff += struct.pack('<H', 2) + struct.pack('<HHII', 0x0112, 3, 1, 6) + struct.pack('<HHII', 0x8825, 4, 1, 38) + struct.pack('<I', 0)
+    tiff += struct.pack('<H', 2) + struct.pack('<HHI', 0x0001, 2, 2) + b'N\x00\x00\x00' + struct.pack('<HHII', 0x0002, 5, 3, 68) + struct.pack('<I', 0)
+    tiff += struct.pack('<6I', 47, 1, 24, 1, 0, 1)
+    data = b'Exif\x00\x00' + tiff
+    return b'\xff\xe1' + struct.pack('>H', len(data) + 2) + data
+
+
+def png_chunk(kind, data):
+    c = kind + data
+    return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
+
+
+def noise_png(w, h):
+    """Random pixels barely compress, so the file is about w * h * 3 bytes."""
+    rows = b''.join(b'\x00' + os.urandom(w * 3) for _ in range(h))
+    return b'\x89PNG\r\n\x1a\n' + png_chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)) + png_chunk(b'IDAT', zlib.compress(rows, 1)) + png_chunk(b'IEND', b'')
+
+
+def send_image(tok, receiver, data, filename, ctype, ok=200, why=None, caption='Bild'):
+    mp = multipart([('image', data, filename, ctype), json_part('request', {'messageId': None, 'receiverId': receiver, 'groupMessage': False, 'msgType': 'IMAGE',
+                                                                         'content': caption, 'answerId': None, 'clientMessageId': str(uuid.uuid4())})])
+    code, body = call('POST', '/messages/send/image', tok, data=mp[0], ctype=mp[1], ok=ok)
+    if why:
+        rejected_for(body, why, f'image upload {filename} ({len(data)} bytes)')
+    return body.get('messageId') if isinstance(body, dict) else None
+
+
+def image_back(mid, sent, ctype, label):
+    code, got_type, got = raw_get(f'/messages/images/{mid}', tb)
+    check(code == 200 and got == sent, f'{label}: stored byte for byte ({code}, {len(got)} of {len(sent)} bytes)')
+    check(got_type.startswith(ctype), f'{label}: served as {ctype}: {got_type}')
+    return got
+
+
+MB = 1024 * 1024
+JPG_EXIF = jpeg(64, 48, exif_app1())
+got = image_back(send_image(ta, b, JPG_EXIF, 'photo.jpg', 'image/jpeg'), JPG_EXIF, 'image/jpeg', 'JPEG with EXIF')
+check(b'Exif\x00\x00' in got and b'N\x00\x00\x00' in got, 'JPEG with EXIF: EXIF orientation and GPS kept')
+image_back(im.get('messageId') if isinstance(im, dict) else '0' * 24, PNG, 'image/png', 'PNG')
+# The type comes from the bytes, not from what the upload claims
+image_back(send_image(ta, b, JPG_EXIF, 'claimed.png', 'image/png'), JPG_EXIF, 'image/jpeg', 'JPEG sent as image/png')
+BIG = noise_png(1250, 1250)
+check(3 * MB < len(BIG) < 6 * MB, f'big test image is between the old 3 MB and the new 6 MB cap: {len(BIG)} bytes')
+image_back(send_image(ta, b, BIG, 'big.png', 'image/png'), BIG, 'image/png', 'big image (no downscale)')
+# Not trusted: size, real format, pixel count and decodability are checked on the server
+send_image(ta, b, b'\x89PNG\r\n\x1a\n' + b'\x00' * (6 * MB), 'huge.png', 'image/png', ok=413, why='File too large')
+send_image(ta, b, b'this is not an image' * 50, 'fake.png', 'image/png', ok=400, why='Unsupported image format')
+send_image(ta, b, b'RIFF\x00\x00\x00\x00WEBPVP8 ' + b'\x00' * 200, 'pic.webp', 'image/webp', ok=400, why='Unsupported image format')
+send_image(ta, b, b'\xff\xd8\xff' + b'\x00' * 500, 'broken.jpg', 'image/jpeg', ok=400, why='Invalid image data')
+BOMB = (b'\x89PNG\r\n\x1a\n' + png_chunk(b'IHDR', struct.pack('>IIBBBBB', 12000, 10000, 8, 2, 0, 0, 0))
+        + png_chunk(b'IDAT', zlib.compress(b'\x00' * 1000)) + png_chunk(b'IEND', b''))
+send_image(ta, b, BOMB, 'bomb.png', 'image/png', ok=400, why='Image has too many pixels')
+send_image(ta, b, PNG, 'photo.bmp', 'image/png', ok=400, why='Invalid image')
+# Profile pictures keep their 3 MB cap
+code, body = call('POST', '/users/setprofilepic', ta, ok=400, **dict(zip(('data', 'ctype'), multipart([('profilepic', BIG, 'big.png', 'image/png')]))))
+rejected_for(body, 'New picture is invalid', 'profile picture over 3 MB')
+
+# ─── Media retention: files of image and voice messages go after 60 days ─────
+# run.sh starts the job every 2 seconds (MEDIA_RETENTION_CRON); sendDate is moved back in Mongo.
+
+def mongo_ids(ids):
+    return '[' + ', '.join(f"ObjectId('{i}')" for i in ids) + ']'
+
+
+def backdate(ids, days):
+    mongo(f"db.messages.updateMany({{_id: {{$in: {mongo_ids(ids)}}}}}, {{$set: {{'sendDate.epochSeconds': {int(time.time()) - days * 86400}}}}})")
+
+
+def stored_field(mid, field):
+    return mongo(f"print(String(db.messages.findOne({{_id: ObjectId('{mid}')}}).{field}))")
+
+
+def server_files(folder):
+    o = subprocess.run(['docker', 'exec', SERVER_CONTAINER, 'ls', folder], capture_output=True, text=True)
+    return o.stdout
+
+
+def synced_message(tok, mid):
+    code, body = call('GET', '/messages/sync', tok, params={'since': 0, 'page_size': 400}, ok=200)
+    return next((m for m in body.get('updatedMessages', []) if m.get('messageId') == mid), {}) if isinstance(body, dict) else {}
+
+
+old_img = send_image(ta, b, JPG_EXIF, 'old.jpg', 'image/jpeg', caption='Altes Bild')
+mp = multipart([('audio', M4A, 'old.m4a', 'audio/mp4'), json_part('request', {'messageId': None, 'receiverId': group, 'groupMessage': True, 'msgType': 'AUDIO',
+                                                                             'answerId': None, 'clientMessageId': str(uuid.uuid4())})])
+code, old_au = call('POST', '/messages/send/audio', ta, data=mp[0], ctype=mp[1], ok=200)
+old_au = old_au.get('messageId') if isinstance(old_au, dict) else None
+young_img = send_image(ta, b, PNG, 'young.png', 'image/png', caption='59 Tage')
+deleted_img = send_image(ta, b, PNG, 'deleted.png', 'image/png', caption='gelöscht')
+old_txt = text_message(ta, b, 'Alter Text')
+call('DELETE', '/messages/delete', ta, params={'messageid': deleted_img}, ok=200)
+version_before = synced_message(tb, old_img).get('version', 0)
+backdate([old_img, old_au, deleted_img, old_txt], 61)
+backdate([young_img], 59)
+for _ in range(30):
+    if stored_field(old_img, 'mediaExpired') == 'true' and stored_field(old_au, 'mediaExpired') == 'true':
+        break
+    time.sleep(.5)
+check(stored_field(old_img, 'mediaExpired') == 'true', 'retention: 61 day old image marked mediaExpired')
+check(stored_field(old_au, 'mediaExpired') == 'true', 'retention: 61 day old voice message marked mediaExpired')
+code, body = call('GET', '/messages/images/{id}', tb, vars={'id': old_img}, ok=410)
+rejected_for(body, 'Media expired', 'expired image download')
+code, body = call('GET', '/messages/audios/{id}', tb, vars={'id': old_au}, ok=410)
+rejected_for(body, 'Media expired', 'expired voice download')
+images_left, audios_left = server_files('/app/images_messages'), server_files('/app/audio_messages')
+check(old_img not in images_left and young_img in images_left, 'retention: old image file deleted, 59 day old one kept')
+check(old_au not in audios_left, 'retention: old voice file deleted')
+image_back(young_img, PNG, 'image/png', '59 day old image')
+check(stored_field(young_img, 'mediaExpired') in ('false', 'undefined'), 'retention: 59 day old image not marked')
+check(stored_field(deleted_img, 'mediaExpired') in ('false', 'undefined'), 'retention: deleted message not touched')
+check(stored_field(old_txt, 'mediaExpired') in ('false', 'undefined'), 'retention: text message not touched')
+expired = synced_message(tb, old_img)
+check(expired.get('mediaExpired') is True and expired.get('version', 0) > version_before,
+      f"retention: sync delivers mediaExpired with a new version ({version_before} -> {expired.get('version')})")
+check(expired.get('content') == 'Altes Bild' and expired.get('deleted') is False, 'retention: caption kept, message not deleted')
+call('POST', '/messages/react', tb, body={'messageId': old_img, 'content': '👍'}, ok=200)
+call('POST', '/messages/edit', ta, body={'messageId': old_img, 'newContent': 'Altes Bild (bearbeitet)'}, ok=200)
+version_after = stored_field(old_img, 'version')
+time.sleep(2.5)
+check(stored_field(old_img, 'version') == version_after, 'retention: a marked message is not written again by the next run')
 
 
 def poll(title, visibility, sub=True):

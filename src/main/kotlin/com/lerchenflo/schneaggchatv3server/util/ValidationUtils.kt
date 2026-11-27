@@ -15,6 +15,9 @@ object ValidationUtils {
     private val EMAIL_REGEX = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
     private val ALLOWED_IMAGE_TYPES = setOf("image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp")
     private const val MAX_IMAGE_SIZE = 3 * 1024 * 1024 // 3MB
+    // Chat images are stored as uploaded (no downscale, metadata kept), so this cap bounds the disk use per image.
+    // Keep spring.servlet.multipart.max-file-size in application.properties at the same value.
+    const val MAX_MESSAGE_IMAGE_SIZE = 6 * 1024 * 1024 // 6MB
 
     private val ALLOWED_AUDIO_TYPES = setOf("audio/mp4", "audio/m4a", "audio/x-m4a", "audio/aac")
     private const val MAX_AUDIO_SIZE = 2 * 1024 * 1024 // 2MB, roughly 2 minutes of m4a
@@ -152,15 +155,16 @@ object ValidationUtils {
      * Validates uploaded profile picture
      * - File must not be empty
      * - Must be an image type (JPEG, PNG, GIF, WebP)
-     * - Maximum size: 3MB
+     * - Maximum size: [maxSize], 3MB by default
      * - Must have valid content type
+     * The bytes themselves are checked when the image is read or stored (ImageManager).
      */
-    fun validatePicture(picture: MultipartFile): Boolean {
+    fun validatePicture(picture: MultipartFile, maxSize: Int = MAX_IMAGE_SIZE): Boolean {
         // Check if file is empty
         if (picture.isEmpty) return false
 
         // Check file size
-        if (picture.size > MAX_IMAGE_SIZE) return false
+        if (picture.size > maxSize) return false
 
         // Check content type
         val contentType = picture.contentType?.lowercase() ?: return false
@@ -239,6 +243,9 @@ object ValidationUtils {
 
         return true
     }
+
+    /** A chat image: like [validatePicture], up to [MAX_MESSAGE_IMAGE_SIZE]. */
+    fun validateMessageImage(image: MultipartFile): Boolean = validatePicture(image, MAX_MESSAGE_IMAGE_SIZE)
 
     /**
      * Validates an uploaded audio message file

@@ -266,14 +266,15 @@ class MessageController(
         require(ValidationUtils.validateObjectId(messageId)) { "Invalid message ID" }
         val requestingUserId = requireAuth()
 
-        val bytearray = messageService.getImageMessage(
+        val image = messageService.getImageMessage(
             messageId = ObjectId(messageId),
             requestingUserId = requestingUserId
         )
 
+        // The real format of the stored bytes: as uploaded (usually JPEG), older images are PNG
         return ResponseEntity.ok()
-            .contentType(MediaType.IMAGE_PNG)
-            .body(bytearray)
+            .contentType(image.format.mediaType)
+            .body(image.bytes)
     }
 
     @GetMapping("/audios/{id}")

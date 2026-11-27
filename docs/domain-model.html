@@ -327,12 +327,13 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "lastChanged: Instant",
     "deleted: Boolean",
     "edited: Boolean",
+    "mediaExpired: Boolean",
     "version: Long",
     "readers: List<Reader>",
     "reactions: List<Reaction>",
     "clientMessageId: String?"
    ],
-   "note": "Collection messages. receiverId is a user id when groupMessage = false and a group id when true. version comes from the counters collection and drives /messages/sync. Readers, reactions, poll and system event are embedded.",
+   "note": "Collection messages. receiverId is a user id when groupMessage = false and a group id when true. version comes from the counters collection and drives /messages/sync. Readers, reactions, poll and system event are embedded. IMAGE and AUDIO files are stored as uploaded and deleted 60 days after sendDate (MediaRetentionService); the message stays with mediaExpired = true.",
    "x": 400,
    "y": 40
   },
