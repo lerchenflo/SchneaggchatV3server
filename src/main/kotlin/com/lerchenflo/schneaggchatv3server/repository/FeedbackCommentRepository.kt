@@ -10,4 +10,7 @@ interface FeedbackCommentRepository : MongoRepository<FeedbackComment, ObjectId>
     fun findByEntryIdInAndDevCommentTrue(entryIds: Collection<ObjectId>): List<FeedbackComment>
 
     fun deleteByEntryId(entryId: ObjectId): Long
+
+    /** All comments one user wrote. Used by the recap. */
+    fun findByAuthorId(authorId: ObjectId): List<FeedbackComment>
 }

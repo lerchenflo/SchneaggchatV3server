@@ -32,7 +32,13 @@ Source: E2E roadmap pre-releases (`docs/E2E_ROADMAP_SERVER_PLAN.md` section 1.5)
 
 Source: user 2026-11-16. One-shot migrations run in `MainController.onStartup` (no separate migration runner, see E2E plan F24). Each new one goes on this list.
 
-None open: all ran on production and were removed (user, 2026-11-21).
+- [ ] `MainController.reclassifyPushFailureLogs` (2026-11-26, recap work): moves old push-failure rows from `EXCEPTION_THROWN` to the new `PUSH_FAILED` log type, so they stop counting toward the recap's beta-tester ranking. Remove once it ran on production.
+
+---
+
+## Recap: group extensions next year
+
+Source: user 2026-11-26, while extending the recap. Group extensions (shared text, split, quotes, route planner) only just shipped, so the 2026 recap leaves them out. Add them for the 2027 recap: times the user was quoted (`Quote.saidByUserId`) and their best quote, who they quote most, money paid and their share in split expenses (`SplitExpense.paidBy`/`shares`) with the biggest expense, characters written in shared texts (`SharedText.writers`), route stops planned.
 
 ---
 
@@ -51,6 +57,7 @@ Source: client changelog 3.0.19, 2026-11-16. Seed texts stay German, as in the s
 - [ ] Seed update "group-extensions": the text lists four extensions (gemeinsamer Texteditor, Geld aufteilen, Zitatesammlung, Tourenplaner), but only "Geld aufteilen" can be added yet. The others show as coming soon in the add menu and cannot be added. The text should say so. *(client changelog 3.0.19, 2026-11-16)*
 - [ ] Seed update "events": the text says reminders come before the start, but does not mention that a reminder message also appears in the event's group chat. Location: Untere Navigation → Events. *(client changelog 3.0.20, 2026-11-17)*
 - [ ] Seed update "feature-tour": the text only describes a short introduction to where the main features are. Since 3.0.20 the tour also shows new steps by themselves the first time their screen opens, e.g. in the first chat (long press a message, swipe to reply, polls, chat details) and in the chat or group details (nickname, wake, group members, delete timer). Users who already took the tour only get the new steps. Location: Einstellungen → Miscellaneous → Tour zurücksetzen (shows everything again). *(client changelog 3.0.20, 2026-11-19)*
+- [ ] Seed update "group-extensions": the text names the tour planner, but it can be added now (since 3.0.20). A group plans a tour on a map by motorbike, car, bicycle or on foot, with stops, drive-through points, accommodation and sights, and a list per day. The text should say that the tour planner, splitting money and the shared text can be added, and that the tour planner is the route planning extension. Location: Gruppenchat → oben auf den Namen tippen → Chat-Erweiterungen. *(client changelog 3.0.20, 2026-11-24)*
 
 ---
 

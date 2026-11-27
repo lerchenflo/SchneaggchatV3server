@@ -68,6 +68,10 @@ enum class Game(
     // number of wins. timeMillis is always 0. 100 wins in one match is already far beyond a real evening.
     TIC_TAC_TOE(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, sumsWins = true, maxScore = 100),
 
+    // Same as TIC_TAC_TOE: one submission per finished match with the player's won rounds, summed on the board.
+    // In a 2 vs 2 match every team member gets the team's wins. timeMillis is always 0, difficulty always MEDIUM.
+    FOUR_IN_A_ROW(higherScoreWins = true, lowerTimeWins = true, countsForGlobalRanking = false, sumsWins = true, maxScore = 100),
+
     // Daily C puzzle without a difficulty (always MEDIUM): 100 / 60 / 30 points for solving on the
     // first / second / third try, failed runs submit nothing. The solve time ranks equal points.
     C_CHALLENGE(higherScoreWins = true, lowerTimeWins = true, maxScore = 100),
