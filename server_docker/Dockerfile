@@ -1,9 +1,9 @@
+# syntax=docker/dockerfile:1
 FROM eclipse-temurin:25-jdk-alpine AS build
+ARG TZ=Europe/Vienna
 WORKDIR /app
 
-# Install git
-RUN apk add --no-cache git
-
+# Install git and set timezone
 RUN apk add --no-cache git tzdata && \
     ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo "$TZ" > /etc/timezone
@@ -14,12 +14,13 @@ ARG GIT_BRANCH=main
 RUN git clone --branch ${GIT_BRANCH} ${GIT_REPO_URL} . && \
     rm -rf .git
 
-# Download dependencies (cached layer)
-RUN chmod +x gradlew && \
-    ./gradlew dependencies --no-daemon
-
-# Build the application with production settings
-RUN ./gradlew clean build -x test --no-daemon
+# Build the runnable jar. Gradle's home (wrapper distribution + downloaded dependencies) lives in a
+# BuildKit cache mount that is kept between builds, so Gradle only downloads new or changed
+# dependencies. BuildKit creates the cache folder on the first build if it does not exist;
+# `docker builder prune` clears it. sharing=locked: parallel builds wait instead of sharing it.
+RUN --mount=type=cache,id=schneaggchat-gradle,target=/root/.gradle,sharing=locked \
+    chmod +x gradlew && \
+    ./gradlew bootJar --no-daemon
 
 # Production runtime stage
 FROM eclipse-temurin:25-jre-alpine

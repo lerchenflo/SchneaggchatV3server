@@ -1023,13 +1023,16 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "SplitExpense: title, amountCents, paidBy, shares, date,",
     "    isSettlement, emoji?",
     "Quote: text, saidByUserId?, saidByName?, saidAt?, context?",
-    "RoutePoint: coordinates, name, description, sortIndex,",
-    "    plannedAt?, mapEntryId?",
-    "RoutePoint.kind: RoutePointKind"
+    "RoutePoint: coordinates, name?, description, sortIndex,",
+    "    plannedAt?, mapEntryId?, transportMode?,",
+    "    continueTransportMode?, pathId?",
+    "RoutePoint.kind: RoutePointKind",
+    "RoutePath: name, description, transportMode?,",
+    "    fromItemId, toItemId, memberIds"
    ],
    "x": 0,
    "y": 0,
-   "note": "Sealed class with one subclass per GroupExtensionType. Wire names: shared_text, split_expense, quote, route_point. shares maps a user id to a Share (weight, fixedCents). SharedText.writers says who wrote which characters; the server sets it. mapEntryId is a soft link, coordinates and name are copies."
+   "note": "Sealed class with one subclass per GroupExtensionType. Wire names: shared_text, split_expense, quote, route_point, route_path. shares maps a user id to a Share (weight, fixedCents). SharedText.writers says who wrote which characters; the server sets it. mapEntryId is a soft link, coordinates and name are copies. RoutePoint.name is null only for an unnamed WAYPOINT; continueTransportMode only on TRANSFER. pathId (a route_path item) and fromItemId/toItemId (route_point items) point to items of the same extension, checked on write, not cascaded on delete."
   },
   {
    "id": "gextsettings",
@@ -1082,7 +1085,8 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "STOP",
     "WAYPOINT",
     "ACCOMMODATION",
-    "POI"
+    "POI",
+    "TRANSFER"
    ],
    "x": 0,
    "y": 0
@@ -1133,6 +1137,7 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "DART_COUNTER",
     "UNDERCOVER",
     "TIC_TAC_TOE",
+    "FOUR_IN_A_ROW",
     "C_CHALLENGE",
     "FEATURE_QUIZ"
    ],
@@ -1223,7 +1228,8 @@ ol.qs li.done input[type=text] { text-decoration: line-through; color: var(--mut
     "ACCOUNT_DELETION_EMAIL_SENT",
     "EMAIL_VERIFICATION_EMAIL_SENT",
     "PASSWORD_RESET_EMAIL_SENT",
-    "WAKE_SENT"
+    "WAKE_SENT",
+    "PUSH_FAILED"
    ],
    "x": 0,
    "y": 0

@@ -169,7 +169,7 @@ class GroupExtensionService(
             }
 
             val prepared = data.prepareForSave(existing?.data, requesterId.toHexString())
-            validateItem(prepared, existing, members)
+            validateItem(prepared, existing, members, extension.items)
 
             val now = Clock.System.now()
             val items = if (existing == null) {
@@ -286,14 +286,31 @@ class GroupExtensionService(
     /**
      * Field limits of the payload, and every referenced user must be a current member - or already
      * be referenced by the stored item, so an old expense of someone who left stays editable.
+     * Referenced items ([ExtensionItemData.referencedItems]) must be [items] of the same extension
+     * with the right payload type, the same leniency applies to unchanged references.
      */
-    private fun validateItem(data: ExtensionItemData, existing: GroupExtensionItem?, members: List<GroupMember>) {
+    private fun validateItem(
+        data: ExtensionItemData,
+        existing: GroupExtensionItem?,
+        members: List<GroupMember>,
+        items: List<GroupExtensionItem>,
+    ) {
         val errors = data.validate().toMutableList()
 
         val allowedIds = members.map { it.userid.toHexString() }.toSet() +
             (existing?.data?.referencedUserIds() ?: emptySet())
         val unknownIds = data.referencedUserIds() - allowedIds
         if (unknownIds.isNotEmpty()) errors += "users not in this group: ${unknownIds.joinToString()}"
+
+        val storedReferences = existing?.data?.referencedItems()?.map { it.field to it.itemId }?.toSet() ?: emptySet()
+        data.referencedItems()
+            .filter { (it.field to it.itemId) !in storedReferences }
+            .forEach { reference ->
+                val target = items.find { it.id.toHexString() == reference.itemId }
+                if (target == null || !reference.type.isInstance(target.data)) {
+                    errors += "${reference.field}: no ${reference.type.simpleName} item ${reference.itemId} in this extension"
+                }
+            }
 
         if (errors.isNotEmpty()) {
             throw ResponseStatusException(

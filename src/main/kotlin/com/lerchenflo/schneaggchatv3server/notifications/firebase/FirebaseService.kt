@@ -156,7 +156,11 @@ class FirebaseService(
         } catch (e: Exception) {
             AppLogger.error("[Firebase] Unexpected exception: ${e.javaClass.simpleName}: ${e.message}", user = target.userId, error = e, tag = "send_fcm_unexpected")
             ServerMetrics.fcmFailed.incrementAndGet()
-            loggingService.log(userId = target.userId, logType = LogType.EXCEPTION_THROWN)
+            loggingService.log(
+                userId = target.userId,
+                logType = LogType.PUSH_FAILED,
+                message = "FCM unexpected exception: ${e.javaClass.simpleName}: ${e.message}",
+            )
             return false
         }
     }

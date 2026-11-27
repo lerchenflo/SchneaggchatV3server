@@ -5,4 +5,5 @@ enum class RoutePointKind {
     WAYPOINT,
     ACCOMMODATION,
     POI,
+    TRANSFER, // switching vehicle ("Umstieg"); name required, may carry continueTransportMode
 }

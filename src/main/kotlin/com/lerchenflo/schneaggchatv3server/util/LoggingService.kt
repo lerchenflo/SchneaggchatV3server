@@ -74,7 +74,11 @@ enum class LogType {
     PASSWORD_RESET_EMAIL_SENT,
 
     //Wake
-    WAKE_SENT
+    WAKE_SENT,
+
+    // A push to this user failed on the server side (FCM/APNs). Kept apart from EXCEPTION_THROWN,
+    // which counts the bugs a user hit (recap beta-tester ranking): a push failure is not their bug.
+    PUSH_FAILED
 }
 
 @TypeAlias("log")

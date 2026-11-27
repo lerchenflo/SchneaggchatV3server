@@ -40,7 +40,7 @@
     <string name="compare_map_whatsapp">Only live location in chat</string>
     <string name="compare_markdown_own">Always on: bold, italic, links and more</string>
     <string name="compare_markdown_whatsapp">Only bold, italic, strikethrough</string>
-    <string name="compare_mentions_own">Links users, map locations, games and events right in the text</string>
+    <string name="compare_mentions_own">Links users, map locations, events and more right in the text</string>
     <string name="compare_mentions_whatsapp">Only @-mentions of users in groups</string>
     <string name="compare_note">As of September 2026. All information without guarantee.</string>
     <string name="compare_pill_recommended">Recommended</string>
@@ -141,7 +141,7 @@
     <string name="feature_dialect_title">Vorarlberg Dialect</string>
     <string name="feature_events_text">Plan meetups, invite friends and cap the number of attendees – a group chat for the event is optional and just one tap away.</string>
     <string name="feature_events_title">Events</string>
-    <string name="feature_games_text">Tetris, Schneaggahus and more, with highscores, an overall ranking and daily challenges.</string>
+    <string name="feature_games_text">Blockfall, Schneaggahus and more, with highscores, an overall ranking and daily challenges.</string>
     <string name="feature_games_title">Mini-games</string>
     <string name="feature_map_text">Find your friends live on the map, share locations and add your own places!</string>
     <string name="feature_map_title">Schneaggmap</string>

@@ -135,7 +135,11 @@ class ApnsService(
     private fun onSendFailed(target: PushTarget, cause: Throwable) {
         ServerMetrics.apnsFailed.incrementAndGet()
         AppLogger.error("[APNs] Unexpected exception: ${cause.javaClass.simpleName}: ${cause.message}", user = target.userId, error = cause, tag = "send_apns_unexpected")
-        loggingService.log(userId = target.userId, logType = LogType.EXCEPTION_THROWN)
+        loggingService.log(
+            userId = target.userId,
+            logType = LogType.PUSH_FAILED,
+            message = "APNS unexpected exception: ${cause.javaClass.simpleName}: ${cause.message}",
+        )
     }
 
 

@@ -65,8 +65,8 @@
   {
     "seedKey": "annotations",
     "premium": true,
-    "title": "@Annotations für User, Orte, Spiele und Events",
-    "description": "Erwähne User, Orte auf der Karte, Spiele und Events in Nachrichten und Umfragen mit @ – ein Tipp darauf öffnet das verlinkte Element.",
+    "title": "@Annotations für User, Orte, Events und mehr",
+    "description": "Erwähne User, Orte auf der Karte, Events und mehr in Nachrichten und Umfragen mit @ – ein Tipp darauf öffnet das verlinkte Element.",
     "tags": ["CHAT"],
     "location": "Chat → @ im Textfeld eingeben"
   },
@@ -101,10 +101,10 @@
   },
   {
     "seedKey": "game-wordle",
-    "title": "Wordle",
+    "title": "Wörter raten",
     "description": "Das Wort mit fünf Buchstaben in sechs Versuchen erraten.",
     "tags": ["GAMES"],
-    "location": "Untere Navigation → Spiele → Wordle"
+    "location": "Untere Navigation → Spiele → Wörter raten"
   },
   {
     "seedKey": "game-schneaggahus",
@@ -119,6 +119,13 @@
     "description": "Klassisch zu zweit, Chaos zu dritt und zu viert: größere Felder, verschwindende Zeichen, Schwerkraft, Bomben und Verschiebungen.",
     "tags": ["GAMES"],
     "location": "Untere Navigation → Spiele → Tic Tac Toe"
+  },
+  {
+    "seedKey": "game-four-in-a-row",
+    "title": "Vier in einer Reihe",
+    "description": "Abwechselnd Scheiben einwerfen und als Erste vier in eine Reihe bringen, für 2 bis 4 Spieler oder 2 gegen 2.",
+    "tags": ["GAMES"],
+    "location": "Untere Navigation → Spiele → Vier in einer Reihe"
   },
   {
     "seedKey": "game-c-challenge",
@@ -143,10 +150,10 @@
   },
   {
     "seedKey": "game-tetris",
-    "title": "Tetris",
+    "title": "Blockfall",
     "description": "Fallende Steine zu vollen Reihen zusammensetzen.",
     "tags": ["GAMES"],
-    "location": "Untere Navigation → Spiele → Tetris"
+    "location": "Untere Navigation → Spiele → Blockfall"
   },
   {
     "seedKey": "game-grid-rush",
@@ -171,10 +178,10 @@
   },
   {
     "seedKey": "game-yahtzee",
-    "title": "Yahtzee",
+    "title": "Würfelpoker",
     "description": "Würfeln und den Punkteblock füllen.",
     "tags": ["GAMES"],
-    "location": "Untere Navigation → Spiele → Yahtzee"
+    "location": "Untere Navigation → Spiele → Würfelpoker"
   },
   {
     "seedKey": "game-undercover",
